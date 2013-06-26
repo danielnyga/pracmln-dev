@@ -26,7 +26,7 @@
 import time
 import sys
 
-import FOL
+from logic import FOL
 from MLN.util import *
 
 

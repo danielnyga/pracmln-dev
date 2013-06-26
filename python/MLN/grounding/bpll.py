@@ -22,17 +22,16 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from DefaultGrounding import DefaultGroundingFactory
-from FOL import *
-import FOL
+from logic import FOL, grammar
 from sys import stdout
 import time
 from collections import defaultdict
 
 def isConjunctionOfLiterals(f):
-    if not type(f) is Conjunction:
+    if not type(f) is FOL.Conjunction:
         return False
     for child in f.children:
-        if not isinstance(child, Lit):
+        if not isinstance(child, FOL.Lit):
             return False
     return True
 
@@ -71,7 +70,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                         continue
                     assignment = []
                     for (p1, p2) in zip(lit.params, gndAtom.params):
-                        if FOL.isVar(p1):
+                        if grammar.isVar(p1):
                             assignment.append((p1, p2))
                         elif p1 != p2: raise
                     assignments.append(tuple(assignment))

@@ -26,7 +26,7 @@
 import re
 import sys
 
-import FOL
+from logic import FOL
 from util import *
 
 # math functions

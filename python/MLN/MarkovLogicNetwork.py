@@ -85,7 +85,7 @@ if platform.architecture()[0] == '32bit':
         sys.stderr.write("Note: Psyco (http://psyco.sourceforge.net) was not loaded. On 32bit systems, it is recommended to install it for improved performance.\n")
 
 from _pyparsing import ParseException
-import FOL
+from logic import FOL
 from inference import *
 from util import *
 from methods import *
