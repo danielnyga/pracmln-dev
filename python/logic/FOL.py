@@ -23,9 +23,15 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import sys
-from grammar import isVar
 
 DEBUG_NF = False # whether to display debug information while performing normal form conversion
+
+def isVar(identifier):
+    '''
+    Variables must start with a question mark (or the + operator, 
+    anything else is considered a constant.
+    '''
+    return identifier[0] == '?' or identifier[0] == "+"
 
 class Constraint(object):
     def getTemplateVariants(self):
@@ -217,18 +223,27 @@ class Formula(Constraint):
                 for lit in child.iterLiterals():
                     yield lit
     
-# a formula that has other formulas as subelements (children)
+    def isTrue(self, world_values):
+        '''
+        Evaluates the formula for truth wrt. the truth values
+        of ground atoms (world_values being a dict: gndAtomIdx -> {True, False, None}
+        '''
+        raise Exception('%s does not implement isTrue' % str(type(self)))
+    
 class ComplexFormula(Formula):
+    '''
+    A formula that has other formulas as subelements (children)
+    '''
     
     def getVariables(self, mln, vars = None, constants = None):
         '''
-            get the free (unquantified) variables of the formula in a dict that maps the variable name to the corresp. domain name
-            The vars and constants parameters can be omitted.
-            If vars is given, it must be a dictionary with already known variables.
-            If constants is given, then it must be a dictionary that is to be extended with all constants appearing in the formula;
-                it will be a dictionary mapping domain names to lists of constants
-            If constants is not given, then constants are not collected, only variables.
-            The dictionary of variables is returned.
+        Get the free (unquantified) variables of the formula in a dict that maps the variable name to the corresp. domain name
+        The vars and constants parameters can be omitted.
+        If vars is given, it must be a dictionary with already known variables.
+        If constants is given, then it must be a dictionary that is to be extended with all constants appearing in the formula;
+            it will be a dictionary mapping domain names to lists of constants
+        If constants is not given, then constants are not collected, only variables.
+        The dictionary of variables is returned.
         '''
         if vars is None: vars = {}
         for child in self.children:
@@ -237,7 +252,10 @@ class ComplexFormula(Formula):
         return vars
     
     def getConstants(self, mln, constants = None):
-        ''' get the constants appearing in the formula in a dict that maps the constant name to the domain name the constant belongs to '''
+        ''' 
+        Get the constants appearing in the formula in a dict that maps the constant 
+        name to the domain name the constant belongs to.
+        '''
         if constants == None: constants = {}
         for child in self.children:
             if not hasattr(child, "getConstants"): continue
@@ -286,7 +304,7 @@ class ComplexFormula(Formula):
         for child in self.children:
             if not hasattr(child, "_getTemplateVariables"): continue
             vars = child._getTemplateVariables(mln, vars)
-        return vars        
+        return vars
         
 class Lit(Formula):
     '''
@@ -348,6 +366,10 @@ class Lit(Formula):
         s = "%s(%s)" % (self.predName, ",".join(params))
         try:
             gndAtom = mrf.gndAtoms[s]
+            if simplify and mrf.evidence[gndAtom.idx] is not None:
+                truth = mrf.evidence[gndAtom.idx]
+                if self.negated: truth = not truth
+                return TrueFalse(truth)
             gndFormula = GroundLit(gndAtom, self.negated)
             if referencedGndAtoms != None: referencedGndAtoms.append(gndAtom.idx)
             return gndFormula
@@ -360,7 +382,9 @@ class Lit(Formula):
                 raise Exception("Could not ground formula containing '%s' - this atom is not among the ground atoms (see above)." % s)
 
     def getVarDomain(self, varname, mln):
-        '''returns the name of the domain of the given variable'''
+        '''
+        Returns the name of the domain of the given variable.
+        '''
         if varname in self.params:
             idx = self.params.index(varname)
             return mln.predicates[self.predName][idx]
@@ -374,11 +398,19 @@ class Lit(Formula):
             return [Lit(self.negated, self.predName, params)]
         
     def simplify(self, mrf):
-        return self
-
+        if any(map(isVar, self.params)):
+            return Lit(self.negated, self.predName, self.params)
+        s = "%s(%s)" % (self.predName, ",".join(self.params))
+        truth = mrf.gndAtoms[s].isTrue(mrf.evidence) 
+        if truth != None:
+            return self
+        else:
+            if self.negated: truth = not truth
+            return TrueFalse(truth)
+    
 class GroundAtom(Formula):
     '''
-    Represents a groud atom.
+    Represents a ground atom.
     '''
     def __init__(self, predName, params, idx=None):
         self.predName = predName
@@ -387,6 +419,9 @@ class GroundAtom(Formula):
 
     def isTrue(self, world_values):
         return world_values[self.idx]
+
+    def __repr__(self):
+        return str(self)
 
     def __str__(self):
         return "%s(%s)" % (self.predName, ",".join(self.params))
