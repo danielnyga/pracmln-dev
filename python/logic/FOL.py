@@ -407,7 +407,10 @@ class Lit(Formula):
         else:
             if self.negated: truth = not truth
             return TrueFalse(truth)
-    
+        
+    def isTrue(self, world_values):
+        return None
+        
 class GroundAtom(Formula):
     '''
     Represents a ground atom.
@@ -430,10 +433,7 @@ class GroundAtom(Formula):
         truth = mrf.evidence[self.idx]
         if truth is None:
             return self
-        elif truth is True:
-            return TrueFalse(True)
-        else:
-            return TrueFalse(False)
+        return TrueFalse(truth)
         
 class GroundLit(Formula):
     '''
@@ -488,9 +488,12 @@ class GroundLit(Formula):
                 return f.invert()
             else:
                 return f
-        return self
+        return GroundLit(self.gndAtom, self.negated)
 
 class Disjunction(ComplexFormula):
+    '''
+    Represents a disjunction of formulas.
+    '''
     def __init__(self, children):
         assert len(children) >= 2
         self.children = children
@@ -929,6 +932,10 @@ class Equality(Formula):
         return None
 
 class TrueFalse(Formula):
+    '''
+    Represents the constants true and false.
+    '''
+    
     def __init__(self, value):
         self.value = value
     
@@ -943,6 +950,11 @@ class TrueFalse(Formula):
     
     def simplify(self, mrf):
         return self
+    
+    def getVariables(self, mln, vars = None, constants=None):
+        if vars is None:
+            return {}
+        return vars
 
 class NonLogicalConstraint(Constraint):
     '''a constraint that is not somehow made up of logical connectives and (ground) atoms'''
