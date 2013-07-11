@@ -21,8 +21,6 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from logic import grammar
-from random import shuffle
 from utils.undo import Number
 from MLN.grounding.bnb import GroundingFactory
 

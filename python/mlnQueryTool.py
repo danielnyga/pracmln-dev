@@ -114,7 +114,7 @@ class MLNInfer(object):
         results = None
         
         # engine-specific handling
-        if engine in ("internal", "PyMLNs"): 
+        if engine in ("internal", "PRACMLNs"): 
             try:
                 print "\nStarting %s...\n" % method
                 
@@ -131,7 +131,8 @@ class MLNInfer(object):
                 
                 # create MLN
                 verbose = True
-                mln = MLN.MLN(input_files, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
+                # mln = MLN.MLN(input_files, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
+                mln = MLN.readMLNFromFile(input_files)#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
                 
                 # set closed-world predicates
                 for pred in cwPreds:
@@ -334,7 +335,7 @@ class MLNQueryGUI(object):
         Label(self.frame, text="Engine: ").grid(row=row, column=0, sticky="E")
         alchemy_engines = config.alchemy_versions.keys()
         alchemy_engines.sort()
-        engines = ["PyMLNs", "J-MLNs"]
+        engines = ["PRACMLNs", "J-MLNs"]
         engines.extend(alchemy_engines)
         self.selected_engine = StringVar(master)
         engine = self.settings.get("engine")
@@ -494,7 +495,7 @@ class MLNQueryGUI(object):
     def onChangeEngine(self, name = None, index = None, mode = None):
         # enable/disable controls
         engineName = self.selected_engine.get()
-        if engineName in ("internal", "PyMLNs"):
+        if engineName in ("internal", "PRACMLNs"):
             self.numEngine = 1
             methods = self.inference.pymlns_methods
             #self.entry_output_filename.configure(state=NORMAL)

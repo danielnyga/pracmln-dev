@@ -31,7 +31,8 @@ InferenceMethods = Enum(
      #"ExactLinear": "exact inference (linear space)",  # deprecated, as EnumerationAsk is preferable
      "IPFPM_exact": "IPFP-M[exact]", 
      "IPFPM_MCSAT": "IPFP-M[MC-SAT]",
-     "EnumerationAsk": "Enumeration-Ask (exact)"
+     "EnumerationAsk": "Enumeration-Ask (exact)",
+     'WCSP': 'WCSP Solving (MPE, exact, with Toulbar2)'
     })
 
 ParameterLearningMeasures = Enum(
@@ -43,8 +44,8 @@ ParameterLearningMeasures = Enum(
       "BPLL": "pseudo-log-likelihood with blocking",
       "BPLL_CG": "pseudo-log-likelihood with blocking (custom grounding)",
       #"BPLLMemoryEfficient": "pseudo-log-likelihood with blocking, memory-efficient", # NOTE: this method has now been merged into BPLL
-      "PLL_fixed": "pseudo-log-likelihood with fixed unitary clauses [deprecated]",
-      "BPLL_fixed": "pseudo-log-likelihood with blocking and fixed unitary clauses [deprecated]",
+#      "PLL_fixed": "pseudo-log-likelihood with fixed unitary clauses [deprecated]",
+#      "BPLL_fixed": "pseudo-log-likelihood with blocking and fixed unitary clauses [deprecated]",
       "NPL_fixed": "negative pseudo-likelihood with fixed unitary clauses [deprecated]",
       "LL_ISE": "[soft evidence] log-likelihood with soft features (independent soft evidence)",
       "PLL_ISE": "[soft evidence] pseudo-log-likelihood with soft features (independent soft evidence)",

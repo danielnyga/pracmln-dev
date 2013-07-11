@@ -26,7 +26,7 @@
 import re
 import sys
 
-from logic import FOL
+from logic import fol
 from util import *
 
 # math functions
@@ -154,10 +154,10 @@ def toCNF(gndFormulas, formulas, allPositive=False):
             f = formula
             if formula.weight < 0:
                 negate.append(idxFormula)
-                if isinstance(formula, FOL.Negation):
+                if isinstance(formula, fol.Negation):
                     f = formula.children[0]                        
                 else:
-                    f = FOL.Negation([formula])                 
+                    f = fol.Negation([formula])                 
                 f.weight = -formula.weight
                 f.idxFormula = idxFormula
             newFormulas.append(f)
@@ -172,10 +172,10 @@ def toCNF(gndFormulas, formulas, allPositive=False):
             continue
         # logical constraint
         if gf.idxFormula in negate:
-            cnf = FOL.Negation([gf]).toCNF()
+            cnf = fol.Negation([gf]).toCNF()
         else:
             cnf = gf.toCNF()
-        if type(cnf) == FOL.TrueFalse: # formulas that are always true or false can be ignored
+        if type(cnf) == fol.TrueFalse: # formulas that are always true or false can be ignored
             continue
         cnf.idxFormula = gf.idxFormula
         newGndFormulas.append(cnf)

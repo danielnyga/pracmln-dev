@@ -22,7 +22,9 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-from MLN.database import Database
+from MLN.database import Database, readDBFromFile
+import logic
+from logic.grammar import predDecl
 
 '''
 Your MLN files may contain:
@@ -86,7 +88,6 @@ if platform.architecture()[0] == '32bit':
         sys.stderr.write("Note: Psyco (http://psyco.sourceforge.net) was not loaded. On 32bit systems, it is recommended to install it for improved performance.\n")
 
 from pyparsing import ParseException
-from logic import FOL
 from inference import *
 from util import *
 from methods import *
@@ -537,9 +538,9 @@ class MRF(object):
 
     members:
         gndAtoms:
-            maps a string representation of a ground atom to a FOL.GroundAtom object
+            maps a string representation of a ground atom to a fol.GroundAtom object
         gndAtomsByIdx:
-            dict: ground atom index -> FOL.GroundAtom object
+            dict: ground atom index -> fol.GroundAtom object
         evindece:
             dict: ground atom index -> truth values
         gndBlocks:
@@ -574,7 +575,7 @@ class MRF(object):
         self.gndAtomOccurrencesInGFs = []
         
         if type(db) == str:
-            db = Database(self.mln, db)
+            db = readDBFromFile(self.mln, db)
         elif isinstance(db, Database):
             pass
         else:
@@ -678,7 +679,7 @@ class MRF(object):
     def addGroundAtom(self, gndLit):
         '''
         Adds a ground atom to the set (actually it's a dict) of ground atoms.
-        gndLit: a FOL.GroundAtom object
+        gndLit: a fol.GroundAtom object
         '''
         if str(gndLit) in self.gndAtoms:
             return
@@ -820,7 +821,7 @@ class MRF(object):
     def getTruthDegreeGivenSoftEvidence(self, gf, worldValues):
         cnf = gf.toCNF()
         prod = 1.0
-        if isinstance(cnf, FOL.Conjunction):
+        if isinstance(cnf, fol.Conjunction):
             for disj in cnf.children:
                 prod *= self._noisyOr(worldValues, disj)
         else:
@@ -828,9 +829,9 @@ class MRF(object):
         return prod
 
     def _noisyOr(self, mln, worldValues, disj):
-        if isinstance(disj, FOL.GroundLit):
+        if isinstance(disj, fol.GroundLit):
             lits = [disj]
-        elif isinstance(disj, FOL.TrueFalse):
+        elif isinstance(disj, fol.TrueFalse):
             if disj.isTrue(worldValues):
                 return 1.0
             else: return 0.0
@@ -1266,7 +1267,7 @@ class MRF(object):
 
     # prints the worlds where the given formula (condition) is true (otherwise same as printWorlds)
     def printWorldsFiltered(self, condition, mode=1, format=1):
-        condition = FOL.parseFormula(condition).ground(self, {})
+        condition = fol.parseFormula(condition).ground(self, {})
         self._getWorlds()
         k = 1
         for world in self.worlds:
@@ -1676,14 +1677,14 @@ def readMLNFromFile(filename_or_list, verbose=False):
                 m = re.match(r"P\((.*?)\)\s*=\s*([\.\de]+)", line)
                 if m is None:
                     raise Exception("Prior probability constraint formatted incorrectly: %s" % line)
-                mln.probreqs.append({"expr": strFormula(FOL.parseFormula(m.group(1))).replace(" ", ""), "p": float(m.group(2))})
+                mln.probreqs.append({"expr": strFormula(fol.parseFormula(m.group(1))).replace(" ", ""), "p": float(m.group(2))})
                 continue
             # posterior probability requirement/soft evidence
             if line.startswith("R(") or line.startswith("SE("):
                 m = re.match(r"(?:R|SE)\((.*?)\)\s*=\s*([\.\de]+)", line)
                 if m is None:
                     raise Exception("Posterior probability constraint formatted incorrectly: %s" % line)
-                mln.posteriorProbReqs.append({"expr": strFormula(FOL.parseFormula(m.group(1))).replace(" ", ""), "p": float(m.group(2))})
+                mln.posteriorProbReqs.append({"expr": strFormula(fol.parseFormula(m.group(1))).replace(" ", ""), "p": float(m.group(2))})
                 continue
             # variable definition
             if line.startswith("$"):
@@ -1697,7 +1698,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
                 pred = parsePredicate(line)
                 mutex = []
                 for param in pred[1]:
-                    if param[ -1] == '!':
+                    if param[-1] == '!':
                         mutex.append(True)
                     else:
                         mutex.append(False)
@@ -1709,30 +1710,32 @@ def readMLNFromFile(filename_or_list, verbose=False):
                 continue
             # predicate decl or formula with weight
             else:
-                # try predicate declaration
-                isPredDecl = True
-                try:
-                    pred = FOL.predDecl.parseString(line)[0]
-                except:
-                    isPredDecl = False
+                isHard = False
+                if line[ -1] == '.': # hard (without explicit weight -> determine later)
+                    isHard = True
+                    formula = line[:-1]
+                else: # with weight
+                    # try predicate declaration
+                    isPredDecl = True
+                    try:
+                        pred = predDecl.parseString(line)[0]
+                        print pred
+                    except Exception, e:
+                        isPredDecl = False
                 if isPredDecl:
                     predName = pred[0]
                     if predName in mln.predicates:
                         raise Exception("Predicate redefinition: '%s' already defined" % predName)
                     mln.predicates[predName] = pred[1]
                     continue
-                # formula (template) with weight or terminated by '.'
                 else:
-                    isHard = False
-                    if line[ -1] == '.': # hard (without explicit weight -> determine later)
-                        isHard = True
-                        formula = line[:-1]
-                    else: # with weight
+                    # formula (template) with weight or terminated by '.'
+                    if not isHard:
                         spacepos = line.find(' ')
                         weight = line[:spacepos]
                         formula = line[spacepos:].strip()
                     try:
-                        formula = FOL.parseFormula(formula)
+                        formula = logic.grammar.parseFormula(formula)
                         if not isHard:
                             formula.weight = weight
                         else:
@@ -1765,3 +1768,4 @@ def readMLNFromFile(filename_or_list, verbose=False):
     mln.formulas = formulatemplates
     mln.templateIdx2GroupIdx = templateIdx2GroupIdx
     mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices
+    return mln

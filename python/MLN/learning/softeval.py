@@ -23,9 +23,6 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from logic import FOL
-
-# this is deprecated
 
 def truthDegreeGivenSoftEvidence(gf, worldValues, mln):
     return mln.getTruthDegreeGivenSoftEvidence(gf, worldValues)

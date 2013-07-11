@@ -57,7 +57,7 @@ class MCSAT(MCMCInference):
         # process all ground formulas
         for idxGndFormula, f in enumerate(self.gndFormulas):
             # get the list of clauses
-            if type(f) == FOL.Conjunction:
+            if type(f) == fol.Conjunction:
                 lc = f.children
             else:
                 lc = [f]
@@ -75,7 +75,7 @@ class MCSAT(MCMCInference):
         # add clauses for soft evidence atoms
         for se in self.softEvidence:
             se["numTrue"] = 0.0
-            formula = FOL.parseFormula(se["expr"])
+            formula = fol.parseFormula(se["expr"])
             se["formula"] = formula.ground(self.mln, {})
             cnf = formula.toCNF().ground(self.mln, {}) 
             idxFirst = idxClause
@@ -84,7 +84,7 @@ class MCSAT(MCMCInference):
                 #print clause
                 idxClause += 1
             se["idxClausePositive"] = (idxFirst, idxClause)
-            cnf = FOL.Negation([formula]).toCNF().ground(self.mln, {})
+            cnf = fol.Negation([formula]).toCNF().ground(self.mln, {})
             idxFirst = idxClause
             for clause in self._formulaClauses(cnf):                
                 self.clauses.append(clause)
@@ -94,7 +94,7 @@ class MCSAT(MCMCInference):
             
     def _formulaClauses(self, f):
         # get the list of clauses
-        if type(f) == FOL.Conjunction:
+        if type(f) == fol.Conjunction:
             lc = f.children
         else:
             lc = [f]
@@ -376,7 +376,7 @@ class SampleSAT:
             SampleSAT._Clause(self, idxClause)
         # instantiate non-logical constraints
         for nlc in NLConstraints:
-            if isinstance(nlc, FOL.GroundCountConstraint): # count constraint
+            if isinstance(nlc, fol.GroundCountConstraint): # count constraint
                 SampleSAT._CountConstraint(self, nlc)
             else:
                 raise Exception("SampleSAT cannot handle constraints of type '%s'" % str(type(nlc)))
@@ -449,7 +449,7 @@ class SampleSAT:
             for f in self.ss.mln.gndFormulas:
                 if not f.isLogical():
                     continue
-                if type(f) == FOL.Conjunction:
+                if type(f) == fol.Conjunction:
                     n = len(f.children)
                 else:
                     n = 1

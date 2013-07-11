@@ -26,7 +26,7 @@
 from MLN.util import stripComments, parsePredicate, parseDomDecl, parseLiteral,\
     strFormula, mergeDomains
 from logic.grammar import parseFormula
-from logic.FOL import GroundLit
+from logic.fol import GroundLit
 
 class Database(object):
     '''
@@ -158,7 +158,7 @@ class Database(object):
             for assignment in formula.iterTrueVariableAssignments(self, self.evidence):
                 yield assignment
                 
-def readDBFromFile(self, dbfile, mln):
+def readDBFromFile(mln, dbfile):
     '''
     Reads one or multiple database files containing literals and/or domains.
     Returns one or multiple databases where domains is dictionary mapping 
@@ -180,7 +180,7 @@ def readDBFromFile(self, dbfile, mln):
                 dbs.append(dbobj)
         return dbs
     dbs = []
-    domains = self.domains
+    domains = mln.domains
     # read file
     f = file(dbfile, "r")
     dbtext = f.read()

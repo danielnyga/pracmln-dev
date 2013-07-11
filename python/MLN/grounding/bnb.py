@@ -20,8 +20,9 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 from utils.undo import Ref, Number, List, ListDict
-from logic import FOL, grammar
+from logic import fol, grammar
 import utils
 
 
@@ -107,7 +108,7 @@ class FormulaGrounding(object):
 
         # if the simplified gf reduces to a TrueFalse instance, then
         # we return the costs if it's false, or 0 otherwise.
-        if isinstance(gf, FOL.TrueFalse):
+        if isinstance(gf, fol.TrueFalse):
             if gf.value: costs = 0.0
             else:
                 costs = self.formula.weight * gf_count
@@ -154,7 +155,7 @@ class GroundingFactory(object):
         '''
         self.mrf = mrf
         self.costs = .0
-        if isinstance(formula, FOL.Formula):
+        if isinstance(formula, fol.Formula):
             self.formula = formula
             self.root = FormulaGrounding(formula, mrf)
         elif isinstance(formula, FormulaGrounding):

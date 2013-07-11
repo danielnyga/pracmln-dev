@@ -23,14 +23,8 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from pyparsing import *
-from FOL import *
-
-def isVar(identifier):
-    '''
-    Variables must start with a question mark (or the + operator, 
-    anything else is considered a constant.
-    '''
-    return identifier[0] == '?' or identifier[0] == "+"
+from logic.fol import Lit, Negation, Disjunction, Conjunction, Exist,\
+    Implication, Biimplication, Equality, CountConstraint, Constraint, isVar
 
 def isConstant(identifier):
     return not isVar(identifier)
@@ -177,12 +171,13 @@ if __name__=='__main__':
                  "EXIST y (rel(x,y) ^ EXIST y2 (!(y2=y) ^ rel(x,y2)) ^ !(EXIST y3 (!(y3=y) ^ !(y3=y2) ^ rel(x,y3))))",
                  "((a(x) ^ b(x)) v (c(x) ^ !(d(x) ^ e(x) ^ g(x)))) => f(x)"
                  ]#,"foo(x) <=> !(EXIST p (foo(p)))", "numberEats(o,1) <=> !(EXIST p (eats(o,p) ^ !(o=p)))", "!a(c,d) => c=d", "c(b) v !(a(b) ^ b(c))"]
-        tests = ["!(action_role(w, ?sid) ^ isa(sid, sense))"]
+        tests = ["((!a(x) => b(x)) ^ (b(x) => a(x))) v !(b(x)=>c(x))"]
 #         tests = ["(EXIST y1 (rel(x,y1) ^ EXIST y2 (rel(x,y2) ^ !(y1=y2) ^ !(EXIST y3 (rel(?x,y3) ^ !(y1=y3) ^ !(y2=y3))))))"]
-        tests = ["EXIST ?x (a(?x))"]
+#         tests = ["EXIST ?x (a(?x))"]
+        tests = ['foo(x, y)']
         for test in tests:
             print "trying to parse %s..." % test
-            f = parseFormula(test)
+            f = parseFormula(test).toCNF()
             print "got this: %s" % str(f)
             f.printStructure()
     elif test == 'NF':
@@ -209,7 +204,7 @@ if __name__=='__main__':
         c = "count(directs(a,m)|m) >= 4"
         c = "count(foo(a,Const)) = 2"
         #c = count_constraint.parseString(c)
-        c = parseFormula(c)
+        c = parseFormula(c).toCNF()
         print str(c)
         pass
     

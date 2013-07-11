@@ -24,6 +24,9 @@
 from Tkinter import *
 from ScrolledText import ScrolledText
 from string import ascii_letters, digits, punctuation
+import re
+from logic.fol import isVar
+from logic.grammar import identifierCharacter
 try:
     import Pmw
     havePMW = True
@@ -33,6 +36,9 @@ import os
 from fnmatch import fnmatch
 #import keyword
 
+BOLDFONT = '*-Monospace-Bold-R-Normal-*-12-*'
+ITALICFONT = '*-Monospace-Medium-O-Normal-*-12-*'
+
 class ScrolledText2(ScrolledText):
     def __init__(self, root, change_hook = None):
         ScrolledText.__init__(self,root,wrap=NONE,bd=0,width=80,height=25,undo=1,maxundo=50,padx=0,pady=0,background="white",foreground="black")
@@ -41,14 +47,16 @@ class Highlighter(object):
     def __init__(self):
         # syntax highlighting definitions
         self.tags = {
-                'com': dict(foreground='#aaa'), # comment
+                'com': dict(foreground='#22aa22',font=ITALICFONT), # comment
                 'mlcom': dict(foreground='#aaa'), # multi-line comment
                 'str': dict(foreground='darkcyan'), # string
                 'kw': dict(foreground='blue'), # keyword
                 'obj': dict(foreground='#00F'), # function/class name
                 'number': dict(foreground='darkred'), # number
                 'op' : dict(foreground='blue'), # operator
-                'bracket_hl': dict(background="yellow") # bracket highlighting
+                'bracket_hl': dict(background="yellow"), # bracket highlighting
+                'var': dict(font=ITALICFONT), # variable highlighting
+                'pred': dict(font=BOLDFONT) # predicate hightlighting
                 }
         self.brackets = (('(',')'), ('{', '}'))
         self.open_brackets = map(lambda x: x[0], self.brackets)
@@ -127,7 +135,7 @@ class SyntaxHighlightingText(ScrolledText2):
                 self.tag_remove(tag, start, end)
 
     def get_selection_indices(self):
-         # If a selection is defined in the text widget, return (start,
+        # If a selection is defined in the text widget, return (start,
         # end) as Tkinter text indices, otherwise return (None, None)
         try:
             first = self.text.index("sel.first")
@@ -311,6 +319,16 @@ class SyntaxHighlightingText(ScrolledText2):
         # tokens
         start, end = 0, 0
         obj_flag = 0
+        
+        # variable and dpredicate highlighting
+        length = 0
+        for token in re.split('(\\?[a-zA-Z0-9]+|[\w]*[a-zA-Z]\\()', buffer):
+            if len(token) > 0 and isVar(token):
+                self.tag_add('var', '%s.%d' % (cline, length), '%s.%d' % (cline, length+len(token)))
+            elif len(token) > 0 and token[-1] == '(':
+                self.tag_add('pred', '%s.%d' % (cline, length), '%s.%d' % (cline, length+len(token)-1))
+            length += len(token)
+        
         for token in buffer.split(' '):
             end = start + len(token)
             start_index = '%s.%d' % (cline, start)

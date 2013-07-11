@@ -23,9 +23,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from logic import FOL
-import re
-import sys
+from logic import fol
 from MLN.util import *
 from AbstractGrounding import AbstractGroundingFactory
 
@@ -47,7 +45,7 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         mrf = self.mrf
         assert len(mrf.gndFormulas) == 0
         if domNames == []:
-            atom = FOL.GroundAtom(predName, cur)
+            atom = fol.GroundAtom(predName, cur)
             mrf.addGroundAtom(atom)
             return
 
@@ -72,7 +70,7 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
             for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, mrf.simplify):
                 gndFormula.isHard = formula.isHard
                 gndFormula.weight = formula.weight
-                if isinstance(gndFormula, FOL.TrueFalse):
+                if isinstance(gndFormula, fol.TrueFalse):
                     continue
                 mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
         

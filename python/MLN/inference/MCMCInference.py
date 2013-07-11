@@ -55,7 +55,7 @@ class MCMCInference(Inference):
                             if i not in blockExcl:
                                 choosable.append(idxGA)
                         maxidx = len(choosable) - 1
-                        if maxidx <= 0:
+                        if maxidx < 0:
                             raise Exception("Evidence forces all ground atoms in block %s to be false" % mln._strBlock(block))
                         chosen = choosable[random.randint(0, maxidx)]
                         for idxGA in choosable:
@@ -119,7 +119,7 @@ class MCMCInference(Inference):
             self.softEvidenceCounts = {}
             for se in softEvidence:
                 if "formula" not in se:
-                    formula = FOL.parseFormula(se["expr"])
+                    formula = fol.parseFormula(se["expr"])
                     se["formula"] = formula.ground(self.inferenceObject.mln, {})
                     se["expr"] = strFormula(se["formula"])
                 self.softEvidenceCounts[se["expr"]] = self.currentlyTrue(se["formula"])
