@@ -74,7 +74,7 @@ class MLNLearn:
                 ...
         '''
         defaults = {
-            "engine": "PyMLNs",
+            "engine": "PRACMLNs",
             "usePrior": False,
             "priorStdDev": 10.0,
             "addUnitClauses": False,
@@ -111,7 +111,7 @@ class MLNLearn:
         method = self.settings["method"]
         discriminative = "discriminative" in method
 
-        if self.settings["engine"] in ("PyMLNs", "internal"): # PyMLNs internal engine
+        if self.settings["engine"] in ("PRACMLNs", "internal"): # PyMLNs internal engine
             # arguments
             args = {"initialWts":False}
             if type(params) == str:
@@ -262,7 +262,7 @@ class MLNLearnGUI:
         row = 0        
         Label(self.frame, text="Engine: ").grid(row=row, column=0, sticky="E")
         alchemy_engines = sorted(config.alchemy_versions.keys())
-        engines = ["internal"]
+        engines = ["PRACMLNs"]
         engines.extend(alchemy_engines)
         self.selected_engine = StringVar(master)
         engine = self.settings.get("engine")
@@ -364,7 +364,7 @@ class MLNLearnGUI:
 
     def onChangeEngine(self, name = None, index = None, mode = None):
         # enable/disable controls
-        if self.selected_engine.get() == "internal":
+        if self.selected_engine.get() == "PRACMLNs":
             state = DISABLED
             self.internalMode = True
             methods = sorted(self.learner.pymlns_methods)

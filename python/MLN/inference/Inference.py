@@ -43,14 +43,17 @@ class Inference(object):
         self.queries = self._expandQueries(queries)
 
     def _expandQueries(self, queries):
-        ''' expands the list of queries where necessary, e.g. queries that are just predicate names are expanded to the corresponding list of atoms '''
+        ''' 
+        Expands the list of queries where necessary, e.g. queries that are 
+        just predicate names are expanded to the corresponding list of atoms.
+        '''
         equeries = []
         for query in queries:
             #print "got query '%s' of type '%s'" % (str(query), str(type(query)))
             if type(query) == str:
                 prevLen = len(equeries)
                 if "(" in query: # a fully or partially grounded formula
-                    f = fol.parseFormula(query)
+                    f = grammar.parseFormula(query)
                     for gndFormula in f.iterGroundings(self.mln):
                         equeries.append(gndFormula[0])
                 else: # just a predicate name
@@ -69,7 +72,8 @@ class Inference(object):
     
     def _setEvidence(self, conjunction):
         '''
-            set evidence in the MRF according to the given conjunction of ground literals, keeping a backup to undo the assignment later
+        Set evidence in the MRF according to the given conjunction of 
+        ground literals, keeping a backup to undo the assignment later
         '''
         if conjunction is not None:
             literals = map(lambda x: x.strip().replace(" ", ""), conjunction.split("^"))
@@ -136,7 +140,6 @@ class Inference(object):
         if verbose: print type(self)
         self.results = self._infer(verbose=verbose, details=details, **args)
         self.totalInferenceTime = self._getElapsedTime()
-        
         # output
         if verbose:
             if details: print "\nresults:"

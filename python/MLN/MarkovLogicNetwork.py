@@ -1472,8 +1472,8 @@ class MRF(object):
             return self.inferIPFPM(what, given, inferenceMethod=InferenceMethods.MCSAT, **args)
         elif defaultMethod == InferenceMethods.EnumerationAsk:
             return self._infer(EnumerationAsk(self), what, given, verbose=verbose, **args)
-        #elif self.defaultInferenceMethod == InferenceMethods.ExactLinear:
-        #    return self.inferExactLinear(what, given, **args)
+        elif defaultMethod == InferenceMethods.WCSP:
+            return self.inferWCSP(what, given, verbose, **args)
         else:
             raise Exception("Unknown inference method '%s'. Use a member of InferenceMethods!" % str(self.defaultInferenceMethod))
 
@@ -1501,6 +1501,12 @@ class MRF(object):
         self.ipfpm = IPFPM(self) # can be used for later data retrieval
         self.mln.ipfpm = self.ipfpm # only for backwards compatibility
         return self._infer(self.ipfpm, what, given, verbose, **args)
+    
+    def inferWCSP(self, what, given=None, verbose=True, **args):
+        '''
+        Perform WCSP (MPE) inference on the MLN.
+        '''
+        return self._infer(WCSPInference(self), what, given, verbose, **args)
 
     def _infer(self, inferObj, what, given=None, verbose=True, doProbabilityFitting=True, **args):
         # if there are prior probability constraints, apply them first

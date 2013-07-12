@@ -133,13 +133,14 @@ class MLNInfer(object):
                 verbose = True
                 # mln = MLN.MLN(input_files, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
                 mln = MLN.readMLNFromFile(input_files)#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
-                
+                mln.defaultInferenceMethod=MLN.InferenceMethods.byName(method)
+                mln.verbose = verbose
                 # set closed-world predicates
                 for pred in cwPreds:
                     mln.setClosedWorldPred(pred)
                 
                 # create ground MRF
-                mrf = mln.groundMRF(db, verbose=verbose)
+                mrf = mln.groundMRF(db, verbose=verbose, method='WCSPGroundingFactory')
                 
                 # collect inference arguments
                 args = {"details":True, "verbose":verbose, "shortOutput":True, "debugLevel":1}

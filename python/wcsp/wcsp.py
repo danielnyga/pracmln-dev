@@ -63,7 +63,8 @@ class Constraint(object):
         self.tuples[tuple(t)] = cost
     
     def write(self, stream):
-        stream.write('%d %s %d %d\n' % (len(self.varIndices), ' '.join(map(str, self.varIndices)), self.defCost, len(self.tuples)))
+        stream.write('%d %s %d %d\n' % (len(self.varIndices), ' '.join(map(str, \
+                            self.varIndices)), self.defCost, len(self.tuples)))
         for t in self.tuples.keys():
             stream.write('%s %d\n' % (' '.join(map(str, t)), self.tuples[t]))
 
@@ -136,7 +137,7 @@ class WCSP(object):
                     constraint.addTuple(map(int,tokens[0:-1]), int(tokens[-1]))
                     tuplesToRead -= 1
                     
-    def solve(self):
+    def solve(self, verbose=False):
         '''
         Uses toulbar2 inference. Returns the best solution, i.e. a tuple
         of variable assignments.
@@ -157,6 +158,7 @@ class WCSP(object):
                 nextLineIsSolution = True
                 continue
             if nextLineIsSolution:
+                if verbose: print solution, cost
                 solution = map(int, l.split())
                 nextLineIsSolution = False
         return solution, cost

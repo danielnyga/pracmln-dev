@@ -21,7 +21,6 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from MLN.MarkovLogicNetwork import MLN, Database
 import bisect
 from wcsp import WCSP
 import sys
@@ -30,6 +29,7 @@ from logic.fol import Negation, GroundAtom, GroundLit
 import utils
 from logic.fol import isConjunctionOfLiterals
 from logic.fol import isDisjunctionOfLiterals
+from MLN.database import Database
 
 class WCSPConverter(object):
     '''
@@ -116,6 +116,8 @@ class WCSPConverter(object):
         # compute the smallest difference between subsequent weights
         deltaMin = None
         w1 = weights[0]
+        if len(weights) == 1:
+            deltaMin = weights[0]
         for w2 in weights[1:]:
             diff = w2 - w1
             if deltaMin is None or diff < deltaMin:
@@ -285,17 +287,17 @@ class WCSPConverter(object):
         c.addTuple([varVal], self.top)
         wcsp.addConstraint(c)
         
-    def getMostProbableWorldDB(self):
+    def getMostProbableWorldDB(self, verbose=False):
         '''
         Returns a Database object with the most probable truth assignment.
         '''
         wcsp = self.convert()
-        solution, _ = wcsp.solve()
-        
+        solution, _ = wcsp.solve(verbose)
+          
         resultDB = Database(self.mln)
         resultDB.domains = dict(self.mrf.domains)
         resultDB.evidence = dict(self.mrf.getEvidenceDatabase())
-        
+          
         for varIdx, valIdx in enumerate(solution):
             if len(self.varIdx2GndAtom[varIdx]) > 1:
                 for v in range(len(self.varIdx2GndAtom[varIdx])):
@@ -359,16 +361,16 @@ class WCSPConverter(object):
 
 # for debugging only
 if __name__ == '__main__':
-    
-    mln = MLN('/home/nyga/code/prac/models/experimental/deep_sense/priors.mln')
-    db = Database(mln, '/home/nyga/code/prac/models/experimental/deep_sense/db/1.db')
-    mrf = mln.groundMRF(db)
-    
-    conv = WCSPConverter(mrf)
-    wcsp = conv.convert()
-    wcsp.write(sys.stdout)
-    solution = wcsp.solve()
-    for i, s in enumerate(solution):
-        print conv.varIdx2GndAtom[i][0], s, 
-        for ga in conv.varIdx2GndAtom[i]: print ga,
-        print
+    pass
+#     mln = MLN('/home/nyga/code/prac/models/experimental/deep_sense/priors.mln')
+#     db = Database(mln, '/home/nyga/code/prac/models/experimental/deep_sense/db/1.db')
+#     mrf = mln.groundMRF(db)
+#     
+#     conv = WCSPConverter(mrf)
+#     wcsp = conv.convert()
+#     wcsp.write(sys.stdout)
+#     solution = wcsp.solve()
+#     for i, s in enumerate(solution):
+#         print conv.varIdx2GndAtom[i][0], s, 
+#         for ga in conv.varIdx2GndAtom[i]: print ga,
+#         print

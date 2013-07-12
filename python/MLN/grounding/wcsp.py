@@ -46,7 +46,7 @@ class WCSPGroundingFactory(BPLLGroundingFactory):
                     assignment = []
                     try:
                         for (p1, p2) in zip(child.params, gndAtom.params):
-                            if FOL.isVar(p1):
+                            if fol.isVar(p1):
                                 assignment.append((p1, p2))
                             elif p1 != p2: raise
                         assignments.append(tuple(assignment))
@@ -72,14 +72,14 @@ class WCSPGroundingFactory(BPLLGroundingFactory):
                     for gf, atoms in f._iterGroundings(mrf, vars, dict(assignment), simplify=True):
                         gf.isHard = f.isHard
                         gf.weight = f.weight
-                        if isinstance(gf, FOL.TrueFalse):
+                        if isinstance(gf, fol.TrueFalse):
                             continue
                         mrf._addGroundFormula(gf, i, atoms)
             else:
                 for gndFormula, referencedGndAtoms in f.iterGroundings(mrf, simplify=True):
                     gndFormula.isHard = f.isHard
                     gndFormula.weight = f.weight
-                    if isinstance(gndFormula, FOL.TrueFalse):
+                    if isinstance(gndFormula, fol.TrueFalse):
                         continue
                     mrf._addGroundFormula(gndFormula, i, referencedGndAtoms)
       
