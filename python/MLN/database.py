@@ -187,19 +187,18 @@ def readDBFromFile(mln, dbfile):
     f.close()
     dbtext = stripComments(dbtext)
     db = Database(mln)
-    dbs.append(db)
     # expand domains with dbtext constants and save evidence
-    evidence = db.evidence
     for l in dbtext.split("\n"):
         l = l.strip()
         if l == "":
             continue
         # separator between independent databases
-        if l == '---':
+        elif l == '---':
+            dbs.append(db)    
+            print db.evidence
             db = Database(mln)
-            dbs.append(db)        
         # soft evidence
-        if l[0] in "0123456789":
+        elif l[0] in "0123456789":
             s = l.find(" ")
             gndAtom = l[s + 1:].replace(" ", "")
             d = {"expr": gndAtom, "p": float(l[:s])}
@@ -220,7 +219,7 @@ def readDBFromFile(mln, dbfile):
             isTrue, predName, constants = parseLiteral(l)
             domNames = mln.predicates[predName]
             # save evidence
-            evidence["%s(%s)" % (predName, ",".join(constants))] = isTrue
+            db.evidence["%s(%s)" % (predName, ",".join(constants))] = isTrue
 
         # expand domains
         if len(domNames) != len(constants):
@@ -233,5 +232,6 @@ def readDBFromFile(mln, dbfile):
                 d = domains[domNames[i]]
                 if constants[i] not in d:
                     d.append(constants[i])
+    dbs.append(db)
     if len(dbs) == 1: return db
     return dbs

@@ -437,10 +437,11 @@ class MLN(object):
         dbs = []
         for db in databases:
             if type(db) == str:
-                db = Database(self, db)
-            elif not isinstance(db, Database):
-                raise Exception("Got database of unknown type '%s'" % (str(type(db))))
-            dbs.append(db)
+                db = readDBFromFile(self, db)
+                if type(db) == list:
+                    dbs.extend(db)
+                else:
+                    dbs.append(db)
 
         if not self.materializedTemplates:
             self.materializeFormulaTemplates(dbs)
@@ -1717,6 +1718,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
             # predicate decl or formula with weight
             else:
                 isHard = False
+                isPredDecl = False
                 if line[ -1] == '.': # hard (without explicit weight -> determine later)
                     isHard = True
                     formula = line[:-1]

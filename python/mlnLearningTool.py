@@ -37,6 +37,7 @@ import shlex
 import tkMessageBox
 from fnmatch import fnmatch
 from pprint import pprint
+from MLN.MarkovLogicNetwork import readMLNFromFile
 
 # --- generic learning interface ---
 
@@ -65,7 +66,7 @@ class MLNLearn:
                 "output_filename": the output filename
             
             optional arguments:
-                "engine": either "PyMLNs" (default) or one of the Alchemy versions defined in the config
+                "engine": either "PRACMLNs" (default) or one of the Alchemy versions defined in the config
                 "initialWts": (true/false)
                 "usePrior": (true/false); default: False
                 "priorStdDev": (float) standard deviation of prior when usePrior=True
@@ -125,7 +126,7 @@ class MLNLearn:
                 args["gaussianPriorSigma"] = float(self.settings["priorStdDev"])
             # learn weights
             if type(self.settings["mln"]) == str:
-                mln = MLN.MLN(self.settings["mln"])
+                mln = readMLNFromFile(self.settings["mln"])
             elif type(self.settings["mln"] == MLN.MLN):
                 mln = self.settings["mln"]
             else:

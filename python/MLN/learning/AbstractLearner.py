@@ -75,7 +75,8 @@ class AbstractLearner(object):
         return wtD
 
     def _getTruthDegreeGivenEvidence(self, gndFormula):
-        return 1.0 if self.mln._isTrueGndFormulaGivenEvidence(gndFormula) else 0.0
+        if self.mln._isTrueGndFormulaGivenEvidence(gndFormula): return 1.0 
+        else: return 0.0
     
     def _fixFormulaWeights(self):
         self._fixedWeightFormulas = {}
@@ -176,13 +177,12 @@ class AbstractLearner(object):
                 wt[i] = self.mln.formulas[i].weight
                 
         # apply closed world assumption
+        def toCWVal(val):
+            if val is None: return False
+            else: return val
         if self.closedWorldAssumption:
-            self.mrf.evidence = map(lambda x: False if x is None else x, self.mrf.evidence)
-        
-        # apply closed world assumption
-        if self.closedWorldAssumption:
-            self.mrf.evidence = map(lambda x: False if x is None else x, self.mrf.evidence)
-        
+            self.mrf.evidence = map(toCWVal, self.mrf.evidence)
+           
         # precompute fixed formula weights
         self._fixFormulaWeights()
         self.wt = self._projectVectorToNonFixedWeightIndices(wt)
@@ -257,7 +257,11 @@ class AbstractLearner(object):
         raise Exception("The learner '%s' does not provide an objective function computation; use another optimizer!" % str(type(self)))
 
     def getName(self):
-        return "%s[%s]" % (self.__class__.__name__, "sigma=%f" % self.gaussianPriorSigma if self.gaussianPriorSigma is not None else "no prior")
+        if self.gaussianPriorSigma is None:
+            sigma = 'no prior'
+        else:
+            sigma = "sigma=%f" % self.gaussianPriorSigma
+        return "%s[%s]" % (self.__class__.__name__, sigma)
 
 from softeval import truthDegreeGivenSoftEvidence
 
@@ -290,8 +294,9 @@ class MultipleDatabaseLearner(AbstractLearner):
         for i, db in enumerate(self.dbs):
             groundingMethod = eval('MLN.learning.%s.groundingMethod' % self.constructor)
             print "grounding MRF for database %d/%d using %s..." % (i+1, len(self.dbs), groundingMethod)
-            mrf = self.mln.groundMRF(db, method=groundingMethod)
-            learner = eval("MLN.learning.%s(mrf, **self.params)" % self.constructor)
+            self.mrf = self.mln.groundMRF(db, method=groundingMethod)
+            self.mln = self.mrf
+            learner = eval("MLN.learning.%s(self.mrf, **self.params)" % self.constructor)
             self.learners.append(learner)
             learner._prepareOpt()
     

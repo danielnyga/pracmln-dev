@@ -23,6 +23,7 @@
 
 from MLN.inference.Inference import Inference
 from wcsp.converter import WCSPConverter
+from MLN.util import strFormula
 
 class WCSPInference(Inference):
     
@@ -32,6 +33,8 @@ class WCSPInference(Inference):
     def _infer(self, verbose, details, **args):
         converter = WCSPConverter(self.mrf)
         result = converter.getMostProbableWorldDB(verbose).evidence
-        result = dict([(self.mrf.gndAtoms[atom].idx, 1. if result[atom] == True else 0.) for atom in result.keys()])
+        strQueries = map(strFormula, self.queries)
+        result = dict([(i, 1. if result[q] == True else 0.) for i, q in enumerate(strQueries)])
+        print result
         return result
         

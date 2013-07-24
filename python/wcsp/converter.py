@@ -181,11 +181,15 @@ class WCSPConverter(object):
             f.weight = abs(wf.weight)
             f.isHard = wf.isHard
         else: f = wf
-        f_ = f.toNNF()
+        f_ = f.simplify(self.mrf)
+        f_ = f_.toNNF()
         f_.weight = f.weight
         f_.isHard = f.isHard 
         idxGndAtoms = f_.idxGroundAtoms()
         gndAtoms = map(lambda x: self.mrf.gndAtomsByIdx[x], idxGndAtoms)
+        print gndAtoms
+        print self.mrf.gndAtoms
+        print self.gndAtom2VarIndex
         varIndices = set(map(lambda x: self.gndAtom2VarIndex[x], gndAtoms))
         varIndices = tuple(sorted(varIndices))
         if f_.isHard:
@@ -297,7 +301,6 @@ class WCSPConverter(object):
         resultDB = Database(self.mln)
         resultDB.domains = dict(self.mrf.domains)
         resultDB.evidence = dict(self.mrf.getEvidenceDatabase())
-          
         for varIdx, valIdx in enumerate(solution):
             if len(self.varIdx2GndAtom[varIdx]) > 1:
                 for v in range(len(self.varIdx2GndAtom[varIdx])):

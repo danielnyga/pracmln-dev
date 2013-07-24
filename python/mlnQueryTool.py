@@ -140,7 +140,7 @@ class MLNInfer(object):
                     mln.setClosedWorldPred(pred)
                 
                 # create ground MRF
-                mrf = mln.groundMRF(db, verbose=verbose, method='WCSPGroundingFactory')
+                mrf = mln.groundMRF(db, verbose=verbose)
                 
                 # collect inference arguments
                 args = {"details":True, "verbose":verbose, "shortOutput":True, "debugLevel":1}
@@ -174,6 +174,7 @@ class MLNInfer(object):
                         mrf.writeGraphML(graphml_filename)
                     
                 # invoke inference and retrieve results
+                mrf.printEvidence()
                 mrf.infer(queries, **args)
                 results = {}
                 for gndFormula, p in mrf.getResultsDict().iteritems():
