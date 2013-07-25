@@ -48,7 +48,7 @@ class Highlighter(object):
         # syntax highlighting definitions
         self.tags = {
                 'com': dict(foreground='#22aa22',font=ITALICFONT), # comment
-                'mlcom': dict(foreground='#aaa'), # multi-line comment
+                'mlcom': dict(foreground='#22aa22',font=ITALICFONT), # multi-line comment
                 'str': dict(foreground='darkcyan'), # string
                 'kw': dict(foreground='blue'), # keyword
                 'obj': dict(foreground='#00F'), # function/class name
@@ -320,14 +320,13 @@ class SyntaxHighlightingText(ScrolledText2):
         start, end = 0, 0
         obj_flag = 0
         
-        # variable and dpredicate highlighting
-        length = 0
-        for token in re.split('(\\?[a-zA-Z0-9]+|[\w]*[a-zA-Z]\\()', buffer):
-            if len(token) > 0 and isVar(token):
-                self.tag_add('var', '%s.%d' % (cline, length), '%s.%d' % (cline, length+len(token)))
-            elif len(token) > 0 and token[-1] == '(':
-                self.tag_add('pred', '%s.%d' % (cline, length), '%s.%d' % (cline, length+len(token)-1))
-            length += len(token)
+        # variable and predicate highlighting
+        for match in re.finditer('(\\?[a-zA-Z0-9]+|[\w]*[a-zA-Z]\\()', buffer):
+            token = match.group(0)
+            if isVar(token):
+                self.tag_add('var', '%s.%d' % (cline, match.start()), '%s.%d' % (cline, match.end()))
+            elif token[-1] == '(':
+                self.tag_add('pred', '%s.%d' % (cline, match.start()), '%s.%d' % (cline, match.end()-1))
         
         for token in buffer.split(' '):
             end = start + len(token)
