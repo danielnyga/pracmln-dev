@@ -67,6 +67,13 @@ class Database(object):
             if v not in d:
                 d.append(v)
                 
+    def isEmpty(self):
+        '''
+        Returns True iff there is an assertion for any ground atom in this
+        database and False if the truth values all ground atoms are None.
+        '''
+        return not any(map(lambda x: x is True or x is False,  self.evidence.values()))
+                
     def query(self, formula):
         '''
         Makes to the database a 'prolog-like' query given by the specified formula.
@@ -173,14 +180,13 @@ def readDBFromFile(mln, dbfile):
     if type(dbfile) is list:
         dbs = []
         for dbpath in dbfile:
-            dbobj = readDBFromFile(dbpath, mln)
+            dbobj = readDBFromFile(mln, dbpath)
             if type(dbobj) is list:
                 dbs.extend(dbobj)
             else:
                 dbs.append(dbobj)
         return dbs
     dbs = []
-    domains = mln.domains
     # read file
     f = file(dbfile, "r")
     dbtext = f.read()
@@ -190,13 +196,13 @@ def readDBFromFile(mln, dbfile):
     # expand domains with dbtext constants and save evidence
     for l in dbtext.split("\n"):
         l = l.strip()
-        if l == "":
+        if l == '':
             continue
         # separator between independent databases
-        elif l == '---':
+        elif l == '---' and not db.isEmpty():
             dbs.append(db)    
-            print db.evidence
             db = Database(mln)
+            continue
         # soft evidence
         elif l[0] in "0123456789":
             s = l.find(" ")
@@ -207,7 +213,7 @@ def readDBFromFile(mln, dbfile):
             else:
                 raise Exception("Duplicate soft evidence for '%s'" % gndAtom)
             predName, constants = parsePredicate(gndAtom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
-            domNames = db.mln.predicates[predName]
+            domNames = mln.predicates[predName]
         # domain declaration
         elif "{" in l:
             domName, constants = parseDomDecl(l)
@@ -226,12 +232,12 @@ def readDBFromFile(mln, dbfile):
             raise Exception("Ground atom %s in database %s has wrong number of parameters" % (l, dbfile))
 
         if "{" in l or db.includeNonExplicitDomains:
-            for i in range(len(constants)):
-                if domNames[i] not in domains:
-                    domains[domNames[i]] = []
-                d = domains[domNames[i]]
-                if constants[i] not in d:
-                    d.append(constants[i])
-    dbs.append(db)
+            for i, c in enumerate(constants):
+                dom = db.domains.get(domNames[i], None)
+                if dom is None:
+                    dom = []
+                    db.domains[domNames[i]] = dom
+                if not c in dom: dom.append(c)
+    if not db.isEmpty(): dbs.append(db)
     if len(dbs) == 1: return db
     return dbs

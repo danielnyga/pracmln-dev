@@ -31,7 +31,7 @@ import numpy
 
 class BPLL(AbstractLearner):
     '''
-    Pseudo-log-likelihood learning with blocking, i.e. a generalisation
+    Pseudo-log-likelihood learning with blocking, i.e. a generalization
     of PLL which takes into consideration the fact that the truth value of a
     blocked atom cannot be inverted without changing a further atom's truth
     value from the same block.
@@ -39,8 +39,8 @@ class BPLL(AbstractLearner):
     on a sufficient statistic.
     '''    
     
-    def __init__(self, mrf, **params):
-        AbstractLearner.__init__(self, mrf, **params)
+    def __init__(self, mln, mrf, **params):
+        AbstractLearner.__init__(self, mln, mrf, **params)
         
     def _prepareOpt(self):
         print "constructing blocks..."
@@ -85,7 +85,7 @@ class BPLL(AbstractLearner):
     def _calculateBlockProbsMB(self, wt):
         if ('wtsLastBlockProbMBComputation' not in dir(self)) or self.wtsLastBlockProbMBComputation != list(wt):
             #print "recomputing block probabilities...",
-            self.blockProbsMB = [self._getBlockProbMB(i, wt) for i in xrange(len(self.mln.pllBlocks))]
+            self.blockProbsMB = [self._getBlockProbMB(i, wt) for i in xrange(len(self.mrf.pllBlocks))]
             self.wtsLastBlockProbMBComputation = list(wt)
     
     def _f(self, wt):
@@ -192,8 +192,8 @@ class BPLL_CG(BPLL):
     
     groundingMethod = 'BPLLGroundingFactory'
     
-    def __init__(self, mrf, **params):
-        BPLL.__init__(self, mrf, **params)
+    def __init__(self, mln, mrf, **params):
+        BPLL.__init__(self, mln, mrf, **params)
     
     def _prepareOpt(self):
         print "constructing blocks..."

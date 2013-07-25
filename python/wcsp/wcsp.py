@@ -152,7 +152,6 @@ class WCSP(object):
         cost = None
         while True:
             l = p.stdout.readline()
-            print l
             if not l: break
             if l.startswith('New solution'):
                 cost = long(l.split()[2])

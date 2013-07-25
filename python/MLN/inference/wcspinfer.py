@@ -35,6 +35,5 @@ class WCSPInference(Inference):
         result = converter.getMostProbableWorldDB(verbose).evidence
         strQueries = map(strFormula, self.queries)
         result = dict([(i, 1. if result[q] == True else 0.) for i, q in enumerate(strQueries)])
-        print result
         return result
         

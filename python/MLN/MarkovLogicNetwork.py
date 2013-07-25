@@ -284,14 +284,19 @@ class MLN(object):
         self._createFormulaGroundings(verbose)
         if verbose: print "ground formulas: %d" % len(self.gndFormulas)
 
-    def groundMRF(self, db, verbose=False, simplify=False, method='DefaultGroundingFactory'):
+    def groundMRF(self, db, verbose=False, simplify=False, method='DefaultGroundingFactory', cwAssumption=False):
         '''
             creates and returns a ground Markov random field for the given database
                 db: database filename (string) or Database object
         '''
-#        print method
-        self.mrf = MRF(self, db, verbose=verbose, simplify=simplify, groundingMethod=method)
-        return self.mrf
+        mrf = MRF(self, db, verbose=verbose, simplify=simplify, groundingMethod=method)
+        # apply closed world assumption
+        def toCWVal(val):
+            if val is None: return False
+            else: return val
+        if cwAssumption:
+            mrf.evidence = map(toCWVal, mrf.evidence)
+        return mrf
 
     def combineOverwrite(self, domain, verbose=False, groundFormulas=True):
         '''
@@ -450,7 +455,7 @@ class MLN(object):
         if len(dbs) == 1:
             groundingMethod = eval('learning.%s.groundingMethod' % method)
             print "grounding MRF using %s..." % groundingMethod 
-            mrf = self.groundMRF(dbs[0], method=groundingMethod)
+            mrf = self.groundMRF(dbs[0], method=groundingMethod, cwAssumption=True)
             learner = eval("learning.%s(mrf, **params)" % method)
         else:
             learner = learning.MultipleDatabaseLearner(self, method, dbs, **params)
@@ -566,6 +571,7 @@ class MRF(object):
         self.evidenceBackup = {}
         self.softEvidence = list(mln.posteriorProbReqs) # constraints on posterior probabilities are nothing but soft evidence and can be handled in exactly the same way
         self.simplify = simplify
+        self.mln.evidence = self.evidence
         
         # ground members
         self.gndAtoms = {}
@@ -584,26 +590,34 @@ class MRF(object):
 
         # get combined domain
         self.domains = mergeDomains(mln.domains, db.domains)
-        #print "MLN domains: ", self.mln.domains
-        #print "MRF domains: ", self.domains
 
         # materialize MLN formulas
         if not self.mln.materializedTemplates:
             self.mln._materializeFormulaTemplates(verbose)
         self.formulas = list(mln.formulas) # copy the list of formulas, because we may change or extend it
-
+        
         # materialize formula weights
         self._materializeFormulaWeights(verbose)
 
+        self.closedWorldPreds = list(mln.closedWorldPreds)
+        self.probreqs = list(mln.probreqs)
+        self.posteriorProbReqs = list(mln.posteriorProbReqs)
+        self.predicates = mln.predicates
+        
         # grounding
         groundingMethod = eval('%s(self, db)' % groundingMethod)
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(verbose=verbose)
 
+#     def __getattr__(self, attr):
+#         # forward attribute access to the MLN (yes, it's a hack)
+#         return self.mln.__getattribute__(attr)
 
-    def __getattr__(self, attr):
-        # forward attribute access to the MLN (yes, it's a hack)
-        return self.mln.__getattribute__(attr)
+    def getHardFormulas(self):
+        '''
+        Returns a list of all hard formulas in this MRF.
+        '''
+        return [f for f in self.formulas if f.weight is None]
 
     def _getPredGroundings(self, predName):
         '''
@@ -672,8 +686,9 @@ class MRF(object):
 
         # set weights of hard formulas
         hard_weight = 20 + max_weight
-        if verbose: print "setting %d hard weights to %f" % (len(self.hard_formulas), hard_weight)
-        for f in self.hard_formulas:
+        hard_formulas = self.getHardFormulas()
+        if verbose: print "setting %d hard weights to %f" % (len(hard_formulas), hard_weight)
+        for f in hard_formulas:
             if verbose: print "  ", strFormula(f)
             f.weight = hard_weight
 
@@ -724,8 +739,8 @@ class MRF(object):
         '''
         del self.gndFormulas
         del self.gndAtomOccurrencesInGFs
-        del self.mln.gndFormulas
-        del self.mln.gndAtomOccurrencesInGFs
+#         del self.mln.gndFormulas
+#         del self.mln.gndAtomOccurrencesInGFs
         if hasattr(self, "blockRelevantGFs"):
             del self.blockRelevantGFs
 
@@ -753,7 +768,10 @@ class MRF(object):
         return v
 
     def _clearEvidence(self):
-        self.evidence = [None for i in range(len(self.gndAtoms))]
+        '''
+        Erases the evidence in this MRF.
+        '''
+        self.evidence = [None for _ in range(len(self.gndAtoms))]
 
     def getEvidenceDatabase(self):
         '''
@@ -858,9 +876,9 @@ class MRF(object):
 
     def setEvidence(self, evidence, clear=True):
         '''
-          Sets the evidence, which is to be given as a dictionary that maps ground atom strings to their truth values.
-          Any previous evidence is cleared.
-          The closed-world assumption is applied to any predicates for which it was declared.
+        Sets the evidence, which is to be given as a dictionary that maps ground atom strings to their truth values.
+        Any previous evidence is cleared.
+        The closed-world assumption is applied to any predicates for which it was declared.
         '''
         if clear is True:
             self._clearEvidence()
@@ -1318,9 +1336,13 @@ class MRF(object):
         for i, formula in enumerate(self.formulas):
             print "%f %s" % (counts[i], str(formula))
 
-    def _fitProbabilityConstraints(self, probConstraints, fittingMethod=InferenceMethods.Exact, fittingThreshold=1.0e-3, fittingSteps=20, fittingMCSATSteps=5000, fittingParams=None, given=None, queries=None, verbose=True, maxThreshold=None, greedy=False, probabilityFittingResultFileName=None, **args):
+    def _fitProbabilityConstraints(self, probConstraints, fittingMethod=InferenceMethods.Exact, 
+                                   fittingThreshold=1.0e-3, fittingSteps=20, fittingMCSATSteps=5000, 
+                                   fittingParams=None, given=None, queries=None, verbose=True, 
+                                   maxThreshold=None, greedy=False, probabilityFittingResultFileName=None, **args):
         '''
-            applies the given probability constraints (if any), dynamically modifying weights of the underlying MLN by applying iterative proportional fitting
+            applies the given probability constraints (if any), dynamically 
+            modifying weights of the underlying MLN by applying iterative proportional fitting
 
             probConstraints: list of constraints
             inferenceMethod: one of the inference methods defined in InferenceMethods
@@ -1727,14 +1749,13 @@ def readMLNFromFile(filename_or_list, verbose=False):
                     isPredDecl = True
                     try:
                         pred = predDecl.parseString(line)[0]
-                        print pred
                     except Exception, e:
                         isPredDecl = False
                 if isPredDecl:
                     predName = pred[0]
                     if predName in mln.predicates:
                         raise Exception("Predicate redefinition: '%s' already defined" % predName)
-                    mln.predicates[predName] = pred[1]
+                    mln.predicates[predName] = list(pred[1])
                     continue
                 else:
                     # formula (template) with weight or terminated by '.'
@@ -1770,7 +1791,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
         f.getVariables(mln, None, constants)
         for domain, constants in constants.iteritems():
             for c in constants: mln.addConstant(domain, c)
-            
+    
     # save data on formula templates for materialization
     mln.materializedTemplates = False
     mln.formulas = formulatemplates

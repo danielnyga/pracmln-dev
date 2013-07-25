@@ -52,7 +52,7 @@ class MLNLearn:
             "[discriminative] sampling-based log-likelihood via diagonal Newton": (["-d", "-dNewton"], False, "dslldn"),
             "[discriminative] sampling-based log-likelihood via rescaled conjugate gradient": (["-d", "-dCG"], False, "dsllcg"),
         }
-        self.alchemy_versions = config.alchemy_versions        
+        self.alchemy_versions = config.alchemy_versions
     
     def run(self, **kwargs):
         '''

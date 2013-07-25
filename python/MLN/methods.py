@@ -32,7 +32,7 @@ InferenceMethods = Enum(
      "IPFPM_exact": "IPFP-M[exact]", 
      "IPFPM_MCSAT": "IPFP-M[MC-SAT]",
      "EnumerationAsk": "Enumeration-Ask (exact)",
-     'WCSP': 'WCSP Solving (MPE, exact, Toulbar2)'
+     'WCSP': 'WCSP (exact MPE with Toulbar2)'
     })
 
 ParameterLearningMeasures = Enum(

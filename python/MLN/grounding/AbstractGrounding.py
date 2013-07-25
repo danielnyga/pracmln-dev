@@ -23,6 +23,9 @@
 
 
 class AbstractGroundingFactory(object):
+    '''
+    Abstract super class for all grounding factories.
+    '''
     
     def __init__(self, mrf, db):
         self.mrf = mrf
@@ -38,7 +41,6 @@ class AbstractGroundingFactory(object):
     def groundMRF(self, verbose=False):
         self._createGroundAtoms(verbose)
         self.mrf.setEvidence(self.db.evidence)
-        self.mrf.evidence
         self.mrf.softEvidence = self.db.softEvidence
         self._createGroundFormulas(verbose)
         return self.mrf

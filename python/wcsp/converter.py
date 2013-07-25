@@ -137,7 +137,7 @@ class WCSPConverter(object):
         costs for entirely inconsistent worlds (0 probability).
         '''
         costSum = long(0)
-        for f in self.mln.gndFormulas:
+        for f in self.mrf.gndFormulas:
             if f.isHard or f.weight == 0.0: continue
 #            print f.weight, f, self.divisor
             cost = abs(round(float(f.weight) / self.divisor))
@@ -187,9 +187,6 @@ class WCSPConverter(object):
         f_.isHard = f.isHard 
         idxGndAtoms = f_.idxGroundAtoms()
         gndAtoms = map(lambda x: self.mrf.gndAtomsByIdx[x], idxGndAtoms)
-        print gndAtoms
-        print self.mrf.gndAtoms
-        print self.gndAtom2VarIndex
         varIndices = set(map(lambda x: self.gndAtom2VarIndex[x], gndAtoms))
         varIndices = tuple(sorted(varIndices))
         if f_.isHard:
@@ -297,7 +294,8 @@ class WCSPConverter(object):
         '''
         wcsp = self.convert()
         solution, _ = wcsp.solve(verbose)
-          
+        if solution is None:
+            raise Exception('No solution found. Is your knowledge base satisfiable?')
         resultDB = Database(self.mln)
         resultDB.domains = dict(self.mrf.domains)
         resultDB.evidence = dict(self.mrf.getEvidenceDatabase())
@@ -356,7 +354,7 @@ class WCSPConverter(object):
         wcsp.top = self.top
         wcsp.domSizes = [max(2,len(self.varIdx2GndAtom[i])) for i, v in enumerate(self.vars)]
         wcsp.constraints.extend(self.generateEvidenceConstraints())
-        for f in self.mln.gndFormulas:
+        for f in self.mrf.gndFormulas:
             f.weight = self.mln.formulas[f.idxFormula].weight
             f.isHard = self.mln.formulas[f.idxFormula].isHard
             self.generateConstraint(wcsp, f)

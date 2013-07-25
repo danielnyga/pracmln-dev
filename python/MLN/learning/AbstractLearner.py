@@ -37,8 +37,8 @@ class AbstractLearner(object):
     
     groundingMethod = 'DefaultGroundingFactory'
     
-    def __init__(self, mrf, gaussianPriorSigma=None, **params):
-        self.mln = mrf # only for backward compatibility of implementations
+    def __init__(self, mln, mrf=None, gaussianPriorSigma=None, **params):
+        self.mln = mln
         self.mrf = mrf
         self.params = params
         self.gaussianPriorSigma = gaussianPriorSigma
@@ -81,15 +81,15 @@ class AbstractLearner(object):
     def _fixFormulaWeights(self):
         self._fixedWeightFormulas = {}
         for formula in self.mln.fixedWeightFormulas:
-            c = 0.0
-            Z = 0.0
-            for gf, referencedAtoms in formula.iterGroundings(self.mln):
-                Z += 1
-                print "self._getTruthDegreeGivenEvidence(gf), gf", self._getTruthDegreeGivenEvidence(gf), gf
-                c += self._getTruthDegreeGivenEvidence(gf)
-            w = logx(c / Z)
+#             c = 0.0
+#             Z = 0.0
+#             for gf, referencedAtoms in formula.iterGroundings(self.mln):
+#                 Z += 1
+#                 print "self._getTruthDegreeGivenEvidence(gf), gf", self._getTruthDegreeGivenEvidence(gf), gf
+#                 c += self._getTruthDegreeGivenEvidence(gf)
+            w = f.weight#logx(c / Z)
             self._fixedWeightFormulas[formula.idxFormula] = w
-            print "fixed weight: %f=log(%f) F#%d %s" % (w, (c / Z), formula.idxFormula, str(formula))
+#             print "fixed weight: %f=log(%f) F#%d %s" % (w, (c / Z), formula.idxFormula, str(formula))
             
     def f(self, wt):
         # compute prior
@@ -163,9 +163,12 @@ class AbstractLearner(object):
             wt = float(wt)
         return wts
 
-    # learn the weights of the mln given the training data previously loaded with combineDB
-    #   initialWts: whether to use the MLN's current weights as the starting point for the optimization
     def run(self, initialWts=False, **params):
+        '''
+        Learn the weights of the MLN given the training data previously 
+        loaded with combineDB 
+        initialWts: whether to use the MLN's current weights as the starting point for the optimization
+        '''
         
         if not 'scipy' in sys.modules:
             raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
@@ -176,13 +179,6 @@ class AbstractLearner(object):
             for i in range(len(self.mln.formulas)):
                 wt[i] = self.mln.formulas[i].weight
                 
-        # apply closed world assumption
-        def toCWVal(val):
-            if val is None: return False
-            else: return val
-        if self.closedWorldAssumption:
-            self.mrf.evidence = map(toCWVal, self.mrf.evidence)
-           
         # precompute fixed formula weights
         self._fixFormulaWeights()
         self.wt = self._projectVectorToNonFixedWeightIndices(wt)
@@ -284,19 +280,19 @@ class MultipleDatabaseLearner(AbstractLearner):
     def __init__(self, mln, method, dbs, verbose=True, **params):
         '''
         dbs: list of tuples (domain, evidence) as returned by the database reading method
-        '''        
-        AbstractLearner.__init__(self, mln, **params)        
+        '''
+        AbstractLearner.__init__(self, mln, None, **params)
+        self.mln = mln
         self.dbs = dbs
         self.constructor = MLN.ParameterLearningMeasures.byShortName(method)
         self.params = params
-        
         self.learners = []
         for i, db in enumerate(self.dbs):
             groundingMethod = eval('MLN.learning.%s.groundingMethod' % self.constructor)
             print "grounding MRF for database %d/%d using %s..." % (i+1, len(self.dbs), groundingMethod)
-            self.mrf = self.mln.groundMRF(db, method=groundingMethod)
-            self.mln = self.mrf
-            learner = eval("MLN.learning.%s(self.mrf, **self.params)" % self.constructor)
+            mrf = mln.groundMRF(db, method=groundingMethod, cwAssumption=True)
+            print params
+            learner = eval("MLN.learning.%s(mln, mrf, **params)" % self.constructor)
             self.learners.append(learner)
             learner._prepareOpt()
     

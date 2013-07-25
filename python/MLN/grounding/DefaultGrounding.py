@@ -60,7 +60,7 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
     def _createGroundFormulas(self, verbose=False):
         mrf = self.mrf
         assert len(mrf.gndAtoms) > 0
-        
+
         # generate all groundings
         if verbose: 
             print "Grounding formulas..."
@@ -73,6 +73,6 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
                 if isinstance(gndFormula, fol.TrueFalse):
                     continue
                 mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
-        
-        self.mln.gndFormulas = mrf.gndFormulas
-        self.mln.gndAtomOccurrencesInGFs = mrf.gndAtomOccurrencesInGFs
+        # this is legacy code
+        # self.mln.gndFormulas = mrf.gndFormulas
+        # self.mln.gndAtomOccurrencesInGFs = mrf.gndAtomOccurrencesInGFs

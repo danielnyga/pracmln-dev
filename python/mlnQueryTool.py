@@ -174,7 +174,6 @@ class MLNInfer(object):
                         mrf.writeGraphML(graphml_filename)
                     
                 # invoke inference and retrieve results
-                mrf.printEvidence()
                 mrf.infer(queries, **args)
                 results = {}
                 for gndFormula, p in mrf.getResultsDict().iteritems():
