@@ -36,7 +36,7 @@ import traceback
 import widgets
 from widgets import *
 import configMLN as config
-import MLN
+import mln
 import tkMessageBox
 import subprocess
 import shlex
@@ -70,7 +70,7 @@ def readAlchemyResults(output):
 
 class MLNInfer(object):
     def __init__(self):
-        self.pymlns_methods = MLN.InferenceMethods.getNames()
+        self.pymlns_methods = mln.InferenceMethods.getNames()
         self.alchemy_methods = {"MC-SAT":"-ms", "Gibbs sampling":"-p", "simulated tempering":"-simtp", "MaxWalkSAT (MPE)":"-a", "belief propagation":"-bp"}
         self.jmlns_methods = {"MaxWalkSAT (MPE)":"-mws", "MC-SAT":"-mcsat", "Toulbar2 B&B (MPE)":"-t2"}
         self.alchemy_versions = config.alchemy_versions
@@ -124,7 +124,7 @@ class MLNInfer(object):
                 for s in map(str.strip, query.split(",")):
                     if q != "": q += ','
                     q += s
-                    if MLN.balancedParentheses(q):
+                    if mln.balancedParentheses(q):
                         queries.append(q)
                         q = ""
                 if q != "": raise Exception("Unbalanced parentheses in queries!")
@@ -132,8 +132,8 @@ class MLNInfer(object):
                 # create MLN
                 verbose = True
                 # mln = MLN.MLN(input_files, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
-                mln = MLN.readMLNFromFile(input_files)#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
-                mln.defaultInferenceMethod=MLN.InferenceMethods.byName(method)
+                mln = mln.readMLNFromFile(input_files)#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
+                mln.defaultInferenceMethod=mln.InferenceMethods.byName(method)
                 mln.verbose = verbose
                 # set closed-world predicates
                 for pred in cwPreds:
@@ -221,7 +221,7 @@ class MLNInfer(object):
             # explicitly convert MLN to Alchemy format, i.e. resolve weights that are arithm. expressions (on request) -> create temporary file
             if self.settings["convertAlchemy"]:
                 print "\n--- temporary MLN ---\n"
-                mlnObject = MLN.MLN(input_files)
+                mlnObject = mln.MLN(input_files)
                 infile = input_files[0]
                 infile = infile[:infile.rfind(".")]+".alchemy.mln"
                 f = file(infile, "w")
@@ -267,7 +267,7 @@ class MLNInfer(object):
             owPreds = []
             if self.settings["openWorld"]:
                 print "\nFinding predicate names..."
-                preds = MLN.getPredicateList(infile)
+                preds = mln.getPredicateList(infile)
                 owPreds = filter(lambda x: x not in cwPreds, preds)
                 params += [usage["openWorld"], ",".join(owPreds)]
             if len(cwPreds) > 0:

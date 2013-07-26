@@ -29,7 +29,7 @@ import os
 import re
 import pickle
 import traceback
-import MLN
+import mln
 from widgets import *
 import configMLN as config
 import subprocess
@@ -37,14 +37,14 @@ import shlex
 import tkMessageBox
 from fnmatch import fnmatch
 from pprint import pprint
-from MLN.MarkovLogicNetwork import readMLNFromFile
+from mln.MarkovLogicNetwork import readMLNFromFile
 
 # --- generic learning interface ---
 
 class MLNLearn:
     
     def __init__(self):
-        self.pymlns_methods = MLN.ParameterLearningMeasures.getNames()
+        self.pymlns_methods = mln.ParameterLearningMeasures.getNames()
         self.alchemy_methods = {
             "pseudo-log-likelihood via BFGS": (["-g"], False, "pll"),
             "sampling-based log-likelihood via diagonal Newton": (["-d", "-dNewton"], True, "slldn"),
@@ -127,11 +127,11 @@ class MLNLearn:
             # learn weights
             if type(self.settings["mln"]) == str:
                 mln = readMLNFromFile(self.settings["mln"])
-            elif type(self.settings["mln"] == MLN.MLN):
+            elif type(self.settings["mln"] == mln.MLN):
                 mln = self.settings["mln"]
             else:
                 raise Exception("Argument 'mln' must be either string or MLN object")
-            mln.learnWeights(dbs, method=MLN.ParameterLearningMeasures.byName(method), **args)
+            mln.learnWeights(dbs, method=mln.ParameterLearningMeasures.byName(method), **args)
             # determine output filename
             fname = self.settings["output_filename"]
             mln.write(file(fname, "w"))
@@ -159,7 +159,7 @@ class MLNLearn:
             if discriminative:
                 params += ["-ne", self.settings["nePreds"]]
             elif discriminativeAsGenerative:                    
-                preds = MLN.getPredicateList(self.settings["mln"])
+                preds = mln.getPredicateList(self.settings["mln"])
                 params += ["-ne", ",".join(preds)]
             if not self.settings["addUnitClauses"]:
                 params.append("-noAddUnitClauses")
@@ -401,8 +401,8 @@ class MLNLearnGUI:
         if "" in (mln, db): return
         if self.internalMode:
             engine = "py"
-            method = MLN.ParameterLearningMeasures.byName(self.selected_method.get())
-            method = MLN.ParameterLearningMeasures.getShortName(method).lower()
+            method = mln.ParameterLearningMeasures.byName(self.selected_method.get())
+            method = mln.ParameterLearningMeasures.getShortName(method).lower()
         else:
             engine = "alch"
             method = self.learner.alchemy_methods[self.selected_method.get()][2]

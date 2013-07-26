@@ -24,7 +24,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from Inference import Inference
-from MLN.methods import *
+from mln.methods import *
 from logic.grammar import parseFormula
 
 class IPFPM(Inference):

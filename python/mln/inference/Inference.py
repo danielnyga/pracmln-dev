@@ -25,7 +25,7 @@
 
 import time
 
-from MLN.util import *
+from mln.util import *
 from logic import grammar
 
 

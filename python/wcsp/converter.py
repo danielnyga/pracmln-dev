@@ -29,7 +29,7 @@ from logic.fol import Negation, GroundAtom, GroundLit
 import utils
 from logic.fol import isConjunctionOfLiterals
 from logic.fol import isDisjunctionOfLiterals
-from MLN.database import Database
+from mln.database import Database
 
 class WCSPConverter(object):
     '''

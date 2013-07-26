@@ -21,9 +21,9 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from MLN.inference.Inference import Inference
+from mln.inference.Inference import Inference
 from wcsp.converter import WCSPConverter
-from MLN.util import strFormula
+from mln.util import strFormula
 
 class WCSPInference(Inference):
     

@@ -22,7 +22,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from utils.undo import Number
-from MLN.grounding.bnb import GroundingFactory
+from mln.grounding.bnb import GroundingFactory
 
 
 class BranchAndBound(object):
