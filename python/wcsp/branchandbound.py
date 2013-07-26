@@ -23,6 +23,9 @@
 
 from utils.undo import Number
 from mln.grounding.bnb import GroundingFactory
+from logic import grammar
+from mln.database import Database
+from logic.fol import GroundAtom, Negation
 
 
 class BranchAndBound(object):
@@ -35,6 +38,22 @@ class BranchAndBound(object):
         self.varIdx2GndAtom = {}
         self.gndAtom2VarIndex = {}
         self.createVariables()
+        self.transformFormulas()
+        
+    def transformFormulas(self):
+        self.formulas = []
+        for f in self.mrf.formulas:
+            w = f.weight
+            hard = f.isHard
+            if f.weight < 0:
+                f_ = Negation([f])
+                w = -w
+                f = f_
+            print w, f
+            f = f.toNNF()
+            f.weight = w
+            f.isHard = hard
+            self.formulas.append(f)
         
     def createVariables(self):
         '''
@@ -62,10 +81,19 @@ class BranchAndBound(object):
 #         self._simplifyVariables()
     
     def _getVariableValue(self, varIdx):
-        return self.mrf.evidence[self.varIdx2GndAtom[varIdx][0].idx]
+        '''
+        Returns True/False for binary variables; the True ground atom for
+        mutex constraints, or None if the truth value cannot be determined.
+        '''
+        gndAtoms = self.varIdx2GndAtom[varIdx]
+        if len(gndAtoms) == 1:
+            return gndAtoms[0].isTrue(self.mrf.evidence)
+        else:
+            return next((atom for atom in gndAtoms if atom.isTrue(self.mrf.evidence)), None)
     
     def _isEvidenceVariable(self, varIdx):
-        return self._getVariableValue(varIdx) != None
+        val = self._getVariableValue(varIdx)
+        return type(val) is bool or isinstance(val, GroundAtom)
     
     def _simplifyVariables(self):
         '''
@@ -91,10 +119,12 @@ class BranchAndBound(object):
         
     def search(self):
         self.costs = Number(0.)
-        self.factories = [GroundingFactory(f, self.mrf) for f in self.mrf.formulas]
-        atoms = [i for i, _ in enumerate(self.vars) if self.mrf.evidence[self.varIdx2GndAtom[i][0].idx] == False]
-        atoms.extend([i for i, _ in enumerate(self.vars) if self.mrf.evidence[self.varIdx2GndAtom[i][0].idx] == None])
-        atoms.extend([i for i, _ in enumerate(self.vars) if self.mrf.evidence[self.varIdx2GndAtom[i][0].idx] == True])
+        self.factories = [GroundingFactory(f, self.mrf) for f in self.formulas]
+        atoms = [i for i, _ in enumerate(self.vars) if self._isEvidenceVariable(i)]
+        nonEvidenceVars = [i for i, _ in enumerate(self.vars) if not self._isEvidenceVariable(i)]
+        atoms.extend([v for v in nonEvidenceVars if len(self.varIdx2GndAtom[v]) > 1])
+        atoms.extend([v for v in nonEvidenceVars if len(self.varIdx2GndAtom[v]) == 1])
+#         atoms.extend([i for i, _ in enumerate(self.vars) if self.mrf.evidence[self.varIdx2GndAtom[i][0].idx] == True])
         self._recursive_expand(atoms, 0.)
         
     def _recursive_expand(self, variables, lowerbound):
@@ -119,40 +149,41 @@ class BranchAndBound(object):
             else:
                 truthAssignments.append({gndAtoms[0]: False})
                 truthAssignments.append({gndAtoms[0]: True})
-#         elif len(gndAtoms) > 1: # mutex constraint
-# #             if self._isEvidenceVariable(variable):
-# #                 assignment = dict([(gndAtom, self._getVariableValue(variable)) for gndAtom in gndAtoms])
-#             for trueGndAtom in gndAtoms:
-#                 assignment = dict([(gndAtom, False) for gndAtom in gndAtoms])
-#                 truthAssignments.append(assignment)
-#                 assignment[trueGndAtom] = True
+        elif len(gndAtoms) > 1: # mutex constraint
+            for trueGndAtom in gndAtoms:
+                if trueGndAtom.isTrue(self.mrf.evidence) == False:
+                    continue
+                assignment = dict([(gndAtom, False) for gndAtom in gndAtoms])
+                assignment[trueGndAtom] = True
+                truthAssignments.append(assignment)
         # test the assignments
-        print truthAssignments
+#         print truthAssignments
         for truthAssignment in truthAssignments:
-            print indent + 'testing', truthAssignment
+            print indent + 'testing', truthAssignment, '(lb=%f)' % lowerbound
             # set the temporary evidence
             self.setEvidence(truthAssignment)
             backtrack = []
             doBacktracking = False
+            costs = .0
             for gndAtom in truthAssignment:
-                costs = .0
                 for factory in self.factories:
                     costs += factory.ground(gndAtom)
                     factory.epochEndsHere()
                     backtrack.append(factory) 
-                    print indent + 'LB:' + str(lowerbound + costs)
+#                     print indent + 'LB:' + str(lowerbound + costs)
                     if lowerbound + costs >= self.upperbound:
                         print indent + 'backtracking (C=%.2f >= %.2f=UB)' % (lowerbound + costs, self.upperbound)
                         doBacktracking = True
                         break
                 if doBacktracking: break
-                else:
-                    self._recursive_expand(variables[1:], lowerbound + costs)
+            if not doBacktracking:
+                self._recursive_expand(variables[1:], lowerbound + costs)
             # revoke the groundings of the already grounded factories
             for f in backtrack:
                 f.undoEpoch()
             # remove the evidence
-            self.neutralizeEvidence(truthAssignment)
+            if not self._isEvidenceVariable(variable):
+                self.neutralizeEvidence(truthAssignment)
     
     def setEvidence(self, assignment):
         for gndAtom in assignment:
@@ -163,32 +194,34 @@ class BranchAndBound(object):
             self.mrf._setEvidence(gndAtom.idx, None)
             
 if __name__ == '__main__':
+    from mln.MarkovLogicNetwork import MLN
     
-#     mln = PRACMLN()
-#     mln.declarePredicate('foo', ['x', 'y'])#, functional=[1])
-#     mln.declarePredicate('bar', ['y','z'])
-#     
-#     f = grammar.parseFormula('foo(?x1,?y1) ^ foo(?x2,?y1) ^ bar(?y3,Y) ^ bar(?y3, ?z2)')
-#     mln.addFormula(f, 1)
-#     f = grammar.parseFormula('!foo(?x1,?y1) v !foo(?x2,?y1) v !bar(?y3,Z) v !bar(?y3, ?z2)')
-# #     mln.addFormula(f, 1.1)
-# #    mln.addDomainValue('x', 'Z')
-#     
-#     db = PRACDatabase(mln)
-#     db.addGroundAtom('!foo(X, Fred)')
-#     db.addGroundAtom('!foo(X, Ann)')
-#     db.addGroundAtom('!bar(Fred, Z)')
-#     db.addGroundAtom('bar(Bob, Y)')
-#     
-#     
-#     mrf = mln.groundMRF(db, simplify=False)
-#     
-#     bnb = BranchAndBound(mrf)
-#     bnb.search()
-#     for s in bnb.best_solution:
-#         print s, ':', bnb.best_solution[s]
-#         
-#     exit(0)
+    mln = MLN()
+    mln.declarePredicate('foo', ['x', 'y'], functional=[1])
+    mln.declarePredicate('bar', ['y','z'])
+     
+    f = grammar.parseFormula('foo(?x1,?y1) ^ foo(?x2,?y1) ^ bar(?y3,Y) ^ bar(?y3, ?z2)')
+    mln.addFormula(f, 1)
+    f = grammar.parseFormula('!foo(?x1,?y1) v !foo(?x2,?y1) v !bar(?y3,Y) v !bar(?y3, ?z2)')
+    mln.addFormula(f, 1.1)
+#    mln.addDomainValue('x', 'Z')
+     
+    db = Database(mln)
+    db.addGroundAtom('!foo(X, Fred)')
+    db.addGroundAtom('!foo(X, Ann)')
+    db.addGroundAtom('!bar(Fred, Z)')
+    db.addGroundAtom('bar(Bob, Y)')
+     
+     
+    mrf = mln.groundMRF(db, simplify=False)
+     
+    bnb = BranchAndBound(mrf)
+    bnb.search()
+    print 'optimal solution (cost %f):' % bnb.upperbound
+    for s in sorted(bnb.best_solution):
+        print '', s, ':', bnb.best_solution[s]
+         
+    exit(0)
 #     groundingFactories = [GroundingFactory(f, mrf) for f in mrf.formulas]
 #      
 #     atoms = list(mrf.gndAtoms.keys())

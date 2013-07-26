@@ -1,8 +1,7 @@
-# -*- coding: iso-8859-1 -*-
+# Markov Logic Networks -- Inference
 #
-# Markov Logic Networks
-#
-# (C) 2006-2010 by Dominik Jain (jain@cs.tum.edu)
+# (C) 2006-2013 by Daniel Nyga  (nyga@cs.uni-bremen.de)
+#                  Dominik Jain (jain@cs.tum.edu)
 # 
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -30,9 +29,15 @@ from logic import grammar
 
 
 class Inference(object):
+    '''
+    Represents a super class for all kinds of inference methods.
+    Also provides some convenience methods for collecting statistics
+    about the inference process and nicely outputting results.
+    '''
+    
     def __init__(self, mrf):
         self.mrf = mrf 
-        self.mln = mrf # for backward compatibility (virtually all code uses this)
+        self.mln = mrf.mln # for backward compatibility (virtually all code uses this)
         self.mrfEvidenceBackup = None
         self.t_start = time.time()
     
@@ -58,8 +63,8 @@ class Inference(object):
                         equeries.append(gndFormula[0])
                 else: # just a predicate name
                     try:
-                        for gndPred in self.mln._getPredGroundings(query):
-                            equeries.append(grammar.parseFormula(gndPred).ground(self.mln, {}))
+                        for gndPred in self.mrf._getPredGroundings(query):
+                            equeries.append(grammar.parseFormula(gndPred).ground(self.mrf, {}))
                     except:
                         raise #Exception("Could not expand query '%s'" % query)
                 if len(equeries) - prevLen == 0:
@@ -115,7 +120,10 @@ class Inference(object):
                     self.evidenceBlocks.append(idxBlock)
 
     def _getElapsedTime(self):
-        ''' returns a pair (t,s) where t is the time in seconds elapsed thus far (since construction) and s is a readable string representation thereof '''
+        '''
+        Returns a pair (t,s) where t is the time in seconds elapsed thus 
+        far (since construction) and s is a readable string representation thereof.
+        '''
         elapsed = time.time() - self.t_start
         hours = int(elapsed / 3600)
         elapsed -= hours * 3600
@@ -126,9 +134,10 @@ class Inference(object):
         return (elapsed, "%d:%02d:%02d.%03d" % (hours, minutes, secs, msecs))
 
     def infer(self, queries, given=None, verbose=True, details=False, shortOutput=False, outFile=None, saveResultsProlog=False, **args):
-        
         '''
-            queries: a list of queries - either strings (predicate names or partially/fully grounded atoms) or ground formulas
+        Starts the inference process.
+        queries: a list of queries - either strings 
+                 (predicate names or partially/fully grounded atoms) or ground formulas
         '''
         self.given = given
         
@@ -144,6 +153,7 @@ class Inference(object):
         if verbose:
             if details: print "\nresults:"
             self.writeResults(sys.stdout, shortOutput=shortOutput)
+            print '\ninference took %.2f sec' % self._getElapsedTime()[0]
         if outFile != None:
             self.writeResults(outFile, shortOutput=True, saveResultsProlog=saveResultsProlog)
         
@@ -165,7 +175,10 @@ class Inference(object):
         return dict(zip(self.queries, self.results))
         
     def getTotalInferenceTime(self):
-        ''' returns a pair (t,s) where t is the total inference time in seconds and s is a readable string representation thereof '''
+        '''
+        Returns a pair (t,s) where t is the total inference time 
+        in seconds and s is a readable string representation thereof.
+        '''
         return self.totalInferenceTime
     
     def writeResults(self, out, shortOutput=True, saveResultsProlog=False):

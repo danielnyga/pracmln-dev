@@ -752,7 +752,11 @@ class Biimplication(ComplexFormula):
         c2 = Disjunction([self.children[0], Negation([self.children[1]])])
         return Conjunction([c1,c2]).simplify(mrf)
     
-class Negation(ComplexFormula):    
+class Negation(ComplexFormula):
+    '''
+    Represents a negation of a complex formula.
+    '''
+    
     def __init__(self, children):
         assert len(children) == 1
         self.children = children
@@ -768,9 +772,11 @@ class Negation(ComplexFormula):
     
     def toCNF(self, level=0):
         if DEBUG_NF: print "%-8s %*c%s" % ("neg", level*2, ' ', str(self))
-        # convert the formula that is negated to negation normal form (NNF), so that if it's a complex formula, it will be either a disjunction
+        # convert the formula that is negated to negation normal form (NNF), 
+        # so that if it's a complex formula, it will be either a disjunction
         # or conjunction, to which we can then apply De Morgan's law.
-        # Note: CNF conversion would be unnecessarily complex, and, when the children are negated below, most of it would be for nothing!
+        # Note: CNF conversion would be unnecessarily complex, and, 
+        # when the children are negated below, most of it would be for nothing!
         child = self.children[0].toNNF(level+1)
         # apply negation to child (pull inwards)
         if hasattr(child, 'children'):
@@ -781,6 +787,8 @@ class Negation(ComplexFormula):
                 return Disjunction(neg_children).toCNF(level+1)
             elif type(child) == Disjunction:
                 return Conjunction(neg_children).toCNF(level+1)
+            elif type(child) == Negation:
+                return c.toCNF(level+1)
             else:
                 raise Exception("Unexpected child type %s while converting '%s' to CNF!" % (str(type(child)), str(self)))
         elif type(child) == Lit:
@@ -789,6 +797,8 @@ class Negation(ComplexFormula):
             return GroundLit(child.gndAtom, not child.negated)
         elif type(child) == TrueFalse:
             return TrueFalse(not child.value)
+        elif type(child) == Equality:
+            return Negation([Equality(child.params)])
         else:
             raise Exception("CNF conversion of '%s' failed (type:%s)" % (str(self), str(type(child))))
     
@@ -806,6 +816,8 @@ class Negation(ComplexFormula):
                 return Disjunction(neg_children).toNNF(level+1)
             elif type(child) == Disjunction: # !(A v B) = !A ^ !B
                 return Conjunction(neg_children).toNNF(level+1)
+            elif type(child) == Negation:
+                return c.toNNF(level+1)
             # !(A => B) = A ^ !B     
             # !(A <=> B) = (A ^ !B) v (B ^ !A)
             else:
@@ -817,6 +829,8 @@ class Negation(ComplexFormula):
             return GroundLit(child.gndAtom, not child.negated)
         elif type(child) == TrueFalse:
             return TrueFalse(not child.value)
+        elif type(child) == Equality:
+            return Negation([Equality(child.params)])
         else:
             raise Exception("NNF conversion of '%s' failed (type:%s)" % (str(self), str(type(child))))
 
@@ -889,21 +903,25 @@ class Exist(ComplexFormula):
         raise Exception("'%s' does not implement isTrue()")
 
 class Equality(Formula):
+    '''
+    Represents equality constraints between two symbols.
+    '''
+    
     def __init__(self, params):
-        assert len(params)==2
+        assert len(params) == 2
         self.params = params
 
     def __str__(self):
         return "%s=%s" % (str(self.params[0]), str(self.params[1]))
 
     def ground(self, mrf, assignment, referencedGndAtoms = None, simplify=False, allowPartialGroundings=False):
-        params = map(lambda x: assignment.get(x, x), self.params) # if the parameter is a variable, do a lookup (it must be bound by now), otherwise it's a constant which we can use directly
+        # if the parameter is a variable, do a lookup (it must be bound by now), 
+        # otherwise it's a constant which we can use directly
+        params = map(lambda x: assignment.get(x, x), self.params) 
         if isVar(params[0]) or isVar(params[1]):
             if allowPartialGroundings:
                 return Equality(params)
             else: raise Exception("At least one variable was not grounded in '%s'!" % str(self))
-#        params = map(lambda x: {True: assignment.get(x), False: x}[isVar(x[0])], self.params) # if the parameter is a variable, do a lookup (it must be bound by now), otherwise it's a constant which we can use directly
-#        if None in params: raise Exception("At least one variable was not grounded in '%s'!" % str(self))
         return TrueFalse(params[0] == params[1])
 
     def _groundTemplate(self, assignment):
@@ -925,11 +943,11 @@ class Equality(Formula):
                     constants[domain].append(p)
         return vars
     
-    def toNNF(self, level=0):
-        return 
+    def isTrue(self, world_values):
+        return self.params[0] == self.params[1]
     
     def getVarDomain(self, varname, mln):
-        return None
+        raise Exception('Variables in equality constraints are not typed.')
 
 class TrueFalse(Formula):
     '''

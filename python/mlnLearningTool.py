@@ -38,6 +38,7 @@ import tkMessageBox
 from fnmatch import fnmatch
 from pprint import pprint
 from mln.MarkovLogicNetwork import readMLNFromFile
+from mln.methods import ParameterLearningMeasures
 
 # --- generic learning interface ---
 
@@ -131,7 +132,7 @@ class MLNLearn:
                 mln = self.settings["mln"]
             else:
                 raise Exception("Argument 'mln' must be either string or MLN object")
-            mln.learnWeights(dbs, method=mln.ParameterLearningMeasures.byName(method), **args)
+            mln.learnWeights(dbs, method=ParameterLearningMeasures.byName(method), **args)
             # determine output filename
             fname = self.settings["output_filename"]
             mln.write(file(fname, "w"))

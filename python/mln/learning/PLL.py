@@ -23,11 +23,11 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from MLN.util import *
+from mln.util import *
 from AbstractLearner import *
 
 import re
-from MLN.learning.AbstractLearner import SoftEvidenceLearner
+from mln.learning.AbstractLearner import SoftEvidenceLearner
 
 
 # TODO Note: when counting diffs (PLL), the assumption is made that no formula contains two atoms that are in the same block
@@ -71,9 +71,9 @@ class PLL(AbstractLearner):
         block = None
         if idxGndAtom in self.mln.gndBlockLookup and self.pmbMethod != 'old':
             blockname = self.mln.gndBlockLookup[idxGndAtom]
-            block = self.mln.gndBlocks[blockname] # list of gnd atom indices that are in the block
-            sums = [0 for i in range(len(block))] # init sum of weights for each possible assignment of block
-                                                  # sums[i] = sum of weights for assignment where the block[i] is set to true
+            block = self.mln.gndBlocks[blockname]   # list of gnd atom indices that are in the block
+            sums = [0 for i in range(len(block))]   # init sum of weights for each possible assignment of block
+                                                    # sums[i] = sum of weights for assignment where the block[i] is set to true
             idxBlockMainGA = block.index(idxGndAtom)
             # find out which one of the ground atoms in the block is true
             idxGATrueone = -1

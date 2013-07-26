@@ -24,6 +24,7 @@
 from utils.undo import Ref, Number, List, ListDict
 from logic import fol, grammar
 import utils
+from logic.fol import Equality
 
 
 class FormulaGrounding(object):
@@ -79,9 +80,7 @@ class FormulaGrounding(object):
         '''
         gf_count = 1
         for var in self.formula.getVariables(self.mrf):
-            domain = self.mrf.domains[self.formula.getVarDomain(var, self.mrf)]#self.domains[var]
-#             if domain is None: 
-#                 return 0
+            domain = self.mrf.domains[self.formula.getVarDomain(var, self.mrf)]
             gf_count *= len(domain)
         return gf_count
     
@@ -202,7 +201,6 @@ class GroundingFactory(object):
             if assignment is not None:
                 utils.unifyDicts(var_assignments, assignment)
         cost = .0
-#         self.printTree()
         # first evaluate formula groundings that contain 
         # this gnd atom as an artifact
         min_depth = None
@@ -210,15 +208,12 @@ class GroundingFactory(object):
         for fg in self.gndAtom2fgs.get(gndAtom, []):
             if len(self.variable_stack) <= fg.depth:
                 continue
-#             print 'processing artifact:', fg, fg.depth, self.variable_stack[fg.depth]
             # yes, this is a dirty hack; but it needs substantial amount of 
             # refactoring of the FOL.isTrue method to resolve it:
             tmpGrounding = fg.formula.ground(fg.mrf, {}, allowPartialGroundings=True, simplify=True)
             tmpGrounding.weight = fg.formula.weight
-#             fg.formula = tmpGrounding
             truth = tmpGrounding.isTrue(fg.mrf.evidence)
             if truth is not None:
-#                 print 'costs', fg.costs.value, 'reverted'
                 cost -= fg.costs.value
                 if self.var2fgs.contains(self.variable_stack[fg.depth], fg):
                     self.var2fgs.drop(self.variable_stack[fg.depth], fg)
@@ -232,37 +227,23 @@ class GroundingFactory(object):
                     min_depth_fgs = []
                     min_depth_fgs.append(fg)
         for fg in min_depth_fgs:
-            # remove all variable values from the domain that
-            # have been already processed for this subtree
-#             for var in self.variable_stack[min_depth+1:]:
-#                 for val in self.values_processed[var]:
-#                     if fg.parent.obj.domains.contains(var, val):
-#                         fg.parent.obj.domains.drop(var, val)
             # add the costs which are aggregated by the root of the subtree 
             if not fg.formula.isTrue(fg.mrf.evidence):
                 cost += fg.formula.weight * fg.countGroundings()
-#                 print 'updated costs', fg.formula.weight * fg.countGroundings()
                 fg.costs.set(cost)
                 if not fg in self.manipulatedFgs:
                     self.manipulatedFgs.append(fg)
         # straighten up the variable stack and formula groundings
         # since they might have become empty
         for var in list(self.variable_stack):
-#             print 'tidying up for', var
             if self.var2fgs.get(var, None) is None:
-#                 print 'removing', var, 'from', self.variable_stack
                 self.variable_stack.remove(var)
-#         self.printTree()
         for var, value in var_assignments.iteritems():
-#             print 'processing', var, value
             # skip the variables with values that have already been processed
             if not var in self.variable_stack:
                 depth = len(self.variable_stack)
             else:
                 depth = self.variable_stack.index(var)
-#             indent = ''
-#             for _ in range(depth):
-#                 indent += '   '
             queue = list(self.var2fgs[self.variable_stack[depth - 1]])
             while len(queue) > 0:
                 fg = queue.pop()
@@ -288,7 +269,6 @@ class GroundingFactory(object):
                 for var_value in vars_and_values:
                     for var_name, val in var_value.iteritems(): break
                     if not fg.domains.contains(var_name, val): continue
-#                     print indent + 'binding', var_name,'to', val,'@depth:', fg.depth, 'in', fg
                     fg.domains.drop(var_name, val)
                     gnd_result = fg.ground(var_value)
                     # if the truth value of a grounding cannot be determined...
@@ -298,18 +278,17 @@ class GroundingFactory(object):
                         artifactGndAtoms = []
                         gnd_result.formula.getGroundAtoms(artifactGndAtoms)
                         for artGndAtom in artifactGndAtoms:
-#                             print indent + 'artifact detected in', gnd_result
                             self.gndAtom2fgs.put(artGndAtom, gnd_result)
                         if not var_name in self.variable_stack:
                             self.variable_stack.append(var_name)
                         self.var2fgs.put(self.variable_stack[gnd_result.depth], gnd_result)
                         queue.append(gnd_result)
                     else: # ...otherwise it's true/false; add its costs and discard it.
-#                         print indent + 'caused %.2f costs' % gnd_result
+                        if self.formula.isHard and gnd_result > 0.:
+                            gnd_result = float('inf')
                         cost += gnd_result
                     if not fg in self.manipulatedFgs:
                         self.manipulatedFgs.append(fg)
-#             self.printTree()
             self.values_processed.put(var, value)
         return cost
     

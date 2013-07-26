@@ -26,6 +26,7 @@
 from mln.util import *
 import mln
 import optimize
+from mln.methods import ParameterLearningMeasures
 try:
     import numpy
 except:
@@ -275,22 +276,22 @@ class MultipleDatabaseLearner(AbstractLearner):
     learns from multiple databases using an arbitrary sub-learning method for each database, assuming independence between individual databases
     '''
     
-    def __init__(self, mln, method, dbs, verbose=True, **params):
+    def __init__(self, mln_, method, dbs, verbose=True, **params):
         '''
         dbs: list of tuples (domain, evidence) as returned by the database reading method
         '''
         AbstractLearner.__init__(self, mln, None, **params)
-        self.mln = mln
+        self.mln = mln_
         self.dbs = dbs
-        self.constructor = mln.ParameterLearningMeasures.byShortName(method)
+        self.constructor = ParameterLearningMeasures.byShortName(method)
         self.params = params
         self.learners = []
         for i, db in enumerate(self.dbs):
-            groundingMethod = eval('MLN.learning.%s.groundingMethod' % self.constructor)
+            groundingMethod = eval('mln.learning.%s.groundingMethod' % self.constructor)
             print "grounding MRF for database %d/%d using %s..." % (i+1, len(self.dbs), groundingMethod)
-            mrf = mln.groundMRF(db, method=groundingMethod, cwAssumption=True)
+            mrf = mln_.groundMRF(db, method=groundingMethod, cwAssumption=True)
             print params
-            learner = eval("MLN.learning.%s(mln, mrf, **params)" % self.constructor)
+            learner = eval("mln.learning.%s(mln_, mrf, **params)" % self.constructor)
             self.learners.append(learner)
             learner._prepareOpt()
     

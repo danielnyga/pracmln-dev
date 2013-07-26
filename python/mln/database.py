@@ -32,6 +32,11 @@ class Database(object):
     '''
     Represents an MLN Database, which is a set of ground literals (i.e. ground
     atoms or negated ground atoms)
+    Members:
+    - mln:        the respective MLN object that this Database is associated to
+    - domains:    the variable domain specific to this data base (i.e. without
+                  values from the MLN domains which are not present in the DB.
+    - evidence    dictionary mapping ground atom strings to truth values
     '''
     
     def __init__(self, mln):
@@ -40,7 +45,7 @@ class Database(object):
         self.evidence = {}
         self.softEvidence = []
         self.includeNonExplicitDomains = True
-                            
+
     def addGroundAtom(self, gndLit):
         '''
         Adds the fact represented by the ground atom, which might be
@@ -48,10 +53,7 @@ class Database(object):
         instance are updated accordingly, if necessary. 
         '''
         if type(gndLit) is str:
-            f = parseLiteral(gndLit)
-            predName = f.predName
-            params = f.params
-            isTrue = not f.negated
+            isTrue, predName, params = parseLiteral(gndLit)
             atomString = "%s(%s)" % (predName, ",".join(params))
         elif isinstance(gndLit, GroundLit):
             atomString = gndLit.gndAtom

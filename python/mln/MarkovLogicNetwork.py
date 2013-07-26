@@ -24,7 +24,8 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from mln.database import Database, readDBFromFile
 import logic
-from logic.grammar import predDecl
+from logic.grammar import predDecl, parseFormula
+from mln.inference.bnbinference import BnBInference
 
 '''
 Your MLN files may contain:
@@ -67,14 +68,11 @@ To learn factors rather than regular weights, use "LL_fac" rather than "LL" as t
 
 DEBUG = False
 
-import math
-import re
 import sys
 import os
 import random
 import time
 import traceback
-import pickle
 
 sys.setrecursionlimit(10000)
 
@@ -144,36 +142,123 @@ class MLN(object):
         self.formulaGroups = []
         self.closedWorldPreds = []
         self.learnWtsMode = None
-        
+        self.templateIdx2GroupIdx = {}
         self.vars = {}
         self.allSoft = False
         self.fixedWeightFormulas = []
+        self.fixedWeightTemplateIndices = []
+        self.materializedTemplates = False
 
-    def __getattr__(self, attr):
-        # forward inference calls to the MRF (for backward compatibility)
-        if attr[:5] == "infer":
-            return self.mrf.__getattribute__(attr)
+#     def __getattr__(self, attr):
+#         # forward inference calls to the MRF (for backward compatibility)
+#         if attr[:5] == "infer":
+#             return self.mrf.__getattribute__(attr)
+        
+    def declarePredicate(self, name, domains, functional=None):
+        '''
+        Adds a predicate declaration to the MLN:
+        - name:        name of the predicate (string)
+        - domains:     list of domain names of arguments
+        - functional:  indices of args which are functional (optional)
+        '''
+        if name in self.predicates.keys():
+            raise Exception('Predicate "%s" has already been declared' % name)
+        assert type(domains) == list
+        self.predicates[name] = domains
+        # update domains
+        for dom in domains:
+            if not dom in self.domains: self.domains[dom] = []
+        if functional is not None:
+            func = [(i in functional) for i, _ in enumerate(domains)]
+            self.blocks[name] = func
+            
+    def addDomainValue(self, domain, value):
+        '''
+        Appends a new value to the specified domain.
+        '''
+        dom = self.domains.get(domain, None)
+        if dom is None:
+            dom = []
+            self.domains[domain] = dom
+        if not value in dom:
+            dom.append(value)
+    
+    def loadPRACDatabases(self, dbPath):
+        '''
+        Loads and returns all databases (*.db files) that are located in 
+        the given directory and returns the corresponding Database objects.
+        - dbPath:     the directory path to look for .db files
+        '''
+        dbs = []
+#        senses = set()
+        for dirname, dirnames, filenames in os.walk(dbPath): #@UnusedVariable
+            for f in filenames:
+                if not f.endswith('.db'):
+                    continue
+                p = os.path.join(dirname, f)
+                print "  reading database %s" % p
+                db = Database(self, p)
+#                senses.update(db.domains['sense'])
+                dbs.append(db)
+        print "  %d databases read" % len(dbs)
+        return dbs
+    
+    def addFormula(self, formula, weight=0, hard=False, fixWeight=False):
+        '''
+        Add a formula to this MLN. The respective domains of constants
+        are updated, if necessary.
+        '''
+        self._addFormula(formula, self.formulas, weight, hard, fixWeight)
+    
+    def addFormulaTemplate(self, formula, weight=0, hard=False, fixWeight=False):
+        '''
+        Add a formula template (i.e. formulas with '+' operators) to the MLN.
+        Domains are updated, if necessary.
+        '''
+        self._addFormula(formula, self.formula_templates, weight, hard, fixWeight)
+        
+    def _addFormula(self, formula, formulaSet, weight=0, hard=False, fixWeight=False):
+        '''
+        Adds the given formula to the MLN and extends the respective domains, if necessary.
+        - formula:    a FOL.Formula object or a string
+        - weight:     weight of the formula
+        - hard:       determines if the formula is hard
+        - fixWeight:  determines if the weight of the formula is fixed
+        '''
+        if self.materializedTemplates:
+            raise Exception('Formula templates have already been materialized. Adding new formulas is no longer possible.')
+        if type(formula) is str:
+            formula = parseFormula(formula)
+        formula.weight = weight
+        formula.isHard = hard
+        idxTemplate = len(formulaSet)
+        if fixWeight:
+            self.fixedWeightTemplateIndices.append(idxTemplate)
+        formulaSet.append(formula)
+        # extend domains
+        constants = {}
+        formula.getVariables(self, None, constants)
+        for domain, constants in constants.iteritems():
+            for c in constants: 
+                self.addConstant(domain, c)
 
     def materializeFormulaTemplates(self, dbs):
         '''
-            dbs: list of Database objects
+        Expand all formula templates.
+        - dbs: list of Database objects
         '''
-        
         # obtain full domain with all objects 
         fullDomain = mergeDomains(self.domains, *[db.domains for db in dbs])
-        
         # expand formula templates
         oldDomains = self.domains
         self.domains = fullDomain
         self._materializeFormulaTemplates()
         self.domains = oldDomains
-        
         # permanently transfer domains of variables that were expanded from templates
         for ft in self.formulaTemplates:
             domNames = ft._getTemplateVariables(self).values()
             for domName in domNames:
                 self.domains[domName] = fullDomain[domName]
-                #print "permanent domain %s: %s" % (domName, fullDomain[domName])
 
     def _materializeFormulaTemplates(self, verbose=False):
         if self.materializedTemplates:
@@ -402,7 +487,7 @@ class MLN(object):
         '''
         # extend domain
         db = Database(self, dbfile)
-        domain, evidence = db.domains, db.evidence
+        domain, _ = db.domains, db.evidence
         for domName, dbd in domain.iteritems():
             if domName not in self.domains:
                 self.domains[domName] = []
@@ -466,8 +551,8 @@ class MLN(object):
         self.setWeights(wt)
 
         # delete worlds from learning
-        if hasattr(self.mrf, "worlds"):
-            del self.mrf.worlds
+#         if hasattr(self.mrf, "worlds"):
+#             del self.mrf.worlds
 
         # fit prior prob. constraints if any available
         if len(self.probreqs) > 0:
@@ -588,6 +673,13 @@ class MRF(object):
         else:
             raise Exception("Not a valid database argument (type %s)" % (str(type(db))))
 
+        self.closedWorldPreds = list(mln.closedWorldPreds)
+        self.probreqs = list(mln.probreqs)
+        self.posteriorProbReqs = list(mln.posteriorProbReqs)
+        self.predicates = mln.predicates
+        self.templateIdx2GroupIdx = mln.templateIdx2GroupIdx
+        print self.templateIdx2GroupIdx
+
         # get combined domain
         self.domains = mergeDomains(mln.domains, db.domains)
 
@@ -599,10 +691,6 @@ class MRF(object):
         # materialize formula weights
         self._materializeFormulaWeights(verbose)
 
-        self.closedWorldPreds = list(mln.closedWorldPreds)
-        self.probreqs = list(mln.probreqs)
-        self.posteriorProbReqs = list(mln.posteriorProbReqs)
-        self.predicates = mln.predicates
         
         # grounding
         groundingMethod = eval('%s(self, db)' % groundingMethod)
@@ -1497,6 +1585,8 @@ class MRF(object):
             return self._infer(EnumerationAsk(self), what, given, verbose=verbose, **args)
         elif defaultMethod == InferenceMethods.WCSP:
             return self.inferWCSP(what, given, verbose, **args)
+        elif defaultMethod == InferenceMethods.BnB:
+            return self.inferBnB(what, given, verbose, **args)
         else:
             raise Exception("Unknown inference method '%s'. Use a member of InferenceMethods!" % str(self.defaultInferenceMethod))
 
@@ -1530,6 +1620,9 @@ class MRF(object):
         Perform WCSP (MPE) inference on the MLN.
         '''
         return self._infer(WCSPInference(self), what, given, verbose, **args)
+    
+    def inferBnB(self, what, given=None, verbose=True, **args):
+        return self._infer(BnBInference(self), what, given, verbose, **args)
 
     def _infer(self, inferObj, what, given=None, verbose=True, doProbabilityFitting=True, **args):
         # if there are prior probability constraints, apply them first
@@ -1793,7 +1886,6 @@ def readMLNFromFile(filename_or_list, verbose=False):
             for c in constants: mln.addConstant(domain, c)
     
     # save data on formula templates for materialization
-    mln.materializedTemplates = False
     mln.formulas = formulatemplates
     mln.templateIdx2GroupIdx = templateIdx2GroupIdx
     mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices

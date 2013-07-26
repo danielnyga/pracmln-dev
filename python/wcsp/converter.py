@@ -23,7 +23,6 @@
 
 import bisect
 from wcsp import WCSP
-import sys
 from wcsp import Constraint
 from logic.fol import Negation, GroundAtom, GroundLit
 import utils

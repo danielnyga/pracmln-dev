@@ -40,6 +40,9 @@ import mln
 import tkMessageBox
 import subprocess
 import shlex
+from mln.util import balancedParentheses
+from mln.MarkovLogicNetwork import readMLNFromFile
+from mln.methods import InferenceMethods
 
 def config_value(key, default):
     if key in dir(config):
@@ -124,7 +127,7 @@ class MLNInfer(object):
                 for s in map(str.strip, query.split(",")):
                     if q != "": q += ','
                     q += s
-                    if mln.balancedParentheses(q):
+                    if balancedParentheses(q):
                         queries.append(q)
                         q = ""
                 if q != "": raise Exception("Unbalanced parentheses in queries!")
@@ -132,8 +135,8 @@ class MLNInfer(object):
                 # create MLN
                 verbose = True
                 # mln = MLN.MLN(input_files, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
-                mln = mln.readMLNFromFile(input_files)#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
-                mln.defaultInferenceMethod=mln.InferenceMethods.byName(method)
+                mln = readMLNFromFile(input_files)#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
+                mln.defaultInferenceMethod = InferenceMethods.byName(method)
                 mln.verbose = verbose
                 # set closed-world predicates
                 for pred in cwPreds:
