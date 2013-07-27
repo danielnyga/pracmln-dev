@@ -21,7 +21,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from utils.undo import Ref, Number, List, ListDict
+from utils.undo import Ref, Number, List, ListDict, Boolean
 from logic import fol, grammar
 import utils
 from logic.fol import Equality
@@ -51,6 +51,7 @@ class FormulaGrounding(object):
         self.formula = formula
         self.parent = Ref(parent)
         self.costs = Number(0.)
+        self.processed = Boolean(False)
         if parent is None:
             self.depth = 0
         else:
@@ -66,11 +67,11 @@ class FormulaGrounding(object):
                 self.domains.extend(v, list(d))
                 
     def epochEndsHere(self):
-        for mem in (self.parent, self.costs, self.children, self.domains):
+        for mem in (self.parent, self.costs, self.children, self.domains, self.processed):
             mem.epochEndsHere()
         
     def undoEpoch(self):
-        for mem in (self.parent, self.costs, self.children, self.domains):
+        for mem in (self.parent, self.costs, self.children, self.domains, self.processed):
             if not mem.isReset(): mem.undoEpoch()
             
     def countGroundings(self):
@@ -208,12 +209,18 @@ class GroundingFactory(object):
         for fg in self.gndAtom2fgs.get(gndAtom, []):
             if len(self.variable_stack) <= fg.depth:
                 continue
+            if fg.processed.value:
+                print fg.parent.obj.formula, '->', fg.formula, 'has already been processed'
+                continue
             # yes, this is a dirty hack; but it needs substantial amount of 
             # refactoring of the FOL.isTrue method to resolve it:
             tmpGrounding = fg.formula.ground(fg.mrf, {}, allowPartialGroundings=True, simplify=True)
             tmpGrounding.weight = fg.formula.weight
             truth = tmpGrounding.isTrue(fg.mrf.evidence)
             if truth is not None:
+                if not fg in self.manipulatedFgs:
+                    self.manipulatedFgs.append(fg)
+                fg.processed.set(True)
                 cost -= fg.costs.value
                 if self.var2fgs.contains(self.variable_stack[fg.depth], fg):
                     self.var2fgs.drop(self.variable_stack[fg.depth], fg)

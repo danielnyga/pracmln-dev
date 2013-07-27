@@ -153,6 +153,20 @@ class ListEmpty(UndoableAction):
     def undo(self):
         self.struct.list = self.oldList
 
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Undoable Actions - BooleanSet
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+class BooleanSet(UndoableAction):
+    
+    def do(self, isTrue):
+        self.value = self.struct.value
+        self.struct.value = isTrue
+        
+    def undo(self):
+        self.struct.value = self.value
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Undoable Actions - ListDict
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -449,6 +463,22 @@ class Number(Undoable):
     
     def __str__(self):
         return str(self.value)
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Undoable Structures - Boolean
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+class Boolean(Undoable):
+    '''
+    Boolean supporting undo operations.
+    '''
+    
+    def __init__(self, isTrue):
+        Undoable.__init__(self)
+        self.value = isTrue
+        
+    def set(self, isTrue):
+        self.do(BooleanSet(self), isTrue)
                 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Undoable Structures - List
@@ -544,6 +574,15 @@ if __name__ == '__main__':
     print r.obj
     r.undo()
     print r
+    
+    b = Boolean(False)
+    b.set(True)
+    b.set(True)
+    b.set(False)
+    print b.value
+    while not b.isReset():
+        b.undo()
+        print b.value
    
         
         

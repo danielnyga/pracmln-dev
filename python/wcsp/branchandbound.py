@@ -176,6 +176,7 @@ class BranchAndBound(object):
                         doBacktracking = True
                         break
                 if doBacktracking: break
+            
             if not doBacktracking:
                 self._recursive_expand(variables[1:], lowerbound + costs)
             # revoke the groundings of the already grounded factories
