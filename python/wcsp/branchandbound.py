@@ -39,6 +39,7 @@ class BranchAndBound(object):
         self.gndAtom2VarIndex = {}
         self.createVariables()
         self.transformFormulas()
+        self.evidence = dict([(a.idx, a.isTrue(mrf.evidence)) for a in mrf.gndAtoms.values()])
         
     def transformFormulas(self):
         self.formulas = []
@@ -78,7 +79,6 @@ class BranchAndBound(object):
                 self.vars.append(str(gndAtom))
                 self.gndAtom2VarIndex[gndAtom] = varIdx
                 self.varIdx2GndAtom[varIdx] = [gndAtom]
-#         self._simplifyVariables()
     
     def _getVariableValue(self, varIdx):
         '''
@@ -87,35 +87,13 @@ class BranchAndBound(object):
         '''
         gndAtoms = self.varIdx2GndAtom[varIdx]
         if len(gndAtoms) == 1:
-            return gndAtoms[0].isTrue(self.mrf.evidence)
+            return gndAtoms[0].isTrue(self.evidence)
         else:
-            return next((atom for atom in gndAtoms if atom.isTrue(self.mrf.evidence)), None)
+            return next((atom for atom in gndAtoms if atom.isTrue(self.evidence)), None)
     
     def _isEvidenceVariable(self, varIdx):
         val = self._getVariableValue(varIdx)
         return type(val) is bool or isinstance(val, GroundAtom)
-    
-    def _simplifyVariables(self):
-        '''
-        Removes variables that are already given by the evidence.
-        '''
-        sf_varIdx2GndAtoms = {}
-        sf_gndAtom2VarIdx = {}
-        sf_vars = []
-        evidence = [i for i, e in enumerate(self.mrf.evidence) if e is not None]
-        for varIdx, var in enumerate(self.vars):
-            gndAtoms = self.varIdx2GndAtom[varIdx]
-            unknownVars = filter(lambda x: x.idx not in evidence, gndAtoms)
-            if len(unknownVars) > 0:
-                # all gndAtoms are set by the evidence: remove the variable
-                sfVarIdx = len(sf_vars)
-                sf_vars.append(var)
-                for gndAtom in self.varIdx2GndAtom[varIdx]:
-                    sf_gndAtom2VarIdx[gndAtom] = sfVarIdx
-                sf_varIdx2GndAtoms[sfVarIdx] = self.varIdx2GndAtom[varIdx]
-        self.vars = sf_vars
-        self.gndAtom2VarIndex = sf_gndAtom2VarIdx
-        self.varIdx2GndAtom = sf_varIdx2GndAtoms
         
     def search(self):
         self.costs = Number(0.)
@@ -124,6 +102,7 @@ class BranchAndBound(object):
         nonEvidenceVars = [i for i, _ in enumerate(self.vars) if not self._isEvidenceVariable(i)]
         atoms.extend([v for v in nonEvidenceVars if len(self.varIdx2GndAtom[v]) > 1])
         atoms.extend([v for v in nonEvidenceVars if len(self.varIdx2GndAtom[v]) == 1])
+        self.mrf._clearEvidence()
 #         atoms.extend([i for i, _ in enumerate(self.vars) if self.mrf.evidence[self.varIdx2GndAtom[i][0].idx] == True])
         self._recursive_expand(atoms, 0.)
         
@@ -161,30 +140,32 @@ class BranchAndBound(object):
         for truthAssignment in truthAssignments:
             print indent + 'testing', truthAssignment, '(lb=%f)' % lowerbound
             # set the temporary evidence
-            self.setEvidence(truthAssignment)
-            backtrack = []
+#             self.setEvidence(truthAssignment)
+            backtrack = {}
             doBacktracking = False
             costs = .0
-            for gndAtom in truthAssignment:
+            evidence = []
+            for gndAtom, truth in truthAssignment.iteritems():
+                self.setEvidence({gndAtom: truth})
+                evidence.append(gndAtom)
                 for factory in self.factories:
                     costs += factory.ground(gndAtom)
                     factory.epochEndsHere()
-                    backtrack.append(factory) 
+#                     print factory.manipulatedFgs
+                    backtrack[factory] = backtrack.get(factory, 0) + 1
 #                     print indent + 'LB:' + str(lowerbound + costs)
-                    if lowerbound + costs >= self.upperbound:
-                        print indent + 'backtracking (C=%.2f >= %.2f=UB)' % (lowerbound + costs, self.upperbound)
-                        doBacktracking = True
-                        break
-                if doBacktracking: break
-            
-            if not doBacktracking:
+            if lowerbound + costs < self.upperbound:
                 self._recursive_expand(variables[1:], lowerbound + costs)
+                doBacktracking = True
+            else:
+                print indent + 'backtracking (C=%.2f >= %.2f=UB)' % (lowerbound + costs, self.upperbound)
             # revoke the groundings of the already grounded factories
-            for f in backtrack:
-                f.undoEpoch()
+            for f in self.factories:
+                for _ in range(len(truthAssignment)): 
+                    f.undoEpoch()
             # remove the evidence
-            if not self._isEvidenceVariable(variable):
-                self.neutralizeEvidence(truthAssignment)
+            for e in evidence:
+                self.neutralizeEvidence({e: None})
     
     def setEvidence(self, assignment):
         for gndAtom in assignment:

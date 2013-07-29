@@ -859,11 +859,11 @@ class MRF(object):
         '''
         Erases the evidence in this MRF.
         '''
-        self.evidence = [None for _ in range(len(self.gndAtoms))]
+        self.evidence = [None] * len(self.gndAtoms)#dict([(i, None) for i in range(len(self.gndAtoms))])
 
     def getEvidenceDatabase(self):
         '''
-            returns, from the current evidence list, a dictionary that maps ground atom names to truth values
+        returns, from the current evidence list, a dictionary that maps ground atom names to truth values
         '''
         d = {}
         for idxGA, tv in enumerate(self.evidence):

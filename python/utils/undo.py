@@ -69,14 +69,14 @@ class Undoable(object):
         '''
         if len(self.actionStack) == 0:
             raise Exception('There is nothing to be undone.')
-        separator = False
+        if self.actionStack[-1] is not None:
+            raise Exception('Epochs must be terminated by a separator.')
+        self.actionStack.pop()
         while len(self.actionStack) > 0:
             action = self.actionStack.pop()
-            if action is None and separator: 
-                self.actionStack.append(None)
+            if action is None:
+                self.actionStack.append(None) 
                 return
-            elif action is None and not separator: 
-                separator = True
             else:
                 action.undo()
     
@@ -216,10 +216,18 @@ class ListDictSetItem(UndoableAction):
     
     def do(self, key, el):
         self.key = key
+        if not key in self.struct.d:
+            self.none = True
+        else:
+            self.none = False
+        self.oldValue = self.struct.d.get(key, None)
         self.struct.d[key] = el
         
     def undo(self):
-        del self.struct.d[self.key]
+        if self.none:
+            del self.struct.d[self.key]
+        else:
+            self.struct.d[self.key] = self.oldValue
 
 class ListDictDelete(UndoableAction):
     
@@ -245,7 +253,7 @@ class ListDictRemove(UndoableAction):
             
     def undo(self):
         l = self.struct.d.get(self.key, None)
-        if l is None:
+        if not self.key in self.struct.d:
             self.struct.d[self.key] = self.l
         self.l.insert(self.idx, self.el)
 
@@ -545,16 +553,27 @@ if __name__ == '__main__':
     d.put('b', 4)
     print d
     d.put('b', 4)
-    d.epochEndsHere()
     print d
     d.put('b', 4)
     print d
     d.put('b', 4)
+    print d
+    d.drop('a', 2)
     print d
     print len(d)
     while not d.isReset():
-        d.undoEpoch()
+        d.undo()
         print d
+        
+    l = List()
+    l.append(1)
+    l.append(2)
+    l.clear()
+    l.append(1)
+    print l
+    l.undo()
+    l.undo()
+    print l
     
     # test the Number history
     n = Number(0)

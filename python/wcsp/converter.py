@@ -83,10 +83,8 @@ class WCSPConverter(object):
         evidence = [i for i, e in enumerate(self.mrf.evidence) if e is not None]
         for varIdx, var in enumerate(self.vars):
             gndAtoms = self.varIdx2GndAtom[varIdx]
-#            print map(str,gndAtoms)
             if len(filter(lambda x: x.idx not in evidence, gndAtoms)) > 0:
                 # all gndAtoms are set by the evidence: remove the variable
-#                print 'simplified', map(str,gndAtoms)
                 sfVarIdx = len(sf_vars)
                 sf_vars.append(var)
                 for gndAtom in self.varIdx2GndAtom[varIdx]:
@@ -186,6 +184,8 @@ class WCSPConverter(object):
         f_.isHard = f.isHard 
         idxGndAtoms = f_.idxGroundAtoms()
         gndAtoms = map(lambda x: self.mrf.gndAtomsByIdx[x], idxGndAtoms)
+        print gndAtoms
+        print self.gndAtom2VarIndex
         varIndices = set(map(lambda x: self.gndAtom2VarIndex[x], gndAtoms))
         varIndices = tuple(sorted(varIndices))
         if f_.isHard:
