@@ -126,8 +126,8 @@ class BranchAndBound(object):
             if self._isEvidenceVariable(variable):
                 truthAssignments.append({gndAtoms[0]: self._getVariableValue(variable)})
             else:
-                truthAssignments.append({gndAtoms[0]: False})
                 truthAssignments.append({gndAtoms[0]: True})
+                truthAssignments.append({gndAtoms[0]: False})
         elif len(gndAtoms) > 1: # mutex constraint
             for trueGndAtom in gndAtoms:
                 if trueGndAtom.isTrue(self.mrf.evidence) == False:
@@ -151,18 +151,19 @@ class BranchAndBound(object):
                 for factory in self.factories:
                     costs += factory.ground(gndAtom)
                     factory.epochEndsHere()
-#                     print factory.manipulatedFgs
                     backtrack[factory] = backtrack.get(factory, 0) + 1
 #                     print indent + 'LB:' + str(lowerbound + costs)
-            if lowerbound + costs < self.upperbound:
+                    if lowerbound + costs >= self.upperbound:
+                        print indent + 'backtracking (C=%.2f >= %.2f=UB)' % (lowerbound + costs, self.upperbound)
+                        doBacktracking = True
+                        break
+                if doBacktracking:
+                    break
+            if not doBacktracking:
                 self._recursive_expand(variables[1:], lowerbound + costs)
-                doBacktracking = True
-            else:
-                print indent + 'backtracking (C=%.2f >= %.2f=UB)' % (lowerbound + costs, self.upperbound)
             # revoke the groundings of the already grounded factories
-            for f in self.factories:
-                for _ in range(len(truthAssignment)): 
-                    f.undoEpoch()
+            for f in backtrack:
+                for _ in range(backtrack[f]): f.undoEpoch()
             # remove the evidence
             for e in evidence:
                 self.neutralizeEvidence({e: None})
