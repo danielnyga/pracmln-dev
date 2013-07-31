@@ -97,7 +97,11 @@ class BranchAndBound(object):
         
     def search(self):
         self.costs = Number(0.)
+        
+        # sort the formulas
         self.factories = [GroundingFactory(f, self.mrf) for f in self.formulas]
+        
+        # sort the ground atoms
         atoms = [i for i, _ in enumerate(self.vars) if self._isEvidenceVariable(i)]
         nonEvidenceVars = [i for i, _ in enumerate(self.vars) if not self._isEvidenceVariable(i)]
         atoms.extend([v for v in nonEvidenceVars if len(self.varIdx2GndAtom[v]) > 1])
@@ -113,8 +117,8 @@ class BranchAndBound(object):
         if len(variables) == 0: # all gndAtoms have been assigned
             if lowerbound <= self.upperbound:
                 solution = dict([(str(a), self.mrf.evidence[a.idx]) for a in self.mrf.gndAtoms.values()])
-                print indent + 'New solution:', solution
-                print indent + 'costs:', lowerbound
+#                 print indent + 'New solution:', solution
+#                 print indent + 'costs:', lowerbound
                 self.upperbound = lowerbound
                 self.best_solution = solution
             return 
@@ -126,8 +130,8 @@ class BranchAndBound(object):
             if self._isEvidenceVariable(variable):
                 truthAssignments.append({gndAtoms[0]: self._getVariableValue(variable)})
             else:
-                truthAssignments.append({gndAtoms[0]: True})
                 truthAssignments.append({gndAtoms[0]: False})
+                truthAssignments.append({gndAtoms[0]: True})
         elif len(gndAtoms) > 1: # mutex constraint
             for trueGndAtom in gndAtoms:
                 if trueGndAtom.isTrue(self.mrf.evidence) == False:
@@ -138,7 +142,7 @@ class BranchAndBound(object):
         # test the assignments
 #         print truthAssignments
         for truthAssignment in truthAssignments:
-            print indent + 'testing', truthAssignment, '(lb=%f)' % lowerbound
+#             print indent + 'testing', truthAssignment, '(lb=%f)' % lowerbound
             # set the temporary evidence
 #             self.setEvidence(truthAssignment)
             backtrack = {}
@@ -154,7 +158,7 @@ class BranchAndBound(object):
                     backtrack[factory] = backtrack.get(factory, 0) + 1
 #                     print indent + 'LB:' + str(lowerbound + costs)
                     if lowerbound + costs >= self.upperbound:
-                        print indent + 'backtracking (C=%.2f >= %.2f=UB)' % (lowerbound + costs, self.upperbound)
+#                         print indent + 'backtracking (C=%.2f >= %.2f=UB)' % (lowerbound + costs, self.upperbound)
                         doBacktracking = True
                         break
                 if doBacktracking:

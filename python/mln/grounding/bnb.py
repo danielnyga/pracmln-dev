@@ -99,12 +99,15 @@ class FormulaGrounding(object):
         if assignment is None:
             assignment = {}
         gf_count = 1
+#         print self
         for var in set(self.formula.getVariables(self.mrf)).difference(assignment.keys()):
             domain = self.domains[var]
+            if domain is None: return 0.
             gf_count *= len(domain)
         gf = self.formula.ground(self.mrf, assignment, allowPartialGroundings=True, simplify=True)
         gf.weight = self.formula.weight
-
+        for var_name, val in assignment.iteritems(): break
+        self.domains.drop(var_name, val)
         # if the simplified gf reduces to a TrueFalse instance, then
         # we return the costs if it's false, or 0 otherwise.
         if isinstance(gf, fol.TrueFalse):
@@ -266,8 +269,9 @@ class GroundingFactory(object):
                         vars_and_values.append({varNotInTree: v})
                 for var_value in vars_and_values:
                     for var_name, val in var_value.iteritems(): break
+#                     print fg.domains, 'contains', var_name, val, ':',fg.domains.contains(var_name, val) 
                     if not fg.domains.contains(var_name, val): continue
-                    fg.domains.drop(var_name, val)
+#                     self.printTree()
                     gnd_result = fg.ground(var_value)
                     if not fg in self.manipulatedFgs:
                         self.manipulatedFgs.append(fg)

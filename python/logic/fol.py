@@ -863,7 +863,7 @@ class Exist(ComplexFormula):
         vars.update(newvars)
         return vars
         
-    def ground(self, mrf, assignment, referencedGroundAtoms = None, allowPartialGroundings=False):
+    def ground(self, mrf, assignment, referencedGroundAtoms = None, allowPartialGroundings=False, simplify=False):
         assert len(self.children) == 1
         # find out variable domains
         vars = {}
@@ -881,7 +881,11 @@ class Exist(ComplexFormula):
         self._ground(self.children[0], vars, assignment, gndings, mrf, referencedGroundAtoms)
         if len(gndings) == 1:
             return gndings[0]
-        return Disjunction(gndings)
+        disj = Disjunction(gndings)
+        if simplify:
+            return disj.simplify(mrf)
+        else:
+            return disj
             
     def _ground(self, formula, variables, assignment, gndings, mrf, referencedGroundAtoms = None):
         # if all variables have been grounded...
