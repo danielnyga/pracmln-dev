@@ -271,8 +271,10 @@ class GroundingFactory(object):
                     for var_name, val in var_value.iteritems(): break
 #                     print fg.domains, 'contains', var_name, val, ':',fg.domains.contains(var_name, val) 
                     if not fg.domains.contains(var_name, val): continue
-#                     self.printTree()
+#                     print 'grounding', var_value
                     gnd_result = fg.ground(var_value)
+#                     self.printTree()
+#                     print gnd_result
                     if not fg in self.manipulatedFgs:
                         self.manipulatedFgs.append(fg)
 #                     print gnd_result
@@ -310,7 +312,7 @@ class GroundingFactory(object):
         '''
         Returns None if the literal and the atom do not match.
         '''
-        if lit.predName != atom.predName: return None
+        if type(lit) is Equality or lit.predName != atom.predName: return None
         assignment = {}
         for p1, p2 in zip(lit.params, atom.params):
             if grammar.isVar(p1):

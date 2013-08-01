@@ -24,6 +24,7 @@
 from mln.inference.Inference import Inference
 from wcsp.branchandbound import BranchAndBound
 from mln.util import strFormula
+from wcsp.russiandoll import RussianDoll
 
 class BnBInference(Inference):
     
@@ -31,7 +32,7 @@ class BnBInference(Inference):
         Inference.__init__(self, mln)
 
     def _infer(self, verbose, details, **args):
-        bnb = BranchAndBound(self.mrf)
+        bnb = RussianDoll(self.mrf)
         bnb.search()
         result = bnb.best_solution
         strQueries = map(strFormula, self.queries)

@@ -35,7 +35,6 @@ class TreeBuilder(object):
         self.stack = []
     
     def trigger(self, a, loc, toks, op):
-        #print op, toks
         if op == 'lit':
             negated = False
             if toks[0] == '!' or toks[0] == '*':
@@ -157,10 +156,9 @@ def parseFormula(input):
     equality.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"="))
     count_constraint.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'count'))
     f = formula + StringEnd()
-    #print "parsing %s..." % input
     f.parseString(input)
-    #print "done"
-    return tree.getConstraint()
+    constr = tree.getConstraint()
+    return constr
 
 
 # main app for testing purposes only

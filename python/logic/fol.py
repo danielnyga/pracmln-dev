@@ -187,11 +187,15 @@ class Formula(Constraint):
         raise Exception("%s does not implement getVarDomain" % str(type(self)))
         
     def toCNF(self, level=0):
-        '''convert to conjunctive normal form'''
+        '''
+        Convert to conjunctive normal form.
+        '''
         return self
     
-    # convert to negation normal form
     def toNNF(self, level=0):
+        '''
+        Convert to negation normal form.
+        '''
         return self
         
     def printStructure(self, level=0):
@@ -937,8 +941,8 @@ class Equality(Formula):
     def getVariables(self, mln, vars = None, constants = None):        
         if constants is not None:
             # determine type of constant appearing in expression such as "x=Foo"
-            for i,p in enumerate(self.params):
-                other = self.params[(i+1)%2]
+            for i, p in enumerate(self.params):
+                other = self.params[(i + 1) % 2]
                 if not isVar(p) and isVar(other):
                     domain = vars.get(other)
                     if domain is None:
@@ -950,9 +954,11 @@ class Equality(Formula):
     def isTrue(self, world_values):
         return self.params[0] == self.params[1]
     
-    def getVarDomain(self, varname, mln):
-        raise Exception('Variables in equality constraints are not typed.')
-
+    def simplify(self, mrf):
+        truth = self.isTrue(mrf.evidence) 
+        if truth: return TrueFalse(truth)
+        return Equality(list(self.params))
+        
 class TrueFalse(Formula):
     '''
     Represents the constants true and false.

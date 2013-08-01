@@ -29,6 +29,9 @@ from logic.fol import GroundAtom, Negation
 
 
 class BranchAndBound(object):
+    '''
+    Basic branch-and-bound search for MPE inference.
+    '''
     
     def __init__(self, mrf):
         self.mrf = mrf
@@ -42,6 +45,9 @@ class BranchAndBound(object):
         self.evidence = dict([(a.idx, a.isTrue(mrf.evidence)) for a in mrf.gndAtoms.values()])
         
     def transformFormulas(self):
+        '''
+        Converts the formulas into NNF and converts all negative weights to positive ones.
+        '''
         self.formulas = []
         for f in self.mrf.formulas:
             w = f.weight
@@ -96,10 +102,10 @@ class BranchAndBound(object):
         return type(val) is bool or isinstance(val, GroundAtom)
         
     def search(self):
-        self.costs = Number(0.)
+        self.costs = 0.
         
         # sort the formulas
-        self.factories = [GroundingFactory(f, self.mrf) for f in self.formulas]
+        self.factories = [GroundingFactory(f, self.mrf) for f in sorted(self.formulas, key=lambda x: x.weight, reverse=True)]
         
         # sort the ground atoms
         atoms = [i for i, _ in enumerate(self.vars) if self._isEvidenceVariable(i)]
@@ -158,7 +164,7 @@ class BranchAndBound(object):
                     backtrack[factory] = backtrack.get(factory, 0) + 1
 #                     print indent + 'LB:' + str(lowerbound + costs)
                     if lowerbound + costs >= self.upperbound:
-#                         print indent + 'backtracking (C=%.2f >= %.2f=UB)' % (lowerbound + costs, self.upperbound)
+                        print indent + 'backtracking (C=%.2f >= %.2f=UB)' % (lowerbound + costs, self.upperbound)
                         doBacktracking = True
                         break
                 if doBacktracking:
