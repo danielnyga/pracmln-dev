@@ -69,6 +69,23 @@ class Database(object):
             if v not in d:
                 d.append(v)
                 
+    def printEvidence(self):
+        for truth, atom in self.evidence:
+            print atom, ':', truth
+                
+    def retractGndAtom(self, gndLit):
+        '''
+        Removes the evidence of the given ground atom in this database.
+        '''
+        if type(gndLit) is str:
+            _, predName, params = parseLiteral(gndLit)
+            atomString = "%s(%s)" % (predName, ",".join(params))
+        elif isinstance(gndLit, GroundLit):
+            atomString = gndLit.gndAtom
+        else:
+            raise Exception('gndLit has an illegal type')
+        self.evidence[atomString] = None
+                
     def isEmpty(self):
         '''
         Returns True iff there is an assertion for any ground atom in this

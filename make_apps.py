@@ -65,6 +65,7 @@ python_apps = [
     {"name": "trajvis", "script": "$SRLDB_HOME/python/trajvis.py"},
     {"name": "evalSeqLabels", "script": "$SRLDB_HOME/python/evalSeqLabels.py"},
     {"name": "pmml2graphml", "script": "$SRLDB_HOME/python/pmml2graphml.py"},
+    {"name": "xval", "script": "$SRLDB_HOME/python/xval.py"},
 ]
 
 def adapt(name, arch):
@@ -90,7 +91,7 @@ if __name__ == '__main__':
 
     archs = ["win32", "linux_amd64", "linux_i386", "macosx", "macosx64"]
         
-    print "\nProbCog Apps Generator\n\n"
+    print "PRACMLNs Apps Generator\n\n"
     print "  usage: make_apps [--arch=%s] [additional JVM args]\n" % "|".join(archs)
     print
     print "  Note: Some useful JVM args include"

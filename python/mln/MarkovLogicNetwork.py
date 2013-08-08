@@ -612,8 +612,16 @@ class MLN(object):
                 f.write("%s  %s\n" % (weight, strFormula(formula)))
 
     def printFormulas(self):
+        '''
+        Nicely prints the formulas and their weights.
+        '''
         for f in self.formulas:
-            print "%7.3f  %s" % (f.weight, strFormula(f))
+            if f.weight is None:
+                print '%s.' % strFormula(f)
+            elif type(f.weight) is float:
+                print "%7.3f\t%s" % (f.weight, strFormula(f))
+            else:
+                print "%s\t%s" % (str(f.weight), strFormula(f))
     
     def getWeightedFormulas(self):
         return [(f.weight, f) for f in self.formulas]
