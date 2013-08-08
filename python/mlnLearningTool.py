@@ -402,8 +402,8 @@ class MLNLearnGUI:
         if "" in (mln, db): return
         if self.internalMode:
             engine = "py"
-            method = mln.ParameterLearningMeasures.byName(self.selected_method.get())
-            method = mln.ParameterLearningMeasures.getShortName(method).lower()
+            method = ParameterLearningMeasures.byName(self.selected_method.get())
+            method = ParameterLearningMeasures.getShortName(method).lower()
         else:
             engine = "alch"
             method = self.learner.alchemy_methods[self.selected_method.get()][2]
