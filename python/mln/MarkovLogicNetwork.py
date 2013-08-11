@@ -541,7 +541,7 @@ class MLN(object):
             groundingMethod = eval('learning.%s.groundingMethod' % method)
             print "grounding MRF using %s..." % groundingMethod 
             mrf = self.groundMRF(dbs[0], method=groundingMethod, cwAssumption=True)
-            learner = eval("learning.%s(mrf, **params)" % method)
+            learner = eval("learning.%s(self, mrf, **params)" % method)
         else:
             learner = learning.MultipleDatabaseLearner(self, method, dbs, **params)
         print "learner: %s" % learner.getName()
@@ -686,7 +686,6 @@ class MRF(object):
         self.posteriorProbReqs = list(mln.posteriorProbReqs)
         self.predicates = mln.predicates
         self.templateIdx2GroupIdx = mln.templateIdx2GroupIdx
-        print self.templateIdx2GroupIdx
 
         # get combined domain
         self.domains = mergeDomains(mln.domains, db.domains)

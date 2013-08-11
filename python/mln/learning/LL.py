@@ -30,11 +30,14 @@ from AbstractLearner import *
 
 class LL(AbstractLearner):
     
-    def __init__(self, mrf, **params):
-        AbstractLearner.__init__(self, mrf, **params)
+    def __init__(self, mln, mrf, **params):
+        AbstractLearner.__init__(self, mln, mrf, **params)
     
     def _computeCounts(self):
-        ''' computes the number of true groundings of each formula in each possible world (sufficient statistics) '''
+        ''' 
+        Computes the number of true groundings of each formula in each 
+        possible world (sufficient statistics)
+        '''
         self.counts = {}
         # for each possible world, count how many true groundings there are for each formula
         for i, world in enumerate(self.mrf.worlds):            
@@ -67,7 +70,9 @@ class LL(AbstractLearner):
         self.wtsLastWorldValueComputation = list(wts)
 
     def _grad(self, wt):
-        ''' computes the gradient of the log-likelihood given the weight vector wt '''
+        '''
+        Computes the gradient of the log-likelihood given the weight vector wt
+        '''
         idxTrainDB = self.idxTrainingDB
         self._calculateWorldValues(wt) # TODO move the calculation based on counts to this class
         grad = numpy.zeros(len(self.mrf.formulas), numpy.float64)

@@ -1,8 +1,6 @@
-# -*- coding: iso-8859-1 -*-
+# Markov Logic Networks - Default Grounding
 #
-# Markov Logic Networks
-#
-# (C) 2013 by Dominik Jain (jain@cs.tum.edu)
+# (C) 2013 by Daniel Nyga (nyga@cs.uni-bremen.de)
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -32,6 +30,10 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
     Implementation of the default grounding algorithm, which
     creates ALL ground atoms and ALL ground formulas.
     '''
+    
+    def __init__(self, mrf, db):
+        AbstractGroundingFactory.__init__(self, mrf, db)
+        self.formula2GndFormulas = {}
     
     def _createGroundAtoms(self, verbose=False):
         # create ground atoms
@@ -65,6 +67,8 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         if verbose: 
             print "Grounding formulas..."
         for idxFormula, formula in enumerate(mrf.formulas):
+            gndFormulas = self.formula2GndFormulas.get(formula, [])
+            self.formula2GndFormulas[formula] = gndFormulas
             if verbose: 
                 print "  %s" % strFormula(formula)
             for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, mrf.simplify):
@@ -72,6 +76,7 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
                 gndFormula.weight = formula.weight
                 if isinstance(gndFormula, fol.TrueFalse):
                     continue
+                gndFormulas.append(gndFormula)
                 mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
         # this is legacy code
         # self.mln.gndFormulas = mrf.gndFormulas

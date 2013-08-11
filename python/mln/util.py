@@ -28,6 +28,7 @@ import sys
 
 from logic import fol
 from util import *
+from logic.fol import Disjunction, Conjunction
 
 # math functions
 
@@ -182,6 +183,27 @@ def toCNF(gndFormulas, formulas, allPositive=False):
     # return modified formulas
     return (newGndFormulas, newFormulas)
 
+def toClauseSet(cnf):
+    '''
+    Takes a formula in CNF and returns a set of clauses, i.e. a list of sets
+    containing literals. All literals are converted into strings.
+    '''
+    clauses = []
+    if type(cnf) is Disjunction:
+        clauses.append(set(map(str, cnf.children)))
+    elif type(cnf) is Conjunction:
+        for disj in cnf.children:
+            clause = set()
+            clauses.append(clause)
+            if type(disj) is Disjunction:
+                for c in disj.children:
+                    clause.add(str(c))
+            else:
+                clause.add(str(disj))
+    else:
+        clauses.append(set(cnf))
+    return clauses
+                 
 
 def gaussianZeroMean(x, sigma):
     return 1.0/sqrt(2 * math.pi * sigma**2) * math.exp(- (x**2) / (2 * sigma**2))
