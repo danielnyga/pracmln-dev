@@ -41,13 +41,14 @@ parser.add_option("-p", "--percent", dest="percent", type='int', default=100,
 parser.add_option("-v", "--verbose", dest="verbose", action='store_true', default=False,
                   help="Verbose mode.")
 
-def evalMLN(mln, queryPred, queryDom, cwPreds, dbs):
+def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
     
     mln.setClosedWorldPred(None)
-    for pred in [pred for pred in cwPreds if pred in mln.predicates]:
+    for pred in [pred for pred in cwPreds if pred in mln.predDecls]:
         mln.setClosedWorldPred(pred)
-    sig = ['?arg%d' % i for i, _ in enumerate(mln.predicates[queryPred])]
+    sig = ['?arg%d' % i for i, _ in enumerate(mln.predDecls[queryPred])]
     querytempl = '%s(%s)' % (queryPred, ','.join(sig))
+    
     for db in dbs:
         # save and remove the query predicates from the evidence
         trueDB = Database(mln)
@@ -57,18 +58,17 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs):
                 atom = atom.replace(binding, bindings[binding])
             trueDB.addGroundAtom(atom)
             db.retractGndAtom(atom)
-        db.printEvidence()
+#         db.printEvidence()
         
         mrf = mln.groundMRF(db, method='DefaultGroundingFactory')
-        mrf.printEvidence()
+#         mrf.printEvidence()
         conv = WCSPConverter(mrf)
         resultDB = conv.getMostProbableWorldDB()
         
-        confMatrix = ConfusionMatrix()
         sig2 = list(sig)
         entityIdx = mln.predicates[queryPred].index(queryDom)
         for entity in db.domains[queryDom]:
-            print 'evaluating', entity
+#             print 'evaluating', entity
             sig2[entityIdx] = entity
             query = '%s(%s)' % (queryPred, ','.join(sig2))
             for truth in trueDB.query(query):
@@ -79,12 +79,12 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs):
         for e, v in trueDB.evidence.iteritems():
             if v is not None:
                 db.addGroundAtom('%s%s' % ('' if v is True else '!', e))
-        print confMatrix
+    print confMatrix
 
-def learnAndEval(mln, learnDBs, testDBs, queryPred, queryDom, cwPreds):
+def learnAndEval(mln, learnDBs, testDBs, queryPred, queryDom, cwPreds, confMatrix):
 #     mln = readMLNFromFile(mlnfile)
-    mln.learnWeights(learnDBs, method=ParameterLearningMeasures.BPLL_CG)
-    evalMLN(mln, queryPred, queryDom, cwPreds, dbs)    
+    learnedMLN = mln.learnWeights(learnDBs, method=ParameterLearningMeasures.BPLL_CG)
+    evalMLN(learnedMLN, queryPred, queryDom, cwPreds, dbs, confMatrix)    
     
 
 if __name__ == '__main__':
@@ -111,7 +111,7 @@ if __name__ == '__main__':
             dbs.append(db)
     print 'Read %d databases.' % len(dbs)
     
-    cwpreds = [pred for pred in mln_.predicates if pred != predName]
+    cwpreds = [pred for pred in mln_.predDecls if pred != predName]
     # create the partition
     subsetLen = int(math.ceil(len(dbs) * percent / 100.0))
     if subsetLen < len(dbs):
@@ -127,7 +127,7 @@ if __name__ == '__main__':
     partition = []
     for i in range(folds):
         partition.append(dbs[i*partSize:(i+1)*partSize])
-    
+    confMatrix = ConfusionMatrix()
     for run in range(folds):
         print 'Run %d of %d...' % (run+1, folds)
         trainDBs = []
@@ -136,7 +136,7 @@ if __name__ == '__main__':
         
         testDBs = partition[run]
 
-        learnAndEval(mln_, trainDBs, testDBs, predName, domain, cwpreds)
+        learnAndEval(mln_, trainDBs, testDBs, predName, domain, cwpreds, confMatrix)
     
     
         

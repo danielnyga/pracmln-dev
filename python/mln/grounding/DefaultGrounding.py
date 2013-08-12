@@ -48,17 +48,18 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         if domNames == []:
             atom = fol.GroundAtom(predName, cur)
             mrf.addGroundAtom(atom)
-            return
+            return True
 
         # create ground atoms for each way of grounding the first of the 
         # remaining variables whose domains are given in domNames
         dom = mrf.domains.get(domNames[0])
         if dom is None or len(dom) == 0:
 #             raise Exception("Domain '%s' is empty!" % domNames[0])
-            print "WARNING: Ground Atoms for predicate %s could not be generated, since the domain %s is empty" % (predName, domNames[0])
-            return
+            print "WARNING: Ground Atoms for predicate %s could not be generated, since the domain '%s' is empty" % (predName, domNames[0])
+            return False
         for value in dom:
-            self._groundAtoms(cur + [value], predName, domNames[1:])
+            if not self._groundAtoms(cur + [value], predName, domNames[1:]): return False
+        return True
         
     def _createGroundFormulas(self, verbose=False):
         mrf = self.mrf

@@ -201,7 +201,7 @@ def toClauseSet(cnf):
             else:
                 clause.add(str(disj))
     else:
-        clauses.append(set(cnf))
+        clauses.append(set([str(cnf)]))
     return clauses
                  
 

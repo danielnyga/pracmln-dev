@@ -128,9 +128,13 @@ class MLN(object):
         Constructs an empty MLN object. For reading an MLN object 
         from an .mln file, see readMLNFromFile (below).
         '''
-        self.domains = {}
-        self.predicates = {}
+        self.predDecls = {}
+        self.formulaTemplates = []
+        self.staticDomains = {}
+        self.predicates = None
+        self.domains = None
         self.formulas = None
+
         self.blocks = {}
         self.domDecls = []
         self.probreqs = []
@@ -150,11 +154,19 @@ class MLN(object):
         self.fixedWeightTemplateIndices = []
         self.verbose = verbose
 
-#     def __getattr__(self, attr):
-#         # forward inference calls to the MRF (for backward compatibility)
-#         if attr[:5] == "infer":
-#             return self.mrf.__getattribute__(attr)
-        
+    def duplicate(self):
+        '''
+        Returns a deep copy of this MLN, which is not yet materialized.
+        '''
+        mln = MLN()
+        mln.predDecls = copy.deepcopy(self.predDecls)
+        mln.staticDomains = copy.deepcopy(self.predDecls)
+        mln.formulaTemplates = list(self.formulaTemplates)
+        mln.blocks = copy.deepcopy(self.blocks)
+        mln.domDecls = list(self.domDecls)
+        mln.closedWorldPreds = list(self.closedWorldPreds)
+        return mln
+
     def declarePredicate(self, name, domains, functional=None):
         '''
         Adds a predicate declaration to the MLN:
@@ -162,28 +174,14 @@ class MLN(object):
         - domains:     list of domain names of arguments
         - functional:  indices of args which are functional (optional)
         '''
-        if name in self.predicates.keys():
+        if name in self.predDecls:
             raise Exception('Predicate "%s" has already been declared' % name)
         assert type(domains) == list
-        self.predicates[name] = domains
-        # update domains
-        for dom in domains:
-            if not dom in self.domains: self.domains[dom] = []
+        self.predDecls[name] = domains
         if functional is not None:
             func = [(i in functional) for i, _ in enumerate(domains)]
             self.blocks[name] = func
             
-    def addDomainValue(self, domain, value):
-        '''
-        Appends a new value to the specified domain.
-        '''
-        dom = self.domains.get(domain, None)
-        if dom is None:
-            dom = []
-            self.domains[domain] = dom
-        if not value in dom:
-            dom.append(value)
-    
     def loadPRACDatabases(self, dbPath):
         '''
         Loads and returns all databases (*.db files) that are located in 
@@ -216,7 +214,7 @@ class MLN(object):
         Add a formula template (i.e. formulas with '+' operators) to the MLN.
         Domains are updated, if necessary.
         '''
-        self._addFormula(formula, self.formula_templates, weight, hard, fixWeight)
+        self._addFormula(formula, self.formulaTemplates, weight, hard, fixWeight)
         
     def _addFormula(self, formula, formulaSet, weight=0, hard=False, fixWeight=False):
         '''
@@ -226,8 +224,6 @@ class MLN(object):
         - hard:       determines if the formula is hard
         - fixWeight:  determines if the weight of the formula is fixed
         '''
-        if self.materializedTemplates:
-            raise Exception('Formula templates have already been materialized. Adding new formulas is no longer possible.')
         if type(formula) is str:
             formula = parseFormula(formula)
         formula.weight = weight
@@ -248,54 +244,55 @@ class MLN(object):
         Expand all formula templates.
         - dbs: list of Database objects
         '''
+        self.predicates = {}
+        self.domains = {}
+        self.formulas = []
+        
         # obtain full domain with all objects 
-        fullDomain = mergeDomains(self.domains, *[db.domains for db in dbs])
+        fullDomain = mergeDomains(self.staticDomains, *[db.domains for db in dbs])
         # expand formula templates
-        oldDomains = self.domains
-        self.domains = fullDomain
-        # straighten up the MLN for domains and predicates that cannot be grounded
-        newFormulaTemplates = []
-        discardedDomains = set()
+        self.domains = copy.deepcopy(self.staticDomains)
+        
+        # collect the admissible formula templates
+        templates = []
+        emptyDomains = set()
         for ft in self.formulaTemplates:
             domNames = ft.getVariables(self).values()
             discardFT = False
             for domName in domNames:
-                if not domName in self.domains:
-                    discardedDomains.add(domName)
-                    print 'WARNING: Discarding formula %s, since it cannot be grounded.' % strFormula(ft)
+                if not domName in fullDomain:
+                    emptyDomains.add(domName)
+                    print 'WARNING: Discarding formula %s, since it cannot be grounded (domain %s empty).' % (strFormula(ft), domName)
                     discardFT = True
                     break
             if discardFT: continue
-            newFormulaTemplates.append(ft)
-        self.formulaTemplates = newFormulaTemplates
-        for pred in self.predicates.keys():
-            if any(map(lambda d: not d in self.domains, self.predicates[pred])):
-                print 'WARNING: Discarding predicate %s, since it cannot be grounded.' % (pred)
-                del self.predicates[pred]
+            templates.append(ft)
         
-        self._materializeFormulaTemplates()
-        self.domains = oldDomains
+        # collect the admissible predicates
+        for pred, domains in self.predDecls.iteritems():
+            if any(map(lambda d: not d in fullDomain, self.predDecls[pred])):
+                print 'WARNING: Discarding predicate %s, since it cannot be grounded.' % (pred)
+                continue
+            self.predicates[pred] = domains
+        
         # permanently transfer domains of variables that were expanded from templates
         for ft in self.formulaTemplates:
             domNames = ft._getTemplateVariables(self).values()
             for domName in domNames:
                 self.domains[domName] = fullDomain[domName]
+        self._materializeFormulaTemplates(templates)
 
-    def _materializeFormulaTemplates(self, verbose=False):
-        if self.formulas is not None:
-            raise Exception("This MLN's formula templates were previously materialized")
-#         self.formulaTemplates = self.formulas
+    def _materializeFormulaTemplates(self, templates, verbose=False):
+
         templateIdx2GroupIdx = self.templateIdx2GroupIdx
         fixedWeightTemplateIndices = self.fixedWeightTemplateIndices
-        self.materializedTemplates = True
-        self.formulas = []
 
         # materialize formula templates
         if verbose: print "materializing formula templates..."
         idxGroup = None
         prevIdxGroup = None
         group = []
-        for idxTemplate, tf in enumerate(self.formulaTemplates):
+        for idxTemplate, tf in enumerate(templates):
             idxGroup = templateIdx2GroupIdx.get(idxTemplate)
             if idxGroup != None:
                 if idxGroup != prevIdxGroup: # starting new group
@@ -321,32 +318,11 @@ class MLN(object):
                     self.fixedWeightFormulas.append(f)
         if group != []: # add the last group (if any)
             self.formulaGroups.append(group)
-        #print "time taken: %fs" % (time.time()-t_start)
 
     def addConstant(self, domainName, constant):
-        if domainName not in self.domains: self.domains[domainName] = []
-        dom = self.domains[domainName]
+        if domainName not in self.staticDomains: self.staticDomains[domainName] = []
+        dom = self.staticDomains[domainName]
         if constant not in dom: dom.append(constant)
-
-    def _groundFormula(self, formula, variables, assignment, idxFormula):
-        # DEPRECATED function
-        # if all variables have been grounded...
-        if variables == {}:
-            #print atoms
-            referencedGndAtoms = []
-            gndFormula = formula.ground(self, assignment, referencedGndAtoms)
-            for idxGA in referencedGndAtoms:
-                self.gndAtomOccurrencesInGFs[idxGA].append(gndFormula)
-            gndFormula.idxFormula = idxFormula
-            self.gndFormulas.append(gndFormula)
-            return
-        # ground the first variable...
-        varname, domName = variables.popitem()
-        for value in self.domains[domName]: # replacing it with one of the constants
-            assignment[varname] = value
-            # recursive descent to ground further variables
-            self._groundFormula(formula, dict(variables), assignment, idxFormula)
-
 
     def _substVar(self, matchobj):
         varName = matchobj.group(0)
@@ -354,35 +330,10 @@ class MLN(object):
             raise Exception("Unknown variable '%s'" % varName)
         return self.vars[varName]
 
-    def combine(self, domain, verbose=False, groundFormulas=True, evidence=None):
-        '''
-            combines the existing domain (if any) with the given one
-                domain: a dictionary with domainName->list of string constants to add
-        '''
-        if groundFormulas:
-            if evidence is None: evidence = {}
-            self.groundMRF((domain, evidence))
-        else:
-            raise Exception("This usage is deprecated")
-        '''
-        # combine domains
-        domNames = set(self.domains.keys() + domain.keys())
-        for domName in domNames:
-            a = self.domains.get(domName, [])
-            b = domain.get(domName, [])
-            self.domains[domName] = list(set(a + b))
-        # collect data
-        if groundFormulas:
-            self.ground(verbose=verbose)
-        # set evidence if given
-        if evidence is not None:
-            self.setEvidence(evidence)
-        '''
-
     def groundMRF(self, db, verbose=False, simplify=False, method='DefaultGroundingFactory', cwAssumption=False):
         '''
-            creates and returns a ground Markov random field for the given database
-                db: database filename (string) or Database object
+        Creates and returns a ground Markov Random Field for the given database
+        - db: database filename (string) or Database object
         '''
         mrf = MRF(self, db, verbose=verbose, simplify=simplify, groundingMethod=method)
         # apply closed world assumption
@@ -431,87 +382,6 @@ class MLN(object):
             for idxFormula in group:
                 self.formulas[idxFormula].weight -= minWeight
 
-    def combineDB(self, dbfile, verbose=False, groundFormulas=True):
-        '''
-          DEPRECATED method, use groundMRF instead
-          This method serves two purposes:
-            a) extend the domain - analogous to method 'combine' only that the constants are taken from a database base file rather than a dictionary
-            b) stores the literals in the given db as evidence for future use (e.g. as a training database for weight learning)
-          dbfile: name of a database file
-          returns the evidence defined in the database (dictionary mapping ground atom strings to truth values)
-        '''
-        db = Database(self, dbfile)
-        domain, evidence = db.domains, db.evidence
-        # combine domains
-        self.combine(domain, verbose=verbose, groundFormulas=groundFormulas, evidence=evidence)
-        return evidence
-
-    def combineDBOverwriteDomains(self, dbfile, verbose=False, groundFormulas=True):
-        db = Database(self, dbfile)
-        domain, evidence = db.domains, db.evidence
-        # combine domains
-        self.combineOverwrite(domain, verbose=verbose, groundFormulas=groundFormulas)
-
-        if hasattr(self, 'gibbsSampler'):
-            del self.gibbsSampler
-        if hasattr(self, 'mcsat'):
-            del self.mcsat
-
-        # update domDecls:
-        #self.domDecls = []
-        #for domain in self.domains.keys():
-        #    domDecl = domain + " = {"
-        #    firstToken = True
-        #    for constant in self.domains[domain]:
-        #        if firstToken: firstToken = False
-        #        else: domDecl = domDecl + ", "
-        #        domDecl = domDecl + constant
-        #    domDecl = domDecl + "}"
-        #    self.domDecls.append(domDecl)
-        # keep evidence in list (ground atom indices)
-        self._clearEvidence()
-        for gndAtom in evidence:
-            idx = self.gndAtoms[gndAtom].idx
-            value = evidence[gndAtom]
-            self._setEvidence(idx, value)
-            # set evidence for other vars in block (if any)
-            if idx in self.gndBlockLookup and evidence[gndAtom]:
-                block = self.gndBlocks[self.gndBlockLookup[idx]]
-                for i in block:
-                    if i != idx:
-                        self._setEvidence(i, False)
-        return evidence
-
-    def combineDBDomain(self, dbfile, requestDomain):
-        '''
-        combines the MLN with the request domain (given as a dictionary), adding a
-        dditional objects from the database file if the request domain is smaller
-        (so that precisely the number of objects in the database file is reached -- 
-        which is assumed to contain the (number of) objects the MLN was trained with;
-        Since the MLN is guaranteed to be sound for this domain size, it makes 
-        sense to instantiate it with this size only). Obviously, a request domain
-        that is larger than the domain in the database file is not allowed.
-        '''
-        # extend domain
-        db = Database(self, dbfile)
-        domain, _ = db.domains, db.evidence
-        for domName, dbd in domain.iteritems():
-            if domName not in self.domains:
-                self.domains[domName] = []
-            d = self.domains[domName]
-            rd = requestDomain.get(domName)
-            if rd != None:
-                if len(rd) > len(dbd):
-                    raise Exception("Domain in database is too small for requested domain '%s'." % domName)
-                dbd = dbd[:-len(rd)]
-                dbd.extend(rd)
-            for constant in dbd:
-                if constant not in d:
-                    d.append(constant)
-        # ground
-        self.ground(verbose=False)
-
-
     def setClosedWorldPred(self, predicateName):
         '''
         Sets the given predicate as closed-world (for inference)
@@ -522,7 +392,7 @@ class MLN(object):
         if predicateName is None:
             self.closedWorldPreds = []
         else:
-            if predicateName not in self.predicates:
+            if predicateName not in self.predDecls:
                 raise Exception("Unknown predicate '%s'" % predicateName)
             self.closedWorldPreds.append(predicateName)
 
@@ -553,6 +423,7 @@ class MLN(object):
         
         if self.formulas is None:
             self.materializeFormulaTemplates(dbs, self.verbose)
+            
         # run learner
         if len(dbs) == 1:
             groundingMethod = eval('learning.%s.groundingMethod' % method)
@@ -564,12 +435,11 @@ class MLN(object):
         print "learner: %s" % learner.getName()
         wt = learner.run(initialWts, **params)
 
-        # set new weights
-        self.setWeights(wt)
-
-        # delete worlds from learning
-#         if hasattr(self.mrf, "worlds"):
-#             del self.mrf.worlds
+        # create the resulting MLN and set its weights
+        learnedMLN = self.duplicate()
+        learnedMLN.formulaTemplates = list(self.formulas)
+        learnedMLN.staticDomains = copy.deepcopy(self.domains)
+        learnedMLN.setWeights(wt)
 
         # fit prior prob. constraints if any available
         if len(self.probreqs) > 0:
@@ -583,13 +453,14 @@ class MLN(object):
             self._fitProbabilityConstraints(self.probreqs, **fittingParams)
 
         print "\n// formulas"
-        for formula in self.formulas:
+        for formula in learnedMLN.formulaTemplates:
             print "%f  %s" % (float(eval(str(formula.weight))), strFormula(formula))
+        return learnedMLN
 
     def setWeights(self, wt):
-        if len(wt) != len(self.formulas):
-            raise Exception("length of weight vector != number of formulas")
-        for i, f in enumerate(self.formulas):
+        if len(wt) != len(self.formulaTemplates):
+            raise Exception("length of weight vector != number of formula templates")
+        for i, f in enumerate(self.formulaTemplates):
             f.weight = wt[i]
 
     def write(self, f, mutexInDecls=True):
@@ -701,6 +572,13 @@ class MRF(object):
         else:
             raise Exception("Not a valid database argument (type %s)" % (str(type(db))))
 
+        # materialize MLN formulas
+        if self.mln.formulas is None:
+            self.mln.materializeFormulaTemplates([db],verbose)
+        self.formulas = list(mln.formulas) # copy the list of formulas, because we may change or extend it
+        # materialize formula weights
+        self._materializeFormulaWeights(verbose)
+
         self.closedWorldPreds = list(mln.closedWorldPreds)
         self.probreqs = list(mln.probreqs)
         self.posteriorProbReqs = list(mln.posteriorProbReqs)
@@ -710,19 +588,11 @@ class MRF(object):
         # get combined domain
         self.domains = mergeDomains(mln.domains, db.domains)
 
-        # materialize MLN formulas
-        if self.mln.formulas is None:
-            self.mln._materializeFormulaTemplates(verbose)
-        # materialize formula weights
-        self.formulas = list(mln.formulas) # copy the list of formulas, because we may change or extend it
-        self._materializeFormulaWeights(verbose)
-
         # grounding
         groundingMethod = eval('%s(self, db)' % groundingMethod)
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(verbose=verbose)
         
-        print self.gndAtoms
 
     def getHardFormulas(self):
         '''
@@ -1002,6 +872,7 @@ class MRF(object):
                         self._setEvidence(i, False)
         # handle closed-world predicates: Set all their instances that aren't yet known to false
         for pred in self.closedWorldPreds:
+            if not pred in self.predicates: continue
             for idxGA in self._getPredGroundingsAsIndices(pred):
                 if self._getEvidence(idxGA, False) == None:
                     self._setEvidence(idxGA, False)
@@ -1812,7 +1683,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
             if '{' in line:
                 domName, constants = parseDomDecl(line)
                 if domName in mln.domains: raise Exception("Domain redefinition: '%s' already defined" % domName)
-                mln.domains[domName] = constants
+                mln.staticDomains[domName] = constants
                 mln.domDecls.append(line)
                 continue
             # prior probability requirement
@@ -1847,9 +1718,9 @@ def readMLNFromFile(filename_or_list, verbose=False):
                         mutex.append(False)
                 mln.blocks[pred[0]] = mutex
                 # if the corresponding predicate is not yet declared, take this to be the declaration
-                if not pred[0] in mln.predicates:
+                if not pred[0] in mln.predDecls:
                     argTypes = map(lambda x: x.strip("!"), pred[1])
-                    mln.predicates[pred[0]] = argTypes
+                    mln.predDecls[pred[0]] = argTypes
                 continue
             # predicate decl or formula with weight
             else:
@@ -1867,9 +1738,9 @@ def readMLNFromFile(filename_or_list, verbose=False):
                         isPredDecl = False
                 if isPredDecl:
                     predName = pred[0]
-                    if predName in mln.predicates:
+                    if predName in mln.predDecls:
                         raise Exception("Predicate redefinition: '%s' already defined" % predName)
-                    mln.predicates[predName] = list(pred[1])
+                    mln.predDecls[predName] = list(pred[1])
                     continue
                 else:
                     # formula (template) with weight or terminated by '.'

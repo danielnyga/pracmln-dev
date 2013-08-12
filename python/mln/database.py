@@ -61,14 +61,10 @@ class Database(object):
         else:
             raise Exception('gndLit has an illegal type')
         self.evidence[atomString] = isTrue
-        domNames = self.mln.predicates[predName]
+        domNames = self.mln.predDecls[predName]
         for i, v in enumerate(params):
-            if domNames[i] not in self.domains:
-                self.domains[domNames[i]] = []
-            d = self.domains[domNames[i]]
-            if v not in d:
-                d.append(v)
-                
+            self.mln.addConstant(domNames[i], v) 
+               
     def printEvidence(self):
         for truth, atom in self.evidence.iteritems():
             print atom, ':', truth
@@ -232,7 +228,7 @@ def readDBFromFile(mln, dbfile):
             else:
                 raise Exception("Duplicate soft evidence for '%s'" % gndAtom)
             predName, constants = parsePredicate(gndAtom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
-            domNames = mln.predicates[predName]
+            domNames = mln.predDecls[predName]
         # domain declaration
         elif "{" in l:
             domName, constants = parseDomDecl(l)
@@ -242,7 +238,7 @@ def readDBFromFile(mln, dbfile):
             if l[0] == "?":
                 raise Exception("Unknown literals not supported (%s)" % l) # this is an Alchemy feature
             isTrue, predName, constants = parseLiteral(l)
-            domNames = mln.predicates[predName]
+            domNames = mln.predDecls[predName]
             # save evidence
             db.evidence["%s(%s)" % (predName, ",".join(constants))] = isTrue
 

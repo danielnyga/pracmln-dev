@@ -328,7 +328,7 @@ class Lit(Formula):
 
     def getVariables(self, mln, vars = None, constants = None):
         if vars == None: vars = {}
-        paramDomains = mln.predicates[self.predName]
+        paramDomains = mln.predDecls[self.predName]
         if len(paramDomains) != len(self.params): 
             raise Exception("Wrong number of parameters in '%s'; expected %d!" % (str(self), len(paramDomains)))
         for i,param in enumerate(self.params):
@@ -345,7 +345,7 @@ class Lit(Formula):
         return vars
     
     def getSingleVariableIndex(self, mln):
-        paramDomains = mln.predicates[self.predName]
+        paramDomains = mln.predDecl[self.predName]
         if len(paramDomains) != len(self.params): raise Exception("Wrong number of parameters in '%s'; expected %d!" % (str(self), len(paramDomains)))
         varIndex = -1
         for i,param in enumerate(self.params):
@@ -361,7 +361,7 @@ class Lit(Formula):
         for i,param in enumerate(self.params):
             if param[0] == '+':
                 varname = param
-                pred = mln.predicates[self.predName]
+                pred = mln.predDecls[self.predName]
                 domain = pred[i]
                 if varname in vars and vars[varname] != domain:
                     raise Exception("Variable '%s' bound to more than one domain" % varname)
@@ -394,7 +394,7 @@ class Lit(Formula):
         '''
         if varname in self.params:
             idx = self.params.index(varname)
-            return mln.predicates[self.predName][idx]
+            return mln.predDecls[self.predName][idx]
         return None
 
     def _groundTemplate(self, assignment):
