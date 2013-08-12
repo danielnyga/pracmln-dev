@@ -33,6 +33,7 @@ class ConfusionMatrix(object):
 	def __init__(self):
 		self.matrix = {} # maps classification result to vector of ground truths
 		self.instanceCount = 0
+		self.labels = []
 
 	def addClassificationResult(self, prediction, groundTruth):
 		'''
@@ -40,6 +41,11 @@ class ConfusionMatrix(object):
 		- gndTruth:	the correct label of an example
 		- prediction:	the predicted class label of an example
 		'''
+		if not prediction in self.labels:
+			self.labels.append(prediction)
+		if not groundTruth in self.labels:
+			self.labels.append(groundTruth)
+		
 		gndTruths = self.matrix.get(prediction, None)
 		if gndTruths is None:
 			gndTruths = {}
@@ -198,8 +204,8 @@ class ConfusionMatrix(object):
 		table = outerHLine + endl
 		table += createTableRow(['P\C'] + sorted(self.matrix.keys())) + endl
 		table += hline + endl
-		for i, clazz in enumerate(sorted(self.matrix.keys())):
-			table += createTableRow([clazz] + map(lambda x: self.getMatrixEntry(clazz, x), sorted(self.matrix.keys()))) + endl
+		for i, clazz in enumerate(sorted(self.labels)):
+			table += createTableRow([clazz] + map(lambda x: self.getMatrixEntry(clazz, x), sorted(self.labels))) + endl
 			if i < len(self.matrix.keys()) - 1:
 				table += hline + endl
 		table += outerHLine

@@ -12,13 +12,13 @@ object(cluster, object!)
 
 // formulas
 
-0 shape(?c, +?s) ^ color(?c, +?col) ^ object(?c, +?obj)
-0 goggles_Logo(?c, +?comp) ^ object(?c, +?obj)
-0 goggles_Text(?c, +?text) ^ object(?c, +?obj)
-0 goggles(?c, +?prod) ^ object(?c, +?obj)
+//0 shape(?c, +?s) ^ color(?c, +?col) ^ object(?c, +?obj)
+//0 goggles_Logo(?c, +?comp) ^ object(?c, +?obj)
+//0 goggles_Text(?c, +?text) ^ object(?c, +?obj)
+//0 goggles(?c, +?prod) ^ object(?c, +?obj)
 0 scene(+?s) ^ object(?c, +?obj)
 
-0 object(?c1, +?t1) ^ object(?c2, +?t2) ^ !(?c1=?c2)
+//0 object(?c1, +?t1) ^ object(?c2, +?t2) ^ !(?c1=?c2)
 
 
 

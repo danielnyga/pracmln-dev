@@ -37,7 +37,6 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
     
     def _createGroundAtoms(self, verbose=False):
         # create ground atoms
-        atoms = []
         for predName, domNames in self.mln.predicates.iteritems():
             self._groundAtoms([], predName, domNames, verbose)
 
@@ -55,14 +54,16 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         # remaining variables whose domains are given in domNames
         dom = mrf.domains.get(domNames[0])
         if dom is None or len(dom) == 0:
-            raise Exception("Domain '%s' is empty!" % domNames[0])
+#             raise Exception("Domain '%s' is empty!" % domNames[0])
+            print "WARNING: Ground Atoms for predicate %s could not be generated, since the domain %s is empty" % (predName, domNames[0])
+            return
         for value in dom:
             self._groundAtoms(cur + [value], predName, domNames[1:])
         
     def _createGroundFormulas(self, verbose=False):
         mrf = self.mrf
         assert len(mrf.gndAtoms) > 0
-
+        
         # generate all groundings
         if verbose: 
             print "Grounding formulas..."
@@ -70,11 +71,11 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
             gndFormulas = self.formula2GndFormulas.get(formula, [])
             self.formula2GndFormulas[formula] = gndFormulas
             if verbose: 
-                print "  %s" % strFormula(formula)
+                print "  %s" % (strFormula(formula))
             for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, mrf.simplify):
                 gndFormula.isHard = formula.isHard
                 gndFormula.weight = formula.weight
-                if isinstance(gndFormula, fol.TrueFalse):
+                if isinstance(gndFormula, fol.TrueFalse) or gndFormula.weight == 0:
                     continue
                 gndFormulas.append(gndFormula)
                 mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)

@@ -70,7 +70,7 @@ class Database(object):
                 d.append(v)
                 
     def printEvidence(self):
-        for truth, atom in self.evidence:
+        for truth, atom in self.evidence.iteritems():
             print atom, ':', truth
                 
     def retractGndAtom(self, gndLit):
@@ -84,7 +84,7 @@ class Database(object):
             atomString = gndLit.gndAtom
         else:
             raise Exception('gndLit has an illegal type')
-        self.evidence[atomString] = None
+        del self.evidence[atomString]
                 
     def isEmpty(self):
         '''
@@ -219,7 +219,7 @@ def readDBFromFile(mln, dbfile):
             continue
         # separator between independent databases
         elif l == '---' and not db.isEmpty():
-            dbs.append(db)    
+            dbs.append(db)
             db = Database(mln)
             continue
         # soft evidence

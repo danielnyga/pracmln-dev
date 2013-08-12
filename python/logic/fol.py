@@ -87,7 +87,10 @@ class Formula(Constraint):
         return l
 
     def getTemplateVariants(self, mln):
-        '''gets all the template variants of the formula for the given mln (ground markov random field)'''        
+        '''
+        Gets all the template variants of the formula for the given
+        MLN (ground Markov Random Field)
+        '''        
         tvars = self._getTemplateVariables(mln)
         variants = []
         self._getTemplateVariants(mln, tvars.items(), {}, variants, 0)

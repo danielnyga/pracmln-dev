@@ -126,6 +126,7 @@ class WCSPConverter(object):
             divisor *= minWeight
         if deltaMin < 1.0:
             divisor *= deltaMin
+        print 'divisor:', divisor
         return divisor
     
     def computeHardCosts(self):
@@ -137,7 +138,7 @@ class WCSPConverter(object):
         for f in self.mrf.gndFormulas:
             if f.isHard or f.weight == 0.0: continue
 #            print f.weight, f, self.divisor
-            cost = abs(round(float(f.weight) / self.divisor))
+            cost = abs(f.weight / self.divisor)
             newSum = costSum + cost
             if newSum < costSum:
                 raise Exception("Numeric Overflow")
@@ -184,8 +185,6 @@ class WCSPConverter(object):
         f_.isHard = f.isHard 
         idxGndAtoms = f_.idxGroundAtoms()
         gndAtoms = map(lambda x: self.mrf.gndAtomsByIdx[x], idxGndAtoms)
-        print gndAtoms
-        print self.gndAtom2VarIndex
         varIndices = set(map(lambda x: self.gndAtom2VarIndex[x], gndAtoms))
         varIndices = tuple(sorted(varIndices))
         if f_.isHard:
@@ -351,11 +350,11 @@ class WCSPConverter(object):
         '''
         wcsp = WCSP()
         wcsp.top = self.top
-        wcsp.domSizes = [max(2,len(self.varIdx2GndAtom[i])) for i, v in enumerate(self.vars)]
+        wcsp.domSizes = [max(2,len(self.varIdx2GndAtom[i])) for i, _ in enumerate(self.vars)]
         wcsp.constraints.extend(self.generateEvidenceConstraints())
         for f in self.mrf.gndFormulas:
-            f.weight = self.mln.formulas[f.idxFormula].weight
-            f.isHard = self.mln.formulas[f.idxFormula].isHard
+#             f.weight = self.mln.formulas[f.idxFormula].weight
+#             f.isHard = self.mln.formulas[f.idxFormula].isHard
             self.generateConstraint(wcsp, f)
         return wcsp
 

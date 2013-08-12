@@ -26,6 +26,7 @@ from mln.database import Database, readDBFromFile
 import logic
 from logic.grammar import predDecl, parseFormula
 from mln.inference.bnbinference import BnBInference
+import copy
 
 '''
 Your MLN files may contain:
@@ -129,7 +130,7 @@ class MLN(object):
         '''
         self.domains = {}
         self.predicates = {}
-        self.formulas = []
+        self.formulas = None
         self.blocks = {}
         self.domDecls = []
         self.probreqs = []
@@ -147,7 +148,7 @@ class MLN(object):
         self.allSoft = False
         self.fixedWeightFormulas = []
         self.fixedWeightTemplateIndices = []
-        self.materializedTemplates = False
+        self.verbose = verbose
 
 #     def __getattr__(self, attr):
 #         # forward inference calls to the MRF (for backward compatibility)
@@ -242,7 +243,7 @@ class MLN(object):
             for c in constants: 
                 self.addConstant(domain, c)
 
-    def materializeFormulaTemplates(self, dbs):
+    def materializeFormulaTemplates(self, dbs, verbose=False):
         '''
         Expand all formula templates.
         - dbs: list of Database objects
@@ -252,6 +253,26 @@ class MLN(object):
         # expand formula templates
         oldDomains = self.domains
         self.domains = fullDomain
+        # straighten up the MLN for domains and predicates that cannot be grounded
+        newFormulaTemplates = []
+        discardedDomains = set()
+        for ft in self.formulaTemplates:
+            domNames = ft.getVariables(self).values()
+            discardFT = False
+            for domName in domNames:
+                if not domName in self.domains:
+                    discardedDomains.add(domName)
+                    print 'WARNING: Discarding formula %s, since it cannot be grounded.' % strFormula(ft)
+                    discardFT = True
+                    break
+            if discardFT: continue
+            newFormulaTemplates.append(ft)
+        self.formulaTemplates = newFormulaTemplates
+        for pred in self.predicates.keys():
+            if any(map(lambda d: not d in self.domains, self.predicates[pred])):
+                print 'WARNING: Discarding predicate %s, since it cannot be grounded.' % (pred)
+                del self.predicates[pred]
+        
         self._materializeFormulaTemplates()
         self.domains = oldDomains
         # permanently transfer domains of variables that were expanded from templates
@@ -261,10 +282,9 @@ class MLN(object):
                 self.domains[domName] = fullDomain[domName]
 
     def _materializeFormulaTemplates(self, verbose=False):
-        if self.materializedTemplates:
+        if self.formulas is not None:
             raise Exception("This MLN's formula templates were previously materialized")
-
-        self.formulaTemplates = self.formulas
+#         self.formulaTemplates = self.formulas
         templateIdx2GroupIdx = self.templateIdx2GroupIdx
         fixedWeightTemplateIndices = self.fixedWeightTemplateIndices
         self.materializedTemplates = True
@@ -359,16 +379,6 @@ class MLN(object):
             self.setEvidence(evidence)
         '''
 
-    def ground(self, verbose=False):
-        '''
-            DEPRECATED, use groundMRF instead
-        '''
-        self._generateGroundAtoms()
-        if verbose: print "ground atoms: %d" % len(self.gndAtoms)
-        self._materializeFormulaTemplates(verbose)
-        self._createFormulaGroundings(verbose)
-        if verbose: print "ground formulas: %d" % len(self.gndFormulas)
-
     def groundMRF(self, db, verbose=False, simplify=False, method='DefaultGroundingFactory', cwAssumption=False):
         '''
             creates and returns a ground Markov random field for the given database
@@ -376,11 +386,8 @@ class MLN(object):
         '''
         mrf = MRF(self, db, verbose=verbose, simplify=simplify, groundingMethod=method)
         # apply closed world assumption
-        def toCWVal(val):
-            if val is None: return False
-            else: return val
         if cwAssumption:
-            mrf.evidence = map(toCWVal, mrf.evidence)
+            mrf.evidence = map(lambda x: False if x is None else x, mrf.evidence)
         return mrf
 
     def combineOverwrite(self, domain, verbose=False, groundFormulas=True):
@@ -505,12 +512,19 @@ class MLN(object):
         self.ground(verbose=False)
 
 
-    # sets the given predicate as closed-world (for inference)
-    # a predicate that is closed-world is assumed to be false for any parameters not explicitly specified otherwise in the evidence
     def setClosedWorldPred(self, predicateName):
-        if predicateName not in self.predicates:
-            raise Exception("Unknown predicate '%s'" % predicateName)
-        self.closedWorldPreds.append(predicateName)
+        '''
+        Sets the given predicate as closed-world (for inference)
+        a predicate that is closed-world is assumed to be false for 
+        any parameters not explicitly specified otherwise in the evidence.
+        If predicateName is None, all predicates are set to open world.
+        '''
+        if predicateName is None:
+            self.closedWorldPreds = []
+        else:
+            if predicateName not in self.predicates:
+                raise Exception("Unknown predicate '%s'" % predicateName)
+            self.closedWorldPreds.append(predicateName)
 
     def _weights(self):
         '''
@@ -532,10 +546,13 @@ class MLN(object):
                     dbs.extend(db)
                 else:
                     dbs.append(db)
-
-        if not self.materializedTemplates:
-            self.materializeFormulaTemplates(dbs)
+            elif type(db) is list:
+                dbs.extend(db)
+            else:
+                dbs.append(db)
         
+        if self.formulas is None:
+            self.materializeFormulaTemplates(dbs, self.verbose)
         # run learner
         if len(dbs) == 1:
             groundingMethod = eval('learning.%s.groundingMethod' % method)
@@ -615,7 +632,11 @@ class MLN(object):
         '''
         Nicely prints the formulas and their weights.
         '''
-        for f in self.formulas:
+        if self.formulas is None:
+            formulas = self.formulaTemplates
+        else:
+            formulas = self.formulas
+        for f in formulas:
             if f.weight is None:
                 print '%s.' % strFormula(f)
             elif type(f.weight) is float:
@@ -640,8 +661,8 @@ class MRF(object):
             maps a string representation of a ground atom to a fol.GroundAtom object
         gndAtomsByIdx:
             dict: ground atom index -> fol.GroundAtom object
-        evindece:
-            dict: ground atom index -> truth values
+        evidence:
+            list: ground atom index -> truth values
         gndBlocks:
             dict: block name -> list of ground atom indices
         gndBlockLookup:
@@ -660,11 +681,10 @@ class MRF(object):
         db: database filename (.db) or a Database object
         '''
         self.mln = mln
-        self.evidence = {}
+        self.evidence = None
         self.evidenceBackup = {}
         self.softEvidence = list(mln.posteriorProbReqs) # constraints on posterior probabilities are nothing but soft evidence and can be handled in exactly the same way
         self.simplify = simplify
-        self.mln.evidence = self.evidence
         
         # ground members
         self.gndAtoms = {}
@@ -684,29 +704,25 @@ class MRF(object):
         self.closedWorldPreds = list(mln.closedWorldPreds)
         self.probreqs = list(mln.probreqs)
         self.posteriorProbReqs = list(mln.posteriorProbReqs)
-        self.predicates = mln.predicates
+        self.predicates = copy.deepcopy(mln.predicates)
         self.templateIdx2GroupIdx = mln.templateIdx2GroupIdx
 
         # get combined domain
         self.domains = mergeDomains(mln.domains, db.domains)
 
         # materialize MLN formulas
-        if not self.mln.materializedTemplates:
+        if self.mln.formulas is None:
             self.mln._materializeFormulaTemplates(verbose)
-        self.formulas = list(mln.formulas) # copy the list of formulas, because we may change or extend it
-        
         # materialize formula weights
+        self.formulas = list(mln.formulas) # copy the list of formulas, because we may change or extend it
         self._materializeFormulaWeights(verbose)
 
-        
         # grounding
         groundingMethod = eval('%s(self, db)' % groundingMethod)
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(verbose=verbose)
-
-#     def __getattr__(self, attr):
-#         # forward attribute access to the MLN (yes, it's a hack)
-#         return self.mln.__getattribute__(attr)
+        
+        print self.gndAtoms
 
     def getHardFormulas(self):
         '''
@@ -759,10 +775,7 @@ class MRF(object):
         max_weight = 0
         for f in self.formulas:
             if f.weight is not None:
-                if hasattr(f, "complexWeight"): # TODO check if complexWeight is ever used anywhere (old AMLN learning?)
-                    f.weight = f.complexWeight
                 w = str(f.weight)
-                f.complexWeight = w
                 while "$" in w:
                     try:
                         w, numReplacements = re.subn(r'\$\w+', self._substVar, w)
@@ -815,9 +828,10 @@ class MRF(object):
 
     def _addGroundFormula(self, gndFormula, idxFormula, idxGndAtoms = None):
         '''
-            adds a ground formula to the model
+        Adds a ground formula to the MRF.
 
-            idxGndAtoms: indices of the ground atoms that are referenced by the formula (precomputed); If not given (None), will be determined automatically
+        - idxGndAtoms: indices of the ground atoms that are referenced by the 
+        - formula (precomputed); If not given (None), will be determined automatically
         '''
         gndFormula.idxFormula = idxFormula
         self.gndFormulas.append(gndFormula)
@@ -1893,7 +1907,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
             for c in constants: mln.addConstant(domain, c)
     
     # save data on formula templates for materialization
-    mln.formulas = formulatemplates
+    mln.formulaTemplates = formulatemplates
     mln.templateIdx2GroupIdx = templateIdx2GroupIdx
     mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices
     return mln

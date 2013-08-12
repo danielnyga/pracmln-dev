@@ -133,7 +133,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                 self.evidenceIndices.append(idxValueTrueone)
 
         for fIdx, formula in enumerate(mrf.formulas):
-            stdout.write('%d/%d\r' % (fIdx, len(mrf.formulas)))
+#             stdout.write('%d/%d\r' % (fIdx, len(mrf.formulas)))
             
             if isConjunctionOfLiterals(formula):
                 trueAtomAssignments, trueGndAtomIndices = self.getValidVariableAssignments(formula, True, trueGndAtoms)

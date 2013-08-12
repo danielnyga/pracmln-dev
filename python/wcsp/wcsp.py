@@ -145,6 +145,7 @@ class WCSP(object):
         f = open(temp_wcsp_file, 'w+')
         self.write(f)
         f.close()
+#         cmd = 'toulbar2 -s -v=1 -e=0 -nopre -k=0 %s' % temp_wcsp_file
         cmd = 'toulbar2 -s %s' % temp_wcsp_file
         p = Popen(cmd, shell=True, stderr=PIPE, stdout=PIPE)
         solution = None
@@ -152,6 +153,7 @@ class WCSP(object):
         cost = None
         while True:
             l = p.stdout.readline()
+            print l
             if not l: break
             if l.startswith('New solution'):
                 cost = long(l.split()[2])
