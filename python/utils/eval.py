@@ -50,8 +50,8 @@ class ConfusionMatrix(object):
 		if gndTruths is None:
 			gndTruths = {}
 			self.matrix[prediction] = gndTruths
-		if self.matrix.get(groundTruth, None) is None:
-			self.matrix[groundTruth] = {groundTruth: 0}
+ 		if self.matrix.get(groundTruth, None) is None:
+ 			self.matrix[groundTruth] = {groundTruth: 0}
 		
 		gndTruths[groundTruth] = gndTruths.get(groundTruth, 0) + 1
 		self.instanceCount += 1
@@ -122,46 +122,42 @@ class ConfusionMatrix(object):
 			
 		return acc, pre, rec, f1
 
-	def printLatexTable(self):
-		classes = []
-		for classification in self.matrix:
-			for truth in self.matrix.get(classification,{}):
-				try:
-					classes.index(truth)
-				except ValueError:
-					classes.append(truth)
-		
+	def printLatexTable(self):		
 		grid = "|l|"
-		for cl in sorted(classes):
+		for cl in sorted(self.labels):
 			grid += "l|"
 		
 		print "\\begin{table}[h!]"
 		print "\\footnotesize"
-		print "\\begin{tabular}{"+grid+"}"
+		print "\\begin{tabular}{" + grid + "}"
 		
-		headerRow = "Truth/Class"
-		for cl in sorted(classes):
-			headerRow += " & " + cl 
+		headerRow = r"Prediction/Ground Truth"
+		for cl in sorted(self.labels):
+			headerRow += " & " + cl.replace('_', r'\_') 
 		
-		print "\\hline"
-		print headerRow+"\\\\ \\hline"
+		# count number of actual instances per class label
+		examplesPerClass = {}
+		for label in self.labels:
+			tp, tn, fp, fn = self.countClassifications(label)
+			examplesPerClass[label] = sum([tp, fp, fn])
+			
+		
+		print r'\hline'
+		print headerRow + r'\\ \hline'
 		
 		#for each class create row
-		for cl in sorted(classes):
+		for clazz in sorted(self.labels):
 			values = []
 			#for each row fill colum
-			for cl2 in sorted(classes):
-				if cl == cl2:
-					values.append("\\textbf{"+str(self.matrix.get(cl2,{}).get(cl,0))+"}")
-				else:
-					values.append(str(self.matrix.get(cl2,{}).get(cl,0)))
-			print cl + " & "+" & ".join(values) +"\\\\ \\hline"
-		print "\\hline"
-		
-		print "\\end{tabular}"
-		print "\\caption[Short Caption]{Long Caption}"
-		print "\\label{fig:}"
-		print "\\end{table}"
+			for cl2 in sorted(self.labels):
+				counts = self.getMatrixEntry(clazz, cl2)
+				values.append(r'\cellcolor{tblgreen!%d}%s' % (int(round(float(counts)/examplesPerClass[clazz] * 100)), (r'\textbf{%d}' if clazz == cl2 else '%d') % counts))
+			print clazz.replace('_', r'\_') + ' & ' + ' & '.join(values) + r'\\ \hline'
+			
+		print r"\end{tabular}"
+		print r"\caption[Short Caption]{Long Caption}"
+		print r"\label{fig:}"
+		print r"\end{table}"
 
 	def printPrecisions(self):
 		
@@ -217,7 +213,7 @@ class ConfusionMatrix(object):
 if __name__ == '__main__':
 	cm = ConfusionMatrix()
 	
-	for _ in range(1000):
+	for _ in range(10):
 		cm.addClassificationResult("AAA","A")
 	cm.addClassificationResult("AAA","AAA")
 	cm.addClassificationResult("AAA","AAA")

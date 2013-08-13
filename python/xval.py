@@ -58,7 +58,7 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
                 atom = atom.replace(binding, bindings[binding])
             trueDB.addGroundAtom(atom)
             db.retractGndAtom(atom)
-#         db.printEvidence()
+#          db.printEvidence()
         
         mrf = mln.groundMRF(db, method='DefaultGroundingFactory')
 #         mrf.printEvidence()
@@ -68,23 +68,27 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
         sig2 = list(sig)
         entityIdx = mln.predicates[queryPred].index(queryDom)
         for entity in db.domains[queryDom]:
-#             print 'evaluating', entity
+            print 'evaluating', entity
             sig2[entityIdx] = entity
             query = '%s(%s)' % (queryPred, ','.join(sig2))
             for truth in trueDB.query(query):
                 truth = truth.values().pop()
+                print 'truth:', truth
             for pred in resultDB.query(query):
                 pred = pred.values().pop()
+                print 'pred:', pred
             confMatrix.addClassificationResult(pred, truth)
         for e, v in trueDB.evidence.iteritems():
             if v is not None:
                 db.addGroundAtom('%s%s' % ('' if v is True else '!', e))
+#         db.printEvidence()
     print confMatrix
+    confMatrix.printLatexTable()
 
 def learnAndEval(mln, learnDBs, testDBs, queryPred, queryDom, cwPreds, confMatrix):
 #     mln = readMLNFromFile(mlnfile)
     learnedMLN = mln.learnWeights(learnDBs, method=ParameterLearningMeasures.BPLL_CG)
-    evalMLN(learnedMLN, queryPred, queryDom, cwPreds, dbs, confMatrix)    
+    evalMLN(learnedMLN, queryPred, queryDom, cwPreds, testDBs, confMatrix)    
     
 
 if __name__ == '__main__':
@@ -127,6 +131,7 @@ if __name__ == '__main__':
     partition = []
     for i in range(folds):
         partition.append(dbs[i*partSize:(i+1)*partSize])
+        
     confMatrix = ConfusionMatrix()
     for run in range(folds):
         print 'Run %d of %d...' % (run+1, folds)
