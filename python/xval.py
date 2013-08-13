@@ -58,10 +58,14 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
                 atom = atom.replace(binding, bindings[binding])
             trueDB.addGroundAtom(atom)
             db.retractGndAtom(atom)
-#          db.printEvidence()
+        db.printEvidence()
         
-        mrf = mln.groundMRF(db, method='DefaultGroundingFactory')
-#         mrf.printEvidence()
+        mln.formulas = None
+        mln.defaultInferenceMethod = InferenceMethods.WCSP
+        mrf = mln.groundMRF(db)
+#         mrf.infer(['object'])
+#         for gndFormula, p in mrf.getResultsDict().iteritems():
+#             print p, gndFormula
         conv = WCSPConverter(mrf)
         resultDB = conv.getMostProbableWorldDB()
         

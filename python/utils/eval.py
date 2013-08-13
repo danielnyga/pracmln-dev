@@ -133,7 +133,7 @@ class ConfusionMatrix(object):
 		
 		headerRow = r"Prediction/Ground Truth"
 		for cl in sorted(self.labels):
-			headerRow += " & " + cl.replace('_', r'\_') 
+			headerRow += r" & \begin{turn}{90}" + cl.replace('_', r'\_') + r'\end{turn}' 
 		
 		# count number of actual instances per class label
 		examplesPerClass = {}
