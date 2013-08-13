@@ -244,6 +244,7 @@ class MLN(object):
         Expand all formula templates.
         - dbs: list of Database objects
         '''
+        print "materializing formula templates..."
         self.predicates = {}
         self.domains = {}
         self.formulas = []
@@ -421,8 +422,8 @@ class MLN(object):
             else:
                 dbs.append(db)
         
-        if self.formulas is None:
-            self.materializeFormulaTemplates(dbs, self.verbose)
+#         if self.formulas is None:
+        self.materializeFormulaTemplates(dbs, self.verbose)
             
         # run learner
         if len(dbs) == 1:
@@ -461,7 +462,7 @@ class MLN(object):
         if len(wt) != len(self.formulaTemplates):
             raise Exception("length of weight vector != number of formula templates")
         for i, f in enumerate(self.formulaTemplates):
-            f.weight = wt[i]
+            f.weight = float('%-10.6f' % float(eval(str(wt[i]))))
 
     def write(self, f, mutexInDecls=True):
         '''
@@ -592,6 +593,8 @@ class MRF(object):
         groundingMethod = eval('%s(self, db)' % groundingMethod)
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(verbose=verbose)
+        assert len(self.gndAtoms) == len(self.evidence)
+       
         
 
     def getHardFormulas(self):

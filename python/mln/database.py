@@ -49,8 +49,7 @@ class Database(object):
     def addGroundAtom(self, gndLit):
         '''
         Adds the fact represented by the ground atom, which might be
-        a GroundLit object or a string. The domains in the associated MLN 
-        instance are updated accordingly, if necessary. 
+        a GroundLit object or a string.
         '''
         if type(gndLit) is str:
             isTrue, predName, params = parseLiteral(gndLit)
@@ -58,12 +57,20 @@ class Database(object):
         elif isinstance(gndLit, GroundLit):
             atomString = gndLit.gndAtom
             isTrue = not gndLit.negated
+            params = gndLit.params
+            predName = gndLit.predName
         else:
             raise Exception('gndLit has an illegal type')
         self.evidence[atomString] = isTrue
+        # update the domains
         domNames = self.mln.predDecls[predName]
-        for i, v in enumerate(params):
-            self.mln.addConstant(domNames[i], v) 
+        for i, domName in enumerate(domNames):
+            dom = self.domains.get(domName, None)
+            if dom is None:
+                dom = []
+                self.domains[domName] = dom
+            if not params[i] in dom:
+                dom.append(params[i]) 
                
     def printEvidence(self):
         for truth, atom in self.evidence.iteritems():
@@ -128,7 +135,7 @@ class Database(object):
         
         def __init__(self, db):
             self.mln = db.mln
-            self.domains = mergeDomains(self.mln.domains, db.domains)
+            self.domains = mergeDomains(self.mln.staticDomains, db.domains)
             self.gndAtoms = Database.PseudoMRF.GroundAtomGen()
             self.evidence = Database.PseudoMRF.WorldValues(db)
 
