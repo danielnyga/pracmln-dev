@@ -24,11 +24,12 @@
 import bisect
 from wcsp import WCSP
 from wcsp import Constraint
-from logic.fol import Negation, GroundAtom, GroundLit
+from logic.fol import Negation, GroundAtom, GroundLit, TrueFalse
 import utils
 from logic.fol import isConjunctionOfLiterals
 from logic.fol import isDisjunctionOfLiterals
 from mln.database import Database
+import sys
 
 class WCSPConverter(object):
     '''
@@ -71,7 +72,7 @@ class WCSPConverter(object):
                 self.vars.append(str(gndAtom))
                 self.gndAtom2VarIndex[gndAtom] = varIdx
                 self.varIdx2GndAtom[varIdx] = [gndAtom]
-
+        
         
     def simplifyVariables(self):
         '''
@@ -82,14 +83,13 @@ class WCSPConverter(object):
         sf_vars = []
         evidence = [i for i, e in enumerate(self.mrf.evidence) if e is not None]
         for varIdx, var in enumerate(self.vars):
-            gndAtoms = self.varIdx2GndAtom[varIdx]
-            if len(filter(lambda x: x.idx not in evidence, gndAtoms)) > 0:
-                # all gndAtoms are set by the evidence: remove the variable
+            gndAtoms = filter(lambda x: x.idx not in evidence, self.varIdx2GndAtom[varIdx])
+            if len(gndAtoms) > 0: # not all gndAtoms are set by the evidence
                 sfVarIdx = len(sf_vars)
                 sf_vars.append(var)
-                for gndAtom in self.varIdx2GndAtom[varIdx]:
+                for gndAtom in gndAtoms:
                     sf_gndAtom2VarIdx[gndAtom] = sfVarIdx
-                sf_varIdx2GndAtoms[sfVarIdx] = self.varIdx2GndAtom[varIdx]
+                sf_varIdx2GndAtoms[sfVarIdx] = gndAtoms
         self.vars = sf_vars
         self.gndAtom2VarIndex = sf_gndAtom2VarIdx
         self.varIdx2GndAtom = sf_varIdx2GndAtoms
@@ -138,7 +138,7 @@ class WCSPConverter(object):
         for f in self.mrf.gndFormulas:
             if f.isHard or f.weight == 0.0: continue
 #            print f.weight, f, self.divisor
-            cost = abs(f.weight / self.divisor)
+            cost = abs(long(f.weight / self.divisor))
             newSum = costSum + cost
             if newSum < costSum:
                 raise Exception("Numeric Overflow")
@@ -180,17 +180,20 @@ class WCSPConverter(object):
             f.isHard = wf.isHard
         else: f = wf
         f_ = f.simplify(self.mrf)
+        if isinstance(f_, TrueFalse):
+            return
         f_ = f_.toNNF()
         f_.weight = f.weight
         f_.isHard = f.isHard 
         idxGndAtoms = f_.idxGroundAtoms()
         gndAtoms = map(lambda x: self.mrf.gndAtomsByIdx[x], idxGndAtoms)
         varIndices = set(map(lambda x: self.gndAtom2VarIndex[x], gndAtoms))
+        
         varIndices = tuple(sorted(varIndices))
         if f_.isHard:
             cost = self.top
         else:
-            cost = long(round(f_.weight / self.divisor))
+            cost = long(f_.weight / self.divisor)
         
         # collect the constraint tuples
         true, false = self.gatherConstraintTuples(wcsp, varIndices, f_)
@@ -219,13 +222,14 @@ class WCSPConverter(object):
                     assert (cost + cOld.defCost >= cOld.defCost)
                     cOld.addTuple(t, cost + cOld.defCost)
             if constraint.defCost != 0:
-                for t in filter(lambda x: x not in constraint.tuples.keys(), cOld.tuples.keys()):
+                for t in filter(lambda x: x not in constraint.tuples, cOld.tuples):
                     oldCost = cOld.tuples[t]
                     cOld.addTuple(t, oldCost + constraint.defCost)
-            cOld.defCost += constraint.defCost
+                cOld.defCost += constraint.defCost
         else:
             self.constraintBySignature[varIndices] = constraint
             wcsp.constraints.append(constraint)
+            constraint.write(sys.stdout)
         
     def gatherConstraintTuples(self, wcsp, varIndices, formula):
         '''
@@ -351,10 +355,10 @@ class WCSPConverter(object):
         wcsp = WCSP()
         wcsp.top = self.top
         wcsp.domSizes = [max(2,len(self.varIdx2GndAtom[i])) for i, _ in enumerate(self.vars)]
-        wcsp.constraints.extend(self.generateEvidenceConstraints())
+#         wcsp.constraints.extend(self.generateEvidenceConstraints())
         for f in self.mrf.gndFormulas:
-#             f.weight = self.mln.formulas[f.idxFormula].weight
-#             f.isHard = self.mln.formulas[f.idxFormula].isHard
+            f.weight = self.mln.formulas[f.idxFormula].weight
+            f.isHard = self.mln.formulas[f.idxFormula].isHard
             self.generateConstraint(wcsp, f)
         return wcsp
 
