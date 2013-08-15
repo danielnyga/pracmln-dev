@@ -30,6 +30,9 @@ from mln.methods import ParameterLearningMeasures, InferenceMethods
 from wcsp.converter import WCSPConverter
 from utils.eval import ConfusionMatrix
 from mln.util import strFormula
+from multiprocessing import Pool
+import time
+import os
 
 usage = '''Usage: %prog [options] <predicate> <domain> <mlnfile> <dbfiles>'''
   
@@ -39,6 +42,8 @@ parser.add_option("-k", "--folds", dest="folds", type='int', default=10,
 parser.add_option("-p", "--percent", dest="percent", type='int', default=100,
                   help="Use only PERCENT% of the data. (default=100)")
 parser.add_option("-v", "--verbose", dest="verbose", action='store_true', default=False,
+                  help="Verbose mode.")
+parser.add_option("-m", "--multicore", dest="multicore", action='store_true', default=True,
                   help="Verbose mode.")
 
 def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
@@ -63,52 +68,64 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
         mln.formulas = None
         mln.defaultInferenceMethod = InferenceMethods.WCSP
         mrf = mln.groundMRF(db)
-#         mrf.infer(['object'])
-#         for gndFormula, p in mrf.getResultsDict().iteritems():
-#             print p, gndFormula
         conv = WCSPConverter(mrf)
         resultDB = conv.getMostProbableWorldDB()
         
         sig2 = list(sig)
         entityIdx = mln.predicates[queryPred].index(queryDom)
         for entity in db.domains[queryDom]:
-            print 'evaluating', entity
             sig2[entityIdx] = entity
             query = '%s(%s)' % (queryPred, ','.join(sig2))
             for truth in trueDB.query(query):
                 truth = truth.values().pop()
-                print 'truth:', truth
             for pred in resultDB.query(query):
                 pred = pred.values().pop()
-                print 'pred:', pred
             confMatrix.addClassificationResult(pred, truth)
         for e, v in trueDB.evidence.iteritems():
             if v is not None:
                 db.addGroundAtom('%s%s' % ('' if v is True else '!', e))
-#         db.printEvidence()
-    print confMatrix
-    confMatrix.printLatexTable()
+    if verbose:
+        print confMatrix
 
 def learnAndEval(mln, learnDBs, testDBs, queryPred, queryDom, cwPreds, confMatrix):
-#     mln = readMLNFromFile(mlnfile)
     learnedMLN = mln.learnWeights(learnDBs, method=ParameterLearningMeasures.BPLL_CG)
-    evalMLN(learnedMLN, queryPred, queryDom, cwPreds, testDBs, confMatrix)    
+    evalMLN(learnedMLN, queryPred, queryDom, cwPreds, testDBs, confMatrix)
     
 
+# def runFold(mln_, partition, foldIdx, directory):
+def runFold(args):
+    foldIdx = args['foldIdx']
+    partition = args['partition']
+    directory = args['directory']
+    mln_ = args['mln_']
+    print 'Run %d of %d...' % (foldIdx+1, folds)
+    trainDBs = []
+    confMatrix = ConfusionMatrix()
+    for dbs in [dbs for i,dbs in enumerate(partition) if i != foldIdx]:
+        trainDBs.extend(dbs)
+    testDBs = partition[foldIdx]
+    learnAndEval(mln_, trainDBs, testDBs, predName, domain, cwpreds, confMatrix)
+    confMatrix.toFile(os.path.join(directory, 'conf_matrix_%d.cm' % foldIdx))
+    return confMatrix
+    
+    
 if __name__ == '__main__':
     (options, args) = parser.parse_args()
     folds = options.folds
     percent = options.percent
     verbose = options.verbose
+    multicore = options.multicore
     predName = args[0]
     domain = args[1]
     mlnfile = args[2]
     dbfiles = args[3:]
-    print options
-    print args
+    
+    startTime = time.time()
+    directory = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
+    print 'Results will be written into %s' % directory
+
     # preparations
     mln_ = readMLNFromFile(mlnfile, verbose=verbose)
-    mln_.printFormulas()
     print 'Read MLN %s.' % mlnfile
     dbs = []
     for dbfile in dbfiles:
@@ -135,17 +152,31 @@ if __name__ == '__main__':
     partition = []
     for i in range(folds):
         partition.append(dbs[i*partSize:(i+1)*partSize])
+    
+    os.mkdir(directory)
+    
+    if True:
+        # set up a pool of worker processes
+        workerPool = Pool()
+        kwargs = [{'mln_': mln_.duplicate(), 'partition': partition, 'foldIdx': i, 'directory': directory} for i in range(folds)]
+        result = workerPool.map_async(runFold, kwargs).get()
+        print 'Started %d-fold Crossvalidation in %d processes.' % (folds, workerPool._processes)
+        workerPool.close()
+        workerPool.join()
+        for r in result:
+            print r
+        elapsedTimeMP = time.time() - startTime
+#     startTime = time.time()
+    else:
+        for fold in range(folds):
+            args = {'mln_': mln_.duplicate(), 'partition': partition, 'foldIdx': fold, 'directory': directory}
+            runFold(args)
+        elapsedTimeSP = time.time() - startTime
+    print '%d-fold crossvalidation (MP) took %.2f min' % (folds, elapsedTimeMP / 60.0)
+    print '%d-fold crossvalidation (SP) took %.2f min' % (folds, elapsedTimeSP / 60.0)
         
-    confMatrix = ConfusionMatrix()
-    for run in range(folds):
-        print 'Run %d of %d...' % (run+1, folds)
-        trainDBs = []
-        for dbs in [dbs for i,dbs in enumerate(partition) if i != run]:
-            trainDBs.extend(dbs)
         
-        testDBs = partition[run]
 
-        learnAndEval(mln_, trainDBs, testDBs, predName, domain, cwpreds, confMatrix)
     
     
         

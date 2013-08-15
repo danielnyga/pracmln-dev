@@ -209,6 +209,9 @@ class ConfusionMatrix(object):
 
 	def printTable(self):
 		print self
+		
+	def toFile(self, filename):
+		pickle.dump(self, open(filename, 'w+'))
 			
 if __name__ == '__main__':
 	cm = ConfusionMatrix()
