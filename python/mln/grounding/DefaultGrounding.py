@@ -76,10 +76,8 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
             for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, mrf.simplify):
                 gndFormula.isHard = formula.isHard
                 gndFormula.weight = formula.weight
-                if isinstance(gndFormula, fol.TrueFalse) or gndFormula.weight == 0:
+                if isinstance(gndFormula, fol.TrueFalse):
                     continue
                 gndFormulas.append(gndFormula)
                 mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
-        # this is legacy code
-        # self.mln.gndFormulas = mrf.gndFormulas
-        # self.mln.gndAtomOccurrencesInGFs = mrf.gndAtomOccurrencesInGFs
+        

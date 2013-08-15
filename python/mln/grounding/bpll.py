@@ -26,6 +26,7 @@ from logic import fol, grammar
 from sys import stdout
 import time
 from collections import defaultdict
+# from logic.fol import isConjunctionOfLiterals
 
 def isConjunctionOfLiterals(f):
     if not type(f) is fol.Conjunction:
