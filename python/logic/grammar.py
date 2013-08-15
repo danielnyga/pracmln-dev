@@ -78,6 +78,9 @@ class TreeBuilder(object):
         elif op == '=':
             if len(toks) == 2:
                 self.stack.append(Equality(list(toks)))
+        elif op == '!=':
+            if len(toks) == 2:
+                self.stack.append(Equality(list(toks), negated=True))
         elif op == 'count':
             print toks
             if len(toks) in (3,4):                
@@ -132,8 +135,9 @@ count_constraint = Literal("count(").suppress() + atom + Optional(Literal("|").s
 formula = Forward()
 exist = Literal("EXIST ").suppress() + Group(delimitedList(variable)) + openRB + Group(formula) + closeRB
 equality = (constant|variable) + Literal("=").suppress() + (constant|variable)
+inequality = (constant|variable) + Literal('/=').suppress() + (constant|variable)
 negation = Literal("!").suppress() + openRB + Group(formula) + closeRB
-item = literal | exist | equality | openRB + formula + closeRB | negation
+item = literal | exist | equality | inequality | openRB + formula + closeRB | negation
 disjunction = Group(item) + ZeroOrMore(Literal("v").suppress() + Group(item))
 conjunction = Group(disjunction) + ZeroOrMore(Literal("^").suppress() + Group(disjunction))
 implication = Group(conjunction) + Optional(Literal("=>").suppress() + Group(conjunction))
@@ -154,6 +158,7 @@ def parseFormula(input):
     implication.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"=>"))
     biimplication.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"<=>"))
     equality.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"="))
+    inequality.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"!="))
     count_constraint.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'count'))
     f = formula + StringEnd()
     f.parseString(input)
@@ -172,7 +177,7 @@ if __name__=='__main__':
 #         tests = ["((!a(x) => b(x)) ^ (b(x) => a(x))) v !(b(x)=>c(x))"]
 #         tests = ["(EXIST y1 (rel(x,y1) ^ EXIST y2 (rel(x,y2) ^ !(y1=y2) ^ !(EXIST y3 (rel(?x,y3) ^ !(y1=y3) ^ !(y2=y3))))))"]
 #         tests = ["EXIST ?x (a(?x))"]
-        tests = ['!(foo(x, y) ^ !(?x=y))']
+        tests = ['!foo(?x, ?y) ^ ?x/=?y']
         for test in tests:
             print "trying to parse %s..." % test
             f = parseFormula(test).toCNF()
