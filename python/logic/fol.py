@@ -90,25 +90,39 @@ class Formula(Constraint):
         '''
         Gets all the template variants of the formula for the given
         MLN (ground Markov Random Field)
-        '''        
+        '''
+        uniqueVars = mln.uniqueFormulaExpansions.get(self, None)
+        uniqueVarsDomain = {}
+        if uniqueVars is not None:
+            uniqueVarsDomain[uniqueVars] = list(mln.domains[self.getVarDomain(uniqueVars[0], mln)])
         tvars = self._getTemplateVariables(mln)
         variants = []
-        self._getTemplateVariants(mln, tvars.items(), {}, variants, 0)
+        self._getTemplateVariants(mln, tvars.items(), {}, variants, 0, uniqueVarsDomain)
         return variants
 
-    def _getTemplateVariants(self, mln, vars, assignment, variants, i):
+    def _getTemplateVariants(self, mln, vars, assignment, variants, i, uniqueVarsDomain={}):
         if i == len(vars): # all template variables have been assigned a value
             # ground the vars in all children
-#            print type(self)
             variants.extend(self._groundTemplate(assignment))
             return
         else:
             # ground the next variable
             varname, domname = vars[i]
+            uVarDom = None
             for value in mln.domains[domname]:
+                if not len(uniqueVarsDomain) == 0:
+                    for uvars, dom in uniqueVarsDomain.iteritems(): break
+                    if varname in uvars and len(uvars) > 1:
+                        del uniqueVarsDomain[uvars]
+                        uniqueVarsDomain[tuple([v for v in uvars if v != varname])] = dom
+                        uVarDom = dom
+                    elif varname in uvars and not value in dom:
+                        continue
                 assignment[varname] = value
-                self._getTemplateVariants(mln, vars, assignment, variants, i+1)
-    
+                self._getTemplateVariants(mln, vars, assignment, variants, i+1, uniqueVarsDomain)
+                if uVarDom:
+                    uVarDom.remove(value)
+                    
     def _getTemplateVariables(self, mln, vars = None):
         '''gets all variables of this formula that are required to be expanded (i.e. variables to which a '+' was appended) and returns a mapping (dict) from variable name to domain name'''
         raise Exception("%s does not implement _getTemplateVariables" % str(type(self)))
@@ -849,6 +863,10 @@ class Negation(ComplexFormula):
             return Negation([f])
         
 class Exist(ComplexFormula):
+    '''
+    Existential quantifier.
+    '''
+    
     def __init__(self, vars, formula):
         self.children = [formula]
         self.vars = vars
@@ -915,15 +933,16 @@ class Exist(ComplexFormula):
 
 class Equality(Formula):
     '''
-    Represents equality constraints between two symbols.
+    Represents (in)equality constraints between two symbols.
     '''
     
-    def __init__(self, params):
+    def __init__(self, params, negated=False):
         assert len(params) == 2
         self.params = params
+        self.negated = negated
 
     def __str__(self):
-        return "%s=%s" % (str(self.params[0]), str(self.params[1]))
+        return "%s%s%s" % (str(self.params[0]), '!=' if self.negated else '=', str(self.params[1]))
 
     def ground(self, mrf, assignment, referencedGndAtoms = None, simplify=False, allowPartialGroundings=False):
         # if the parameter is a variable, do a lookup (it must be bound by now), 
@@ -954,13 +973,17 @@ class Equality(Formula):
                     constants[domain].append(p)
         return vars
     
+    def getVarDomain(self, varname, mln):
+        return None
+    
     def isTrue(self, world_values):
-        return self.params[0] == self.params[1]
+        truth = self.params[0] == self.params[1]
+        return not truth if self.negated else truth 
     
     def simplify(self, mrf):
         truth = self.isTrue(mrf.evidence) 
         if truth: return TrueFalse(truth)
-        return Equality(list(self.params))
+        return Equality(list(self.params), negated=self.negated)
         
 class TrueFalse(Formula):
     '''
@@ -1106,7 +1129,10 @@ def isConjunctionOfLiterals(f):
     if not type(f) is Conjunction:
         return False
     for child in f.children:
-        if not isinstance(child, Lit) and not isinstance(child, GroundLit) and not isinstance(child, GroundAtom):
+        if not isinstance(child, Lit) and \
+            not isinstance(child, GroundLit) and \
+            not isinstance(child, GroundAtom) and \
+            not isinstance(child, Equality):
             return False
     return True
 
@@ -1117,6 +1143,9 @@ def isDisjunctionOfLiterals(f):
     if not type(f) is Disjunction:
         return False
     for child in f.children:
-        if not isinstance(child, Lit) and not isinstance(child, GroundLit) and not isinstance(child, GroundAtom):
+        if not isinstance(child, Lit) and \
+            not isinstance(child, GroundLit) and \
+            not isinstance(child, GroundAtom) and \
+            not isinstance(child, Equality):
             return False
     return True

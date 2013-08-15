@@ -27,7 +27,6 @@ import re
 import sys
 
 from logic import fol
-from util import *
 from logic.fol import Disjunction, Conjunction
 
 # math functions

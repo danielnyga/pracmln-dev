@@ -30,6 +30,7 @@ from logic.fol import isConjunctionOfLiterals
 from logic.fol import isDisjunctionOfLiterals
 from mln.database import Database
 import sys
+from mln.util import strFormula
 
 class WCSPConverter(object):
     '''
@@ -126,7 +127,6 @@ class WCSPConverter(object):
             divisor *= minWeight
         if deltaMin < 1.0:
             divisor *= deltaMin
-        print 'divisor:', divisor
         return divisor
     
     def computeHardCosts(self):
@@ -185,6 +185,7 @@ class WCSPConverter(object):
         f_ = f_.toNNF()
         f_.weight = f.weight
         f_.isHard = f.isHard 
+#         print strFormula(f_)
         idxGndAtoms = f_.idxGroundAtoms()
         gndAtoms = map(lambda x: self.mrf.gndAtomsByIdx[x], idxGndAtoms)
         varIndices = set(map(lambda x: self.gndAtom2VarIndex[x], gndAtoms))
