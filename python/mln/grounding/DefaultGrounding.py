@@ -80,6 +80,4 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
                     continue
                 gndFormulas.append(gndFormula)
                 mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
-        # this is legacy code
-        # self.mln.gndFormulas = mrf.gndFormulas
-        # self.mln.gndAtomOccurrencesInGFs = mrf.gndAtomOccurrencesInGFs
+        

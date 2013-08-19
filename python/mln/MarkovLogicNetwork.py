@@ -150,6 +150,7 @@ class MLN(object):
         self.templateIdx2GroupIdx = {}
         self.vars = {}
         self.allSoft = False
+        self.uniqueFormulaExpansions = {}
         self.fixedWeightFormulas = []
         self.fixedWeightTemplateIndices = []
         self.verbose = verbose
@@ -279,11 +280,13 @@ class MLN(object):
             self.predicates[pred] = domains
         
         # permanently transfer domains of variables that were expanded from templates
-        for ft in self.formulaTemplates:
+        for ft in templates:
             domNames = ft._getTemplateVariables(self).values()
             for domName in domNames:
                 self.domains[domName] = fullDomain[domName]
         self._materializeFormulaTemplates(templates)
+#         self.printFormulas()
+#         print len(self.formulas), 'formulas'
 
     def _materializeFormulaTemplates(self, templates, verbose=False):
 
@@ -454,7 +457,7 @@ class MLN(object):
             fittingParams.update(params)
             print "fitting with params ", fittingParams
             self._fitProbabilityConstraints(self.probreqs, **fittingParams)
-
+        
         print "\n// formulas"
         for formula in learnedMLN.formulaTemplates:
             print "%f  %s" % (float(eval(str(formula.weight))), strFormula(formula))
@@ -476,7 +479,7 @@ class MLN(object):
         f.write("// domain declarations\n")
         for d in self.domDecls: f.write("%s\n" % d)
         f.write("\n// predicate declarations\n")
-        for predname, args in self.predicates.iteritems():
+        for predname, args in self.predDecls.iteritems():
             excl = self.blocks.get(predname)
             if not mutexInDecls or excl is None:
                 f.write("%s(%s)\n" % (predname, ", ".join(args)))
@@ -514,7 +517,7 @@ class MLN(object):
             if f.weight is None:
                 print '%s.' % strFormula(f)
             elif type(f.weight) is float:
-                print "%7.3f\t%s" % (f.weight, strFormula(f))
+                print "%-10.6f\t%s" % (f.weight, strFormula(f))
             else:
                 print "%s\t%s" % (str(f.weight), strFormula(f))
     
@@ -596,8 +599,6 @@ class MRF(object):
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(verbose=verbose)
         assert len(self.gndAtoms) == len(self.evidence)
-       
-        
 
     def getHardFormulas(self):
         '''
@@ -1641,6 +1642,8 @@ def readMLNFromFile(filename_or_list, verbose=False):
     inGroup = False
     idxGroup = -1
     fixWeightOfNextFormula = False
+    nextFormulaUnique = None
+    uniqueFormulaExpansions = {}
     fixedWeightTemplateIndices = []
     lines = text.split("\n")
     iLine = 0
@@ -1666,6 +1669,15 @@ def readMLNFromFile(filename_or_list, verbose=False):
                 content = stripComments(file(filename, "r").read())
                 lines = content.split("\n") + lines[iLine:]
                 iLine = 0
+                continue
+            elif line.startswith('#unique'):
+                try:
+                    uniVars = re.search('#unique{(.+)\w*,\w*(.+)}', line)
+                    uniVars = uniVars.groups()
+                    if len(uniVars) != 2: raise
+                    nextFormulaUnique = uniVars
+                except:
+                    raise Exception('Malformed #unique expression: "%s"' % line)
                 continue
             elif line.startswith("#fixUnitary:"): # deprecated (use instead #fixedWeightFreq)
                 predName = line[12:len(line)]
@@ -1767,6 +1779,9 @@ def readMLNFromFile(filename_or_list, verbose=False):
                         if fixWeightOfNextFormula == True:
                             fixWeightOfNextFormula = False
                             fixedWeightTemplateIndices.append(idxTemplate)
+                        if nextFormulaUnique:
+                            uniqueFormulaExpansions[formula] = nextFormulaUnique
+                            nextFormulaUnique = None
                     except ParseException, e:
                         raise Exception("Error parsing formula '%s'\n" % formula)
         except:
@@ -1783,6 +1798,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
             for c in constants: mln.addConstant(domain, c)
     
     # save data on formula templates for materialization
+    mln.uniqueFormulaExpansions = uniqueFormulaExpansions
     mln.formulaTemplates = formulatemplates
     mln.templateIdx2GroupIdx = templateIdx2GroupIdx
     mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices

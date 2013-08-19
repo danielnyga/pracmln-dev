@@ -29,6 +29,9 @@ from AbstractLearner import *
 
 
 class LL(AbstractLearner):
+    '''
+    Exact Log-Likelihood learner.
+    '''
     
     def __init__(self, mln, mrf, **params):
         AbstractLearner.__init__(self, mln, mrf, **params)
@@ -40,13 +43,11 @@ class LL(AbstractLearner):
         '''
         self.counts = {}
         # for each possible world, count how many true groundings there are for each formula
-        for i, world in enumerate(self.mrf.worlds):            
-            for gf in self.mrf.gndFormulas:                
-                if self.mrf._isTrue(gf, world["values"]):
+        for i, world in enumerate(self.mrf.worlds):
+            for gf in self.mrf.gndFormulas:
+                if gf.isTrue(world['values']):
                     key = (i, gf.idxFormula)
-                    cnt = self.counts.get(key, 0)
-                    cnt += 1
-                    self.counts[key] = cnt
+                    self.counts[key] = self.counts.get(key, 0) + 1
     
     def _calculateWorldValues(self, wts):
         if hasattr(self, 'wtsLastWorldValueComputation') and self.wtsLastWorldValueComputation == list(wts): # avoid computing the values we already have
@@ -105,16 +106,17 @@ class LL(AbstractLearner):
         
     def _prepareOpt(self):
         # create possible worlds if neccessary
-        if not 'worlds' in dir(self.mrf):
+        if not hasattr(self.mrf, 'worlds'):
             print "creating possible worlds (%d ground atoms)..." % len(self.mrf.gndAtoms)
             self.mrf._createPossibleWorlds()
             print "  %d worlds created." % len(self.mrf.worlds)
         # get the possible world index of the training database
         self.idxTrainingDB = self._getEvidenceWorldIndex()
         # compute counts
-        print "computing counts..."
+        print "computing counts...",
         self._computeCounts()
         print "  %d counts recorded." % len(self.counts)
+#         self.mrf.printWorlds()
 
 
 from softeval import truthDegreeGivenSoftEvidence

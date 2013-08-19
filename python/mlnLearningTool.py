@@ -112,7 +112,6 @@ class MLNLearn:
         params = self.settings["params"]
         method = self.settings["method"]
         discriminative = "discriminative" in method
-
         if self.settings["engine"] in ("PRACMLNs", "internal"): # PyMLNs internal engine
             # arguments
             args = {"initialWts":False}

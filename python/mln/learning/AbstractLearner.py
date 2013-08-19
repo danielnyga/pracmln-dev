@@ -27,6 +27,10 @@ from mln.util import *
 import mln
 import optimize
 from mln.methods import ParameterLearningMeasures
+from multiprocessing import Array, Value
+import multiprocessing
+from multiprocessing import Process
+from multiprocessing.synchronize import Lock
 try:
     import numpy
 except:
@@ -80,15 +84,8 @@ class AbstractLearner(object):
     def _fixFormulaWeights(self):
         self._fixedWeightFormulas = {}
         for formula in self.mln.fixedWeightFormulas:
-#             c = 0.0
-#             Z = 0.0
-#             for gf, referencedAtoms in formula.iterGroundings(self.mln):
-#                 Z += 1
-#                 print "self._getTruthDegreeGivenEvidence(gf), gf", self._getTruthDegreeGivenEvidence(gf), gf
-#                 c += self._getTruthDegreeGivenEvidence(gf)
-            w = formula.weight#logx(c / Z)
+            w = formula.weight
             self._fixedWeightFormulas[formula.idxFormula] = w
-#             print "fixed weight: %f=log(%f) F#%d %s" % (w, (c / Z), formula.idxFormula, str(formula))
             
     def f(self, wt):
         # compute prior
@@ -105,7 +102,7 @@ class AbstractLearner(object):
         
         # compute likelihood
         likelihood = self._f(wt)
-        print "  likelihood = %f" % likelihood
+        sys.stdout.write('  likelihood = %f\r' % likelihood)
         
         return likelihood + prior
         
@@ -269,7 +266,24 @@ class SoftEvidenceLearner(AbstractLearner):
     def _getTruthDegreeGivenEvidence(self, gf, worldValues=None):
         if worldValues is None: worldValues = self.mln.evidence
         return truthDegreeGivenSoftEvidence(gf, worldValues, self.mln)
+    
+def _mt_f(f, learners, wt):
+    for learner in learners:
+#         fLock.acquire()
+        f.value += learner._f(wt)
+#         fLock.release()
+    
+def _mt_grad(grad, learners, wt):
+    for learner in learners:
+        g = learner._grad(wt)
+#         gradLock.acquire()
+        for i, c in enumerate(g):
+            grad[i] += c
+#         gradLock.release()
+        
 
+gradLock = Lock()
+fLock = Lock()
 
 class MultipleDatabaseLearner(AbstractLearner):
     '''
@@ -286,6 +300,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         self.constructor = ParameterLearningMeasures.byShortName(method)
         self.params = params
         self.learners = []
+        self.useMT = False
         for i, db in enumerate(self.dbs):
             groundingMethod = eval('mln.learning.%s.groundingMethod' % self.constructor)
             print "grounding MRF for database %d/%d using %s..." % (i+1, len(self.dbs), groundingMethod)
@@ -293,23 +308,56 @@ class MultipleDatabaseLearner(AbstractLearner):
             learner = eval("mln.learning.%s(mln_, mrf, **params)" % self.constructor)
             self.learners.append(learner)
             learner._prepareOpt()
+        if self.useMT:
+            numCores = multiprocessing.cpu_count()
+            if verbose:
+                print 'Setting up multi-core processing for %d cores' % numCores
+            self.multiCoreLearners = []
+            learnersPerCore = int(ceil(len(self.learners) / float(numCores)))
+            for i in range(numCores):
+                self.multiCoreLearners.append(self.learners[i*learnersPerCore:(i+1)*learnersPerCore])
+            print self.multiCoreLearners
     
     def getName(self):
         return "MultipleDatabaseLearner[%d*%s]" % (len(self.learners), self.learners[0].getName())
-    
+        
     def _f(self, wt):
-        likelihood = 0
-        for learner in self.learners:
-            likelihood += learner._f(wt)
-        return likelihood
-    
+        if self.useMT:
+            f = Value('d', 0.0)
+            processes = []
+            for l in self.multiCoreLearners:
+                processes.append(Process(target=_mt_f, args=(f, l, wt)))
+            for p in processes:
+                p.start()
+            for p in processes:
+                p.join()
+            return float(str(f.value))
+        else:
+            likelihood = 0
+            for learner in self.learners:
+                likelihood += learner._f(wt)
+            return likelihood
+        
     def _grad(self, wt):
-        grad = numpy.zeros(len(self.mln.formulas), numpy.float64)
+        if self.useMT:
+            grad = Array('d', len(self.mln.formulas))
+            processes = []
+            for l in self.multiCoreLearners:
+                processes.append(Process(target=_mt_grad, args=(grad, l, wt)))
+            for p in processes:
+                p.start()
+            for p in processes:
+                p.join()
+            grad2 = []
+            for c in grad[:]:
+                grad2.append(float(str(c)))
+            return grad2
+        grad2 = numpy.zeros(len(self.mln.formulas), numpy.float64)
         for i, learner in enumerate(self.learners):
             grad_i = learner._grad(wt)
             #print "  grad %d: %s" % (i, str(grad_i))
-            grad += grad_i
-        return grad
+            grad2 += grad_i
+        return grad2
 
     def _hessian(self, wt):
         N = len(self.mln.formulas)
