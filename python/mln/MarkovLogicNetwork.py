@@ -165,6 +165,8 @@ class MLN(object):
         mln.blocks = copy.deepcopy(self.blocks)
         mln.domDecls = list(self.domDecls)
         mln.closedWorldPreds = list(self.closedWorldPreds)
+        mln.parameterType = self.parameterType
+        mln.learnWtsMode = self.learnWtsMode
         return mln
 
     def declarePredicate(self, name, domains, functional=None):
@@ -566,13 +568,13 @@ class MRF(object):
         self.gndFormulas = []
         self.gndAtomOccurrencesInGFs = []
         
+        print db
         if type(db) == str:
             db = readDBFromFile(self.mln, db)
         elif isinstance(db, Database):
             pass
         else:
             raise Exception("Not a valid database argument (type %s)" % (str(type(db))))
-
         # materialize MLN formulas
         if self.mln.formulas is None:
             self.mln.materializeFormulaTemplates([db],verbose)
@@ -1067,9 +1069,9 @@ class MRF(object):
         '''
         if not hasattr(self, "worlds"):
             self._createPossibleWorlds()
-            if self.parameterType == 'weights':
+            if self.mln.parameterType == 'weights':
                 self._calculateWorldValues()
-            elif self.parameterType == 'probs':
+            elif self.mln.parameterType == 'probs':
                 self._calculateWorldValues_prob()
 
     def _calculateWorldValues(self, wts=None):
@@ -1082,7 +1084,7 @@ class MRF(object):
                 if self._isTrue(gndFormula, world["values"]):
                     weights.append(wts[gndFormula.idxFormula])
             exp_sum = exp(sum(weights))
-            if self.learnWtsMode != 'LL_ISE' or self.allSoft == True or worldIndex != self.idxTrainingDB:
+            if self.mln.learnWtsMode != 'LL_ISE' or self.mln.allSoft == True or worldIndex != self.idxTrainingDB:
                 total += exp_sum
             world["sum"] = exp_sum
             world["weights"] = weights

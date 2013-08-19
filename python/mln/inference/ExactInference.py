@@ -25,33 +25,40 @@
 
 from Inference import *
 import sys
+from logic.grammar import parseFormula
 
 class ExactInference(Inference):
-    def __init__(self, mln):
-        Inference.__init__(self, mln)
+    '''
+    Exact inference.
+    '''
     
-    # verbose: whether to print results (or anything at all, in fact)
-    # details: (given that verbose is true) whether to output additional status information
-    # debug: (given that verbose is true) if true, outputs debug information, in particular the distribution over possible worlds
-    # debugLevel: level of detail for debug mode
+    def __init__(self, mrf):
+        Inference.__init__(self, mrf)
+    
     def _infer(self, verbose=True, details=False, shortOutput=False, debug=False, debugLevel=1, **args):
-        worldValueKey = {"weights": "sum", "probs": "prod"}[self.mln.parameterType]
+        '''
+        verbose: whether to print results (or anything at all, in fact)
+        details: (given that verbose is true) whether to output additional status information
+        debug: (given that verbose is true) if true, outputs debug information, in particular the distribution over possible worlds
+        debugLevel: level of detail for debug mode
+        '''
+        worldValueKey = {"weights": "sum", "probs": "prod"}[self.mrf.mln.parameterType]
         # get set of possible worlds along with their probabilities
         if verbose and details: print "generating possible worlds..."
-        self.mln._getWorlds() 
-        if verbose and details: print "  %d worlds instantiated" % len(self.mln.worlds)
+        self.mrf._getWorlds() 
+        if verbose and details: print "  %d worlds instantiated" % len(self.mrf.worlds)
         # get the query formula(s)
         what = self.queries
         # if we have no explicit evidence, get the evidence that is set in the MLN as a conjunction
         given = self.given
         if given is None:
-            given = evidence2conjunction(self.mln.getEvidenceDatabase())        
+            given = evidence2conjunction(self.mrf.getEvidenceDatabase())        
         # ground the evidence formula
         if given == "":
             given = None
         else:
-            given = FOL.parseFormula(given)
-            given = given.ground(self.mln, {})
+            given = parseFormula(given)
+            given = given.ground(self.mrf, {})
         # start summing
         if verbose and details: print "summing..."
         numerators = [0.0 for i in range(len(what))]
@@ -59,7 +66,7 @@ class ExactInference(Inference):
         k = 1
         numerator_worlds = [[] for i in range(len(what))]
         denominator_worlds = []
-        for world in self.mln.worlds:
+        for world in self.mrf.worlds:
             precond = (given == None)
             if not precond:
                 precond = given.isTrue(world["values"])
@@ -77,7 +84,7 @@ class ExactInference(Inference):
             answers.append(numerators[i] / denominator)
         # some debug info
         if debug and verbose:  
-            self.mln.printWorlds()
+            self.mrf.printWorlds()
             for i in range(len(what)):
                 self.additionalQueryInfo[i] = "\n   %s / %s " % (numerator_worlds[i], denominator_worlds)
         # return results
@@ -85,33 +92,37 @@ class ExactInference(Inference):
 
 class ExactInferenceLinear(Inference):
     '''
-    variant of exact inference, where the possible worlds and associated values are generated dynamically (on demand) - linear space requirements;
-    In particular, possible worlds are not kept in memory, such that memory consumption remains linear in the number of variables.    
+    variant of exact inference, where the possible worlds and associated
+    values are generated dynamically (on demand) - linear space requirements;
+    In particular, possible worlds are not kept in memory, such that memory 
+    consumption remains linear in the number of variables.    
     '''
     
-    def __init__(self, mln):
-        Inference.__init__(self, mln)
+    def __init__(self, mrf):
+        Inference.__init__(self, mrf)
     
-    # verbose: whether to print results (or anything at all, in fact)
-    # details: (given that verbose is true) whether to output additional status information
-    # debug: (given that verbose is true) if true, outputs debug information, in particular the distribution over possible worlds
-    # debugLevel: level of detail for debug mode
     def _infer(self, verbose=True, details=False, shortOutput=False, debug=False, debugLevel=1, **args):
+        '''
+        verbose: whether to print results (or anything at all, in fact)
+        details: (given that verbose is true) whether to output additional status information
+        debug: (given that verbose is true) if true, outputs debug information, in particular the distribution over possible worlds
+        debugLevel: level of detail for debug mode
+        '''
         # get the query formula(s)
         what = self.queries
         # if we have no explicit evidence, get the evidence that is set in the MLN as a conjunction
         given = self.given
         if given is None:
-            given = evidence2conjunction(self.mln.getEvidenceDatabase())        
+            given = evidence2conjunction(self.mrf.getEvidenceDatabase())        
         # ground the evidence formula
         if given == "":
             given = None
         else:
-            given = FOL.parseFormula(given)
-            given = given.ground(self.mln, {})
+            given = parseFormula(given)
+            given = given.ground(self.mrf, {})
         # start summing
         if verbose and details: print "summing..."
-        wts = self.mln._weights()
+        wts = self.mrf._weights()
         numerators = [0.0 for i in xrange(len(what))]
         denominator = 0
         k = 1
@@ -121,7 +132,7 @@ class ExactInferenceLinear(Inference):
                 precond = given.isTrue(world)
             if precond:
                 # compute world value
-                worldValue = self.mln._calculateWorldExpSum(world, wts)
+                worldValue = self.mrf._calculateWorldExpSum(world, wts)
                 # add to applicable numerators
                 for i in xrange(len(what)):
                     if what[i].isTrue(world):
@@ -136,8 +147,8 @@ class ExactInferenceLinear(Inference):
         return answers
     
     def _iterWorlds(self, values, idx):
-        mln = self.mln
-        if idx == len(mln.gndAtoms):
+        mrf = self.mrf
+        if idx == len(mrf.gndAtoms):
             yield values
         else:     
             # values that can be set for the truth value of the ground atom with index idx
@@ -145,10 +156,10 @@ class ExactInferenceLinear(Inference):
             # check for rigid predicates: for rigid predicates, we consider both values only if the evidence value is
             # unknown, otherwise we use the evidence value
             restricted = False
-            gndAtom = mln.gndAtomsByIdx[idx]
+            gndAtom = mrf.gndAtomsByIdx[idx]
             # check if setting the truth value for idx is critical for a block (which is the case when idx is the highest index in a block)
-            if idx in mln.gndBlockLookup and POSSWORLDS_BLOCKING:
-                block = mln.gndBlocks[mln.gndBlockLookup[idx]]
+            if idx in mrf.gndBlockLookup and POSSWORLDS_BLOCKING:
+                block = mrf.gndBlocks[mrf.gndBlockLookup[idx]]
                 if idx == max(block):
                     # count number of true values already set
                     nTrue, nFalse = 0, 0
@@ -171,23 +182,25 @@ class ExactInferenceLinear(Inference):
 
 class EnumerationAsk(Inference):
     '''
-        inference based on enumeration of (only) the worlds compatible with the evidence;
-        supports soft evidence (assuming independence)
+    Inference based on enumeration of (only) the worlds compatible with the evidence;
+    supports soft evidence (assuming independence)
     '''
     
-    def __init__(self, mln):
-        Inference.__init__(self, mln)
-        self.haveSoftEvidence = len(self.mln.softEvidence) > 0
+    def __init__(self, mrf):
+        Inference.__init__(self, mrf)
+        self.haveSoftEvidence = len(self.mrf.softEvidence) > 0
     
-    # verbose: whether to print results (or anything at all, in fact)
-    # details: (given that verbose is true) whether to output additional status information
-    # debug: (given that verbose is true) if true, outputs debug information, in particular the distribution over possible worlds
-    # debugLevel: level of detail for debug mode
     def _infer(self, verbose=True, details=False, shortOutput=False, debug=False, debugLevel=1, **args):
+        '''
+        verbose: whether to print results (or anything at all, in fact)
+        details: (given that verbose is true) whether to output additional status information
+        debug: (given that verbose is true) if true, outputs debug information, in particular the distribution over possible worlds
+        debugLevel: level of detail for debug mode
+        '''
         self.totalWorlds = 1.0
         self.doneCountingTotalWorlds = False
         # get blocks
-        self.mln._getPllBlocks()
+        self.mrf._getPllBlocks()
         self._getEvidenceBlockData(self.given)
         # start summing
         if verbose and details: print "summing..."
@@ -198,12 +211,12 @@ class EnumerationAsk(Inference):
             # compute exp. sum of weights for this world
             expsum = 0
             if self.haveSoftEvidence:
-                for gf in self.mln.gndFormulas:                
-                    expsum += self.mln.getTruthDegreeGivenSoftEvidence(gf, worldValues) * self.mln.formulas[gf.idxFormula].weight
+                for gf in self.mrf.gndFormulas:                
+                    expsum += self.mln.getTruthDegreeGivenSoftEvidence(gf, worldValues) * self.mrf.formulas[gf.idxFormula].weight
             else:
-                for gf in self.mln.gndFormulas:
+                for gf in self.mrf.gndFormulas:
                     if gf.isTrue(worldValues):
-                        expsum +=  self.mln.formulas[gf.idxFormula].weight
+                        expsum +=  self.mrf.formulas[gf.idxFormula].weight
             expsum = exp(expsum)
             # update numerators
             for i, query in enumerate(self.queries):
@@ -221,22 +234,22 @@ class EnumerationAsk(Inference):
     
     def _enumerateWorlds(self):
         self.summedGndAtoms = set()
-        for w in self.__enumerateWorlds(0, list(self.mln.evidence)):
+        for w in self.__enumerateWorlds(0, list(self.mrf.evidence)):
             yield w
         
     def __enumerateWorlds(self, i, worldValues):
-        numBlocks = len(self.mln.pllBlocks)
+        numBlocks = len(self.mrf.pllBlocks)
         if i == numBlocks:
             self.doneCountingTotalWorlds = True
             yield worldValues
             return
-        idxGA, block = self.mln.pllBlocks[i]
+        idxGA, block = self.mrf.pllBlocks[i]
         if block is not None: # block of mutex ground atoms
             haveEvidence = i in self.evidenceBlocks
             if self.haveSoftEvidence and not haveEvidence: # check for soft evidence                
                 numSoft = 0
                 for idxGA in block:
-                    se = self.mln._getSoftEvidence(self.mln.gndAtomsByIdx[idxGA])
+                    se = self.mrf._getSoftEvidence(self.mrf.gndAtomsByIdx[idxGA])
                     if se is not None:
                         numSoft += 1
                         worldValues[idxGA] = True
@@ -254,11 +267,11 @@ class EnumerationAsk(Inference):
                     for w in self.__enumerateWorlds(i+1, worldValues):
                         yield w
         else: # it's a regular ground atom
-            gndAtom = self.mln.gndAtomsByIdx[idxGA]
+            gndAtom = self.mrf.gndAtomsByIdx[idxGA]
             if self.haveSoftEvidence:
-                e = True if self.mln._getEvidenceDegree(gndAtom) > 0 else False
+                e = True if self.mrf._getEvidenceDegree(gndAtom) > 0 else False
             else:
-                e = self.mln._getEvidence(idxGA, False)
+                e = self.mrf._getEvidence(idxGA, False)
             if e is not None:
                 worldValues[idxGA] = True if e > 0 else False
                 for w in self.__enumerateWorlds(i+1, worldValues):
