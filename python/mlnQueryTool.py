@@ -466,7 +466,18 @@ class MLNQueryGUI(object):
     def setGeometry(self):
         g = self.settings.get("geometry")
         if g is None: return
+        # this is a hack: since geometry apparently does not work as expected
+        # (at least under Ubuntu: the main window is not put at the same position
+        # where it has been before), do this correction of coordinates.
+        re_pattern = r'([\-0-9]+)x([\-0-9]+)\+([\-0-9]+)\+([\-0-9]+)'
+        (w_old, h_old, x_old, y_old) = map(int, re.search(re_pattern, g).groups())
         self.master.geometry(g)
+        new_g = self.master.winfo_geometry()
+        (w_new, h_new, x_new, y_new) = map(int, re.search(re_pattern, new_g).groups())
+        (w_diff, h_diff, x_diff, y_diff) = (w_old-w_new, h_old-h_new, x_old-x_new, y_old-y_new)
+        (w_new, h_new, x_new, y_new) = (w_old, h_old, x_new-x_diff, y_new-y_diff)
+        self.master.geometry('%dx%d+%d+%d' % (w_new, h_new, x_new, y_new))
+         
 
     def changedMLN(self, name):
         self.mln_filename = name
