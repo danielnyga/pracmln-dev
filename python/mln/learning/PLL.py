@@ -78,7 +78,7 @@ class PLL(AbstractLearner):
             # find out which one of the ground atoms in the block is true
             idxGATrueone = -1
             for i in block:
-                if self.mln._getEvidence(i):
+                if self.mrf._getEvidence(i):
                     if idxGATrueone != -1: raise Exception("More than one true ground atom in block %s!" % blockname)
                     idxGATrueone = i                    
             if idxGATrueone == -1: raise Exception("No true gnd atom in block!" % blockname)

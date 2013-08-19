@@ -78,7 +78,7 @@ class AbstractLearner(object):
         return wtD
 
     def _getTruthDegreeGivenEvidence(self, gndFormula):
-        if self.mln._isTrueGndFormulaGivenEvidence(gndFormula): return 1.0 
+        if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula): return 1.0 
         else: return 0.0
     
     def _fixFormulaWeights(self):
