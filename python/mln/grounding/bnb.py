@@ -61,8 +61,8 @@ class FormulaGrounding(object):
         self.assignment = assignment
         self.domains = ListDict()
         if parent is None:
-            for var in self.formula.getVariables(self.mrf):
-                self.domains.extend(var, list(self.mrf.domains[self.formula.getVarDomain(var, self.mrf)]))
+            for var in self.formula.getVariables(self.mrf.mln):
+                self.domains.extend(var, list(self.mrf.domains[self.formula.getVarDomain(var, self.mrf.mln)]))
         else:
             for (v, d) in parent.domains.iteritems():
                 self.domains.extend(v, list(d))
@@ -100,7 +100,7 @@ class FormulaGrounding(object):
             assignment = {}
         gf_count = 1
 #         print self
-        for var in set(self.formula.getVariables(self.mrf)).difference(assignment.keys()):
+        for var in set(self.formula.getVariables(self.mrf.mln)).difference(assignment.keys()):
             domain = self.domains[var]
             if domain is None: return 0.
             gf_count *= len(domain)

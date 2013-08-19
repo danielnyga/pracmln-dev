@@ -38,10 +38,11 @@ class RussianDoll(BranchAndBound):
         self.factories = [GroundingFactory(f, self.mrf) for f in sorted(self.formulas, key=lambda x: x.weight, reverse=True)]
         
         # sort the ground atoms
-        atoms = [i for i, _ in enumerate(self.vars) if self._isEvidenceVariable(i)]
+        atoms = []
         nonEvidenceVars = [i for i, _ in enumerate(self.vars) if not self._isEvidenceVariable(i)]
         atoms.extend([v for v in nonEvidenceVars if len(self.varIdx2GndAtom[v]) > 1])
         atoms.extend([v for v in nonEvidenceVars if len(self.varIdx2GndAtom[v]) == 1])
+        atoms.extend([i for i, _ in enumerate(self.vars) if self._isEvidenceVariable(i)])
         self.mrf._clearEvidence()
         self._rd_recursive_expand(atoms)
 
@@ -49,10 +50,11 @@ class RussianDoll(BranchAndBound):
         if not len(variables) < 2:
             self._rd_recursive_expand(variables[1:])
         self.costs = 0.
-        local_ub = self.upperbound
-        print len(variables), local_ub
-        self.upperbound = float('inf')
-        self._recursive_expand(variables, 0. if len(variables) == 1 else local_ub)
+        lb = self.upperbound
+        print variables, lb
+        self.upperbound = float('inf') # TODO: can this be improved?
+        # call normal BnB search
+        self._recursive_expand(variables, 0. if len(variables) == 1 else lb)
         
 if __name__ == '__main__':
     from mln.MarkovLogicNetwork import MLN

@@ -36,7 +36,7 @@ class BranchAndBound(object):
     def __init__(self, mrf):
         self.mrf = mrf
         self.upperbound = float('inf')
-        self.best_solution = None
+        self.best_solution = {}
         self.vars = []
         self.varIdx2GndAtom = {}
         self.gndAtom2VarIndex = {}
@@ -136,8 +136,11 @@ class BranchAndBound(object):
             if self._isEvidenceVariable(variable):
                 truthAssignments.append({gndAtoms[0]: self._getVariableValue(variable)})
             else:
-                truthAssignments.append({gndAtoms[0]: False})
-                truthAssignments.append({gndAtoms[0]: True})
+                valFromSolution = self.best_solution.get(str(gndAtoms[0]), None)
+                truthAssignments.append({gndAtoms[0]: valFromSolution if valFromSolution is not None else False})
+                truthAssignments.append({gndAtoms[0]: not valFromSolution if valFromSolution is not None else True})
+#                 truthAssignments.append({gndAtoms[0]: False})
+#                 truthAssignments.append({gndAtoms[0]: True})
         elif len(gndAtoms) > 1: # mutex constraint
             for trueGndAtom in gndAtoms:
                 if trueGndAtom.isTrue(self.mrf.evidence) == False:
@@ -148,7 +151,7 @@ class BranchAndBound(object):
         # test the assignments
 #         print truthAssignments
         for truthAssignment in truthAssignments:
-#             print indent + 'testing', truthAssignment, '(lb=%f)' % lowerbound
+            print indent + 'testing', truthAssignment, '(lb=%f)' % lowerbound
             # set the temporary evidence
 #             self.setEvidence(truthAssignment)
             backtrack = {}
