@@ -92,9 +92,11 @@ class Database(object):
     def isEmpty(self):
         '''
         Returns True iff there is an assertion for any ground atom in this
-        database and False if the truth values all ground atoms are None.
+        database and False if the truth values all ground atoms are None
+        AND all domains are empty.
         '''
-        return not any(map(lambda x: x is True or x is False,  self.evidence.values()))
+        return not any(map(lambda x: x is True or x is False,  self.evidence.values())) and \
+            len(self.domains) == 0
                 
     def query(self, formula):
         '''
