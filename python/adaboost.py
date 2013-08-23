@@ -13,8 +13,8 @@ import math
 
 if __name__ == '__main__':
     
-    mln = readMLNFromFile('object-detection.mln')     
-    db = readDBFromFile(mln, 'train.db')
+    mln = readMLNFromFile('foobar.mln')
+    db = readDBFromFile(mln, 'foobar.db')
     
     mrf = mln.groundMRF(db, cwAssumption=True)
     
@@ -24,19 +24,13 @@ if __name__ == '__main__':
         microtheories = {}
         for f in mln.formulas:
             gfs = mrf.groundingMethod.formula2GndFormulas[f]
-            clauses = set()
-            mt = []
-            for gf in gfs:
-                cnf = gf.toCNF()
-                print cnf
-                clauses =  toClauseSet(cnf)
-                mt.extend(clauses)
-            mtModels = []
-            for gf in mrf.gndFormulas:
-                negProp = Negation([gf]).toCNF()
-                negProp = toClauseSet(negProp)
-                if not DPLL(mt + negProp):
-                    mtModels.append(gf)
+#             gndAtomIndices = set()
+#             for gf in gfs:
+#                 gndAtomIndices.update(gf.idxGroundAtoms())
+            mtModels = gfs
+#             for gf in mrf.gndFormulas:
+#                 if (set(gf.idxGroundAtoms()) & gndAtomIndices):
+#                     mtModels.append(gf)
             microtheories[f] = mtModels
         return microtheories
     
@@ -51,21 +45,42 @@ if __name__ == '__main__':
     def models(mt, gf, prob=None):
         if prob is not None:
             return prob if gf in microtheories[mt] else (1-prob)
-        return 1.0 if gf in microtheories[mt] else -1.0
+        return 1.0 if gf in microtheories[mt] else 0.
+    
+    def weighted_entropy(gfs):
+        trueGFs = [gf for gf in gfs if gf.truth == 1]
+        falseGFs = [gf for gf in gfs if gf.truth == -1]
+        totalWeights = sum(map(lambda x: x.weight, gfs))
+        probTrue = sum(map(lambda x: x.weight, trueGFs)) / totalWeights
+        probFalse = sum(map(lambda x: x.weight, falseGFs)) / totalWeights
+        return -(probTrue * math.log(probTrue, 2) + probFalse * math.log(probFalse, 2))
+    
+    class Dummy(object): pass
     
     def learnMT():
         bestMT = None
         bestErr = None
         for mt in microtheories:
             err = 0.
-            for gf in mrf.gndFormulas:
-#                 print mt, gf, gf.truth, '*', models(mt, gf)
+            sumWeights = sum(map(lambda x: x.weight, microtheories[mt]))
+            localWeights = {}
+            for gf in microtheories[mt]:
+                try:
+                    localWeights[gf] = gf.weight / sumWeights
+                except: localWeights[gf] = 0.
+            for gf in microtheories[mt]:
+                print mt, '|==' if models(mt, gf) == 1 else '|=/=', gf, 'but' if models(mt, gf) * gf.truth < 0 else 'and', gf, 'is', gf.truth 
                 if models(mt, gf) * gf.truth < 0: 
-                    err += gf.weight
-            if bestMT is None or bestErr > err:
+                    err += localWeights[gf]
+#             print 'ent after:', entAfter
+            performance = abs(err - .5) * sumWeights
+            print 'performance:', performance 
+            if bestMT is None or bestErr < performance:
                 bestMT = mt
-                bestErr = err
-        return bestMT, bestErr
+                bestErr = performance
+                globErr = err
+            print mt, 'has error', err
+        return bestMT, globErr
     
     def printWeights():
         for gf in mrf.gndFormulas:
@@ -106,15 +121,15 @@ if __name__ == '__main__':
         evidenceBackup = mrf.getEvidenceDatabase()
         mrf.setEvidence(world_values)
         for gf in mrf.gndFormulas:
+            counts = 0
             for mt in mts:
-                count = 0
-                if all(map(lambda f: mrf._isTrueGndFormulaGivenEvidence(f) != False, microtheories[mt])):
-                    score += 2 * (models(mt, gf, sum(mts[mt]))-1)# * (1. if mrf._isTrueGndFormulaGivenEvidence(gf) else -1.)
-                    count += 1
-            if count == 0: continue
-            score /= count
+                if models(mt, gf) == 0.: continue
+                counts += len(mts[mt])
+                sumMT = sum(map(lambda x: 2 * x - 1, mts[mt]))
+                score += sumMT * (1. if mrf._isTrueGndFormulaGivenEvidence(gf) else -1)
+            score /= counts
         score /= len(mrf.gndFormulas)
-        score = 0.5 * score + 1
+        score = 0.5 * (score + 1)
         mrf.setEvidence(evidenceBackup)
         return score
 
@@ -138,14 +153,10 @@ if __name__ == '__main__':
     mt2alphas = {}
     for m in range(M):
         print 'Iteration %d/%d' % (m+1, M)
-#         printWeights()
+        printWeights()
         mt, err = learnMT()
         
-        if abs(err - .5) < 1e-10 or err < 1e-10 or (1-err) < 1e-10:
-            print 'learning has finished early.'
-            break
-#         alpha = .5 * math.log((1.-err) / err)
-        alpha = 2. * (1. - err) - 1.
+        alpha = 1-err
         print '  err = %.2f, prob=%.2f, alpha = %.2f with f=%s' % (err, (1-err), alpha, strFormula(mt))
         
         # evaluate the microtheory
@@ -154,10 +165,9 @@ if __name__ == '__main__':
         a_mt.append(alpha)
         
         # reweight the datapoints
-        sumWeights = 0
-        for gf in mrf.gndFormulas:
-            gf.weight = gf.weight * math.exp(-gf.truth * 2 * (models(mt, gf, (1-err)))-1)
-            sumWeights += gf.weight
+        for gf in microtheories[mt]:
+            gf.weight = gf.weight * math.exp(-gf.truth * (2 * alpha - 1))
+        sumWeights = sum(map(lambda x: x.weight, mrf.gndFormulas))
         for gf in mrf.gndFormulas:
             gf.weight /= sumWeights
     print
@@ -166,16 +176,18 @@ if __name__ == '__main__':
     learnedMLN = mln.duplicate()
     learnedMLN.formulaTemplates = []
     learnedMLN.formulas = None
+    print mt2alphas
     print '--- formulas ---'
     for i, mt in enumerate(microtheories):
-        w = sum(mt2alphas.get(mt, [0]))
+        w = sum(map(lambda x: 2 * x - 1, mt2alphas[mt]))
         print '%.6f %s' % (w, strFormula(mt))
         learnedMLN.addFormulaTemplate(mt, w)
     
+#     exit(0)
     print
     print '--- inference ---'
     # ground with test db
-    testDB = readDBFromFile(mln, 'test.db')
+    testDB = readDBFromFile(mln, 'foobartest.db')
     mrf = mln.groundMRF(testDB)
     microtheories = generate_microtheories(mrf)
     print
@@ -185,15 +197,16 @@ if __name__ == '__main__':
         
     print
     print '--- query probabilities ---'
-    for prob in infer(mrf, mt2alphas, 'obj').iteritems():
-        print '%.6f\t%s' % (prob[1], prob[0])
-    for prob in infer(mrf, mt2alphas, 'obs').iteritems():
-        print '%.6f\t%s' % (prob[1], prob[0])
+    for q in ('foo', 'bar'):
+        for prob in infer(mrf, mt2alphas, q).iteritems():
+            print '%.6f\t%s' % (prob[1], prob[0])
+
     print
     print '--- world probabilities ---'
     s = .0
     for w in iter_worlds(mrf):
         prob = compute_world_prob(mrf, mt2alphas, w)
+#         prob = eval_world(mrf, mt2alphas, w)
         backup = mrf.getEvidenceDatabase()
         mrf.setEvidence(w)
         print '%.4f\t%s' % (prob, w)
