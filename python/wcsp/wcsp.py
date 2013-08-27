@@ -67,6 +67,12 @@ class Constraint(object):
                             self.varIndices)), self.defCost, len(self.tuples)))
         for t in self.tuples.keys():
             stream.write('%s %d\n' % (' '.join(map(str, t)), self.tuples[t]))
+            
+    def __eq__(self, other):
+        eq = set(self.varIndices) == set(other.varIndices)
+        eq = eq and self.defCost == other.defCost
+        eq = eq and self.tuples == other.tuples
+        return eq
 
 
 class WCSP(object):
@@ -84,6 +90,20 @@ class WCSP(object):
         self.domSizes = domSizes
         self.top = top
         self.constraints = []
+    
+    def __eq__(self, other):
+        eq = self.domSizes == other.domSizes
+        eq = eq and self.top == other.top
+        (toBeCopied, ref) = (self, other) if len(self.constraints) <= len(other.constraints) else (other, self)
+        copy = []
+        for c in toBeCopied.constraints:
+            copy.append(c)
+        for c in ref.constraints:
+            if not c in copy: 
+                return False
+            copy.remove(c)
+        eq = eq and len(copy) == 0
+        return eq
     
     def addConstraint(self, constraint):
         '''

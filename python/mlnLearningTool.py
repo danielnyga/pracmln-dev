@@ -114,7 +114,7 @@ class MLNLearn:
         discriminative = "discriminative" in method
         if self.settings["engine"] in ("PRACMLNs", "internal"): # PyMLNs internal engine
             # arguments
-            args = {"initialWts":False}
+            args = {}
             if type(params) == str:
                 params = eval("dict(%s)" % params)
             elif type(params) != dict:

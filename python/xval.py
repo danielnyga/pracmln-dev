@@ -33,6 +33,7 @@ from mln.util import strFormula
 from multiprocessing import Pool
 import time
 import os
+import sys
 
 usage = '''Usage: %prog [options] <predicate> <domain> <mlnfile> <dbfiles>'''
   
@@ -43,7 +44,7 @@ parser.add_option("-p", "--percent", dest="percent", type='int', default=100,
                   help="Use only PERCENT% of the data. (default=100)")
 parser.add_option("-v", "--verbose", dest="verbose", action='store_true', default=False,
                   help="Verbose mode.")
-parser.add_option("-m", "--multicore", dest="multicore", action='store_true', default=True,
+parser.add_option("-m", "--multicore", dest="multicore", action='store_true', default=False,
                   help="Verbose mode.")
 
 def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
@@ -53,6 +54,10 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
         mln.setClosedWorldPred(pred)
     sig = ['?arg%d' % i for i, _ in enumerate(mln.predDecls[queryPred])]
     querytempl = '%s(%s)' % (queryPred, ','.join(sig))
+    
+    f = open('temp.mln', 'w+')
+    mln.write(f)
+    f.close()
     
     for db in dbs:
         # save and remove the query predicates from the evidence
@@ -65,10 +70,30 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
             db.retractGndAtom(atom)
         db.printEvidence()
         
+        # for testing purposes
+        mln_ = readMLNFromFile('temp.mln')
+        mln_.setClosedWorldPred(None)
+        for pred in [pred for pred in cwPreds if pred in mln_.predDecls]:
+            mln_.setClosedWorldPred(pred)
+        mrf_ = mln_.groundMRF(db)
+        conv_ = WCSPConverter(mrf_)
+        wcsp_ = conv_.convert()
+        
         mln.formulas = None
         mln.defaultInferenceMethod = InferenceMethods.WCSP
         mrf = mln.groundMRF(db)
         conv = WCSPConverter(mrf)
+        wcsp = conv.convert()
+        
+        if not (wcsp == wcsp_):
+            wcsp.write(sys.stdout)
+            mln.write(sys.stdout)
+            print '+++++++++++++++++++++++++++++++++++'
+            wcsp_.write(sys.stdout)
+            mln_.write(sys.stdout)
+            raise Exception('WCSPs are not equal!!!')
+        
+        conv = WCSPConverter(mrf)        
         resultDB = conv.getMostProbableWorldDB()
         
         sig2 = list(sig)
@@ -155,7 +180,7 @@ if __name__ == '__main__':
     
     os.mkdir(directory)
     
-    if True:
+    if multicore:
         # set up a pool of worker processes
         workerPool = Pool()
         kwargs = [{'mln_': mln_.duplicate(), 'partition': partition, 'foldIdx': i, 'directory': directory} for i in range(folds)]

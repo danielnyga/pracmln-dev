@@ -31,16 +31,16 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
     creates ALL ground atoms and ALL ground formulas.
     '''
     
-    def __init__(self, mrf, db):
-        AbstractGroundingFactory.__init__(self, mrf, db)
+    def __init__(self, mrf, db, **params):
+        AbstractGroundingFactory.__init__(self, mrf, db, **params)
         self.formula2GndFormulas = {}
     
-    def _createGroundAtoms(self, verbose=False):
+    def _createGroundAtoms(self):
         # create ground atoms
         for predName, domNames in self.mln.predicates.iteritems():
-            self._groundAtoms([], predName, domNames, verbose)
+            self._groundAtoms([], predName, domNames)
 
-    def _groundAtoms(self, cur, predName, domNames, verbose=False):
+    def _groundAtoms(self, cur, predName, domNames):
         # if there are no more parameters to ground, we're done
         # and we cann add the ground atom to the MRF
         mrf = self.mrf
@@ -55,23 +55,24 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         dom = mrf.domains.get(domNames[0])
         if dom is None or len(dom) == 0:
 #             raise Exception("Domain '%s' is empty!" % domNames[0])
-            print "WARNING: Ground Atoms for predicate %s could not be generated, since the domain '%s' is empty" % (predName, domNames[0])
+            if self.verbose:
+                print "WARNING: Ground Atoms for predicate %s could not be generated, since the domain '%s' is empty" % (predName, domNames[0])
             return False
         for value in dom:
             if not self._groundAtoms(cur + [value], predName, domNames[1:]): return False
         return True
         
-    def _createGroundFormulas(self, verbose=False):
+    def _createGroundFormulas(self):
         mrf = self.mrf
         assert len(mrf.gndAtoms) > 0
         
         # generate all groundings
-        if verbose: 
+        if self.verbose: 
             print "Grounding formulas..."
         for idxFormula, formula in enumerate(mrf.formulas):
             gndFormulas = self.formula2GndFormulas.get(formula, [])
             self.formula2GndFormulas[formula] = gndFormulas
-            if verbose: 
+            if self.verbose: 
                 print "  %s" % (strFormula(formula))
             for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, mrf.simplify):
                 gndFormula.isHard = formula.isHard

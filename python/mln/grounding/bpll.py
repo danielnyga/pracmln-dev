@@ -26,15 +26,11 @@ from logic import fol, grammar
 from sys import stdout
 import time
 from collections import defaultdict
+import math
+from logic.fol import isConjunctionOfLiterals
+from mln.util import strFormula
 # from logic.fol import isConjunctionOfLiterals
 
-def isConjunctionOfLiterals(f):
-    if not type(f) is fol.Conjunction:
-        return False
-    for child in f.children:
-        if not isinstance(child, fol.Lit):
-            return False
-    return True
 
 def getMatchingTuples(assignment, assignments, gndAtomIndices):
     matchingTuples = []
@@ -82,6 +78,11 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
         return variableAssignments, gndAtomIndices
         
     def _generateAllGroundings(self, assignments, gndAtomIndices):
+        '''
+        - assignments: list of lists of tuples of variable/value pairs, e.g. [[(?x,X1),(?x,X2)],[(?y,Y1),(?z,Z)]]
+                       for each atom in the formula representing all possible variable assignments.
+        - gndAtomIndices: list of lists of the corresponding gnd atom indices.
+        '''
         assert len(assignments) > 0
         groundings = []
         for assign, atomIdx in zip(assignments[0], gndAtomIndices[0]):
@@ -105,19 +106,19 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
             d[idxVar] = [0] * size
         d[idxVar][idxValue] += 1
     
-    def _createGroundFormulas(self, verbose):
+    def _createGroundFormulas(self):
         # filter out conjunctions
         mrf = self.mrf 
         mln = mrf.mln    
         mrf._getPllBlocks()
-        mrf._getAtom2BlockIdx()    
-        
+        mrf._getAtom2BlockIdx()
         mrf.evidence = map(lambda x: x is True, mrf.evidence)
         self.fcounts = {} 
         self.blockRelevantFormulas = defaultdict(set)
         trueGndAtoms = [self.mrf.gndAtomsByIdx[i] for i, v in enumerate(self.mrf.evidence) if v == True]
         falseGndAtoms = [self.mrf.gndAtomsByIdx[i] for i, v in enumerate(self.mrf.evidence) if v == False]
-
+        trueGroundingsCounter = {} # dict: formula -> # true groundings
+        
         # get evidence indices
         self.evidenceIndices = []
         for (idxGA, block) in self.mrf.pllBlocks:
@@ -132,7 +133,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                         idxValueTrueone = idxValue
                 if idxValueTrueone == -1: raise Exception("No true ground atom in block '%s'!" % self.mrf._strBlock(block))
                 self.evidenceIndices.append(idxValueTrueone)
-
+        
         for fIdx, formula in enumerate(mrf.formulas):
 #             stdout.write('%d/%d\r' % (fIdx, len(mrf.formulas)))
             
@@ -141,6 +142,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
             
                 # generate all true groundings of the conjunction
                 trueGndFormulas = self._generateAllGroundings(trueAtomAssignments, trueGndAtomIndices)
+                trueGroundingsCounter[formula] = trueGroundingsCounter.get(formula, 0) + len(trueGndFormulas)
                 for gf in trueGndFormulas:
                     for atomIdx in gf:
                         idxVar = mrf.atom2BlockIdx[atomIdx]
@@ -172,6 +174,9 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
 #                        if debug: print self.mrf.gndAtomsByIdx[idxGA]
                         idxBlocks.add(self.mrf.atom2BlockIdx[idxGA])
                     
+                    if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula):
+                        trueGroundingsCounter[formula] = trueGroundingsCounter.get(formula, 0) + 1
+                        
                     for idxVar in idxBlocks:
                         
                         (idxGA, block) = self.mrf.pllBlocks[idxVar]
@@ -198,10 +203,24 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                             for idxValue, idxGA in enumerate(block):
                                 if idxGA != idxGATrueone:
                                     self.mrf._setTemporaryEvidence(idxGATrueone, False)
-                                    self.mrf._setTemporaryEvidence(idxGA, True)                            
+                                    self.mrf._setTemporaryEvidence(idxGA, True)
                                 if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula):
                                     self._addMBCount(idxVar, size, idxValue, fIdx)
                                 self.mrf._removeTemporaryEvidence()
+        # apply the initial weights heuristics
+        if self.initWeights:
+            if self.verbose: print 'applying initial weights heuristics...'
+            factor = 0.1
+            for f in mrf.formulas:
+                totalGroundings = f.computeNoOfGroundings(mrf) 
+                if totalGroundings - trueGroundingsCounter[f] == 0:
+                    f.weight = factor * mrf.hard_weight
+                elif trueGroundingsCounter[f] == 0:
+                    f.weight = factor * -mrf.hard_weight
+                else:
+                    f.weight = factor * math.log(trueGroundingsCounter[f] / float(totalGroundings - trueGroundingsCounter[f]))
+                if self.verbose:
+                    print '  log(%d/%d)=%.6f \t%s' % (trueGroundingsCounter[f], totalGroundings-trueGroundingsCounter[f], f.weight, strFormula(f))
         
         
             

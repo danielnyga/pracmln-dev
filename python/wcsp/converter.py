@@ -230,7 +230,7 @@ class WCSPConverter(object):
         else:
             self.constraintBySignature[varIndices] = constraint
             wcsp.constraints.append(constraint)
-            constraint.write(sys.stdout)
+#             constraint.write(sys.stdout)
         
     def gatherConstraintTuples(self, wcsp, varIndices, formula):
         '''

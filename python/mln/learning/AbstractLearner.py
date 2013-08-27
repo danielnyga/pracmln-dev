@@ -31,6 +31,7 @@ from multiprocessing import Array, Value
 import multiprocessing
 from multiprocessing import Process
 from multiprocessing.synchronize import Lock
+from utils import dict_union
 try:
     import numpy
 except:
@@ -40,11 +41,17 @@ class AbstractLearner(object):
     
     groundingMethod = 'DefaultGroundingFactory'
     
-    def __init__(self, mln, mrf=None, gaussianPriorSigma=None, **params):
+    __init__params = {'verbose': False,
+                      'initialWts': True,
+                      'gaussianPriorSigma': None}
+    
+    def __init__(self, mln, mrf=None, **params):
+        self.params = dict_union(AbstractLearner.__init__params, params)
+        for key, value in self.params.iteritems():
+            setattr(self, key, value)
         self.mln = mln
         self.mrf = mrf
         self.params = params
-        self.gaussianPriorSigma = gaussianPriorSigma
         self.closedWorldAssumption = True
     
     def _reconstructFullWeightVectorWithFixedWeights(self, wt):        
@@ -103,6 +110,7 @@ class AbstractLearner(object):
         # compute likelihood
         likelihood = self._f(wt)
         sys.stdout.write('  likelihood = %f\r' % likelihood)
+        sys.stdout.flush()
         
         return likelihood + prior
         
@@ -159,7 +167,7 @@ class AbstractLearner(object):
             wt = float(wt)
         return wts
 
-    def run(self, initialWts=False, **params):
+    def run(self, **params):
         '''
         Learn the weights of the MLN given the training data previously 
         loaded with combineDB 
@@ -171,7 +179,7 @@ class AbstractLearner(object):
         
         # initial parameter vector: all zeros or weights from formulas
         wt = numpy.zeros(len(self.mln.formulas), numpy.float64)# + numpy.random.ranf(len(self.mln.formulas)) * 100
-        if initialWts:
+        if self.initialWts:
             for i in range(len(self.mln.formulas)):
                 wt[i] = self.mln.formulas[i].weight
                 

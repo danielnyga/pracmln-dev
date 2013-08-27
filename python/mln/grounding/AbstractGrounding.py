@@ -20,27 +20,32 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+from utils import dict_union
 
 
 class AbstractGroundingFactory(object):
     '''
     Abstract super class for all grounding factories.
     '''
+    __init__params = {'initWeights': False}
     
-    def __init__(self, mrf, db):
+    def __init__(self, mrf, db, **params):
+        self.params = dict_union(AbstractGroundingFactory.__init__params, params)
+        for key, value in self.params.iteritems():
+            setattr(self, key, value)
         self.mrf = mrf
         self.mln = mrf.mln
         self.db = db
         
-    def _createGroundAtoms(self, verbose=False):
+    def _createGroundAtoms(self):
         raise Exception('Not implemented')
     
-    def _createGroundFormulas(self, verbose=False):
+    def _createGroundFormulas(self):
         raise Exception('Not implemented')
 
-    def groundMRF(self, verbose=False):
-        self._createGroundAtoms(verbose)
+    def groundMRF(self):
+        self._createGroundAtoms()
         self.mrf.setEvidence(self.db.evidence)
         self.mrf.softEvidence = self.db.softEvidence
-        self._createGroundFormulas(verbose)
+        self._createGroundFormulas()
         return self.mrf

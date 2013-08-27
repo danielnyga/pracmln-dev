@@ -27,6 +27,7 @@ import logic
 from logic.grammar import predDecl, parseFormula
 from mln.inference.bnbinference import BnBInference
 import copy
+from utils import dict_union
 
 '''
 Your MLN files may contain:
@@ -336,12 +337,12 @@ class MLN(object):
             raise Exception("Unknown variable '%s'" % varName)
         return self.vars[varName]
 
-    def groundMRF(self, db, verbose=False, simplify=False, method='DefaultGroundingFactory', cwAssumption=False):
+    def groundMRF(self, db, simplify=False, method='DefaultGroundingFactory', cwAssumption=False, **params):
         '''
         Creates and returns a ground Markov Random Field for the given database
         - db: database filename (string) or Database object
         '''
-        mrf = MRF(self, db, verbose=verbose, simplify=simplify, groundingMethod=method)
+        mrf = MRF(self, db, method, **params)
         # apply closed world assumption
         if cwAssumption:
             mrf.evidence = map(lambda x: False if x is None else x, mrf.evidence)
@@ -408,11 +409,10 @@ class MLN(object):
         '''
         return [f.weight for f in self.formulas]
 
-    def learnWeights(self, databases, method=ParameterLearningMeasures.BPLL, initialWts=False, **params):
+    def learnWeights(self, databases, method=ParameterLearningMeasures.BPLL, **params):
         '''
         databases: list of Database objects or filenames
         '''
-        
         # get a list of database objects
         dbs = []
         for db in databases:
@@ -434,12 +434,12 @@ class MLN(object):
         if len(dbs) == 1:
             groundingMethod = eval('learning.%s.groundingMethod' % method)
             print "grounding MRF using %s..." % groundingMethod 
-            mrf = self.groundMRF(dbs[0], method=groundingMethod, cwAssumption=True)
+            mrf = self.groundMRF(dbs[0], method=groundingMethod, cwAssumption=True, **params)
             learner = eval("learning.%s(self, mrf, **params)" % method)
         else:
             learner = learning.MultipleDatabaseLearner(self, method, dbs, **params)
         print "learner: %s" % learner.getName()
-        wt = learner.run(initialWts, **params)
+        wt = learner.run(**params)
 
         # create the resulting MLN and set its weights
         learnedMLN = self.duplicate()
@@ -458,9 +458,10 @@ class MLN(object):
             print "fitting with params ", fittingParams
             self._fitProbabilityConstraints(self.probreqs, **fittingParams)
         
-        print "\n// formulas"
-        for formula in learnedMLN.formulaTemplates:
-            print "%f  %s" % (float(eval(str(formula.weight))), strFormula(formula))
+        if self.verbose:
+            print "\n// formulas"
+            for formula in learnedMLN.formulaTemplates:
+                print "%f  %s" % (float(eval(str(formula.weight))), strFormula(formula))
         return learnedMLN
 
     def setWeights(self, wt):
@@ -495,7 +496,8 @@ class MLN(object):
                     if excl[i]: f.write("!")
                 f.write(")\n")
         f.write("\n// formulas\n")
-        for formula in self.formulas:
+        formulas = self.formulas if self.formulas is not None else self.formulaTemplates
+        for formula in formulas:
             if formula.isHard:
                 f.write("%s.\n" % strFormula(formula))
             else:
@@ -553,15 +555,30 @@ class MRF(object):
             each element is a tuple (ground atom index, list of ground atom indices) where one element is always None
     '''
 
-    def __init__(self, mln, db, verbose=False, simplify=False, groundingMethod='DefaultGroundingFactory'):
+
+    __init__params = {'verbose': False, 
+                  'simplify': False, 
+                  'initWeights': False}
+    
+    def __init__(self, mln, db, groundingMethod='DefaultGroundingFactory', **params):
         '''
-        db: database filename (.db) or a Database object
+        - db:        database filename (.db) or a Database object
+        - params:    dict of keyword parameters. Valid values are:
+            - simplify: (True/False) determines if the formulas should be simplified
+                        during the grounding process.
+            - verbose:  (True/False) Verbose mode on/off
+            - groundingMethod: (string) name of the grounding factory to be used (default: DefaultGroundingFactory)
+            - initWeights: (True/False) Switch on/off heuristics for initial weight determination (only for learning!)
         '''
+        self.params = dict_union(MRF.__init__params, params)
+        verbose = self.params['verbose']
         self.mln = mln
         self.evidence = None
         self.evidenceBackup = {}
-        self.softEvidence = list(mln.posteriorProbReqs) # constraints on posterior probabilities are nothing but soft evidence and can be handled in exactly the same way
-        self.simplify = simplify
+        self.softEvidence = list(mln.posteriorProbReqs) # constraints on posterior 
+                                                        # probabilities are nothing but 
+                                                        #soft evidence and can be handled in exactly the same way
+        self.simplify = self.params['simplify']
         
         # ground members
         self.gndAtoms = {}
@@ -571,7 +588,6 @@ class MRF(object):
         self.gndFormulas = []
         self.gndAtomOccurrencesInGFs = []
         
-        print db
         if type(db) == str:
             db = readDBFromFile(self.mln, db)
         elif isinstance(db, Database):
@@ -589,15 +605,17 @@ class MRF(object):
         self.probreqs = list(mln.probreqs)
         self.posteriorProbReqs = list(mln.posteriorProbReqs)
         self.predicates = copy.deepcopy(mln.predicates)
+        self.predDecls = copy.deepcopy(mln.predDecls)
         self.templateIdx2GroupIdx = mln.templateIdx2GroupIdx
 
         # get combined domain
         self.domains = mergeDomains(mln.domains, db.domains)
 
         # grounding
-        groundingMethod = eval('%s(self, db)' % groundingMethod)
+        if verbose: print 'Loading %s...' % groundingMethod
+        groundingMethod = eval('%s(self, db, **self.params)' % groundingMethod)
         self.groundingMethod = groundingMethod
-        groundingMethod.groundMRF(verbose=verbose)
+        groundingMethod.groundMRF()
         assert len(self.gndAtoms) == len(self.evidence)
 
     def getHardFormulas(self):
@@ -662,7 +680,7 @@ class MRF(object):
                         raise Exception("Undefined variable(s) referenced in '%s'" % w)
                 w = re.sub(r'domSize\((.*?)\)', r'self.domSize("\1")', w)
                 try:
-                    f.weight = eval(w)
+                    f.weight = float(eval(w))
                 except:
                     sys.stderr.write("Evaluation error while trying to compute '%s'\n" % w)
                     raise
@@ -670,6 +688,7 @@ class MRF(object):
 
         # set weights of hard formulas
         hard_weight = 20 + max_weight
+        self.hard_weight = hard_weight
         hard_formulas = self.getHardFormulas()
         if verbose: print "setting %d hard weights to %f" % (len(hard_formulas), hard_weight)
         for f in hard_formulas:
