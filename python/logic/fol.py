@@ -251,6 +251,17 @@ class Formula(Constraint):
         '''
         raise Exception('%s does not implement isTrue' % str(type(self)))
     
+    def computeNoOfGroundings(self, mrf):
+        '''
+        Computes the number of ground formulas based on the domains of free
+        variables in this formula. (NB: this does _not_ generate the groundings.)
+        '''
+        gf_count = 1
+        for var, dom in self.getVariables(mrf):
+            domain = mrf.domains[dom]
+            gf_count *= len(domain)
+        return gf_count
+    
 class ComplexFormula(Formula):
     '''
     A formula that has other formulas as subelements (children)
@@ -942,7 +953,7 @@ class Equality(Formula):
         self.negated = negated
 
     def __str__(self):
-        return "%s%s%s" % (str(self.params[0]), '!=' if self.negated else '=', str(self.params[1]))
+        return "%s%s%s" % (str(self.params[0]), '=/=' if self.negated else '=', str(self.params[1]))
 
     def ground(self, mrf, assignment, referencedGndAtoms = None, simplify=False, allowPartialGroundings=False):
         # if the parameter is a variable, do a lookup (it must be bound by now), 
@@ -955,7 +966,7 @@ class Equality(Formula):
         return TrueFalse(params[0] == params[1])
 
     def _groundTemplate(self, assignment):
-        return [Equality(self.params)]
+        return [Equality(self.params, negated=self.negated)]
     
     def _getTemplateVariables(self, mln, vars = None):
         return vars
