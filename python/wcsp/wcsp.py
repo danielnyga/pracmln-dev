@@ -22,10 +22,11 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import sys
+import fcntl
 import os
 from subprocess import Popen, PIPE
 
-temp_wcsp_file = os.path.join('/', 'tmp', 'temp.wcsp')
+temp_wcsp_file = os.path.join('/', 'tmp', 'temp%d.wcsp')
 
 class Constraint(object):
     '''
@@ -162,11 +163,14 @@ class WCSP(object):
         Uses toulbar2 inference. Returns the best solution, i.e. a tuple
         of variable assignments.
         '''
-        f = open(temp_wcsp_file, 'w+')
+        # append the process id to the filename to make it "process safe"
+        wcspfilename = temp_wcsp_file % os.getpid()
+        f = open(wcspfilename, 'w+')
         self.write(f)
-        f.close()
 #         cmd = 'toulbar2 -s -v=1 -e=0 -nopre -k=0 %s' % temp_wcsp_file
-        cmd = 'toulbar2 -s %s' % temp_wcsp_file
+        f.close()
+        cmd = 'toulbar2 -s %s' % wcspfilename
+        print 'solving WCSP...'
         p = Popen(cmd, shell=True, stderr=PIPE, stdout=PIPE)
         solution = None
         nextLineIsSolution = False
