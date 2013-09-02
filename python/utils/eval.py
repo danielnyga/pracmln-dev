@@ -22,6 +22,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import pickle
+from subprocess import Popen, PIPE
 
 class ConfusionMatrix(object):
 	'''
@@ -35,11 +36,12 @@ class ConfusionMatrix(object):
 		self.instanceCount = 0
 		self.labels = []
 
-	def addClassificationResult(self, prediction, groundTruth):
+	def addClassificationResult(self, prediction, groundTruth, inc=1):
 		'''
 		Add a new classification result to the confusion matrix.
 		- gndTruth:	the correct label of an example
 		- prediction:	the predicted class label of an example
+		- inc:		the increment (default: 1)
 		'''
 		if not prediction in self.labels:
 			self.labels.append(prediction)
@@ -53,8 +55,8 @@ class ConfusionMatrix(object):
  		if self.matrix.get(groundTruth, None) is None:
  			self.matrix[groundTruth] = {groundTruth: 0}
 		
-		gndTruths[groundTruth] = gndTruths.get(groundTruth, 0) + 1
-		self.instanceCount += 1
+		gndTruths[groundTruth] = gndTruths.get(groundTruth, 0) + inc
+		self.instanceCount += inc
 		
 	def getMatrixEntry(self, pred, clazz):
 		'''
@@ -122,14 +124,14 @@ class ConfusionMatrix(object):
 			
 		return acc, pre, rec, f1
 
-	def printLatexTable(self):		
+	def getLatexTable(self):		
 		grid = "|l|"
 		for cl in sorted(self.labels):
 			grid += "l|"
-		
-		print "\\begin{table}[h!]"
-		print "\\footnotesize"
-		print "\\begin{tabular}{" + grid + "}"
+		endl = '\n'
+		result = ''
+		result += r'\footnotesize' + endl
+		result += r'\begin{tabular}{' + grid + '}' + endl
 		
 		headerRow = r"Prediction/Ground Truth"
 		for cl in sorted(self.labels):
@@ -141,9 +143,8 @@ class ConfusionMatrix(object):
 			tp, tn, fp, fn = self.countClassifications(label)
 			examplesPerClass[label] = sum([tp, fp, fn])
 			
-		
-		print r'\hline'
-		print headerRow + r'\\ \hline'
+		result += r'\hline' + endl
+		result += headerRow + r'\\ \hline' + endl
 		
 		#for each class create row
 		for clazz in sorted(self.labels):
@@ -151,13 +152,11 @@ class ConfusionMatrix(object):
 			#for each row fill colum
 			for cl2 in sorted(self.labels):
 				counts = self.getMatrixEntry(clazz, cl2)
-				values.append(r'\cellcolor{tblgreen!%d}%s' % (int(round(float(counts)/examplesPerClass[clazz] * 100)), (r'\textbf{%d}' if clazz == cl2 else '%d') % counts))
-			print clazz.replace('_', r'\_') + ' & ' + ' & '.join(values) + r'\\ \hline'
+				values.append(r'\cellcolor{cfmcolor!%d}%s' % (int(round(float(counts)/examplesPerClass[clazz] * 100)), (r'\textbf{%d}' if clazz == cl2 else '%d') % counts))
+			result += clazz.replace('_', r'\_') + ' & ' + ' & '.join(values) + r'\\ \hline' + endl
 			
-		print r"\end{tabular}"
-		print r"\caption[Short Caption]{Long Caption}"
-		print r"\label{fig:}"
-		print r"\end{table}"
+		result += r"\end{tabular}" + endl
+		return result
 
 	def printPrecisions(self):
 		
@@ -178,6 +177,21 @@ class ConfusionMatrix(object):
 			print ""
 			
 		print ""
+
+	def iteritems(self):
+		'''
+		Iterates over triples of the form (prediction, class, count) of this confusion matrix.
+		'''
+		for prediction in self.labels:
+			for clazz in self.labels:
+				yield (prediction, clazz, self.getMatrixEntry(prediction, clazz))
+
+	def combine(self, matrix):
+		'''
+		Combines another confusion matrix with this one.
+		'''
+		for (pred, clazz, count) in matrix.iteritems():
+			self.addClassificationResult(pred, clazz, inc=count)
 
 	def __str__(self):
 		maxNumDigits = max(max(map(lambda x: x.values(), self.matrix.values()), key=max))
@@ -212,6 +226,35 @@ class ConfusionMatrix(object):
 		
 	def toFile(self, filename):
 		pickle.dump(self, open(filename, 'w+'))
+		
+	def toPDF(self, filename):
+		'''
+		Creates a PDF file of this matrix. Requires 'pdflatex' and 'pdfcrop' installed.
+		'''
+		texFileName = filename + '.tex'
+		texFile = open(texFileName, 'w+')
+		texFile.write(r'''
+		\documentclass[10pt]{article}
+		\usepackage{color}
+		\usepackage{rotating}
+		\usepackage[table]{xcolor}
+		\definecolor{cfmcolor}{rgb}{0.2,0.4,0.6}
+		\begin{document}
+		\pagenumbering{gobble}
+		%s
+		\end{document}
+		''' % self.getLatexTable())
+		texFile.close()
+		cmd = 'pdflatex -halt-on-error %s' % texFileName
+		p = Popen(cmd, shell=True)
+		if p.wait() != 0:
+			raise Exception('Couldn\'t compile LaTex.')
+		else:
+			cmd = 'pdfcrop %s.pdf %s.pdf' % (filename, filename)
+			p = Popen(cmd, shell=True)
+			if p.wait() != 0:
+				raise Exception('Couldn\'t crop pdf')
+		
 			
 if __name__ == '__main__':
 	cm = ConfusionMatrix()
@@ -237,6 +280,6 @@ if __name__ == '__main__':
 	
 	cm.printTable()
 	cm.printPrecisions()
-	cm.printLatexTable()
-	
+	print cm.getLatexTable()
+	cm.toPDF('tmp')
 	print pickle.loads(pickle.dumps(cm))
