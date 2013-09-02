@@ -241,7 +241,8 @@ class ConfusionMatrix(object):
 		\definecolor{cfmcolor}{rgb}{0.2,0.4,0.6}
 		\begin{document}
 		\pagenumbering{gobble}
-		%s
+		\resizebox{\columnwidth}{!}{
+		%s}
 		\end{document}
 		''' % self.getLatexTable())
 		texFile.close()
