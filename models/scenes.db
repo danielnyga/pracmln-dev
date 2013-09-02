@@ -46,7 +46,7 @@ goggles_Text(c0,Oetker_Dr_Schoko_)
 goggles_Text(c2,Haltbare_Milch_)
 
 object(c0,Vitalis_cereal)
-object(c1,Coffe_pitcher)
+object(c1,Coffee_pitcher)
 object(c2,milk)
 object(c3,cup)
 object(c4,plate)
@@ -380,7 +380,7 @@ color(c4,black)
 
 goggles_Text(c2,Mich_)
 
-object(c0,Coffee_Pitcher)
+object(c0,Coffee_pitcher)
 object(c1,sugar)
 object(c2,milk)
 object(c3,cup)
@@ -1056,7 +1056,6 @@ shape(c4,flat)
 shape(c4,round)
 
 shape(c6,flat)
-shape(c7,flat)
 
 color(c0,red)
 color(c0,black)
@@ -1278,11 +1277,12 @@ color(c3,white)
 color(c4,black)
 
 goggles_Text(c0,bio_99_)
-goggles_Text(c2,0.0-0)_)
+goggles_Text(c2,0.0-0_)
 
 object(c0,spatula)
 object(c1,spatula)
 object(c2,spatula)
 object(c3,spatula)
 object(c4,spatula)
+
 

@@ -188,8 +188,11 @@ if __name__ == '__main__':
         print 'Started %d-fold Crossvalidation in %d processes.' % (folds, workerPool._processes)
         workerPool.close()
         workerPool.join()
+        cm = ConfusionMatrix()
         for r in result:
             print r
+            cm.combine(r)
+        cm.toPDF(os.path.join(directory, 'conf_matrix'))
         elapsedTimeMP = time.time() - startTime
 #     startTime = time.time()
     else:
@@ -197,8 +200,11 @@ if __name__ == '__main__':
             args = {'mln_': mln_.duplicate(), 'partition': partition, 'foldIdx': fold, 'directory': directory}
             runFold(args)
         elapsedTimeSP = time.time() - startTime
-    print '%d-fold crossvalidation (MP) took %.2f min' % (folds, elapsedTimeMP / 60.0)
-    print '%d-fold crossvalidation (SP) took %.2f min' % (folds, elapsedTimeSP / 60.0)
+    
+    if multicore:
+        print '%d-fold crossvalidation (MP) took %.2f min' % (folds, elapsedTimeMP / 60.0)
+    else:
+        print '%d-fold crossvalidation (SP) took %.2f min' % (folds, elapsedTimeSP / 60.0)
         
         
 
