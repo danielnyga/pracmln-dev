@@ -53,7 +53,7 @@ class Database(object):
         '''
         db = Database(self.mln)
         db.domains = copy.deepcopy(self.domains)
-        db.evidence = copy.deepcopy(self.domains)
+        db.evidence = copy.deepcopy(self.evidence)
         db.softEvidence = copy.deepcopy(self.softEvidence)
         return db
 
