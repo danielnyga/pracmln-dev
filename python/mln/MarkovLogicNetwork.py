@@ -287,8 +287,9 @@ class MLN(object):
                 for ev, truth in db.evidence.iteritems():
                     _, pred, params = parseLiteral(ev)
                     if domain in self.predDecls[pred]: # domain is affected by the mapping  
+                        newDB.retractGndAtom(ev)
                         newArgs = [v if domain != self.predDecls[pred][i] else valueMap[v] for v, i in enumerate(params)]
-                    newDB['%s(%s)' % (pred, ','.join(newArgs))] = truth
+                        newDB.addGroundAtom('%s%s(%s)' % ('' if truth else '!', pred, ','.join(newArgs)))
             newDBs.append(newDB)
         return newDBs, domains
 
