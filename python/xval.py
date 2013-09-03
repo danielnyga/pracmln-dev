@@ -113,26 +113,29 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
         print confMatrix
 
 def learnAndEval(mln, learnDBs, testDBs, queryPred, queryDom, cwPreds, confMatrix):
-    learnedMLN = mln.learnWeights(learnDBs, method=ParameterLearningMeasures.BPLL_CG, optimizer='cg')
+    learnedMLN = mln.learnWeights(learnDBs, method=ParameterLearningMeasures.BPLL_CG, optimizer='cg', verbose=verbose)
     evalMLN(learnedMLN, queryPred, queryDom, cwPreds, testDBs, confMatrix)
     
 
 # def runFold(mln_, partition, foldIdx, directory):
 def runFold(args):
-    foldIdx = args['foldIdx']
-    partition = args['partition']
-    directory = args['directory']
-    mln_ = args['mln_']
-    print 'Run %d of %d...' % (foldIdx+1, folds)
-    trainDBs = []
-    confMatrix = ConfusionMatrix()
-    for dbs in [dbs for i,dbs in enumerate(partition) if i != foldIdx]:
-        trainDBs.extend(dbs)
-    testDBs = partition[foldIdx]
-    learnAndEval(mln_, trainDBs, testDBs, predName, domain, cwpreds, confMatrix)
-    confMatrix.toFile(os.path.join(directory, 'conf_matrix_%d.cm' % foldIdx))
-    return confMatrix
-    
+    try:
+        foldIdx = args['foldIdx']
+        partition = args['partition']
+        directory = args['directory']
+        mln_ = args['mln_']
+        print 'Run %d of %d...' % (foldIdx+1, folds)
+        trainDBs = []
+        confMatrix = ConfusionMatrix()
+        for dbs in [dbs for i,dbs in enumerate(partition) if i != foldIdx]:
+            trainDBs.extend(dbs)
+        testDBs = partition[foldIdx]
+        learnAndEval(mln_, trainDBs, testDBs, predName, domain, cwpreds, confMatrix)
+        confMatrix.toFile(os.path.join(directory, 'conf_matrix_%d.cm' % foldIdx))
+        return confMatrix
+    except (KeyboardInterrupt, SystemExit):
+        print "Exiting..."
+        return None
     
 if __name__ == '__main__':
     (options, args) = parser.parse_args()

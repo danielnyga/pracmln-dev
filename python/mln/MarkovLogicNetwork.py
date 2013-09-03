@@ -138,7 +138,7 @@ class MLN(object):
         self.predicates = None
         self.domains = None
         self.formulas = None
-
+        
         self.blocks = {}
         self.domDecls = []
         self.probreqs = []
@@ -172,6 +172,7 @@ class MLN(object):
         mln.closedWorldPreds = list(self.closedWorldPreds)
         mln.parameterType = self.parameterType
         mln.learnWtsMode = self.learnWtsMode
+        mln.noisyStringDomains = list(self.noisyStringDomains)
         return mln
 
     def declarePredicate(self, name, domains, functional=None):
@@ -302,8 +303,6 @@ class MLN(object):
         self.formulas = []
         
         dbs, noisyStaticDomains = self.materializeNoisyDomains(dbs)
-        print dbs
-        print noisyStaticDomains
         self.staticDomains = mergeDomains(self.staticDomains, noisyStaticDomains)
         
         # obtain full domain with all objects 
@@ -468,6 +467,7 @@ class MLN(object):
         Returns a new MLN object with the learned parameters.
         - databases: list of Database objects or filenames
         '''
+        self.verbose = params.get('verbose', False)
         # get a list of database objects
         dbs = []
         for db in databases:
@@ -1785,7 +1785,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
                 except: # try noisy string domain 
                     m = re.match(r'(.+)\s*=\s*noisy', line)
                     if m is not None:
-                        mln.noisyStringDomains.append(str(m.group(1).strip()))
+                        mln.noisyStringDomains.append(m.group(1).strip())
                     continue
             # prior probability requirement
             if line.startswith("P("):
