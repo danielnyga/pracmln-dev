@@ -281,15 +281,19 @@ class MLN(object):
             for domain in commonDoms:
                 # map the values in the database to the static domain values
                 valueClusters = [Cluster([value]) for value in domains[domain]]
-                valueMap = dict([(val, computeClosestCluster(val, valueClusters)[1][0]) for val in db.domains[domain]])
+                print newDB.domains[domain]
+                valueMap = dict([(val, computeClosestCluster(val, valueClusters)[1][0]) for val in newDB.domains[domain]])
                 print valueMap
-                db.domains[domain] = valueMap.values()
+                newDB.domains[domain] = valueMap.values()
                 # replace the affected evidences
                 for ev in newDB.evidence.keys():
                     truth = newDB.evidence[ev]
                     _, pred, params = parseLiteral(ev)
                     if domain in self.predDecls[pred]: # domain is affected by the mapping  
                         newDB.retractGndAtom(ev)
+                        print params
+                        print self.predDecls[pred]
+                        print domain
                         newArgs = [v if domain != self.predDecls[pred][i] else valueMap[v] for i, v in enumerate(params)]
                         atom = '%s%s(%s)' % ('' if truth else '!', pred, ','.join(newArgs))
                         newDB.addGroundAtom(atom)
@@ -305,17 +309,9 @@ class MLN(object):
         self.predicates = {}
         self.domains = {}
         self.formulas = []
-        
-#         for db in dbs:
-#             db.printEvidence()
-#             print '---'
+
         dbs, noisyStaticDomains = self.materializeNoisyDomains(dbs)
         self.staticDomains = mergeDomains(self.staticDomains, noisyStaticDomains)
-#         print 'AFTER'
-#         for db in dbs:
-#             db.printEvidence()
-#             print '---'
-        
         
         # obtain full domain with all objects 
         fullDomain = mergeDomains(self.staticDomains, *[db.domains for db in dbs])
@@ -350,7 +346,7 @@ class MLN(object):
             for domName in domNames:
                 self.domains[domName] = fullDomain[domName]
         self._materializeFormulaTemplates(templates)
-#         self.printFormulas()
+        return dbs
 #         print len(self.formulas), 'formulas'
 
     def _materializeFormulaTemplates(self, templates, verbose=False):
@@ -371,6 +367,7 @@ class MLN(object):
                     group = []
                 prevIdxGroup = idxGroup
             # get template variants
+#             print 'materializing', tf
             fl = tf.getTemplateVariants(self)
             # add them to the list of formulas and set index
             for f in fl:
@@ -667,7 +664,7 @@ class MRF(object):
             raise Exception("Not a valid database argument (type %s)" % (str(type(db))))
         # materialize MLN formulas
         if self.mln.formulas is None:
-            self.mln.materializeFormulaTemplates([db],verbose)
+            db = self.mln.materializeFormulaTemplates([db],verbose)[0]
         self.formulas = list(mln.formulas) # copy the list of formulas, because we may change or extend it
         # materialize formula weights
         self._materializeFormulaWeights(verbose)
@@ -1769,13 +1766,6 @@ def readMLNFromFile(filename_or_list, verbose=False):
                 except:
                     raise Exception('Malformed #unique expression: "%s"' % line)
                 continue
-            elif line.startswith("#fixUnitary:"): # deprecated (use instead #fixedWeightFreq)
-                predName = line[12:len(line)]
-                if hasattr(mln, 'fixationSet'):
-                    mln.fixationSet.add(predName)
-                else:
-                    mln.fixationSet = set([predName])
-                continue
             elif line.startswith("#AdaptiveMLNDependency"): # declared as "#AdaptiveMLNDependency:pred:domain"; seems to be deprecated
                 depPredicate, domain = line.split(":")[1:3]
                 if hasattr(mln, 'AdaptiveDependencyMap'):
@@ -1798,7 +1788,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
                     m = re.match(r'(.+)\s*=\s*noisy', line)
                     if m is not None:
                         mln.noisyStringDomains.append(m.group(1).strip())
-                    continue
+                        continue
             # prior probability requirement
             if line.startswith("P("):
                 m = re.match(r"P\((.*?)\)\s*=\s*([\.\de]+)", line)
@@ -1819,7 +1809,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
                 if m is None:
                     raise Exception("Variable assigment malformed: %s" % line)
                 mln.vars[m.group(1)] = "(%s)" % m.group(2).strip()
-                continue
+                continue                        
             # mutex constraint
             if re.search(r"[a-z_][-_'a-zA-Z0-9]*\!", line) != None:
                 pred = parsePredicate(line)
@@ -1898,4 +1888,5 @@ def readMLNFromFile(filename_or_list, verbose=False):
     mln.formulaTemplates = formulatemplates
     mln.templateIdx2GroupIdx = templateIdx2GroupIdx
     mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices
+    mln.printFormulas()
     return mln
