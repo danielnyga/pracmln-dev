@@ -2,6 +2,7 @@
 #
 # Markov Logic Networks
 #
+# (C) 2012-2013 by Daniel Nyga (nyga@cs.uni-bremen.de)
 # (C) 2006-2011 by Dominik Jain (jain@cs.tum.edu)
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -28,6 +29,7 @@ from logic.grammar import predDecl, parseFormula
 from mln.inference.bnbinference import BnBInference
 import copy
 from utils import dict_union
+from utils.clustering import Cluster, SAHN
 
 '''
 Your MLN files may contain:
@@ -132,6 +134,7 @@ class MLN(object):
         self.predDecls = {}
         self.formulaTemplates = []
         self.staticDomains = {}
+        self.noisyStringDomains = []
         self.predicates = None
         self.domains = None
         self.formulas = None
@@ -242,6 +245,51 @@ class MLN(object):
         for domain, constants in constants.iteritems():
             for c in constants: 
                 self.addConstant(domain, c)
+                
+    def materializeNoisyDomains(self, dbs):
+        '''
+        For each noisy domain, (1) if there is a static domain specification,
+        map the values of that domain in all dbs to their closest neighbor
+        in the domain.
+        (2) If there is no static domain declaration, apply SAHN clustering
+        to the values appearing dbs, take the cluster centroids as the values
+        of the domain and map the dbs as in (1).
+        '''
+        newDBs = []
+        domains = dict([(n, self.staticDomains.get(n, [])) for n in self.noisyStringDomains])
+        fullDomains = mergeDomains(*[db.domains for db in dbs])
+        if self.verbose and len(domains) > 0:
+            print 'materializing noisy domains...'
+        for nDomain in domains.keys():
+            if len(domains[nDomain]) > 0 or fullDomains.get(nDomain, None) is None: continue
+            # apply the clustering step
+            values = fullDomains[nDomain]
+            clusters = SAHN(values)
+            domains[nDomain] = [c._computeCentroid()[0] for c in clusters]
+            if self.verbose:
+                print '  reducing domain %s: %d -> %d values' % (nDomain, len(values), len(clusters))
+                print '   ', domains[nDomain] 
+        for db in dbs:
+            if len(db.softEvidence) > 0:
+                raise Exception('This is not yet implemented for soft evidence.')
+            commonDoms = set(db.domains.keys()).intersection(set(domains.keys()))
+            if len(commonDoms) > 0:
+                newDBs.append(db)
+                continue
+            newDB = db.duplicate()
+            for domain in commonDoms:
+                # map the values in the database to the static domain values
+                valueClusters = [Cluster(value) for value in domains[domain]]
+                valueMap = dict([(val, Cluster(val).computeClostestCluster(valueClusters)[1][0]) for val in db.domains[domain]])
+                db.domains[domain] = valueMap.values()
+                # replace the affected evidences
+                for ev, truth in db.evidence.iteritems():
+                    _, pred, params = parseLiteral(ev)
+                    if domain in self.predDecls[pred]: # domain is affected by the mapping  
+                        newArgs = [v if domain != self.predDecls[pred][i] else valueMap[v] for v, i in enumerate(params)]
+                    newDB['%s(%s)' % (pred, ','.join(newArgs))] = truth
+            newDBs.append(newDB)
+        return newDBs, domains
 
     def materializeFormulaTemplates(self, dbs, verbose=False):
         '''
@@ -252,6 +300,11 @@ class MLN(object):
         self.predicates = {}
         self.domains = {}
         self.formulas = []
+        
+        dbs, noisyStaticDomains = self.materializeNoisyDomains(dbs)
+        print dbs
+        print noisyStaticDomains
+        self.staticDomains = mergeDomains(self.staticDomains, noisyStaticDomains)
         
         # obtain full domain with all objects 
         fullDomain = mergeDomains(self.staticDomains, *[db.domains for db in dbs])
@@ -411,7 +464,9 @@ class MLN(object):
 
     def learnWeights(self, databases, method=ParameterLearningMeasures.BPLL, **params):
         '''
-        databases: list of Database objects or filenames
+        Triggers the learning parameter learning process for a given set of databases.
+        Returns a new MLN object with the learned parameters.
+        - databases: list of Database objects or filenames
         '''
         # get a list of database objects
         dbs = []
@@ -478,7 +533,11 @@ class MLN(object):
         if 'learnwts_message' in dir(self):
             f.write("/*\n%s*/\n\n" % self.learnwts_message)
         f.write("// domain declarations\n")
-        for d in self.domDecls: f.write("%s\n" % d)
+        for d in self.domDecls: 
+            f.write("%s\n" % d)
+        f.write('\n')
+        for d in self.noisyStringDomains:
+            f.write('%s = noisy\n')    
         f.write("\n// predicate declarations\n")
         for predname, args in self.predDecls.iteritems():
             excl = self.blocks.get(predname)
@@ -1716,12 +1775,18 @@ def readMLNFromFile(filename_or_list, verbose=False):
                     mln.AdaptiveDependencyMap = {depPredicate:set([domain])}
                 continue
             # domain decl
-            if '{' in line:
-                domName, constants = parseDomDecl(line)
-                if domName in mln.domains: raise Exception("Domain redefinition: '%s' already defined" % domName)
-                mln.staticDomains[domName] = constants
-                mln.domDecls.append(line)
-                continue
+            if '=' in line:
+                try: # try normal domain definition
+                    domName, constants = parseDomDecl(line)
+                    if domName in mln.domains: raise Exception("Domain redefinition: '%s' already defined" % domName)
+                    mln.staticDomains[domName] = constants
+                    mln.domDecls.append(line)
+                    continue
+                except: # try noisy string domain 
+                    m = re.match(r'(.+)\s*=\s*noisy', line)
+                    if m is not None:
+                        mln.noisyStringDomains.append(str(m.group(1).strip()))
+                    continue
             # prior probability requirement
             if line.startswith("P("):
                 m = re.match(r"P\((.*?)\)\s*=\s*([\.\de]+)", line)

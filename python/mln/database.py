@@ -27,6 +27,7 @@ from mln.util import stripComments, parsePredicate, parseDomDecl, parseLiteral,\
     strFormula, mergeDomains
 from logic.grammar import parseFormula
 from logic.fol import GroundLit
+import copy
 
 class Database(object):
     '''
@@ -45,6 +46,16 @@ class Database(object):
         self.evidence = {}
         self.softEvidence = []
         self.includeNonExplicitDomains = True
+        
+    def duplicate(self):
+        '''
+        Returns a deep copy this Database.
+        '''
+        db = Database(self.mln)
+        db.domains = copy.deepcopy(self.domains)
+        db.evidence = copy.deepcopy(self.domains)
+        db.softEvidence = copy.deepcopy(self.softEvidence)
+        return db
 
     def addGroundAtom(self, gndLit):
         '''

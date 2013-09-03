@@ -55,9 +55,9 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
     sig = ['?arg%d' % i for i, _ in enumerate(mln.predDecls[queryPred])]
     querytempl = '%s(%s)' % (queryPred, ','.join(sig))
     
-    f = open('temp.mln', 'w+')
-    mln.write(f)
-    f.close()
+#     f = open('temp.mln', 'w+')
+#     mln.write(f)
+#     f.close()
     
     for db in dbs:
         # save and remove the query predicates from the evidence
@@ -71,13 +71,13 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
         db.printEvidence()
         
         # for testing purposes
-        mln_ = readMLNFromFile('temp.mln')
-        mln_.setClosedWorldPred(None)
-        for pred in [pred for pred in cwPreds if pred in mln_.predDecls]:
-            mln_.setClosedWorldPred(pred)
-        mrf_ = mln_.groundMRF(db)
-        conv_ = WCSPConverter(mrf_)
-        wcsp_ = conv_.convert()
+#         mln_ = readMLNFromFile('temp.mln')
+#         mln_.setClosedWorldPred(None)
+#         for pred in [pred for pred in cwPreds if pred in mln_.predDecls]:
+#             mln_.setClosedWorldPred(pred)
+#         mrf_ = mln_.groundMRF(db)
+#         conv_ = WCSPConverter(mrf_)
+#         wcsp_ = conv_.convert()
         
         mln.formulas = None
         mln.defaultInferenceMethod = InferenceMethods.WCSP
@@ -85,15 +85,15 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
         conv = WCSPConverter(mrf)
         wcsp = conv.convert()
         
-        if not (wcsp == wcsp_):
-            wcsp.write(sys.stdout)
-            mln.write(sys.stdout)
-            print '+++++++++++++++++++++++++++++++++++'
-            wcsp_.write(sys.stdout)
-            mln_.write(sys.stdout)
-            raise Exception('WCSPs are not equal!!!')
+#         if not (wcsp == wcsp_):
+#             wcsp.write(sys.stdout)
+#             mln.write(sys.stdout)
+#             print '+++++++++++++++++++++++++++++++++++'
+#             wcsp_.write(sys.stdout)
+#             mln_.write(sys.stdout)
+#             raise Exception('WCSPs are not equal!!!')
         
-        conv = WCSPConverter(mrf)        
+#         conv = WCSPConverter(mrf)        
         resultDB = conv.getMostProbableWorldDB()
         
         sig2 = list(sig)
@@ -113,7 +113,7 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
         print confMatrix
 
 def learnAndEval(mln, learnDBs, testDBs, queryPred, queryDom, cwPreds, confMatrix):
-    learnedMLN = mln.learnWeights(learnDBs, method=ParameterLearningMeasures.BPLL_CG)
+    learnedMLN = mln.learnWeights(learnDBs, method=ParameterLearningMeasures.BPLL_CG, optimizer='cg')
     evalMLN(learnedMLN, queryPred, queryDom, cwPreds, testDBs, confMatrix)
     
 
@@ -182,7 +182,7 @@ if __name__ == '__main__':
     
     if multicore:
         # set up a pool of worker processes
-        workerPool = Pool()
+        workerPool = Pool(2)
         kwargs = [{'mln_': mln_.duplicate(), 'partition': partition, 'foldIdx': i, 'directory': directory} for i in range(folds)]
         result = workerPool.map_async(runFold, kwargs).get()
         print 'Started %d-fold Crossvalidation in %d processes.' % (folds, workerPool._processes)

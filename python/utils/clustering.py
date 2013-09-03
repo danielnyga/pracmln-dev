@@ -23,8 +23,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
 from utils.evalSeqLabels import editDistance
 import math
-from mln.MarkovLogicNetwork import readMLNFromFile
-from mln.database import readDBFromFile
+import numpy
 
 class Cluster(object):
     '''
@@ -126,52 +125,82 @@ class Cluster(object):
     
     def merge(self, cluster):
         '''
-        Merges this cluster with the given one.
+        Merges this cluster with the given one. Returns a new cluster without
+        modifying any of the original clusters.
         '''
-        self.dataPoints.extend(cluster.dataPoints)
+        return Cluster(list(self.dataPoints) + list(cluster.dataPoints))
         
     def __repr__(self):
         s = 'ClUSTER: {%s}' % ','.join(self.dataPoints)
         return s
         
         
-def SAHN(dataPoints, threshold, linkage='avg', dist='auto'):
+def SAHN(dataPoints, threshold=None, linkage='avg', dist='auto'):
     '''
     Performs sequential agglomerative hierarchical non-overlapping (SAHN) clustering.
+    - dataPoints:     list of numerical or categorical data points.
+    - threshold:      the threshold for cluster distances when the merging of
+                      cluster shall stop. If threshold is None, the median
+                      of the complete SAHN clustering will be taken.
     ''' 
     clusters = [Cluster([p]) for p in dataPoints]
-    
-    print clusters
+    threshold2clusters = {}
+    if threshold is None:
+        thr = float('inf')
+    else:
+        thr = threshold
     while len(clusters) > 1:
         minDist = float('inf')
         for c1 in clusters:
             for c2 in clusters:
                 if c1 is c2: continue
-                d = c1.computeDistance(c2)
+                d = c1.computeDistance(c2, linkage, dist)
                 if d < minDist:
                     minDist = d
                     minDistC1 = c1
                     minDistC2 = c2
-        if minDist > threshold: break
-        minDistC1.merge(minDistC2)
+        if minDist > thr: break
+        threshold2clusters[minDist] = list(clusters)
+        newCluster = minDistC1.merge(minDistC2)
         clusters.remove(minDistC2)
-        print clusters
-        for c in clusters:
-            print c._computeCentroid()
+        clusters.remove(minDistC1)
+        clusters.append(newCluster)
+    if threshold is None:
+        # return the set of clusters associated to the median
+        # (or the clostest smaller one, respectively)
+        l = sorted(threshold2clusters, reverse=True)
+        m = numpy.mean(l)
+        deltas = map(lambda x: abs(m - x), l)
+        clusters = threshold2clusters.get(l[deltas.index(min(deltas))])
     return clusters
     
+def computeClosestCluster(dataPoint, clusters, linkage='avg', dist='auto'):
+    '''
+    Returns the closest cluster and its centroid to the given dataPoint.
+    '''
+    c1 = Cluster(dataPoint)
+    minDist = float('inf')
+    for c2 in clusters:
+        d = c1.computeDistance(c2, linkage, dist)
+        if d < minDist:
+            minDist = d
+            minDistC = c2
+    return (minDistC, minDistC._computeCentroid(dist))
+            
 if __name__ == '__main__':
     
 #     s = ['otto', 'otte', 'obama', 'markov logic network', 'markov logic', 'otta', 'markov random field']
-#     
-#     print SAHN(s, 100)
-#     
+#      
+#     print SAHN(s)
+     
+    from mln.MarkovLogicNetwork import readMLNFromFile
+    from mln.database import readDBFromFile
     mln = readMLNFromFile('/home/nyga/code/pracmln/models/object-detection.mln')
     dbs = readDBFromFile(mln, '/home/nyga/code/pracmln/models/scenes.db')
     mln.materializeFormulaTemplates(dbs, verbose=True)
     print mln.domains['text']
-    
-    clusters = SAHN(mln.domains['text'], 20, linkage='complete')
-            
+     
+    clusters = SAHN(mln.domains['text'])
+             
     for c in clusters:
         print c
