@@ -29,7 +29,7 @@ from logic.grammar import predDecl, parseFormula
 from mln.inference.bnbinference import BnBInference
 import copy
 from utils import dict_union
-from utils.clustering import Cluster, SAHN
+from utils.clustering import Cluster, SAHN, computeClosestCluster
 
 '''
 Your MLN files may contain:
@@ -274,22 +274,25 @@ class MLN(object):
             if len(db.softEvidence) > 0:
                 raise Exception('This is not yet implemented for soft evidence.')
             commonDoms = set(db.domains.keys()).intersection(set(domains.keys()))
-            if len(commonDoms) > 0:
+            if len(commonDoms) == 0:
                 newDBs.append(db)
                 continue
             newDB = db.duplicate()
             for domain in commonDoms:
                 # map the values in the database to the static domain values
-                valueClusters = [Cluster(value) for value in domains[domain]]
-                valueMap = dict([(val, Cluster(val).computeClostestCluster(valueClusters)[1][0]) for val in db.domains[domain]])
+                valueClusters = [Cluster([value]) for value in domains[domain]]
+                valueMap = dict([(val, computeClosestCluster(val, valueClusters)[1][0]) for val in db.domains[domain]])
+                print valueMap
                 db.domains[domain] = valueMap.values()
                 # replace the affected evidences
-                for ev, truth in db.evidence.iteritems():
+                for ev in newDB.evidence.keys():
+                    truth = newDB.evidence[ev]
                     _, pred, params = parseLiteral(ev)
                     if domain in self.predDecls[pred]: # domain is affected by the mapping  
                         newDB.retractGndAtom(ev)
-                        newArgs = [v if domain != self.predDecls[pred][i] else valueMap[v] for v, i in enumerate(params)]
-                        newDB.addGroundAtom('%s%s(%s)' % ('' if truth else '!', pred, ','.join(newArgs)))
+                        newArgs = [v if domain != self.predDecls[pred][i] else valueMap[v] for i, v in enumerate(params)]
+                        atom = '%s%s(%s)' % ('' if truth else '!', pred, ','.join(newArgs))
+                        newDB.addGroundAtom(atom)
             newDBs.append(newDB)
         return newDBs, domains
 
@@ -303,8 +306,16 @@ class MLN(object):
         self.domains = {}
         self.formulas = []
         
+#         for db in dbs:
+#             db.printEvidence()
+#             print '---'
         dbs, noisyStaticDomains = self.materializeNoisyDomains(dbs)
         self.staticDomains = mergeDomains(self.staticDomains, noisyStaticDomains)
+#         print 'AFTER'
+#         for db in dbs:
+#             db.printEvidence()
+#             print '---'
+        
         
         # obtain full domain with all objects 
         fullDomain = mergeDomains(self.staticDomains, *[db.domains for db in dbs])

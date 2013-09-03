@@ -178,7 +178,7 @@ def computeClosestCluster(dataPoint, clusters, linkage='avg', dist='auto'):
     '''
     Returns the closest cluster and its centroid to the given dataPoint.
     '''
-    c1 = Cluster(dataPoint)
+    c1 = Cluster([dataPoint])
     minDist = float('inf')
     for c2 in clusters:
         d = c1.computeDistance(c2, linkage, dist)
