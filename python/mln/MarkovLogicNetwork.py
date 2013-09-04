@@ -26,10 +26,9 @@
 from mln.database import Database, readDBFromFile
 import logic
 from logic.grammar import predDecl, parseFormula
-from mln.inference.bnbinference import BnBInference
 import copy
-from utils import dict_union
 from utils.clustering import Cluster, SAHN, computeClosestCluster
+from utils import dict_union
 
 '''
 Your MLN files may contain:
@@ -131,13 +130,9 @@ class MLN(object):
         Constructs an empty MLN object. For reading an MLN object 
         from an .mln file, see readMLNFromFile (below).
         '''
-        self.predDecls = {}
-        self.formulaTemplates = []
-        self.staticDomains = {}
-        self.noisyStringDomains = []
-        self.predicates = None
-        self.domains = None
-        self.formulas = None
+        self.predicates = {}
+        self.domains = {}
+        self.formulas = []
         
         self.blocks = {}
         self.domDecls = []
@@ -163,17 +158,7 @@ class MLN(object):
         '''
         Returns a deep copy of this MLN, which is not yet materialized.
         '''
-        mln = MLN()
-        mln.predDecls = copy.deepcopy(self.predDecls)
-        mln.staticDomains = copy.deepcopy(self.predDecls)
-        mln.formulaTemplates = list(self.formulaTemplates)
-        mln.blocks = copy.deepcopy(self.blocks)
-        mln.domDecls = list(self.domDecls)
-        mln.closedWorldPreds = list(self.closedWorldPreds)
-        mln.parameterType = self.parameterType
-        mln.learnWtsMode = self.learnWtsMode
-        mln.noisyStringDomains = list(self.noisyStringDomains)
-        return mln
+        return copy.deepcopy(self)
 
     def declarePredicate(self, name, domains, functional=None):
         '''
@@ -182,10 +167,10 @@ class MLN(object):
         - domains:     list of domain names of arguments
         - functional:  indices of args which are functional (optional)
         '''
-        if name in self.predDecls:
+        if name in self.predicates:
             raise Exception('Predicate "%s" has already been declared' % name)
         assert type(domains) == list
-        self.predDecls[name] = domains
+        self.predicates[name] = domains
         if functional is not None:
             func = [(i in functional) for i, _ in enumerate(domains)]
             self.blocks[name] = func
@@ -217,13 +202,6 @@ class MLN(object):
         '''
         self._addFormula(formula, self.formulas, weight, hard, fixWeight)
     
-    def addFormulaTemplate(self, formula, weight=0, hard=False, fixWeight=False):
-        '''
-        Add a formula template (i.e. formulas with '+' operators) to the MLN.
-        Domains are updated, if necessary.
-        '''
-        self._addFormula(formula, self.formulaTemplates, weight, hard, fixWeight)
-        
     def _addFormula(self, formula, formulaSet, weight=0, hard=False, fixWeight=False):
         '''
         Adds the given formula to the MLN and extends the respective domains, if necessary.
@@ -246,59 +224,55 @@ class MLN(object):
         for domain, constants in constants.iteritems():
             for c in constants: 
                 self.addConstant(domain, c)
-                
-    def materializeNoisyDomains(self, dbs):
-        '''
-        For each noisy domain, (1) if there is a static domain specification,
-        map the values of that domain in all dbs to their closest neighbor
-        in the domain.
-        (2) If there is no static domain declaration, apply SAHN clustering
-        to the values appearing dbs, take the cluster centroids as the values
-        of the domain and map the dbs as in (1).
-        '''
-        newDBs = []
-        domains = dict([(n, self.staticDomains.get(n, [])) for n in self.noisyStringDomains])
-        fullDomains = mergeDomains(*[db.domains for db in dbs])
-        if self.verbose and len(domains) > 0:
-            print 'materializing noisy domains...'
-        for nDomain in domains.keys():
-            if len(domains[nDomain]) > 0 or fullDomains.get(nDomain, None) is None: continue
-            # apply the clustering step
-            values = fullDomains[nDomain]
-            clusters = SAHN(values)
-            domains[nDomain] = [c._computeCentroid()[0] for c in clusters]
-            if self.verbose:
-                print '  reducing domain %s: %d -> %d values' % (nDomain, len(values), len(clusters))
-                print '   ', domains[nDomain] 
-        for db in dbs:
-            if len(db.softEvidence) > 0:
-                raise Exception('This is not yet implemented for soft evidence.')
-            commonDoms = set(db.domains.keys()).intersection(set(domains.keys()))
-            if len(commonDoms) == 0:
-                newDBs.append(db)
-                continue
-            newDB = db.duplicate()
-            for domain in commonDoms:
-                # map the values in the database to the static domain values
-                valueClusters = [Cluster([value]) for value in domains[domain]]
-                print newDB.domains[domain]
-                valueMap = dict([(val, computeClosestCluster(val, valueClusters)[1][0]) for val in newDB.domains[domain]])
-                print valueMap
-                newDB.domains[domain] = valueMap.values()
-                # replace the affected evidences
-                for ev in newDB.evidence.keys():
-                    truth = newDB.evidence[ev]
-                    _, pred, params = parseLiteral(ev)
-                    if domain in self.predDecls[pred]: # domain is affected by the mapping  
-                        newDB.retractGndAtom(ev)
-                        print params
-                        print self.predDecls[pred]
-                        print domain
-                        newArgs = [v if domain != self.predDecls[pred][i] else valueMap[v] for i, v in enumerate(params)]
-                        atom = '%s%s(%s)' % ('' if truth else '!', pred, ','.join(newArgs))
-                        newDB.addGroundAtom(atom)
-            newDBs.append(newDB)
-        return newDBs, domains
+
+# TODO: outsource this
+#     def materializeNoisyDomains(self, dbs):
+#         '''
+#         For each noisy domain, (1) if there is a static domain specification,
+#         map the values of that domain in all dbs to their closest neighbor
+#         in the domain.
+#         (2) If there is no static domain declaration, apply SAHN clustering
+#         to the values appearing dbs, take the cluster centroids as the values
+#         of the domain and map the dbs as in (1).
+#         '''
+#         newDBs = []
+#         domains = dict([(n, self.staticDomains.get(n, [])) for n in self.noisyStringDomains])
+#         fullDomains = mergeDomains(*[db.domains for db in dbs])
+#         if self.verbose and len(domains) > 0:
+#             print 'materializing noisy domains...'
+#         for nDomain in domains.keys():
+#             if len(domains[nDomain]) > 0 or fullDomains.get(nDomain, None) is None: continue
+#             # apply the clustering step
+#             values = fullDomains[nDomain]
+#             clusters = SAHN(values)
+#             domains[nDomain] = [c._computeCentroid()[0] for c in clusters]
+#             if self.verbose:
+#                 print '  reducing domain %s: %d -> %d values' % (nDomain, len(values), len(clusters))
+#                 print '   ', domains[nDomain] 
+#         for db in dbs:
+#             if len(db.softEvidence) > 0:
+#                 raise Exception('This is not yet implemented for soft evidence.')
+#             commonDoms = set(db.domains.keys()).intersection(set(domains.keys()))
+#             if len(commonDoms) == 0:
+#                 newDBs.append(db)
+#                 continue
+#             newDB = db.duplicate()
+#             for domain in commonDoms:
+#                 # map the values in the database to the static domain values
+#                 valueClusters = [Cluster([value]) for value in domains[domain]]
+#                 valueMap = dict([(val, computeClosestCluster(val, valueClusters)[1][0]) for val in newDB.domains[domain]])
+#                 newDB.domains[domain] = valueMap.values()
+#                 # replace the affected evidences
+#                 for ev in newDB.evidence.keys():
+#                     truth = newDB.evidence[ev]
+#                     _, pred, params = parseLiteral(ev)
+#                     if domain in self.predicates[pred]: # domain is affected by the mapping  
+#                         newDB.retractGndAtom(ev)
+#                         newArgs = [v if domain != self.predicates[pred][i] else valueMap[v] for i, v in enumerate(params)]
+#                         atom = '%s%s(%s)' % ('' if truth else '!', pred, ','.join(newArgs))
+#                         newDB.addGroundAtom(atom)
+#             newDBs.append(newDB)
+#         return newDBs, domains
 
     def materializeFormulaTemplates(self, dbs, verbose=False):
         '''
@@ -306,54 +280,56 @@ class MLN(object):
         - dbs: list of Database objects
         '''
         print "materializing formula templates..."
-        self.predicates = {}
-        self.domains = {}
-        self.formulas = []
-
-        dbs, noisyStaticDomains = self.materializeNoisyDomains(dbs)
-        self.staticDomains = mergeDomains(self.staticDomains, noisyStaticDomains)
+        
+        # TODO: duplicate this MLN to avoid side effects
+        newMLN = self.duplicate()
         
         # obtain full domain with all objects 
-        fullDomain = mergeDomains(self.staticDomains, *[db.domains for db in dbs])
-        # expand formula templates
-        self.domains = copy.deepcopy(self.staticDomains)
+        fullDomain = mergeDomains(self.domains, *[db.domains for db in dbs])
         
-        # collect the admissible formula templates
-        templates = []
-        emptyDomains = set()
-        for ft in self.formulaTemplates:
+        # collect the admissible formula templates. templates might be not
+        # admissible since the domain of a template variable might be empty.
+        for ft in self.formulas:
             domNames = ft.getVariables(self).values()
-            discardFT = False
-            for domName in domNames:
-                if not domName in fullDomain:
-                    emptyDomains.add(domName)
-                    print 'WARNING: Discarding formula %s, since it cannot be grounded (domain %s empty).' % (strFormula(ft), domName)
-                    discardFT = True
-                    break
-            if discardFT: continue
-            templates.append(ft)
+            if any([not domName in fullDomain for domName in domNames]):
+                print 'WARNING: Discarding formula template %s,\n         since it cannot be grounded (domain %s empty).' % \
+                    (strFormula(ft), ','.join([d for d in domNames if d not in fullDomain]))
+                newMLN.formulas.remove(ft)
         
-        # collect the admissible predicates
-        for pred, domains in self.predDecls.iteritems():
-            if any(map(lambda d: not d in fullDomain, self.predDecls[pred])):
+        # collect the admissible predicates. a predicate may become inadmissible
+        # if either the domain of one of its arguments is empty or there is
+        # no formula containing the respective predicate.
+        predicatesUsed = set()
+        for f in newMLN.formulas:
+            predicatesUsed.update(f.getPredicateNames())
+        for pred, domains in self.predicates.iteritems():
+            remove = False
+            if any([not dom in fullDomain for dom in self.predicates[pred]]):
                 print 'WARNING: Discarding predicate %s, since it cannot be grounded.' % (pred)
-                continue
-            self.predicates[pred] = domains
+                remove = True
+            if pred not in predicatesUsed:
+                print 'WARNING: Discarding predicate %s, since it is unused.' % pred
+                remove = True
+            if remove: del newMLN.predicates[pred]
         
         # permanently transfer domains of variables that were expanded from templates
-        for ft in templates:
+        for ft in newMLN.formulas:
             domNames = ft._getTemplateVariables(self).values()
             for domName in domNames:
-                self.domains[domName] = fullDomain[domName]
-        self._materializeFormulaTemplates(templates)
-        return dbs
-#         print len(self.formulas), 'formulas'
+                newMLN.domains[domName] = fullDomain[domName]
+        newMLN._materializeFormulaTemplates()
+        return newMLN
 
-    def _materializeFormulaTemplates(self, templates, verbose=False):
-
+    def _materializeFormulaTemplates(self, verbose=False):
+        '''
+        CAUTION: This method has side effects.
+        TODO: Draw this method into materializeFormulaTemplates.
+        '''
         templateIdx2GroupIdx = self.templateIdx2GroupIdx
         fixedWeightTemplateIndices = self.fixedWeightTemplateIndices
-
+        templates = self.formulas
+        self.formulas = []
+        
         # materialize formula templates
         if verbose: print "materializing formula templates..."
         idxGroup = None
@@ -367,7 +343,6 @@ class MLN(object):
                     group = []
                 prevIdxGroup = idxGroup
             # get template variants
-#             print 'materializing', tf
             fl = tf.getTemplateVariants(self)
             # add them to the list of formulas and set index
             for f in fl:
@@ -388,8 +363,8 @@ class MLN(object):
             self.formulaGroups.append(group)
 
     def addConstant(self, domainName, constant):
-        if domainName not in self.staticDomains: self.staticDomains[domainName] = []
-        dom = self.staticDomains[domainName]
+        if domainName not in self.domains: self.domains[domainName] = []
+        dom = self.domains[domainName]
         if constant not in dom: dom.append(constant)
 
     def _substVar(self, matchobj):
@@ -434,8 +409,10 @@ class MLN(object):
 
     def minimizeGroupWeights(self):
         '''
-            minimize the weights of formulas in groups by subtracting from each formula weight the minimum weight in the group
-            this results in weights relative to 0, therefore this equivalence transformation can be thought of as a normalization
+            minimize the weights of formulas in groups by subtracting from each 
+            formula weight the minimum weight in the group
+            this results in weights relative to 0, therefore 
+            this equivalence transformation can be thought of as a normalization
         '''
         wt = self._weights()
         for group in self.formulaGroups:
@@ -460,7 +437,7 @@ class MLN(object):
         if predicateName is None:
             self.closedWorldPreds = []
         else:
-            if predicateName not in self.predDecls:
+            if predicateName not in self.predicates:
                 raise Exception("Unknown predicate '%s'" % predicateName)
             self.closedWorldPreds.append(predicateName)
 
@@ -470,7 +447,7 @@ class MLN(object):
         '''
         return [f.weight for f in self.formulas]
 
-    def learnWeights(self, databases, method=ParameterLearningMeasures.BPLL, **params):
+    def     learnWeights(self, databases, method=ParameterLearningMeasures.BPLL, **params):
         '''
         Triggers the learning parameter learning process for a given set of databases.
         Returns a new MLN object with the learned parameters.
@@ -491,24 +468,22 @@ class MLN(object):
             else:
                 dbs.append(db)
         
-#         if self.formulas is None:
-        self.materializeFormulaTemplates(dbs, self.verbose)
-            
+        newMLN = self.materializeFormulaTemplates(dbs, self.verbose)
+        newMLN.printFormulas()
+        
         # run learner
         if len(dbs) == 1:
             groundingMethod = eval('learning.%s.groundingMethod' % method)
             print "grounding MRF using %s..." % groundingMethod 
-            mrf = self.groundMRF(dbs[0], method=groundingMethod, cwAssumption=True, **params)
-            learner = eval("learning.%s(self, mrf, **params)" % method)
+            mrf = newMLN.groundMRF(dbs[0], method=groundingMethod, cwAssumption=True, **params)
+            learner = eval("learning.%s(newMLN, mrf, **params)" % method)
         else:
-            learner = learning.MultipleDatabaseLearner(self, method, dbs, **params)
+            learner = learning.MultipleDatabaseLearner(newMLN, method, dbs, **params)
         print "learner: %s" % learner.getName()
         wt = learner.run(**params)
 
         # create the resulting MLN and set its weights
-        learnedMLN = self.duplicate()
-        learnedMLN.formulaTemplates = list(self.formulas)
-        learnedMLN.staticDomains = copy.deepcopy(self.domains)
+        learnedMLN = newMLN.duplicate()
         learnedMLN.setWeights(wt)
 
         # fit prior prob. constraints if any available
@@ -529,9 +504,9 @@ class MLN(object):
         return learnedMLN
 
     def setWeights(self, wt):
-        if len(wt) != len(self.formulaTemplates):
+        if len(wt) != len(self.formulas):
             raise Exception("length of weight vector != number of formula templates")
-        for i, f in enumerate(self.formulaTemplates):
+        for i, f in enumerate(self.formulas):
             f.weight = float('%-10.6f' % float(eval(str(wt[i]))))
 
     def write(self, f, mutexInDecls=True):
@@ -545,10 +520,8 @@ class MLN(object):
         for d in self.domDecls: 
             f.write("%s\n" % d)
         f.write('\n')
-        for d in self.noisyStringDomains:
-            f.write('%s = noisy\n')    
         f.write("\n// predicate declarations\n")
-        for predname, args in self.predDecls.iteritems():
+        for predname, args in self.predicates.iteritems():
             excl = self.blocks.get(predname)
             if not mutexInDecls or excl is None:
                 f.write("%s(%s)\n" % (predname, ", ".join(args)))
@@ -564,7 +537,7 @@ class MLN(object):
                     if excl[i]: f.write("!")
                 f.write(")\n")
         f.write("\n// formulas\n")
-        formulas = self.formulas if self.formulas is not None else self.formulaTemplates
+        formulas = self.formulas if self.formulas is not None else self.formulas
         for formula in formulas:
             if formula.isHard:
                 f.write("%s.\n" % strFormula(formula))
@@ -579,10 +552,7 @@ class MLN(object):
         '''
         Nicely prints the formulas and their weights.
         '''
-        if self.formulas is None:
-            formulas = self.formulaTemplates
-        else:
-            formulas = self.formulas
+        formulas = sorted(self.formulas)
         for f in formulas:
             if f.weight is None:
                 print '%s.' % strFormula(f)
@@ -663,8 +633,8 @@ class MRF(object):
         else:
             raise Exception("Not a valid database argument (type %s)" % (str(type(db))))
         # materialize MLN formulas
-        if self.mln.formulas is None:
-            db = self.mln.materializeFormulaTemplates([db],verbose)[0]
+#         if self.mln.formulas is None:
+#             db = self.mln.materializeFormulaTemplates([db],verbose)[0]
         self.formulas = list(mln.formulas) # copy the list of formulas, because we may change or extend it
         # materialize formula weights
         self._materializeFormulaWeights(verbose)
@@ -673,7 +643,7 @@ class MRF(object):
         self.probreqs = list(mln.probreqs)
         self.posteriorProbReqs = list(mln.posteriorProbReqs)
         self.predicates = copy.deepcopy(mln.predicates)
-        self.predDecls = copy.deepcopy(mln.predDecls)
+        self.predicates = copy.deepcopy(mln.predicates)
         self.templateIdx2GroupIdx = mln.templateIdx2GroupIdx
 
         # get combined domain
@@ -1781,14 +1751,15 @@ def readMLNFromFile(filename_or_list, verbose=False):
                 try: # try normal domain definition
                     domName, constants = parseDomDecl(line)
                     if domName in mln.domains: raise Exception("Domain redefinition: '%s' already defined" % domName)
-                    mln.staticDomains[domName] = constants
+                    mln.domains[domName] = constants
                     mln.domDecls.append(line)
                     continue
-                except: # try noisy string domain 
-                    m = re.match(r'(.+)\s*=\s*noisy', line)
-                    if m is not None:
-                        mln.noisyStringDomains.append(m.group(1).strip())
-                        continue
+                except: pass
+#                  # try noisy string domain 
+#                     m = re.match(r'(.+)\s*=\s*noisy', line)
+#                     if m is not None:
+#                         mln.noisyStringDomains.append(m.group(1).strip())
+#                         continue
             # prior probability requirement
             if line.startswith("P("):
                 m = re.match(r"P\((.*?)\)\s*=\s*([\.\de]+)", line)
@@ -1821,9 +1792,9 @@ def readMLNFromFile(filename_or_list, verbose=False):
                         mutex.append(False)
                 mln.blocks[pred[0]] = mutex
                 # if the corresponding predicate is not yet declared, take this to be the declaration
-                if not pred[0] in mln.predDecls:
+                if not pred[0] in mln.predicates:
                     argTypes = map(lambda x: x.strip("!"), pred[1])
-                    mln.predDecls[pred[0]] = argTypes
+                    mln.predicates[pred[0]] = argTypes
                 continue
             # predicate decl or formula with weight
             else:
@@ -1841,9 +1812,9 @@ def readMLNFromFile(filename_or_list, verbose=False):
                         isPredDecl = False
                 if isPredDecl:
                     predName = pred[0]
-                    if predName in mln.predDecls:
+                    if predName in mln.predicates:
                         raise Exception("Predicate redefinition: '%s' already defined" % predName)
-                    mln.predDecls[predName] = list(pred[1])
+                    mln.predicates[predName] = list(pred[1])
                     continue
                 else:
                     # formula (template) with weight or terminated by '.'
@@ -1885,8 +1856,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
     
     # save data on formula templates for materialization
     mln.uniqueFormulaExpansions = uniqueFormulaExpansions
-    mln.formulaTemplates = formulatemplates
+    mln.formulas = formulatemplates
     mln.templateIdx2GroupIdx = templateIdx2GroupIdx
     mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices
-    mln.printFormulas()
     return mln

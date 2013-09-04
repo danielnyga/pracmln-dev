@@ -66,15 +66,11 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
             assignments = []
             atomIndices = []
             for gndLit, _ in lit.iterGroundings(self.mrf):
-                skip = False
                 assignment = []
+                if not (gndLit.gndAtom.idx in gndAtoms): break
                 for (p1, p2) in zip(lit.params, gndLit.gndAtom.params):
                     if grammar.isVar(p1):
                         assignment.append((p1, p2))
-                    elif p1 != p2 or gndLit.negated != gndLit.gndAtom in gndAtoms: 
-                        skip = True
-                        break
-                if skip: continue
                 assignments.append(tuple(assignment))
                 atomIndices.append(gndLit.gndAtom.idx)
             variableAssignments.append(assignments)
@@ -177,8 +173,8 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
         mrf.evidence = map(lambda x: x is True, mrf.evidence)
         self.fcounts = {} 
         self.blockRelevantFormulas = defaultdict(set)
-        trueGndAtoms = set([self.mrf.gndAtomsByIdx[i] for i, v in enumerate(self.mrf.evidence) if v == True])
-        falseGndAtoms = set([self.mrf.gndAtomsByIdx[i] for i, v in enumerate(self.mrf.evidence) if v == False])
+        trueGndAtoms = set([i for i, v in enumerate(self.mrf.evidence) if v == True])
+        falseGndAtoms = set([i for i, v in enumerate(self.mrf.evidence) if v == False])
         trueGroundingsCounter = {} # dict: formula -> # true groundings
         
         # get evidence indices

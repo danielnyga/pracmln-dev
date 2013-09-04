@@ -74,7 +74,7 @@ class Database(object):
             raise Exception('gndLit has an illegal type')
         self.evidence[atomString] = isTrue
         # update the domains
-        domNames = self.mln.predDecls[predName]
+        domNames = self.mln.predicates[predName]
         for i, domName in enumerate(domNames):
             dom = self.domains.get(domName, None)
             if dom is None:
@@ -148,7 +148,7 @@ class Database(object):
         
         def __init__(self, db):
             self.mln = db.mln
-            self.domains = mergeDomains(self.mln.staticDomains, db.domains)
+            self.domains = mergeDomains(self.mln.domains, db.domains)
             self.gndAtoms = Database.PseudoMRF.GroundAtomGen()
             self.evidence = Database.PseudoMRF.WorldValues(db)
 
@@ -248,7 +248,7 @@ def readDBFromFile(mln, dbfile):
             else:
                 raise Exception("Duplicate soft evidence for '%s'" % gndAtom)
             predName, constants = parsePredicate(gndAtom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
-            domNames = mln.predDecls[predName]
+            domNames = mln.predicates[predName]
         # domain declaration
         elif "{" in l:
             domName, constants = parseDomDecl(l)
@@ -258,7 +258,7 @@ def readDBFromFile(mln, dbfile):
             if l[0] == "?":
                 raise Exception("Unknown literals not supported (%s)" % l) # this is an Alchemy feature
             isTrue, predName, constants = parseLiteral(l)
-            domNames = mln.predDecls[predName]
+            domNames = mln.predicates[predName]
             # save evidence
             db.evidence["%s(%s)" % (predName, ",".join(constants))] = isTrue
 
