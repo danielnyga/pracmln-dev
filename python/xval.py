@@ -29,11 +29,12 @@ import math
 from mln.methods import ParameterLearningMeasures, InferenceMethods
 from wcsp.converter import WCSPConverter
 from utils.eval import ConfusionMatrix
-from mln.util import strFormula
+from mln.util import strFormula, mergeDomains, parseLiteral
 from multiprocessing import Pool
 import time
 import os
 import sys
+from utils.clustering import SAHN, Cluster, computeClosestCluster
 
 usage = '''Usage: %prog [options] <predicate> <domain> <mlnfile> <dbfiles>'''
   
@@ -46,7 +47,68 @@ parser.add_option("-v", "--verbose", dest="verbose", action='store_true', defaul
                   help="Verbose mode.")
 parser.add_option("-m", "--multicore", dest="multicore", action='store_true', default=False,
                   help="Verbose mode.")
+parser.add_option('-n', '--noisy', dest='noisy', type='str', default=None,
+                  help='-nDOMAIN defines DOMAIN as a noisy string.')
 
+class NoisyStringTransformer(object):
+    
+    def __init__(self, mln, noisyStringDomains, verbose=False):
+        self.mln = mln
+        self.noisyStringDomains = noisyStringDomains
+        self.verbose = verbose
+        self.clusters = {} # maps domain name -> list of clusters
+        self.noisyDomains = {}
+    
+    def materializeNoisyDomains(self, dbs):
+        '''
+        For each noisy domain, (1) if there is a static domain specification,
+        map the values of that domain in all dbs to their closest neighbor
+        in the domain.
+        (2) If there is no static domain declaration, apply SAHN clustering
+        to the values appearing dbs, take the cluster centroids as the values
+        of the domain and map the dbs as in (1).
+        '''
+        fullDomains = mergeDomains(*[db.domains for db in dbs])
+        if self.verbose and len(self.noisyStringDomains) > 0:
+            print 'materializing noisy domains...'
+        for nDomain in self.noisyStringDomains:
+            if fullDomains.get(nDomain, None) is None: continue
+            # apply the clustering step
+            values = fullDomains[nDomain]
+            clusters = SAHN(values)
+            self.clusters[nDomain] = clusters
+            self.noisyDomains[nDomain] = [c._computeCentroid()[0] for c in clusters]
+            if self.verbose:
+                print '  reducing domain %s: %d -> %d values' % (nDomain, len(values), len(clusters))
+                print '   ', self.noisyDomains[nDomain] 
+        return self.transformDBs(dbs)
+        
+    def transformDBs(self, dbs):
+        newDBs = []
+        for db in dbs:
+            if len(db.softEvidence) > 0:
+                raise Exception('This is not yet implemented for soft evidence.')
+            commonDoms = set(db.domains.keys()).intersection(set(self.noisyStringDomains))
+            if len(commonDoms) == 0:
+                newDBs.append(db)
+                continue
+            newDB = db.duplicate()
+            for domain in commonDoms:
+                # map the values in the database to the static domain values
+                valueMap = dict([(val, computeClosestCluster(val, self.clusters[domain])[1][0]) for val in newDB.domains[domain]])
+                newDB.domains[domain] = valueMap.values()
+                # replace the affected evidences
+                for ev in newDB.evidence.keys():
+                    truth = newDB.evidence[ev]
+                    _, pred, params = parseLiteral(ev)
+                    if domain in self.mln.predicates[pred]: # domain is affected by the mapping  
+                        newDB.retractGndAtom(ev)
+                        newArgs = [v if domain != self.mln.predicates[pred][i] else valueMap[v] for i, v in enumerate(params)]
+                        atom = '%s%s(%s)' % ('' if truth else '!', pred, ','.join(newArgs))
+                        newDB.addGroundAtom(atom)
+            newDBs.append(newDB)
+        return newDBs
+    
 def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
     
     mln.setClosedWorldPred(None)
@@ -54,10 +116,6 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
         mln.setClosedWorldPred(pred)
     sig = ['?arg%d' % i for i, _ in enumerate(mln.predicates[queryPred])]
     querytempl = '%s(%s)' % (queryPred, ','.join(sig))
-    
-#     f = open('temp.mln', 'w+')
-#     mln.write(f)
-#     f.close()
     
     for db in dbs:
         # save and remove the query predicates from the evidence
@@ -70,30 +128,10 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
             db.retractGndAtom(atom)
         db.printEvidence()
         
-        # for testing purposes
-#         mln_ = readMLNFromFile('temp.mln')
-#         mln_.setClosedWorldPred(None)
-#         for pred in [pred for pred in cwPreds if pred in mln_.predDecls]:
-#             mln_.setClosedWorldPred(pred)
-#         mrf_ = mln_.groundMRF(db)
-#         conv_ = WCSPConverter(mrf_)
-#         wcsp_ = conv_.convert()
-        
-        mln.formulas = None
         mln.defaultInferenceMethod = InferenceMethods.WCSP
         mrf = mln.groundMRF(db)
         conv = WCSPConverter(mrf)
-        wcsp = conv.convert()
         
-#         if not (wcsp == wcsp_):
-#             wcsp.write(sys.stdout)
-#             mln.write(sys.stdout)
-#             print '+++++++++++++++++++++++++++++++++++'
-#             wcsp_.write(sys.stdout)
-#             mln_.write(sys.stdout)
-#             raise Exception('WCSPs are not equal!!!')
-        
-#         conv = WCSPConverter(mrf)        
         resultDB = conv.getMostProbableWorldDB()
         
         sig2 = list(sig)
@@ -112,9 +150,24 @@ def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
     if verbose:
         print confMatrix
 
-def learnAndEval(mln, learnDBs, testDBs, queryPred, queryDom, cwPreds, confMatrix):
-    learnedMLN = mln.learnWeights(learnDBs, method=ParameterLearningMeasures.BPLL_CG, optimizer='cg', verbose=verbose)
-    evalMLN(learnedMLN, queryPred, queryDom, cwPreds, testDBs, confMatrix)
+def learnAndEval(mln, learnDBs, testDBs, queryPred, queryDom, cwPreds, confMatrix, noisyDoms):
+    nTransf = NoisyStringTransformer(mln, noisyDoms, True)
+    learnDBs_ = nTransf.materializeNoisyDomains(learnDBs)
+    testDBs_ = nTransf.transformDBs(testDBs)
+    
+    for db1, db2 in zip(learnDBs, learnDBs_):
+        print 'before:'
+        db1.printEvidence()
+        print '-------\nafter'
+        db2.printEvidence()
+    for db1, db2 in zip(testDBs, testDBs_):
+        print 'before:'
+        db1.printEvidence()
+        print '-------\nafter'
+        db2.printEvidence()
+    
+    learnedMLN = mln.learnWeights(learnDBs_, method=ParameterLearningMeasures.BPLL_CG, optimizer='cg', verbose=verbose)
+    evalMLN(learnedMLN, queryPred, queryDom, cwPreds, testDBs_, confMatrix)
     
 
 # def runFold(mln_, partition, foldIdx, directory):
@@ -130,7 +183,7 @@ def runFold(args):
         for dbs in [dbs for i,dbs in enumerate(partition) if i != foldIdx]:
             trainDBs.extend(dbs)
         testDBs = partition[foldIdx]
-        learnAndEval(mln_, trainDBs, testDBs, predName, domain, cwpreds, confMatrix)
+        learnAndEval(mln_, trainDBs, testDBs, predName, domain, cwpreds, confMatrix, noisyDoms=['text'])
         confMatrix.toFile(os.path.join(directory, 'conf_matrix_%d.cm' % foldIdx))
         return confMatrix
     except (KeyboardInterrupt, SystemExit):
@@ -143,6 +196,7 @@ if __name__ == '__main__':
     percent = options.percent
     verbose = options.verbose
     multicore = options.multicore
+    noisy = options.noisy
     predName = args[0]
     domain = args[1]
     mlnfile = args[2]
