@@ -1000,9 +1000,12 @@ class Equality(Formula):
         params = map(lambda x: assignment.get(x, x), self.params) 
         if isVar(params[0]) or isVar(params[1]):
             if allowPartialGroundings:
-                return Equality(params)
+                return Equality(params, self.negated)
             else: raise Exception("At least one variable was not grounded in '%s'!" % str(self))
-        return TrueFalse(params[0] == params[1])
+        if simplify:
+            return TrueFalse(self.negated != (params[0] == params[1]))
+        else:
+            return Equality(params, self.negated)
 
     def _groundTemplate(self, assignment):
         return [Equality(self.params, negated=self.negated)]
@@ -1033,7 +1036,7 @@ class Equality(Formula):
     
     def isTrue(self, world_values):
         truth = self.params[0] == self.params[1]
-        return not truth if self.negated else truth 
+        return not truth if self.negated else truth
     
     def simplify(self, mrf):
         truth = self.isTrue(mrf.evidence) 
