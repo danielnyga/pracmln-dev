@@ -50,9 +50,9 @@ parser.add_option("-m", "--multicore", dest="multicore", action='store_true', de
 def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
     
     mln.setClosedWorldPred(None)
-    for pred in [pred for pred in cwPreds if pred in mln.predDecls]:
+    for pred in [pred for pred in cwPreds if pred in mln.predicates]:
         mln.setClosedWorldPred(pred)
-    sig = ['?arg%d' % i for i, _ in enumerate(mln.predDecls[queryPred])]
+    sig = ['?arg%d' % i for i, _ in enumerate(mln.predicates[queryPred])]
     querytempl = '%s(%s)' % (queryPred, ','.join(sig))
     
 #     f = open('temp.mln', 'w+')
@@ -164,7 +164,7 @@ if __name__ == '__main__':
             dbs.append(db)
     print 'Read %d databases.' % len(dbs)
     
-    cwpreds = [pred for pred in mln_.predDecls if pred != predName]
+    cwpreds = [pred for pred in mln_.predicates if pred != predName]
     # create the partition
     subsetLen = int(math.ceil(len(dbs) * percent / 100.0))
     if subsetLen < len(dbs):
