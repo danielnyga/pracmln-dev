@@ -1,0 +1,47 @@
+color(c1, yellow)
+shape(c1, box)
+object(c1, thing)
+scene(cooking)
+---
+color(c2, red)
+shape(c2, round)
+color(c3, yellow)
+object(c3, thing)
+object(c2, chips)
+scene(breakfast)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -52,6 +52,10 @@ class BPLL(AbstractLearner):
         self.mrf.atom2BlockIdx = None
     
     def _addMBCount(self, idxVar, size, idxValue, idxWeight, increment=1):
+        '''
+        self.fcounts[i_formula][i_var][i_val] (n_i(x))
+        self.blockRelevantFormulas (F_{X_i})
+        '''
         self.blockRelevantFormulas[idxVar].add(idxWeight)
         if idxWeight not in self.fcounts:
             self.fcounts[idxWeight] = {}
@@ -67,11 +71,11 @@ class BPLL(AbstractLearner):
         relevantFormulas = self.blockRelevantFormulas.get(idxVar, None)
         if relevantFormulas is None: # no list was saved, so the truth of all formulas is unaffected by the variable's value
             # uniform distribution applies
-            p = 1.0/numValues
+            p = 1.0 / numValues
             return [p] * numValues
         
         sums = numpy.zeros(numValues)
-        for idxFormula in relevantFormulas:            
+        for idxFormula in relevantFormulas:
             for idxValue, n in enumerate(self.fcounts[idxFormula][idxVar]):
                 sums[idxValue] += n * wt[idxFormula]
         sum_min = numpy.min(sums)
@@ -129,7 +133,8 @@ class BPLL(AbstractLearner):
                 idxValueTrueone = -1
                 for idxValue, idxGA in enumerate(block):
                     if self.mrf._getEvidence(idxGA):
-                        if idxValueTrueone != -1: raise Exception("More than one true ground atom in block '%s'!" % self.mrf._strBlock(block))
+                        if idxValueTrueone != -1: 
+                            raise Exception("More than one true ground atom in block '%s'!" % self.mrf._strBlock(block))
                         idxValueTrueone = idxValue
                 if idxValueTrueone == -1: raise Exception("No true ground atom in block '%s'!" % self.mrf._strBlock(block))
                 self.evidenceIndices.append(idxValueTrueone)
