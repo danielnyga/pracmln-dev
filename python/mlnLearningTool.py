@@ -29,7 +29,6 @@ import os
 import re
 import pickle
 import traceback
-import mln
 from widgets import *
 import configMLN as config
 import subprocess
@@ -39,13 +38,15 @@ from fnmatch import fnmatch
 from pprint import pprint
 from mln.MarkovLogicNetwork import readMLNFromFile
 from mln.methods import ParameterLearningMeasures
+import cProfile
+from cProfile import Profile
 
 # --- generic learning interface ---
 
 class MLNLearn:
     
     def __init__(self):
-        self.pymlns_methods = mln.ParameterLearningMeasures.getNames()
+        self.pymlns_methods = ParameterLearningMeasures.getNames()
         self.alchemy_methods = {
             "pseudo-log-likelihood via BFGS": (["-g"], False, "pll"),
             "sampling-based log-likelihood via diagonal Newton": (["-d", "-dNewton"], True, "slldn"),
@@ -131,7 +132,21 @@ class MLNLearn:
                 mln = self.settings["mln"]
             else:
                 raise Exception("Argument 'mln' must be either string or MLN object")
-            mln.learnWeights(dbs, method=ParameterLearningMeasures.byName(method), **args)
+            
+            if args.get('profile', False):
+                prof = Profile()
+                try:
+                    print 'Profiling ON...'
+                    cmd = 'mln.learnWeights(dbs, method=ParameterLearningMeasures.byName(method), **args)'
+                    prof = prof.runctx(cmd, globals(), locals())
+                except SystemExit:
+                    print 'Cancelled...'
+                finally:
+                    print 'Profiler Statistics:'
+                    prof.print_stats(-1)
+            else:
+                mln.learnWeights(dbs, method=ParameterLearningMeasures.byName(method), **args)
+            
             # determine output filename
             fname = self.settings["output_filename"]
             mln.write(file(fname, "w"))

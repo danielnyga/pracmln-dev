@@ -11,11 +11,11 @@ Cancer(person)
 
 // Rules
 // If you smoke, you get cancer
-0 Smokes(x) => Cancer(x)
+0 Smokes(?x) => Cancer(?x)
 
 // People with friends who smoke, also smoke
 // and those with friends who don't smoke, don't smoke
-0 Friends(x, y) => (Smokes(x) <=> Smokes(y))
+0 Friends(?x, ?y) => (Smokes(?x) <=> Smokes(?y))
 
 
 
