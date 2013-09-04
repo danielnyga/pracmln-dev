@@ -194,11 +194,20 @@ class Formula(Constraint):
     def getVariables(self, mln, vars = None, constants=None):
         raise Exception("%s does not implement getVariables" % str(type(self)))
     
+    def getPredicateNames(self, predNames=None):
+        '''
+        Returns a list of all predicate names used in this formula.
+        '''
+        raise Exception('%s does not implement getPredicateNames' % str(type(self)))
+    
     def ground(self, mln, assignment, referencedAtoms = None, simplify=False, allowPartialGroundings=False):
         '''grounds the formula using the given assignment of variables to values/constants and, if given a list in referencedAtoms, fills that list with indices of ground atoms that the resulting ground formula uses
                 returns the ground formula object
                 assignment: mapping of variable names to values'''
         raise Exception("%s does not implement ground" % str(type(self)))
+    
+    def duplicate(self):
+        return self.ground(None, {}, allowPartialGroundings=True)
     
     def getVarDomain(self, varname, mln):
         raise Exception("%s does not implement getVarDomain" % str(type(self)))
@@ -337,6 +346,14 @@ class ComplexFormula(Formula):
             if not hasattr(child, "_getTemplateVariables"): continue
             vars = child._getTemplateVariables(mln, vars)
         return vars
+    
+    def getPredicateNames(self, predNames=None):
+        if predNames is None:
+            predNames = []
+        for child in self.children:
+            if not hasattr(child, 'getPredicateNames'): continue
+            predNames = child.getPredicateNames(predNames)
+        return predNames
         
 class Lit(Formula):
     '''
@@ -353,7 +370,7 @@ class Lit(Formula):
 
     def getVariables(self, mln, vars = None, constants = None):
         if vars == None: vars = {}
-        paramDomains = mln.predDecls[self.predName]
+        paramDomains = mln.predicates[self.predName]
         if len(paramDomains) != len(self.params): 
             raise Exception("Wrong number of parameters in '%s'; expected %d!" % (str(self), len(paramDomains)))
         for i,param in enumerate(self.params):
@@ -386,12 +403,19 @@ class Lit(Formula):
         for i,param in enumerate(self.params):
             if param[0] == '+':
                 varname = param
-                pred = mln.predDecls[self.predName]
+                pred = mln.predicates[self.predName]
                 domain = pred[i]
                 if varname in vars and vars[varname] != domain:
                     raise Exception("Variable '%s' bound to more than one domain" % varname)
                 vars[varname] = domain
         return vars
+    
+    def getPredicateNames(self, predNames=None):
+        if predNames is None:
+            predNames = []
+        if self.predName not in predNames:
+            predNames.append(self.predName)
+        return predNames
 
     def ground(self, mrf, assignment, referencedGndAtoms = None, simplify=False, allowPartialGroundings=False):
         params = map(lambda x: assignment.get(x, x), self.params)
@@ -419,7 +443,7 @@ class Lit(Formula):
         '''
         if varname in self.params:
             idx = self.params.index(varname)
-            return mln.predDecls[self.predName][idx]
+            return mln.predicates[self.predName][idx]
         return None
 
     def _groundTemplate(self, assignment):
@@ -466,6 +490,14 @@ class GroundAtom(Formula):
         if truth is None:
             return self
         return TrueFalse(truth)
+    
+    def getPredicateNames(self, predNames=None):
+        if predNames is None:
+            predNames = []
+        if self.predName not in predNames:
+            predNames.append(self.predName)
+        return predNames
+        
         
 class GroundLit(Formula):
     '''
@@ -521,6 +553,13 @@ class GroundLit(Formula):
             else:
                 return f
         return GroundLit(self.gndAtom, self.negated)
+    
+    def getPredicateNames(self, predNames=None):
+        if predNames is None:
+            predNames = []
+        if self.gndAtom.predName not in predNames:
+            predNames.append(self.gndAtoms.predName)
+        return predNames
 
 class Disjunction(ComplexFormula):
     '''
@@ -986,6 +1025,11 @@ class Equality(Formula):
     
     def getVarDomain(self, varname, mln):
         return None
+    
+    def getPredicateNames(self, predNames=None):
+        if predNames is None:
+            predNames = []
+        return predNames
     
     def isTrue(self, world_values):
         truth = self.params[0] == self.params[1]
