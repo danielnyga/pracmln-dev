@@ -37,14 +37,16 @@ def getMatchingTuples(assignment, assignments, gndAtomIndices):
     matchingTuples = []
     atomIndices = []
     for i, ass in enumerate(assignments):
-        try:
-            for tuple in ass:
-                for tuple2 in assignment:
-                    if tuple[0] == tuple2[0] and tuple[1] != tuple2[1]:
-                        raise
-            matchingTuples.append(ass)
-            atomIndices.append(gndAtomIndices[i])
-        except: pass
+        skip = False
+        for tuple in ass:
+            for tuple2 in assignment:
+                if tuple[0] == tuple2[0] and tuple[1] != tuple2[1]:
+                    skip = True
+                    break
+            if skip: break
+        if skip: continue
+        matchingTuples.append(ass)
+        atomIndices.append(gndAtomIndices[i])
     return matchingTuples, atomIndices
 
         
@@ -56,25 +58,25 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
     it is true if and only if all its conjuncts are true.
     '''
 
-    def getValidVariableAssignments(self, conjunction, trueOrFalse, gndAtoms):
+    def getValidVariableAssignments(self, conjunction, gndAtoms):
         variableAssignments = []
         gndAtomIndices = []
         for lit in conjunction.children:
             if isinstance(lit, fol.Equality): continue
             assignments = []
             atomIndices = []
-            for gndAtom in gndAtoms:
-                try:
-                    if gndAtom.predName != lit.predName: 
-                        continue
-                    assignment = []
-                    for (p1, p2) in zip(lit.params, gndAtom.params):
-                        if grammar.isVar(p1):
-                            assignment.append((p1, p2))
-                        elif p1 != p2: raise
-                    assignments.append(tuple(assignment))
-                    atomIndices.append(gndAtom.idx)
-                except: pass
+            for gndLit, _ in lit.iterGroundings(self.mrf):
+                skip = False
+                assignment = []
+                for (p1, p2) in zip(lit.params, gndLit.gndAtom.params):
+                    if grammar.isVar(p1):
+                        assignment.append((p1, p2))
+                    elif p1 != p2 or gndLit.negated != gndLit.gndAtom in gndAtoms: 
+                        skip = True
+                        break
+                if skip: continue
+                assignments.append(tuple(assignment))
+                atomIndices.append(gndLit.gndAtom.idx)
             variableAssignments.append(assignments)
             gndAtomIndices.append(atomIndices)
         return variableAssignments, gndAtomIndices
@@ -175,8 +177,8 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
         mrf.evidence = map(lambda x: x is True, mrf.evidence)
         self.fcounts = {} 
         self.blockRelevantFormulas = defaultdict(set)
-        trueGndAtoms = [self.mrf.gndAtomsByIdx[i] for i, v in enumerate(self.mrf.evidence) if v == True]
-        falseGndAtoms = [self.mrf.gndAtomsByIdx[i] for i, v in enumerate(self.mrf.evidence) if v == False]
+        trueGndAtoms = set([self.mrf.gndAtomsByIdx[i] for i, v in enumerate(self.mrf.evidence) if v == True])
+        falseGndAtoms = set([self.mrf.gndAtomsByIdx[i] for i, v in enumerate(self.mrf.evidence) if v == False])
         trueGroundingsCounter = {} # dict: formula -> # true groundings
         
         # get evidence indices
@@ -198,7 +200,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
 #             stdout.write('%d/%d\r' % (fIdx, len(mrf.formulas)))
             if isConjunctionOfLiterals(formula):
 #                 print formula
-                trueAtomAssignments, trueGndAtomIndices = self.getValidVariableAssignments(formula, True, trueGndAtoms)
+                trueAtomAssignments, trueGndAtomIndices = self.getValidVariableAssignments(formula, trueGndAtoms)
                 equalities = self.extractEqualities(formula, True)
                 inequalities = self.extractEqualities(formula, False)
                 # generate all true groundings of the conjunction
@@ -216,7 +218,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                             self._addMBCount(idxVar, size, idxValue, fIdx)
                         
                 # count for each false ground atom the number of ground formulas rendered true if its truth value was inverted
-                falseAtomAssignments, falseGndAtomIndices = self.getValidVariableAssignments(formula, False, falseGndAtoms)
+                falseAtomAssignments, falseGndAtomIndices = self.getValidVariableAssignments(formula, falseGndAtoms)
                 
                 for idx, atom in enumerate(falseAtomAssignments):
                     if isinstance(formula.children[idx], fol.Equality):
