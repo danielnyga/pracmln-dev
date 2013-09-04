@@ -1,8 +1,8 @@
 attr(object)
 
-log(2) attr(x)
+log(2) attr(?x)
 
-//5 attr(x) ^ attr(y)
+//5 attr(?x) ^ attr(?y)
 
 
 
