@@ -27,7 +27,7 @@ class AbstractGroundingFactory(object):
     '''
     Abstract super class for all grounding factories.
     '''
-    __init__params = {'initWeights': False}
+    __init__params = {'initWeights': True}
     
     def __init__(self, mrf, db, **params):
         self.params = dict_union(AbstractGroundingFactory.__init__params, params)

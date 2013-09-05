@@ -266,7 +266,7 @@ class Formula(Constraint):
         variables in this formula. (NB: this does _not_ generate the groundings.)
         '''
         gf_count = 1
-        for var, dom in self.getVariables(mrf):
+        for var, dom in self.getVariables(mrf).iteritems():
             domain = mrf.domains[dom]
             gf_count *= len(domain)
         return gf_count

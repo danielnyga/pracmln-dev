@@ -107,7 +107,8 @@ class BPLL(AbstractLearner):
         #print "gradient calculation"
         for idxFormula, d in self.fcounts.iteritems():
             for idxVar, counts in d.iteritems():
-                v = counts[self.evidenceIndices[idxVar]]
+                val = self.evidenceIndices[idxVar]
+                v = counts[val]
                 for i in xrange(len(counts)):
                     v -= counts[i] * self.blockProbsMB[idxVar][i]
                 grad[idxFormula] += v
@@ -204,6 +205,7 @@ class BPLL_CG(BPLL):
         print "constructing blocks..."
         self.mrf._getPllBlocks()
         self.mrf._getAtom2BlockIdx()
+        self.mrf.groundingMethod._computeStatistics()
         self.fcounts = self.mrf.groundingMethod.fcounts
         self.blockRelevantFormulas = self.mrf.groundingMethod.blockRelevantFormulas
         self.evidenceIndices = self.mrf.groundingMethod.evidenceIndices

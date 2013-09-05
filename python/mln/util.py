@@ -77,17 +77,22 @@ def getPredicateList(filename):
 def avg(*a):
     return sum(map(float, a)) / len(a)
 
-# parses a predicate such as p(A,B) and returns a tuple where the first item is the predicate name
-# and the second is a list of parameters, e.g. ("p", ["A", "B"])
 def parsePredicate(line):
+    '''
+    Parses a predicate such as p(A,B) and returns a tuple where the first item 
+    is the predicate name and the second is a list of parameters, e.g. ("p", ["A", "B"])
+    '''
     m = re.match(r'(\w+)\((.*?)\)$', line)
     if m is not None:
         return (m.group(1), map(str.strip, m.group(2).split(",")))
     raise Exception("Could not parse predicate '%s'" % line)
 
 def parseLiteral(line):
-    ''' parses a literal such as !p(A,B) or p(A,B)=False and returns a tuple where the first item is whether the literal is true, the second is the predicate name
-        and the third is a list of parameters, e.g. (False, "p", ["A", "B"]) '''
+    '''
+    Parses a literal such as !p(A,B) or p(A,B)=False and returns a tuple 
+    where the first item is whether the literal is true, the second is the 
+    predicate name and the third is a list of parameters, e.g. (False, "p", ["A", "B"])
+    '''
     # try regular MLN syntax
     m = re.match(r'(!?)(\w+)\((.*?)\)$', line)
     if m is not None:
@@ -107,9 +112,10 @@ def parseLiteral(line):
         return (isTrue, m.group(1), params)
     raise Exception("Could not parse literal '%s'" % line)
     
-    
-# parses a domain declaration and returns a tuple (domain name, list of constants)
 def parseDomDecl(line):
+    '''
+    Parses a domain declaration and returns a tuple (domain name, list of constants)
+    '''
     m = re.match(r'(\w+)\s*=\s*{(.*?)}', line)
     if m == None:
         raise Exception("Could not parse the domain declaration '%s'" % line)

@@ -1,5 +1,7 @@
 
 def combinations(domains):
+    if len(domains) == 0:
+        raise Exception('domains mustn\'t be empty')
     return _combinations(domains, [])
 
 def _combinations(domains, comb):
@@ -29,3 +31,8 @@ def dict_union(d1, d2):
         d_new[key] = value
     return d_new
     
+    
+if __name__ == '__main__':
+    
+    for c in combinations([]):
+        print c
