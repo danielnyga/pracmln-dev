@@ -298,7 +298,7 @@ class MultipleDatabaseLearner(AbstractLearner):
     learns from multiple databases using an arbitrary sub-learning method for each database, assuming independence between individual databases
     '''
     
-    def __init__(self, mln_, method, dbs, verbose=True, **params):
+    def __init__(self, mln_, method, dbs, **params):
         '''
         dbs: list of tuples (domain, evidence) as returned by the database reading method
         '''
@@ -312,13 +312,13 @@ class MultipleDatabaseLearner(AbstractLearner):
         for i, db in enumerate(self.dbs):
             groundingMethod = eval('mln.learning.%s.groundingMethod' % self.constructor)
             print "grounding MRF for database %d/%d using %s..." % (i+1, len(self.dbs), groundingMethod)
-            mrf = mln_.groundMRF(db, method=groundingMethod, cwAssumption=True)
+            mrf = mln_.groundMRF(db, method=groundingMethod, cwAssumption=True, **params)
             learner = eval("mln.learning.%s(mln_, mrf, **params)" % self.constructor)
             self.learners.append(learner)
             learner._prepareOpt()
         if self.useMT:
             numCores = multiprocessing.cpu_count()
-            if verbose:
+            if self.verbose:
                 print 'Setting up multi-core processing for %d cores' % numCores
             self.multiCoreLearners = []
             learnersPerCore = int(ceil(len(self.learners) / float(numCores)))

@@ -145,11 +145,11 @@ class MLNLearn:
                     print 'Profiler Statistics:'
                     prof.print_stats(-1)
             else:
-                mln.learnWeights(dbs, method=ParameterLearningMeasures.byName(method), **args)
+                learnedMLN = mln.learnWeights(dbs, method=ParameterLearningMeasures.byName(method), **args)
             
             # determine output filename
             fname = self.settings["output_filename"]
-            mln.write(file(fname, "w"))
+            learnedMLN.write(file(fname, "w"))
             print "\nWROTE %s\n\n" % fname
             #mln.write(sys.stdout)
         else: # Alchemy

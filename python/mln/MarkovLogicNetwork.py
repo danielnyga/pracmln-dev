@@ -27,8 +27,9 @@ from mln.database import Database, readDBFromFile
 import logic
 from logic.grammar import predDecl, parseFormula
 import copy
-from utils.clustering import Cluster, SAHN, computeClosestCluster
 from utils import dict_union
+
+from debug import DEBUG
 
 '''
 Your MLN files may contain:
@@ -68,8 +69,6 @@ To use this representation, make use of infer2 rather than infer to compute prob
 To learn factors rather than regular weights, use "LL_fac" rather than "LL" as the method you supply to learnwts.
 (pseudolikelihood is currently unsupported for learning such representations)
 '''
-
-DEBUG = True
 
 import sys
 import os
@@ -432,7 +431,7 @@ class MLN(object):
         if len(dbs) == 1:
             groundingMethod = eval('learning.%s.groundingMethod' % method)
             print "grounding MRF using %s..." % groundingMethod 
-            mrf = newMLN.groundMRF(dbs[0], method=groundingMethod, cwAssumption=True, **params)
+            mrf = newMLN.groundMRF(dbs[0], False, groundingMethod, True, **params)
             learner = eval("learning.%s(newMLN, mrf, **params)" % method)
         else:
             learner = learning.MultipleDatabaseLearner(newMLN, method, dbs, **params)
@@ -565,6 +564,7 @@ class MRF(object):
             - groundingMethod: (string) name of the grounding factory to be used (default: DefaultGroundingFactory)
             - initWeights: (True/False) Switch on/off heuristics for initial weight determination (only for learning!)
         '''
+        print MRF.__init__params
         self.params = dict_union(MRF.__init__params, params)
         verbose = self.params['verbose']
         self.mln = mln
@@ -611,14 +611,15 @@ class MRF(object):
                 print d
             
         # grounding
+        print self.params
         if verbose: print 'Loading %s...' % groundingMethod
         groundingMethod = eval('%s(self, db, **self.params)' % groundingMethod)
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(cwAssumption=cwAssumption)
         if DEBUG:
             print 'ground atoms  vs. evidence' + ' (all should be known):' if cwAssumption else ':'
-            for a, e in zip(self.gndAtoms, self.evidence):
-                print a, '->', e
+            for a in self.gndAtoms.values():
+                print a.idx, a, '->', self.evidence[a.idx]
         assert len(self.gndAtoms) == len(self.evidence)
 
     def getHardFormulas(self):
@@ -1042,12 +1043,15 @@ class MRF(object):
 
     def _getAtom2BlockIdx(self):
         self.atom2BlockIdx = {}
+        self.atom2ValueIdx = {}
         for idxBlock, (idxGA, block) in enumerate(self.pllBlocks):
             if block != None:
-                for idxGA in block:
+                for idxVal, idxGA in enumerate(block):
                     self.atom2BlockIdx[idxGA] = idxBlock
+                    self.atom2ValueIdx[idxGA] = idxVal
             else:
                 self.atom2BlockIdx[idxGA] = idxBlock
+                self.atom2ValueIdx[idxGA] = 0
 
     def __createPossibleWorlds(self, values, idx, code, bit):
         if idx == len(self.gndAtoms):

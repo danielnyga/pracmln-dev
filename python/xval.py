@@ -155,18 +155,7 @@ def learnAndEval(mln, learnDBs, testDBs, queryPred, queryDom, cwPreds, confMatri
     learnDBs_ = nTransf.materializeNoisyDomains(learnDBs)
     testDBs_ = nTransf.transformDBs(testDBs)
     
-    for db1, db2 in zip(learnDBs, learnDBs_):
-        print 'before:'
-        db1.printEvidence()
-        print '-------\nafter'
-        db2.printEvidence()
-    for db1, db2 in zip(testDBs, testDBs_):
-        print 'before:'
-        db1.printEvidence()
-        print '-------\nafter'
-        db2.printEvidence()
-    
-    learnedMLN = mln.learnWeights(learnDBs_, method=ParameterLearningMeasures.BPLL_CG, optimizer='cg', verbose=verbose)
+    learnedMLN = mln.learnWeights(learnDBs_, method=ParameterLearningMeasures.BPLL_CG, optimizer='cg', verbose=verbose, initWeights=True)
     evalMLN(learnedMLN, queryPred, queryDom, cwPreds, testDBs_, confMatrix)
     
 
@@ -239,7 +228,7 @@ if __name__ == '__main__':
     
     if multicore:
         # set up a pool of worker processes
-        workerPool = Pool(2)
+        workerPool = Pool()
         kwargs = [{'mln_': mln_.duplicate(), 'partition': partition, 'foldIdx': i, 'directory': directory} for i in range(folds)]
         result = workerPool.map_async(runFold, kwargs).get()
         print 'Started %d-fold Crossvalidation in %d processes.' % (folds, workerPool._processes)
