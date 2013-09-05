@@ -24,6 +24,7 @@
 from logic import fol
 from mln.util import *
 from AbstractGrounding import AbstractGroundingFactory
+from mln.MarkovLogicNetwork import DEBUG
 
 class DefaultGroundingFactory(AbstractGroundingFactory):
     '''
@@ -69,12 +70,16 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         # generate all groundings
         if self.verbose: 
             print "Grounding formulas..."
+        if DEBUG:
+            print 'ground formulas (all should have a truth value):'
         for idxFormula, formula in enumerate(mrf.formulas):
             gndFormulas = self.formula2GndFormulas.get(formula, [])
             self.formula2GndFormulas[formula] = gndFormulas
             if self.verbose: 
                 print "  %s" % (strFormula(formula))
             for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, mrf.simplify):
+                if DEBUG:
+                    print '    %s\t-> %s' % (strFormula(gndFormula), str(gndFormula.isTrue(mrf.evidence)))
                 gndFormula.isHard = formula.isHard
                 gndFormula.weight = formula.weight
                 if isinstance(gndFormula, fol.TrueFalse):

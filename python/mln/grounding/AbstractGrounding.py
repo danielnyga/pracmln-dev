@@ -43,9 +43,9 @@ class AbstractGroundingFactory(object):
     def _createGroundFormulas(self):
         raise Exception('Not implemented')
 
-    def groundMRF(self):
+    def groundMRF(self, cwAssumption=False):
         self._createGroundAtoms()
-        self.mrf.setEvidence(self.db.evidence)
+        self.mrf.setEvidence(self.db.evidence, cwAssumption=cwAssumption)
         self.mrf.softEvidence = self.db.softEvidence
         self._createGroundFormulas()
         return self.mrf

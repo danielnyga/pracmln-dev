@@ -69,7 +69,7 @@ To learn factors rather than regular weights, use "LL_fac" rather than "LL" as t
 (pseudolikelihood is currently unsupported for learning such representations)
 '''
 
-DEBUG = False
+DEBUG = True
 
 import sys
 import os
@@ -225,55 +225,6 @@ class MLN(object):
             for c in constants: 
                 self.addConstant(domain, c)
 
-# TODO: outsource this
-#     def materializeNoisyDomains(self, dbs):
-#         '''
-#         For each noisy domain, (1) if there is a static domain specification,
-#         map the values of that domain in all dbs to their closest neighbor
-#         in the domain.
-#         (2) If there is no static domain declaration, apply SAHN clustering
-#         to the values appearing dbs, take the cluster centroids as the values
-#         of the domain and map the dbs as in (1).
-#         '''
-#         newDBs = []
-#         domains = dict([(n, self.staticDomains.get(n, [])) for n in self.noisyStringDomains])
-#         fullDomains = mergeDomains(*[db.domains for db in dbs])
-#         if self.verbose and len(domains) > 0:
-#             print 'materializing noisy domains...'
-#         for nDomain in domains.keys():
-#             if len(domains[nDomain]) > 0 or fullDomains.get(nDomain, None) is None: continue
-#             # apply the clustering step
-#             values = fullDomains[nDomain]
-#             clusters = SAHN(values)
-#             domains[nDomain] = [c._computeCentroid()[0] for c in clusters]
-#             if self.verbose:
-#                 print '  reducing domain %s: %d -> %d values' % (nDomain, len(values), len(clusters))
-#                 print '   ', domains[nDomain] 
-#         for db in dbs:
-#             if len(db.softEvidence) > 0:
-#                 raise Exception('This is not yet implemented for soft evidence.')
-#             commonDoms = set(db.domains.keys()).intersection(set(domains.keys()))
-#             if len(commonDoms) == 0:
-#                 newDBs.append(db)
-#                 continue
-#             newDB = db.duplicate()
-#             for domain in commonDoms:
-#                 # map the values in the database to the static domain values
-#                 valueClusters = [Cluster([value]) for value in domains[domain]]
-#                 valueMap = dict([(val, computeClosestCluster(val, valueClusters)[1][0]) for val in newDB.domains[domain]])
-#                 newDB.domains[domain] = valueMap.values()
-#                 # replace the affected evidences
-#                 for ev in newDB.evidence.keys():
-#                     truth = newDB.evidence[ev]
-#                     _, pred, params = parseLiteral(ev)
-#                     if domain in self.predicates[pred]: # domain is affected by the mapping  
-#                         newDB.retractGndAtom(ev)
-#                         newArgs = [v if domain != self.predicates[pred][i] else valueMap[v] for i, v in enumerate(params)]
-#                         atom = '%s%s(%s)' % ('' if truth else '!', pred, ','.join(newArgs))
-#                         newDB.addGroundAtom(atom)
-#             newDBs.append(newDB)
-#         return newDBs, domains
-
     def materializeFormulaTemplates(self, dbs, verbose=False):
         '''
         Expand all formula templates.
@@ -289,10 +240,10 @@ class MLN(object):
         
         # collect the admissible formula templates. templates might be not
         # admissible since the domain of a template variable might be empty.
-        for ft in self.formulas:
+        for ft in list(newMLN.formulas):
             domNames = ft.getVariables(self).values()
             if any([not domName in fullDomain for domName in domNames]):
-                print 'WARNING: Discarding formula template %s,\n         since it cannot be grounded (domain %s empty).' % \
+                print 'WARNING: Discarding formula template %s,\n         since it cannot be grounded (domain "%s" empty).' % \
                     (strFormula(ft), ','.join([d for d in domNames if d not in fullDomain]))
                 newMLN.formulas.remove(ft)
         
@@ -378,10 +329,7 @@ class MLN(object):
         Creates and returns a ground Markov Random Field for the given database
         - db: database filename (string) or Database object
         '''
-        mrf = MRF(self, db, method, **params)
-        # apply closed world assumption
-        if cwAssumption:
-            mrf.evidence = map(lambda x: False if x is None else x, mrf.evidence)
+        mrf = MRF(self, db, method, cwAssumption=cwAssumption, **params)
         return mrf
 
     def combineOverwrite(self, domain, verbose=False, groundFormulas=True):
@@ -447,7 +395,7 @@ class MLN(object):
         '''
         return [f.weight for f in self.formulas]
 
-    def     learnWeights(self, databases, method=ParameterLearningMeasures.BPLL, **params):
+    def learnWeights(self, databases, method=ParameterLearningMeasures.BPLL, **params):
         '''
         Triggers the learning parameter learning process for a given set of databases.
         Returns a new MLN object with the learned parameters.
@@ -469,8 +417,17 @@ class MLN(object):
                 dbs.append(db)
         
         newMLN = self.materializeFormulaTemplates(dbs, self.verbose)
-        newMLN.printFormulas()
         
+        if DEBUG:
+            print 'predicates:'
+            for p in newMLN.predicates.items():
+                print p
+            print 'MLN domains:'
+            for d in newMLN.domains.items():
+                print d
+            print 'formulas:'
+            newMLN.printFormulas()
+
         # run learner
         if len(dbs) == 1:
             groundingMethod = eval('learning.%s.groundingMethod' % method)
@@ -499,7 +456,7 @@ class MLN(object):
         
         if self.verbose:
             print "\n// formulas"
-            for formula in learnedMLN.formulaTemplates:
+            for formula in learnedMLN.formulas:
                 print "%f  %s" % (float(eval(str(formula.weight))), strFormula(formula))
         return learnedMLN
 
@@ -598,7 +555,7 @@ class MRF(object):
                   'simplify': False, 
                   'initWeights': False}
     
-    def __init__(self, mln, db, groundingMethod='DefaultGroundingFactory', **params):
+    def __init__(self, mln, db, groundingMethod='DefaultGroundingFactory', cwAssumption=False, **params):
         '''
         - db:        database filename (.db) or a Database object
         - params:    dict of keyword parameters. Valid values are:
@@ -648,12 +605,20 @@ class MRF(object):
 
         # get combined domain
         self.domains = mergeDomains(mln.domains, db.domains)
-
+        if DEBUG:
+            print 'MRF domains:'
+            for d in self.domains.items():
+                print d
+            
         # grounding
         if verbose: print 'Loading %s...' % groundingMethod
         groundingMethod = eval('%s(self, db, **self.params)' % groundingMethod)
         self.groundingMethod = groundingMethod
-        groundingMethod.groundMRF()
+        groundingMethod.groundMRF(cwAssumption=cwAssumption)
+        if DEBUG:
+            print 'ground atoms  vs. evidence' + ' (all should be known):' if cwAssumption else ':'
+            for a, e in zip(self.gndAtoms, self.evidence):
+                print a, '->', e
         assert len(self.gndAtoms) == len(self.evidence)
 
     def getHardFormulas(self):
@@ -916,7 +881,7 @@ class MRF(object):
     def _isTrueGndFormulaGivenEvidence(self, gf):
         return gf.isTrue(self.evidence)
 
-    def setEvidence(self, evidence, clear=True):
+    def setEvidence(self, evidence, clear=True, cwAssumption=False):
         '''
         Sets the evidence, which is to be given as a dictionary that maps ground atom strings to their truth values.
         Any previous evidence is cleared.
@@ -925,6 +890,9 @@ class MRF(object):
         if clear is True:
             self._clearEvidence()
         for gndAtom, value in evidence.iteritems():
+            if not gndAtom in self.gndAtoms:
+                print 'WARNING: evidence "%s=%s" is not among the ground atoms.' % (gndAtom, str(value))
+                continue
             idx = self.gndAtoms[gndAtom].idx
             self._setEvidence(idx, value)
             # If the value is true, set evidence for other vars in block (if any)
@@ -933,12 +901,18 @@ class MRF(object):
                 for i in block:
                     if i != idx:
                         self._setEvidence(i, False)
-        # handle closed-world predicates: Set all their instances that aren't yet known to false
-        for pred in self.closedWorldPreds:
-            if not pred in self.predicates: continue
-            for idxGA in self._getPredGroundingsAsIndices(pred):
-                if self._getEvidence(idxGA, False) == None:
-                    self._setEvidence(idxGA, False)
+        if cwAssumption:
+            # apply closed world assumption
+            if DEBUG:
+                print 'applying CW assumption'
+            self.evidence = map(lambda x: False if x is None else x, self.evidence)
+        else:
+            # handle closed-world predicates: Set all their instances that aren't yet known to false
+            for pred in self.closedWorldPreds:
+                if not pred in self.predicates: continue
+                for idxGA in self._getPredGroundingsAsIndices(pred):
+                    if self._getEvidence(idxGA, False) == None:
+                        self._setEvidence(idxGA, False)
 
     def _getPllBlocks(self):
         '''
