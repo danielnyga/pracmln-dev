@@ -81,7 +81,23 @@ class Database(object):
                 dom = []
                 self.domains[domName] = dom
             if not params[i] in dom:
-                dom.append(params[i]) 
+                dom.append(params[i])
+                
+    def writeToFile(self, filename):
+        '''
+        Writes this database into the file with the given filename.
+        '''
+        f = open(filename, 'w+')
+        self.write(f)
+        f.close()
+                
+    def write(self, stream):
+        '''
+        Writes this database into the stream in the MLN Database format.
+        The stream must provide a write() method as file objects do.
+        '''
+        for truth, atom in self.evidence.iteritems():
+            stream.write('%s%s' % ('' if truth else '!', atom))
                
     def printEvidence(self):
         for truth, atom in self.evidence.iteritems():
