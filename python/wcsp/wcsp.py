@@ -22,11 +22,25 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import sys
-import fcntl
 import os
 from subprocess import Popen, PIPE
 
 temp_wcsp_file = os.path.join('/', 'tmp', 'temp%d.wcsp')
+
+# Check if the toulbar2 executable can be found. Raise an exception, if not.
+def is_executable(path):
+    return os.path.exists(path) and os.access(path, os.X_OK)
+
+def isToulbar2Installed():
+    toulbar2cmd = 'toulbar2'
+    for path in os.environ['PATH'].split(os.pathsep):
+        cmd_file = os.path.join(path, toulbar2cmd)
+        for candidate in cmd_file:
+            if is_executable(candidate):
+                return
+    raise Exception('Toulbar2 WCSP solver cannot be found.')
+
+isToulbar2Installed()
 
 class Constraint(object):
     '''
