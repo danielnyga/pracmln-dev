@@ -9,7 +9,6 @@ scene(scene)
 
 object(cluster, object!)
 
-text = noisy
 
 // formulas
 

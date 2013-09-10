@@ -96,11 +96,11 @@ class Database(object):
         Writes this database into the stream in the MLN Database format.
         The stream must provide a write() method as file objects do.
         '''
-        for truth, atom in self.evidence.iteritems():
-            stream.write('%s%s' % ('' if truth else '!', atom))
+        for atom, truth in self.evidence.iteritems():
+            stream.write('%s%s\n' % ('' if truth else '!', atom))
                
     def printEvidence(self):
-        for truth, atom in self.evidence.iteritems():
+        for atom, truth in self.evidence.iteritems():
             print atom, ':', truth
                 
     def retractGndAtom(self, gndLit):

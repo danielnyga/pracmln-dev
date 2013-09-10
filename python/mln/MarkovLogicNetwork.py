@@ -573,7 +573,6 @@ class MRF(object):
             - groundingMethod: (string) name of the grounding factory to be used (default: DefaultGroundingFactory)
             - initWeights: (True/False) Switch on/off heuristics for initial weight determination (only for learning!)
         '''
-        print MRF.__init__params
         self.params = dict_union(MRF.__init__params, params)
         verbose = self.params['verbose']
         self.mln = mln
@@ -620,13 +619,12 @@ class MRF(object):
                 print d
             
         # grounding
-        print self.params
         if verbose: print 'Loading %s...' % groundingMethod
         groundingMethod = eval('%s(self, db, **self.params)' % groundingMethod)
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(cwAssumption=cwAssumption)
         if DEBUG:
-            print 'ground atoms  vs. evidence' + ' (all should be known):' if cwAssumption else ':'
+            print 'ground atoms  vs. evidence' + (' (all should be known):' if cwAssumption else ':')
             for a in self.gndAtoms.values():
                 print a.idx, a, '->', self.evidence[a.idx]
         assert len(self.gndAtoms) == len(self.evidence)
@@ -920,7 +918,8 @@ class MRF(object):
             # handle closed-world predicates: Set all their instances that aren't yet known to false
             for pred in self.closedWorldPreds:
                 if not pred in self.predicates: continue
-                for idxGA in self._getPredGroundingsAsIndices(pred):
+                cwIndices = self._getPredGroundingsAsIndices(pred)
+                for idxGA in cwIndices:
                     if self._getEvidence(idxGA, False) == None:
                         self._setEvidence(idxGA, False)
 
