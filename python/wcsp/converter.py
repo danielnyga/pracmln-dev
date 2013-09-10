@@ -44,6 +44,7 @@ class WCSPConverter(object):
         self.vars = []
         self.varIdx2GndAtom = {}
         self.gndAtom2VarIndex = {}
+        self.mutexVars = set() # hold indices of mutex variables
         self.createVariables()
         self.simplifyVariables()
         self.divisor = self.computeDivisor()
@@ -58,22 +59,21 @@ class WCSPConverter(object):
         handledBlocks = set()
         for gndAtom in self.mrf.gndAtoms.values():
             blockName = self.mrf.gndBlockLookup.get(gndAtom.idx, None)
+            varIdx = len(self.vars)
             if blockName is not None:
                 if blockName not in handledBlocks:
                     # create a new variable
-                    varIdx = len(self.vars)
                     self.vars.append(blockName)
                     # create the mappings
                     for gndAtomIdx in self.mrf.gndBlocks[blockName]:
                         self.gndAtom2VarIndex[self.mrf.gndAtomsByIdx[gndAtomIdx]] = varIdx
                     self.varIdx2GndAtom[varIdx] = [self.mrf.gndAtomsByIdx[i] for i in self.mrf.gndBlocks[blockName]]
                     handledBlocks.add(blockName)
+                    self.mutexVars.add(varIdx)
             else:
-                varIdx = len(self.vars)
                 self.vars.append(str(gndAtom))
                 self.gndAtom2VarIndex[gndAtom] = varIdx
                 self.varIdx2GndAtom[varIdx] = [gndAtom]
-        
         
     def simplifyVariables(self):
         '''
@@ -82,6 +82,7 @@ class WCSPConverter(object):
         sf_varIdx2GndAtoms = {}
         sf_gndAtom2VarIdx = {}
         sf_vars = []
+        sf_mutexVars = set()
         evidence = [i for i, e in enumerate(self.mrf.evidence) if e is not None]
         for varIdx, var in enumerate(self.vars):
             gndAtoms = filter(lambda x: x.idx not in evidence, self.varIdx2GndAtom[varIdx])
@@ -91,9 +92,12 @@ class WCSPConverter(object):
                 for gndAtom in gndAtoms:
                     sf_gndAtom2VarIdx[gndAtom] = sfVarIdx
                 sf_varIdx2GndAtoms[sfVarIdx] = gndAtoms
+                if varIdx in self.mutexVars:
+                    sf_mutexVars.add(sfVarIdx)
         self.vars = sf_vars
         self.gndAtom2VarIndex = sf_gndAtom2VarIdx
         self.varIdx2GndAtom = sf_varIdx2GndAtoms
+        self.mutexVars = sf_mutexVars
         
     def computeDivisor(self):
         '''
@@ -170,6 +174,20 @@ class WCSPConverter(object):
             constraints.append(constraint)
         return constraints
     
+    def convert(self):
+        '''
+        Performs a conversion from an MLN into a WCSP.
+        '''
+        wcsp = WCSP()
+        wcsp.top = self.top
+        wcsp.domSizes = [max(2,len(self.varIdx2GndAtom[i])) for i, _ in enumerate(self.vars)]
+#         wcsp.constraints.extend(self.generateEvidenceConstraints())
+        for f in self.mrf.gndFormulas:
+            f.weight = self.mln.formulas[f.idxFormula].weight
+            f.isHard = self.mln.formulas[f.idxFormula].isHard
+            self.generateConstraint(wcsp, f)
+        return wcsp
+
     def generateConstraint(self, wcsp, wf):
         '''
         Generates and adds a constraint from a given weighted formula.
@@ -249,7 +267,7 @@ class WCSPConverter(object):
                 if not conj: varVal = not varVal
                 varVal = 1 if varVal else 0
                 varIdx = self.gndAtom2VarIndex[gndAtom]
-                if len(self.varIdx2GndAtom[varIdx]) > 1:
+                if varIdx in self.mutexVars:
                     if isinstance(gndLiteral, GroundLit) and varVal == 0: raise
                     varVal = self.varIdx2GndAtom[varIdx].index(gndAtom)
                 assignment[varIndices.index(varIdx)] = varVal
@@ -265,7 +283,7 @@ class WCSPConverter(object):
             for c in utils.combinations(domains):
                 world = [False] * len(self.mrf.gndAtoms)
                 for var, assignment in zip(varIndices, c):
-                    if len(self.varIdx2GndAtom[var]) > 1: # mutex constraint
+                    if var in self.mutexVars: # mutex constraint
                         world[self.varIdx2GndAtom[var][assignment].idx] = True
                     else:
                         world[self.varIdx2GndAtom[var][0].idx] = assignment > 0
@@ -349,19 +367,6 @@ class WCSPConverter(object):
             cost[i] = float(c) / c_sum
         return dict([(a,c) for a, c in zip(atoms, cost)])
         
-    def convert(self):
-        '''
-        Performs a conversion from an MLN into a WCSP.
-        '''
-        wcsp = WCSP()
-        wcsp.top = self.top
-        wcsp.domSizes = [max(2,len(self.varIdx2GndAtom[i])) for i, _ in enumerate(self.vars)]
-#         wcsp.constraints.extend(self.generateEvidenceConstraints())
-        for f in self.mrf.gndFormulas:
-            f.weight = self.mln.formulas[f.idxFormula].weight
-            f.isHard = self.mln.formulas[f.idxFormula].isHard
-            self.generateConstraint(wcsp, f)
-        return wcsp
 
 # for debugging only
 if __name__ == '__main__':

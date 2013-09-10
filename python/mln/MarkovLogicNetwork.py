@@ -564,7 +564,6 @@ class MRF(object):
             - groundingMethod: (string) name of the grounding factory to be used (default: DefaultGroundingFactory)
             - initWeights: (True/False) Switch on/off heuristics for initial weight determination (only for learning!)
         '''
-        print MRF.__init__params
         self.params = dict_union(MRF.__init__params, params)
         verbose = self.params['verbose']
         self.mln = mln
@@ -611,7 +610,6 @@ class MRF(object):
                 print d
             
         # grounding
-        print self.params
         if verbose: print 'Loading %s...' % groundingMethod
         groundingMethod = eval('%s(self, db, **self.params)' % groundingMethod)
         self.groundingMethod = groundingMethod

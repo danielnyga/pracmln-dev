@@ -9,8 +9,6 @@ scene(scene)
 
 object(cluster, object!)
 
-text = noisyString
-
 // formulas
 
 0 shape(?c, +?s) ^ color(?c, +?col) ^ object(?c, +?obj)
@@ -22,6 +20,8 @@ text = noisyString
 
 #unique{+?t1,+?t2}
 0 object(?c1, +?t1) ^ object(?c2, +?t2) ^ ?c1 =/= ?c2
+
+
 
 
 
