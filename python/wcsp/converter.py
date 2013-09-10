@@ -44,12 +44,12 @@ class WCSPConverter(object):
         self.vars = []
         self.varIdx2GndAtom = {}
         self.gndAtom2VarIndex = {}
+        self.mutexVars = set() # hold indices of mutex variables
         self.createVariables()
         self.simplifyVariables()
         self.divisor = self.computeDivisor()
         self.top = self.computeHardCosts()
         self.constraintBySignature = {}
-        self.mutexVars = set() # hold indices of mutex variables
     
     def createVariables(self):
         '''
@@ -250,7 +250,7 @@ class WCSPConverter(object):
                 cOld.defCost += constraint.defCost
         else:
             self.constraintBySignature[varIndices] = constraint
-        	wcsp.constraints.append(constraint)
+            wcsp.constraints.append(constraint)
         
     def gatherConstraintTuples(self, wcsp, varIndices, formula):
         '''
