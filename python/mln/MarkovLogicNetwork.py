@@ -465,10 +465,19 @@ class MLN(object):
         for i, f in enumerate(self.formulas):
             f.weight = float('%-10.6f' % float(eval(str(wt[i]))))
 
+    def writeToFile(self, filename):
+        '''
+        Creates the file with the given filename and writes this MLN into it.
+        '''
+        f = open(filename, 'w+')
+        self.write(f)
+        f.close()
+
     def write(self, f, mutexInDecls=True):
         '''
             writes the MLN to the given file object
-                mutexInDecls: whether to write the definitions for mutual exclusiveness directly to the predicate declaration (instead of extra constraints)
+                mutexInDecls: whether to write the definitions for mutual 
+                exclusiveness directly to the predicate declaration (instead of extra constraints)
         '''
         if 'learnwts_message' in dir(self):
             f.write("/*\n%s*/\n\n" % self.learnwts_message)
@@ -615,7 +624,7 @@ class MRF(object):
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(cwAssumption=cwAssumption)
         if DEBUG:
-            print 'ground atoms  vs. evidence' + ' (all should be known):' if cwAssumption else ':'
+            print 'ground atoms  vs. evidence' + (' (all should be known):' if cwAssumption else ':')
             for a in self.gndAtoms.values():
                 print a.idx, a, '->', self.evidence[a.idx]
         assert len(self.gndAtoms) == len(self.evidence)
@@ -909,7 +918,8 @@ class MRF(object):
             # handle closed-world predicates: Set all their instances that aren't yet known to false
             for pred in self.closedWorldPreds:
                 if not pred in self.predicates: continue
-                for idxGA in self._getPredGroundingsAsIndices(pred):
+                cwIndices = self._getPredGroundingsAsIndices(pred)
+                for idxGA in cwIndices:
                     if self._getEvidence(idxGA, False) == None:
                         self._setEvidence(idxGA, False)
 

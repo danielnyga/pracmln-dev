@@ -869,7 +869,7 @@ class Negation(ComplexFormula):
         elif type(child) == TrueFalse:
             return TrueFalse(not child.value)
         elif type(child) == Equality:
-            return Negation([Equality(child.params)])
+            return Equality(child.params, not child.negated)
         else:
             raise Exception("CNF conversion of '%s' failed (type:%s)" % (str(self), str(type(child))))
     
@@ -901,7 +901,7 @@ class Negation(ComplexFormula):
         elif type(child) == TrueFalse:
             return TrueFalse(not child.value)
         elif type(child) == Equality:
-            return Negation([Equality(child.params)])
+            return Equality(child.params, not child.negated)
         else:
             raise Exception("NNF conversion of '%s' failed (type:%s)" % (str(self), str(type(child))))
 
@@ -1035,12 +1035,14 @@ class Equality(Formula):
         return predNames
     
     def isTrue(self, world_values):
-        truth = self.params[0] == self.params[1]
-        return not truth if self.negated else truth
+        if any(map(isVar, self.params)):
+            return None
+        equals = (self.params[0] == self.params[1])
+        return (not equals) if self.negated else equals
     
     def simplify(self, mrf):
         truth = self.isTrue(mrf.evidence) 
-        if truth: return TrueFalse(truth)
+        if truth != None: return TrueFalse(truth)
         return Equality(list(self.params), negated=self.negated)
         
 class TrueFalse(Formula):
@@ -1180,10 +1182,14 @@ class GroundCountConstraint(NonLogicalConstraint):
         return l
 
 # some convenience functions
+def isLiteral(f):
+    return type(f) is GroundLit or type(f) is Lit or type(f) is GroundAtom
+
 def isConjunctionOfLiterals(f):
     '''
     Returns true if the given formula is a conjunction of literals.
     '''
+    if isLiteral(f): return True
     if not type(f) is Conjunction:
         return False
     for child in f.children:
@@ -1198,6 +1204,7 @@ def isDisjunctionOfLiterals(f):
     '''
     Returns true if the given formula is a clause (a disjunction of literals)
     '''
+    if type(f) is GroundLit or type(f) is Lit: return True
     if not type(f) is Disjunction:
         return False
     for child in f.children:

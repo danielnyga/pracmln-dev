@@ -248,7 +248,6 @@ class WCSPConverter(object):
         else:
             self.constraintBySignature[varIndices] = constraint
             wcsp.constraints.append(constraint)
-#             constraint.write(sys.stdout)
         
     def gatherConstraintTuples(self, wcsp, varIndices, formula):
         '''
@@ -262,7 +261,10 @@ class WCSPConverter(object):
             conj = isConjunctionOfLiterals(formula)
             if not conj and not isDisjunctionOfLiterals(formula): raise
             assignment = [0] * len(varIndices)
-            for gndLiteral in formula.children:
+            children = []
+            for lit in formula.iterLiterals():
+                children.append(lit)
+            for gndLiteral in children:
                 (gndAtom, varVal) = (gndLiteral, True) if isinstance(gndLiteral, GroundAtom) else (gndLiteral.gndAtom, not gndLiteral.negated)
                 if not conj: varVal = not varVal
                 varVal = 1 if varVal else 0
