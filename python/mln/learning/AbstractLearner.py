@@ -32,6 +32,7 @@ import multiprocessing
 from multiprocessing import Process
 from multiprocessing.synchronize import Lock
 from utils import dict_union
+import logging
 try:
     import numpy
 except:
@@ -309,9 +310,10 @@ class MultipleDatabaseLearner(AbstractLearner):
         self.params = params
         self.learners = []
         self.useMT = False
+        log = logging.getLogger(self.__class__.__name__)
         for i, db in enumerate(self.dbs):
             groundingMethod = eval('mln.learning.%s.groundingMethod' % self.constructor)
-            print "grounding MRF for database %d/%d using %s..." % (i+1, len(self.dbs), groundingMethod)
+            log.info("grounding MRF for database %d/%d using %s..." % (i+1, len(self.dbs), groundingMethod))
             mrf = mln_.groundMRF(db, method=groundingMethod, cwAssumption=True, **params)
             learner = eval("mln.learning.%s(mln_, mrf, **params)" % self.constructor)
             self.learners.append(learner)
@@ -319,7 +321,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         if self.useMT:
             numCores = multiprocessing.cpu_count()
             if self.verbose:
-                print 'Setting up multi-core processing for %d cores' % numCores
+                log.info('Setting up multi-core processing for %d cores' % numCores)
             self.multiCoreLearners = []
             learnersPerCore = int(ceil(len(self.learners) / float(numCores)))
             for i in range(numCores):

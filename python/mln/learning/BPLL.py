@@ -27,7 +27,8 @@ from AbstractLearner import AbstractLearner
 from collections import defaultdict
 from mln.util import *
 import numpy
-
+import logging
+import praclog
 
 class BPLL(AbstractLearner):
     '''
@@ -43,7 +44,7 @@ class BPLL(AbstractLearner):
         AbstractLearner.__init__(self, mln, mrf, **params)
         
     def _prepareOpt(self):
-        print "constructing blocks..."
+        logging.getLogger(self.__class__.__name__).info("constructing blocks...") 
         self.mrf._getPllBlocks()
         self.mrf._getAtom2BlockIdx()        
         self._computeStatistics()
@@ -122,7 +123,8 @@ class BPLL(AbstractLearner):
         computes the statistics upon which the optimization is based
         '''
         debug = False
-        print "computing statistics..."
+        log = logging.getLogger(self.__class__.__name__)
+        log.info("computing statistics...")
         
         # get evidence indices
         self.evidenceIndices = []
@@ -202,7 +204,7 @@ class BPLL_CG(BPLL):
         BPLL.__init__(self, mln, mrf, **params)
     
     def _prepareOpt(self):
-        print "constructing blocks..."
+        logging.getLogger(self.__class__.__name__).info("constructing blocks...")
         self.mrf._getPllBlocks()
         self.mrf._getAtom2BlockIdx()
         self.mrf.groundingMethod._computeStatistics()

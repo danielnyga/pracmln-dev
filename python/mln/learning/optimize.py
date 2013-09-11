@@ -1,6 +1,7 @@
 
 import math
 import sys
+import logging
 try:
     import numpy
     from scipy.optimize import fmin_bfgs, fmin_cg, fmin_ncg, fmin_tnc, fmin_l_bfgs_b, fsolve, fmin_slsqp, fmin, fmin_powell
@@ -149,43 +150,43 @@ class SciPyOpt(object):
         neg_grad = lambda wt: -grad(wt)
         #if not useGrad or not p.useGrad(): neg_grad = None
         #if not useF or not p.useF(): neg_f = lambda wt: -p.__fDummy(wt)
-    
+        log = logging.getLogger(self.__class__.__name__)
         if optimizer == "bfgs":
             params = dict(filter(lambda (k,v): k in ["gtol", "epsilon", "maxiter"], self.optParams.iteritems()))
-            print "starting optimization with %s... %s" % (optimizer, params)
+            log.info("starting optimization with %s... %s" % (optimizer, params))
             wt, f_opt, grad_opt, Hopt, func_calls, grad_calls, warn_flags = fmin_bfgs(neg_f, self.wt, fprime=neg_grad, full_output=True, **params)
-            print "optimization done with %s..." % optimizer
-            print "f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags)
+            log.info("optimization done with %s..." % optimizer)
+            log.info("f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags))
         elif optimizer == "cg":            
             params = dict(filter(lambda (k,v): k in ["gtol", "epsilon", "maxiter"], self.optParams.iteritems()))
-            print "starting optimization with %s... %s" % (optimizer, params)
+            log.info("starting optimization with %s... %s" % (optimizer, params))
             wt, f_opt, func_calls, grad_calls, warn_flags = fmin_cg(neg_f, self.wt, fprime=neg_grad, args=(), full_output=True, **params)
-            print "optimization done with %s..." % optimizer
-            print "f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags)
+            log.info("optimization done with %s..." % optimizer)
+            log.info("f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags))
         elif optimizer == "ncg":            
             params = dict(filter(lambda (k,v): k in ["avextol", "epsilon", "maxiter"], self.optParams.iteritems()))
-            print "starting optimization with %s... %s" % (optimizer, params)
+            log.info("starting optimization with %s... %s" % (optimizer, params))
             wt, f_opt, func_calls, grad_calls, warn_flags = fmin_ncg(neg_f, self.wt, fprime=neg_grad, args=(), full_output=True, **params)
-            print "optimization done with %s..." % optimizer
-            print "f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags)
+            log.info("optimization done with %s..." % optimizer)
+            log.info("f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags))
         elif optimizer == "fmin":
             params = dict(filter(lambda (k,v): k in ["xtol", "ftol", "maxiter"], self.optParams.iteritems()))
-            print "starting optimization with %s... %s" % (optimizer, params)
+            log.info("starting optimization with %s... %s" % (optimizer, params))
             wt = fmin(neg_f, self.wt, args=(), full_output=True, **params)
-            print "optimization done with %s..." % optimizer
+            log.info("optimization done with %s..." % optimizer)
         elif optimizer == "powell":
             params = dict(filter(lambda (k,v): k in ["xtol", "ftol", "maxiter"], self.optParams.iteritems()))
-            print "starting optimization with %s... %s" % (optimizer, params)
+            log.info("starting optimization with %s... %s" % (optimizer, params))
             wt = fmin_powell(neg_f, self.wt, args=(), full_output=True, **params)
-            print "optimization done with %s..." % optimizer
+            log.info("optimization done with %s..." % optimizer)
         elif optimizer == 'l-bfgs-b':
             params = dict(filter(lambda (k,v): k in ["gtol", "epsilon", "maxiter", 'bounds'], self.optParams.iteritems()))
-            print "starting optimization with %s... %s" % (optimizer, params)
+            log.info("starting optimization with %s... %s" % (optimizer, params))
             if 'bounds' in params:
                 params['bounds'] = (params['bounds'],) * len(self.wt)
             wt, f_opt, d = fmin_l_bfgs_b(neg_f, self.wt, fprime=neg_grad, **params)
-            print "optimization done with %s..." % optimizer
-            print "f-opt: %.16f\n" % (-f_opt)
+            log.info("optimization done with %s..." % optimizer)
+            log.info("f-opt: %.16f\n" % (-f_opt))
         else:
             raise Exception("Unknown optimizer '%s'" % optimizer)
         
