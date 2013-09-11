@@ -29,14 +29,17 @@ import utils
 from logic.fol import isConjunctionOfLiterals
 from logic.fol import isDisjunctionOfLiterals
 from mln.database import Database
-import sys
-from mln.util import strFormula
+
+class MaxCostExceeded(Exception): pass
 
 class WCSPConverter(object):
     '''
     Class for converting an MLN into a WCSP problem for efficient
     MPE inference.
     '''
+    
+    # maximum costs imposed by toulbar
+    MAX_COST = 1537228672809129301L
     
     def __init__(self, mrf):
         self.mrf = mrf
@@ -150,6 +153,8 @@ class WCSPConverter(object):
         top = costSum + 1
         if top < costSum:
             raise Exception("Numeric Overflow")
+        if top > WCSPConverter.MAX_COST:
+            raise MaxCostExceeded()
         return long(top)
     
     def generateEvidenceConstraints(self):

@@ -37,7 +37,7 @@ import sys
 from utils.clustering import SAHN, Cluster, computeClosestCluster
 
 usage = '''Usage: %prog [options] <predicate> <domain> <mlnfile> <dbfiles>'''
-  
+
 parser = OptionParser(usage=usage)
 parser.add_option("-k", "--folds", dest="folds", type='int', default=10,
                   help="Number of folds for k-fold Cross Validation")
@@ -50,7 +50,98 @@ parser.add_option("-m", "--multicore", dest="multicore", action='store_true', de
 parser.add_option('-n', '--noisy', dest='noisy', type='str', default=None,
                   help='-nDOMAIN defines DOMAIN as a noisy string.')
 
+class XValFoldParams(object):
+    
+    def __init__(self, **params):
+        self.runIdx = None
+        self.learnDBs = None
+        self.testDBs = None
+        self.queryPred = None
+        self.queryDom = None
+        self.cwPreds = None
+        self.learningMethod = ParameterLearningMeasures.BPLL
+        self.optimizer = 'bfgs'
+        self.verbose = False
+        self.noisyStringTransform = None
+        self.directory = None
+        for p, val in params.iteritems():
+            setattr(self, str(p), val)
+        
+    
+def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
+    
+    mln.setClosedWorldPred(None)
+    for pred in [pred for pred in cwPreds if pred in mln.predicates]:
+        mln.setClosedWorldPred(pred)
+    sig = ['?arg%d' % i for i, _ in enumerate(mln.predicates[queryPred])]
+    querytempl = '%s(%s)' % (queryPred, ','.join(sig))
+    
+    for db in dbs:
+        # save and remove the query predicates from the evidence
+        trueDB = Database(mln)
+        for bindings in db.query(querytempl):
+            atom = querytempl
+            for binding in bindings:
+                atom = atom.replace(binding, bindings[binding])
+            trueDB.addGroundAtom(atom)
+            db.retractGndAtom(atom)
+        db.printEvidence()
+        
+        mln.defaultInferenceMethod = InferenceMethods.WCSP
+        mrf = mln.groundMRF(db)
+        conv = WCSPConverter(mrf)
+        
+        resultDB = conv.getMostProbableWorldDB()
+        
+        sig2 = list(sig)
+        entityIdx = mln.predicates[queryPred].index(queryDom)
+        for entity in db.domains[queryDom]:
+            sig2[entityIdx] = entity
+            query = '%s(%s)' % (queryPred, ','.join(sig2))
+            for truth in trueDB.query(query):
+                truth = truth.values().pop()
+            for pred in resultDB.query(query):
+                pred = pred.values().pop()
+            confMatrix.addClassificationResult(pred, truth)
+        for e, v in trueDB.evidence.iteritems():
+            if v is not None:
+                db.addGroundAtom('%s%s' % ('' if v is True else '!', e))
+    if verbose:
+        print confMatrix
+
+def learnAndEval(mln, learnDBs, testDBs, queryPred, queryDom, cwPreds, confMatrix, noisyDoms):
+    nTransf = NoisyStringTransformer(mln, noisyDoms, True)
+    learnDBs_ = nTransf.materializeNoisyDomains(learnDBs)
+    testDBs_ = nTransf.transformDBs(testDBs)
+    
+    learnedMLN = mln.learnWeights(learnDBs_, method=ParameterLearningMeasures.BPLL, optimizer='bfgs', verbose=verbose)
+    evalMLN(learnedMLN, queryPred, queryDom, cwPreds, testDBs_, confMatrix)
+    
+
+def runFold(args):
+    try:
+        foldIdx = args['foldIdx']
+        partition = args['partition']
+        directory = args['directory']
+        mln_ = args['mln_']
+        print 'Run %d of %d...' % (foldIdx+1, folds)
+        trainDBs = []
+        confMatrix = ConfusionMatrix()
+        for dbs in [dbs for i,dbs in enumerate(partition) if i != foldIdx]:
+            trainDBs.extend(dbs)
+        testDBs = partition[foldIdx]
+        learnAndEval(mln_, trainDBs, testDBs, predName, domain, cwpreds, confMatrix, noisyDoms=['text'])
+        confMatrix.toFile(os.path.join(directory, 'conf_matrix_%d.cm' % foldIdx))
+        return confMatrix
+    except (KeyboardInterrupt, SystemExit):
+        print "Exiting..."
+        return None
+    
 class NoisyStringTransformer(object):
+    '''
+    This transformer takes a set of strings and performs a clustering
+    based on the edit distance. It transforms databases wrt to the clusters.
+    '''
     
     def __init__(self, mln, noisyStringDomains, verbose=False):
         self.mln = mln
@@ -108,76 +199,7 @@ class NoisyStringTransformer(object):
                         newDB.addGroundAtom(atom)
             newDBs.append(newDB)
         return newDBs
-    
-def evalMLN(mln, queryPred, queryDom, cwPreds, dbs, confMatrix):
-    
-    mln.setClosedWorldPred(None)
-    for pred in [pred for pred in cwPreds if pred in mln.predicates]:
-        mln.setClosedWorldPred(pred)
-    sig = ['?arg%d' % i for i, _ in enumerate(mln.predicates[queryPred])]
-    querytempl = '%s(%s)' % (queryPred, ','.join(sig))
-    
-    for db in dbs:
-        # save and remove the query predicates from the evidence
-        trueDB = Database(mln)
-        for bindings in db.query(querytempl):
-            atom = querytempl
-            for binding in bindings:
-                atom = atom.replace(binding, bindings[binding])
-            trueDB.addGroundAtom(atom)
-            db.retractGndAtom(atom)
-        db.printEvidence()
-        
-        mln.defaultInferenceMethod = InferenceMethods.WCSP
-        mrf = mln.groundMRF(db)
-        conv = WCSPConverter(mrf)
-        
-        resultDB = conv.getMostProbableWorldDB()
-        
-        sig2 = list(sig)
-        entityIdx = mln.predicates[queryPred].index(queryDom)
-        for entity in db.domains[queryDom]:
-            sig2[entityIdx] = entity
-            query = '%s(%s)' % (queryPred, ','.join(sig2))
-            for truth in trueDB.query(query):
-                truth = truth.values().pop()
-            for pred in resultDB.query(query):
-                pred = pred.values().pop()
-            confMatrix.addClassificationResult(pred, truth)
-        for e, v in trueDB.evidence.iteritems():
-            if v is not None:
-                db.addGroundAtom('%s%s' % ('' if v is True else '!', e))
-    if verbose:
-        print confMatrix
 
-def learnAndEval(mln, learnDBs, testDBs, queryPred, queryDom, cwPreds, confMatrix, noisyDoms):
-    nTransf = NoisyStringTransformer(mln, noisyDoms, True)
-    learnDBs_ = nTransf.materializeNoisyDomains(learnDBs)
-    testDBs_ = nTransf.transformDBs(testDBs)
-    
-    learnedMLN = mln.learnWeights(learnDBs_, method=ParameterLearningMeasures.BPLL_CG, optimizer='cg', verbose=verbose, initWeights=True)
-    evalMLN(learnedMLN, queryPred, queryDom, cwPreds, testDBs_, confMatrix)
-    
-
-# def runFold(mln_, partition, foldIdx, directory):
-def runFold(args):
-    try:
-        foldIdx = args['foldIdx']
-        partition = args['partition']
-        directory = args['directory']
-        mln_ = args['mln_']
-        print 'Run %d of %d...' % (foldIdx+1, folds)
-        trainDBs = []
-        confMatrix = ConfusionMatrix()
-        for dbs in [dbs for i,dbs in enumerate(partition) if i != foldIdx]:
-            trainDBs.extend(dbs)
-        testDBs = partition[foldIdx]
-        learnAndEval(mln_, trainDBs, testDBs, predName, domain, cwpreds, confMatrix, noisyDoms=['text'])
-        confMatrix.toFile(os.path.join(directory, 'conf_matrix_%d.cm' % foldIdx))
-        return confMatrix
-    except (KeyboardInterrupt, SystemExit):
-        print "Exiting..."
-        return None
     
 if __name__ == '__main__':
     (options, args) = parser.parse_args()
@@ -192,7 +214,7 @@ if __name__ == '__main__':
     dbfiles = args[3:]
     
     startTime = time.time()
-    directory = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
+    directory = time.strftime("%a_%d_%b_%Y_%H:%M:%S", time.localtime())
     print 'Results will be written into %s' % directory
 
     # preparations
@@ -229,16 +251,16 @@ if __name__ == '__main__':
     if multicore:
         # set up a pool of worker processes
         workerPool = Pool()
+        print 'Starting %d-fold Crossvalidation in %d processes.' % (folds, workerPool._processes)
         kwargs = [{'mln_': mln_.duplicate(), 'partition': partition, 'foldIdx': i, 'directory': directory} for i in range(folds)]
         result = workerPool.map_async(runFold, kwargs).get()
-        print 'Started %d-fold Crossvalidation in %d processes.' % (folds, workerPool._processes)
         workerPool.close()
         workerPool.join()
         cm = ConfusionMatrix()
         for r in result:
             print r
             cm.combine(r)
-        cm.toPDF(os.path.join(directory, 'conf_matrix'))
+        cm.toFile(os.path.join(directory, 'conf_matrix.cm'))
         elapsedTimeMP = time.time() - startTime
 #     startTime = time.time()
     else:
@@ -252,13 +274,3 @@ if __name__ == '__main__':
     else:
         print '%d-fold crossvalidation (SP) took %.2f min' % (folds, elapsedTimeSP / 60.0)
         
-        
-
-    
-    
-        
-    
-    
-    
-    
-    
