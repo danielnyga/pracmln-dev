@@ -901,7 +901,6 @@ color(c4,blue)
 
 
 
-goggles_Text(c2,dull._)
 object(c0,Spoon)
 object(c1,Spoon)
 object(c3,Fork)
@@ -1353,7 +1352,6 @@ shape(c0,box)
 shape(c1,round)
 shape(c2,round)
 shape(c3,round)
-shape(c4,flat)
 
 
 color(c0,black)
@@ -2456,7 +2454,6 @@ size(c2,small)
 shape(c0,box)
 shape(c1,box)
 shape(c2,round)
-shape(c3,flat)
 
 
 
