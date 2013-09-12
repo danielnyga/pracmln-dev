@@ -687,7 +687,7 @@ class MRF(object):
                 w = str(f.weight)
                 while "$" in w:
                     try:
-                        w, numReplacements = re.subn(r'\$\w+', self._substVar, w)
+                        w, numReplacements = re.subn(r'\$\w+', self.mln._substVar, w)
                     except:
                         sys.stderr.write("Error substituting variable references in '%s'\n" % w)
                         raise

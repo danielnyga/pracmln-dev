@@ -100,7 +100,7 @@ class Inference(object):
         self.evidence = conjunction
         self.evidenceBlocks = [] # list of pll block indices where we know the true one (and thus the setting for all of the block's atoms)
         self.blockExclusions = {} # dict: pll block index -> list (of indices into the block) of atoms that mustn't be set to true
-        for idxBlock, (idxGA, block) in enumerate(self.mln.pllBlocks): # fill the list of blocks that we have evidence for
+        for idxBlock, (idxGA, block) in enumerate(self.mrf.pllBlocks): # fill the list of blocks that we have evidence for
             if block != None:
                 haveTrueone = False
                 falseones = []
@@ -116,7 +116,7 @@ class Inference(object):
                 elif len(falseones) > 0:
                     self.blockExclusions[idxBlock] = falseones
             else:
-                if self.mln._getEvidence(idxGA, False) != None:
+                if self.mrf._getEvidence(idxGA, False) != None:
                     self.evidenceBlocks.append(idxBlock)
 
     def _getElapsedTime(self):
@@ -198,7 +198,7 @@ class Inference(object):
                 if self.given is not None:
                     evidenceString = self.given
                 else:
-                    evidenceString = evidence2conjunction(self.mln.getEvidenceDatabase())
+                    evidenceString = evidence2conjunction(self.mrf.getEvidenceDatabase())
             # print sorted results, one per line
             strQueries = map(strFormula, self.queries)
             query2Index = {}
@@ -215,7 +215,7 @@ class Inference(object):
             if self.given is not None:
                 evidenceString = self.given
             else:
-                evidenceString = evidence2conjunction(self.mln.getEvidenceDatabase())
+                evidenceString = evidence2conjunction(self.mrf.getEvidenceDatabase())
             # print sorted results, one per line
             strQueries = map(strFormula, self.queries)
             query2Index = {}

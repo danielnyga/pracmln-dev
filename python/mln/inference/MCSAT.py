@@ -26,6 +26,7 @@
 from MCMCInference import * 
 from SAMaxWalkSAT import *
 import pickle
+from logic.grammar import parseFormula
 
 class MCSAT(MCMCInference):
     ''' MC-SAT/MC-SAT-PC '''
@@ -46,7 +47,7 @@ class MCSAT(MCMCInference):
         # convert the MLN ground formulas to CNF
         if verbose: print "converting formulas to CNF..."
         #self.mln._toCNF(allPositive=True)
-        self.gndFormulas, self.formulas = toCNF(self.mln.gndFormulas, self.mln.formulas, allPositive=True)
+        self.gndFormulas, self.formulas = toCNF(self.mrf.gndFormulas, self.mln.formulas, allPositive=True)
 
         # get clause data
         if verbose: print "gathering clause data..."
@@ -75,16 +76,16 @@ class MCSAT(MCMCInference):
         # add clauses for soft evidence atoms
         for se in self.softEvidence:
             se["numTrue"] = 0.0
-            formula = fol.parseFormula(se["expr"])
-            se["formula"] = formula.ground(self.mln, {})
-            cnf = formula.toCNF().ground(self.mln, {}) 
+            formula = parseFormula(se["expr"])
+            se["formula"] = formula.ground(self.mrf, {})
+            cnf = formula.toCNF().ground(self.mrf, {}) 
             idxFirst = idxClause
             for clause in self._formulaClauses(cnf):                
                 self.clauses.append(clause)
                 #print clause
                 idxClause += 1
             se["idxClausePositive"] = (idxFirst, idxClause)
-            cnf = fol.Negation([formula]).toCNF().ground(self.mln, {})
+            cnf = fol.Negation([formula]).toCNF().ground(self.mrf, {})
             idxFirst = idxClause
             for clause in self._formulaClauses(cnf):                
                 self.clauses.append(clause)
@@ -125,7 +126,7 @@ class MCSAT(MCMCInference):
         
         if verbose: print "starting MC-SAT with maxSteps=%d, handleSoftEvidence=%s" % (maxSteps, handleSoftEvidence)
         if softEvidence is None:
-            self.softEvidence = self.mln.softEvidence
+            self.softEvidence = self.mrf.softEvidence
         else:
             self.softEvidence = softEvidence
         self.handleSoftEvidence = handleSoftEvidence
@@ -133,7 +134,7 @@ class MCSAT(MCMCInference):
         # initialize the KB and gather required info
         self._initKB(verbose)
         # get the list of relevant ground atoms for each block (!!! only needed for SAMaxWalkSAT actually)
-        self.mln._getBlockRelevantGroundFormulas()
+        self.mrf._getBlockRelevantGroundFormulas()
         
         self.p = p
         self.debug = debug
@@ -190,7 +191,7 @@ class MCSAT(MCMCInference):
                             M.extend(range(*clauseRange))
                         else:
                             NLC.append(gf)
-                ss = SampleSAT(mln, chain.state, M, NLC, self, p=0.8, debug=debug and debugLevel >= 2) # Note: can't use p=1.0 because there is a chance of getting into an oscillating state
+                ss = SampleSAT(self.mrf, chain.state, M, NLC, self, p=0.8, debug=debug and debugLevel >= 2) # Note: can't use p=1.0 because there is a chance of getting into an oscillating state
                 ss.run()
             else:
                 raise Exception("MC-SAT Error: Unknown initialization algorithm specified")
@@ -316,7 +317,7 @@ class MCSAT(MCMCInference):
                     #print "negative case: add=%s, %s, %f should become %f" % (add, map(str, [map(str, self.clauses[i]) for i in range(*se["idxClauseNegative"])]), p, se["p"])
         # (uniformly) sample a state that satisfies them
         t1 = time.time()
-        ss = SampleSAT(self.mln, chain.state, M, NLC, self, debug=self.debug and self.debugLevel >= 2, p=self.p)
+        ss = SampleSAT(self.mrf, chain.state, M, NLC, self, debug=self.debug and self.debugLevel >= 2, p=self.p)
         t2 = time.time()
         ss.run()
         t3 = time.time()
@@ -352,12 +353,13 @@ class SampleSAT:
     # p: probability of performing a greedy WalkSAT move
     # state: the state (array of booleans) to work with (is reinitialized randomly by this constructor)
     # NLConstraints: list of grounded non-logical constraints
-    def __init__(self, mln, state, clauseIdxs, NLConstraints, inferObject, p=0.5, debug=False):
+    def __init__(self, mrf, state, clauseIdxs, NLConstraints, inferObject, p=0.5, debug=False):
         t_start = time.time()
         self.debug = debug
         self.inferObject = inferObject
         self.state = state
-        self.mln = mln        
+        self.mrf = mrf
+        self.mln = mrf.mln        
         self.p = p
         # initialize the state randomly (considering the evidence) and obtain block info
         t1 = time.time()
@@ -619,12 +621,13 @@ class SampleSAT:
         bestGA = None
         bestGAsecond = None
         mln = self.mln
+        mrf = self.mrf
         inferObject = self.inferObject
         for idxGA in candidates:
             #strGA = str(self.mln.gndAtomsByIdx[idxGA])
             idxGAsecond = None
             # ignore ground atoms for which we have evidence
-            idxBlock = mln.atom2BlockIdx[idxGA]
+            idxBlock = mrf.atom2BlockIdx[idxGA]
             if idxBlock in inferObject.evidenceBlocks:
                 #print "%s is in evidence" % strGA
                 continue
@@ -634,7 +637,7 @@ class SampleSAT:
                 continue
             # get the number of unsatisfied clauses the flip would cause
             num = 0
-            block = mln.pllBlocks[idxBlock][1]
+            block = mrf.pllBlocks[idxBlock][1]
             if block is not None: # if the atom is in a real block, select a second atom to flip to get a consistent state
                 trueOne, falseOnes = self.blockInfo[idxBlock]
                 if trueOne in falseOnes: 
@@ -718,7 +721,7 @@ class SampleSAT:
         # pick one of the blocks at random until we get one where we can flip (true one not known)
         idxPllBlock = 0
         while True:
-            idxPllBlock = random.randint(0, len(self.mln.pllBlocks) - 1)
+            idxPllBlock = random.randint(0, len(self.mrf.pllBlocks) - 1)
             if idxPllBlock in self.inferObject.evidenceBlocks: # skip evidence block
                 #print "skipping evidence block"
                 #pass
@@ -727,7 +730,7 @@ class SampleSAT:
                 break
         # randomly pick one of the block's ground atoms to flip
         delta = 0
-        idxGA, block = self.mln.pllBlocks[idxPllBlock]
+        idxGA, block = self.mrf.pllBlocks[idxPllBlock]
         trueOne = None
         if block is not None: # if it's a proper block, we need to look at the truth values to make a consistent setting
             trueOne, falseOnes = self.blockInfo[idxPllBlock]

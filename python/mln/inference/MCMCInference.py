@@ -38,7 +38,7 @@ class MCMCInference(Inference):
             for i in range(len(self.mln.gndAtoms)): state.append(None)        
         
         mln = self.mln
-        for idxBlock, (idxGA, block) in enumerate(mln.pllBlocks):
+        for idxBlock, (idxGA, block) in enumerate(self.mrf.pllBlocks):
             if idxBlock not in self.evidenceBlocks:
                 if block != None: # block of mutually exclusive atoms
                     blockExcl = self.blockExclusions.get(idxBlock)
@@ -69,11 +69,11 @@ class MCMCInference(Inference):
 
     def _readEvidence(self, conjunction):
         #save old evidence as evidence is changed in here #HACK
-        oldEvidence = copy.copy(self.mln.evidence)
+        oldEvidence = copy.copy(self.mrf.evidence)
         
         self._getEvidenceBlockData(conjunction)
 
-        self.mln.evidence = oldEvidence #reset old evidence
+        self.mrf.evidence = oldEvidence #reset old evidence
 
     class Chain:
         def __init__(self, inferenceObject, queries):
@@ -84,8 +84,8 @@ class MCMCInference(Inference):
             self.converged = False
             self.lastResult = 10
             self.inferenceObject = inferenceObject
-            # copy the current mln evidence as this chain's state
-            self.state = list(inferenceObject.mln.evidence)
+            # copy the current  evidence as this chain's state
+            self.state = list(inferenceObject.mrf.evidence)
             # initialize remaining variables randomly (but consistently)
             inferenceObject.setRandomState(self.state)
         
