@@ -24,6 +24,7 @@
 import sys
 import os
 from subprocess import Popen, PIPE
+import logging
 
 temp_wcsp_file = os.path.join('/', 'tmp', 'temp%d.wcsp')
 
@@ -38,7 +39,7 @@ def isToulbar2Installed():
         for candidate in cmd_file:
             if is_executable(candidate):
                 return
-    raise Exception('Toulbar2 WCSP solver cannot be found.')
+    logging.getLogger(__name__).exception('toulbar2 executable cannot be found.')
 
 isToulbar2Installed()
 
@@ -177,6 +178,7 @@ class WCSP(object):
         Uses toulbar2 inference. Returns the best solution, i.e. a tuple
         of variable assignments.
         '''
+        log = logging.getLogger(self.__class__.__name__)
         # append the process id to the filename to make it "process safe"
         wcspfilename = temp_wcsp_file % os.getpid()
         f = open(wcspfilename, 'w+')
@@ -184,7 +186,7 @@ class WCSP(object):
 #         cmd = 'toulbar2 -s -v=1 -e=0 -nopre -k=0 %s' % temp_wcsp_file
         f.close()
         cmd = 'toulbar2 -s %s' % wcspfilename
-        print 'solving WCSP...'
+        log.debug('solving WCSP...')
         p = Popen(cmd, shell=True, stderr=PIPE, stdout=PIPE)
         solution = None
         nextLineIsSolution = False

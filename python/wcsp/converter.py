@@ -29,6 +29,7 @@ import utils
 from logic.fol import isConjunctionOfLiterals
 from logic.fol import isDisjunctionOfLiterals
 from mln.database import Database
+import logging
 
 class MaxCostExceeded(Exception): pass
 
@@ -144,7 +145,6 @@ class WCSPConverter(object):
         costSum = long(0)
         for f in self.mrf.gndFormulas:
             if f.isHard or f.weight == 0.0: continue
-#            print f.weight, f, self.divisor
             cost = abs(long(f.weight / self.divisor))
             newSum = costSum + cost
             if newSum < costSum:
@@ -154,6 +154,7 @@ class WCSPConverter(object):
         if top < costSum:
             raise Exception("Numeric Overflow")
         if top > WCSPConverter.MAX_COST:
+            self.log.error('Maximum costs exceeded: %d > %d' % (top, WCSPConverter.MAX_COST))
             raise MaxCostExceeded()
         return long(top)
     
@@ -320,10 +321,11 @@ class WCSPConverter(object):
         '''
         Returns a Database object with the most probable truth assignment.
         '''
+        log = logging.getLogger(self.__class__.__name__)
         wcsp = self.convert()
         solution, _ = wcsp.solve(verbose)
         if solution is None:
-            raise Exception('No solution found. Is your knowledge base satisfiable?')
+            log.exception('Knowledge base is unsatisfiable.')
         resultDB = Database(self.mln)
         resultDB.domains = dict(self.mrf.domains)
         resultDB.evidence = dict(self.mrf.getEvidenceDatabase())

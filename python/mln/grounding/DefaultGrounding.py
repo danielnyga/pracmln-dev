@@ -25,6 +25,7 @@ from logic import fol
 from mln.util import *
 from AbstractGrounding import AbstractGroundingFactory
 from mln.MarkovLogicNetwork import DEBUG
+import logging
 
 class DefaultGroundingFactory(AbstractGroundingFactory):
     '''
@@ -50,14 +51,14 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
             atom = fol.GroundAtom(predName, cur)
             mrf.addGroundAtom(atom)
             return True
-
+        log = logging.getLogger(self.__class__.__name__)
         # create ground atoms for each way of grounding the first of the 
         # remaining variables whose domains are given in domNames
         dom = mrf.domains.get(domNames[0])
         if dom is None or len(dom) == 0:
 #             raise Exception("Domain '%s' is empty!" % domNames[0])
             if self.verbose:
-                print "WARNING: Ground Atoms for predicate %s could not be generated, since the domain '%s' is empty" % (predName, domNames[0])
+                log.warning("Ground Atoms for predicate %s could not be generated, since the domain '%s' is empty" % (predName, domNames[0]))
             return False
         for value in dom:
             if not self._groundAtoms(cur + [value], predName, domNames[1:]): return False

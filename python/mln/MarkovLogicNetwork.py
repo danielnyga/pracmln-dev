@@ -30,6 +30,8 @@ import copy
 from utils import dict_union
 
 from debug import DEBUG
+import praclog
+import logging
 
 '''
 Your MLN files may contain:
@@ -167,7 +169,8 @@ class MLN(object):
         - functional:  indices of args which are functional (optional)
         '''
         if name in self.predicates:
-            raise Exception('Predicate "%s" has already been declared' % name)
+            msg = 'Predicate "%s" has already been declared' % name
+            logging.getLogger(self.__class__.__name__).exception(msg)
         assert type(domains) == list
         self.predicates[name] = domains
         if functional is not None:
@@ -229,7 +232,8 @@ class MLN(object):
         Expand all formula templates.
         - dbs: list of Database objects
         '''
-        print "materializing formula templates..."
+        log = logging.getLogger(self.__class__.__name__)
+        log.info("materializing formula templates...")
         
         # TODO: duplicate this MLN to avoid side effects
         newMLN = self.duplicate()
@@ -242,8 +246,8 @@ class MLN(object):
         for ft in list(newMLN.formulas):
             domNames = ft.getVariables(self).values()
             if any([not domName in fullDomain for domName in domNames]):
-                print 'WARNING: Discarding formula template %s,\n         since it cannot be grounded (domain "%s" empty).' % \
-                    (strFormula(ft), ','.join([d for d in domNames if d not in fullDomain]))
+                log.warning('Discarding formula template %s,\n         since it cannot be grounded (domain "%s" empty).' % \
+                    (strFormula(ft), ','.join([d for d in domNames if d not in fullDomain])))
                 newMLN.formulas.remove(ft)
         
         # collect the admissible predicates. a predicate may become inadmissible
@@ -255,10 +259,10 @@ class MLN(object):
         for pred, domains in self.predicates.iteritems():
             remove = False
             if any([not dom in fullDomain for dom in self.predicates[pred]]):
-                print 'WARNING: Discarding predicate %s, since it cannot be grounded.' % (pred)
+                log.warning('Discarding predicate %s, since it cannot be grounded.' % (pred))
                 remove = True
             if pred not in predicatesUsed:
-                print 'WARNING: Discarding predicate %s, since it is unused.' % pred
+                log.warning('Discarding predicate %s, since it is unused.' % pred)
                 remove = True
             if remove: del newMLN.predicates[pred]
         
@@ -281,7 +285,6 @@ class MLN(object):
         self.formulas = []
         
         # materialize formula templates
-        if verbose: print "materializing formula templates..."
         idxGroup = None
         prevIdxGroup = None
         group = []
@@ -400,6 +403,7 @@ class MLN(object):
         Returns a new MLN object with the learned parameters.
         - databases: list of Database objects or filenames
         '''
+        log = logging.getLogger(self.__class__.__name__)
         self.verbose = params.get('verbose', False)
         # get a list of database objects
         dbs = []
@@ -430,12 +434,12 @@ class MLN(object):
         # run learner
         if len(dbs) == 1:
             groundingMethod = eval('learning.%s.groundingMethod' % method)
-            print "grounding MRF using %s..." % groundingMethod 
+            log.info("grounding MRF using %s..." % groundingMethod) 
             mrf = newMLN.groundMRF(dbs[0], False, groundingMethod, True, **params)
             learner = eval("learning.%s(newMLN, mrf, **params)" % method)
         else:
             learner = learning.MultipleDatabaseLearner(newMLN, method, dbs, **params)
-        print "learner: %s" % learner.getName()
+        log.info("learner: %s" % learner.getName())
         wt = learner.run(**params)
 
         # create the resulting MLN and set its weights
@@ -470,7 +474,7 @@ class MLN(object):
         Creates the file with the given filename and writes this MLN into it.
         '''
         f = open(filename, 'w+')
-        self.write(f)
+        self.write(f)   
         f.close()
 
     def write(self, f, mutexInDecls=True):
@@ -582,7 +586,7 @@ class MRF(object):
                                                         # probabilities are nothing but 
                                                         #soft evidence and can be handled in exactly the same way
         self.simplify = self.params['simplify']
-        
+        log = logging.getLogger(self.__class__.__name__)
         # ground members
         self.gndAtoms = {}
         self.gndBlockLookup = {}
@@ -895,11 +899,12 @@ class MRF(object):
         Any previous evidence is cleared.
         The closed-world assumption is applied to any predicates for which it was declared.
         '''
+        log = logging.getLogger(self.__class__.__name__)
         if clear is True:
             self._clearEvidence()
         for gndAtom, value in evidence.iteritems():
             if not gndAtom in self.gndAtoms:
-                print 'WARNING: evidence "%s=%s" is not among the ground atoms.' % (gndAtom, str(value))
+                log.warning('evidence "%s=%s" is not among the ground atoms.' % (gndAtom, str(value)))
                 continue
             idx = self.gndAtoms[gndAtom].idx
             self._setEvidence(idx, value)
