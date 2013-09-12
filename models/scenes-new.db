@@ -195,12 +195,12 @@ linemod(c1,Trink_Schoko)
 linemod(c2,Vitalis)
 
 
-goggles_Text(c0,Voll._Milch_)
-object(c,Milk)
-object(c,Coffee)
-object(c,Coffee)
-object(c,Plate)
-object(c,Cup)
+goggles_Text(c0,Voll_Milch_)
+object(c0,Milk)
+object(c1,Coffee)
+object(c2,Coffee)
+object(c3,Plate)
+object(c4,Cup)
 
 
 
@@ -437,13 +437,13 @@ shape(c3,cylinder)
 shape(c4,cylinder)
 
 
-object(c,Cereal)
-object(c,Bowl)
-object(c,Milk)
-object(c,Chips)
-object(c,Cup)
-object(c,Spoon)
-object(c,Fork)
+object(c0,Cereal)
+object(c1,Bowl)
+object(c2,Milk)
+object(c3,Chips)
+object(c4,Cup)
+object(c5,Spoon)
+object(c6,Fork)
 
 
 
@@ -590,13 +590,13 @@ goggles_Text(c0,pfanner_)
 shape(c3,cylinder)
 
 
-object(c,Juice)
-object(c,Bowl)
-object(c,Bowl)
-object(c,Cup)
-object(c,Cup)
-object(c,Spoon)
-object(c,Fork)
+object(c0,Juice)
+object(c1,Bowl)
+object(c2,Bowl)
+object(c3,Cup)
+object(c4,Cup)
+object(c5,Spoon)
+object(c6,Fork)
 
 
 
@@ -649,12 +649,12 @@ goggles_Text(c1,planner_)
 shape(c3,cylinder)
 
 
-object(c,Ketchup)
-object(c,Juice)
-object(c,Bowl)
-object(c,Chips)
-object(c,Spoon)
-object(c,Fork)
+object(c0,Ketchup)
+object(c1,Juice)
+object(c2,Bowl)
+object(c3,Chips)
+object(c4,Spoon)
+object(c5,Fork)
 
 
 //2013-09-11T22:53:49.660526
