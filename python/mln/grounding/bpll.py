@@ -476,8 +476,8 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                     f.weight = factor * -mrf.hard_weight
                 else:
                     f.weight = factor * math.log(self.trueGroundingsCounter.get(i, 0) / float(totalGroundings - self.trueGroundingsCounter.get(i, 0)))
-                if self.verbose:
-                    print '  log(%d/%d)=%.6f \t%s' % (self.trueGroundingsCounter.get(i, 0), totalGroundings-self.trueGroundingsCounter.get(i, 0), f.weight, strFormula(f))
+#                 if self.verbose:
+#                     print '  log(%d/%d)=%.6f \t%s' % (self.trueGroundingsCounter.get(i, 0), totalGroundings-self.trueGroundingsCounter.get(i, 0), f.weight, strFormula(f))
      
         
 #         self.evidence = list(self.mrf.evidence)
