@@ -155,7 +155,7 @@ class XValFold(object):
             log.debug('Starting learning...')
             learnedMLN = mln.learnWeights(learnDBs_, method=self.params.learningMethod, 
                                           optimizer=self.params.optimizer, 
-                                          gaussianPriorSigma=5.,
+                                          gaussianPriorSigma=10.,
                                           verbose=verbose)
             # store the learned MLN in a file
             learnedMLN.writeToFile(os.path.join(directory, 'run_%d.mln' % self.params.foldIdx))
@@ -211,7 +211,7 @@ class NoisyStringTransformer(object):
             self.noisyDomains[nDomain] = [c._computeCentroid()[0] for c in clusters]
             if self.verbose:
                 self.log.info('  reducing domain %s: %d -> %d values' % (nDomain, len(values), len(clusters)))
-                self.log.info('   ', self.noisyDomains[nDomain]) 
+                self.log.info('   %s', str(self.noisyDomains[nDomain]))
         return self.transformDBs(dbs)
         
     def transformDBs(self, dbs):
@@ -254,7 +254,7 @@ if __name__ == '__main__':
     percent = options.percent
     verbose = options.verbose
     multicore = options.multicore
-    noisy = ['string']
+    noisy = ['text']
     predName = args[0]
     domain = args[1]
     mlnfile = args[2]

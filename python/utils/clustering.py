@@ -169,7 +169,7 @@ def SAHN(dataPoints, threshold=None, linkage='avg', dist='auto'):
         # return the set of clusters associated to the median
         # (or the clostest smaller one, respectively)
         l = sorted(threshold2clusters, reverse=True)
-        m = numpy.mean(l)
+        m = numpy.median(l)
         deltas = map(lambda x: abs(m - x), l)
         clusters = threshold2clusters.get(l[deltas.index(min(deltas))])
     return clusters

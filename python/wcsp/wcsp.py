@@ -193,7 +193,7 @@ class WCSP(object):
         cost = None
         while True:
             l = p.stdout.readline()
-#             print l
+            # print l
             if not l: break
             if l.startswith('New solution'):
                 cost = long(l.split()[2])
@@ -203,6 +203,9 @@ class WCSP(object):
                 if verbose: print solution, cost
                 solution = map(int, l.split())
                 nextLineIsSolution = False
+	p.wait()        
+	retCode = p.returncode
+        log.debug('toulbar2 process returned %s' % str(retCode))
         return solution, cost
     
 if __name__ == '__main__':
