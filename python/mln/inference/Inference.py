@@ -105,7 +105,7 @@ class Inference(object):
                 haveTrueone = False
                 falseones = []
                 for i, idxGA in enumerate(block):
-                    ev = self.mln._getEvidence(idxGA, False)
+                    ev = self.mrf._getEvidence(idxGA, False)
                     if ev == True:
                         haveTrueone = True
                         break

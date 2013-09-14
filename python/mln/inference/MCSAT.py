@@ -366,7 +366,7 @@ class SampleSAT:
         self.blockInfo = {}
         self.inferObject.setRandomState(self.state, blockInfo=self.blockInfo)
         t2 = time.time()
-        if debug: mln.printState(self.state)
+        if debug: mrf.printState(self.state)
         # list of unsatisfied constraints
         self.unsatisfiedConstraints = []
         # keep a map of bottlenecks: index of the ground atom -> list of constraints where the corresponding lit is a bottleneck
