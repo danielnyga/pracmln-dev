@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # FIRST-ORDER LOGIC -- PARSING AND GRAMMAR
 #  
 # (C) 2013 by Daniel Nyga (nyga@cs.uni-bremen.de)
@@ -103,7 +104,7 @@ class TreeBuilder(object):
 
 # grammar
 
-identifierCharacter = alphanums + '_' + '-' + "'" + '.' + ':' + ';' + '$'
+identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$'
 lcCharacter = alphas.lower()
 ucCharacter = alphas.upper()
 lcName = Word(lcCharacter, alphanums + '_')
