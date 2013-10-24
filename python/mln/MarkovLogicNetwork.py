@@ -32,6 +32,7 @@ from utils import dict_union
 from debug import DEBUG
 import praclog
 import logging
+from string import whitespace
 
 '''
 Your MLN files may contain:
@@ -1674,6 +1675,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
             f = file(filename)
             text += f.read()
             f.close()
+    dirs = [os.path.dirname(fn) for fn in filename_or_list]
     formulatemplates = []
     if text == "": 
         raise Exception("No MLN content to construct model from was given; must specify either file/list of files or content string!")
@@ -1695,6 +1697,7 @@ def readMLNFromFile(filename_or_list, verbose=False):
     fixedWeightTemplateIndices = []
     lines = text.split("\n")
     iLine = 0
+    log = logging.getLogger('parsing')
     while iLine < len(lines):
         line = lines[iLine]
         iLine += 1
@@ -1713,8 +1716,21 @@ def readMLNFromFile(filename_or_list, verbose=False):
                 fixWeightOfNextFormula = True
                 continue
             elif line.startswith("#include"):
-                filename = line[len("#include "):].strip()
-                content = stripComments(file(filename, "r").read())
+                filename = line[len("#include "):].strip(whitespace + '"')
+                # if the path is relative, look for the respective file 
+                # relatively to all paths specified. Take the first file matching.
+                if not os.path.isabs(filename):
+                    includefilename = None
+                    for d in dirs:
+                        if os.path.exists(os.path.join(d, filename)):
+                            includefilename = os.path.join(d, filename)
+                            break
+                    if includefilename is None:
+                        log.error('No such file: "%s"' % filename)
+                else:
+                    includefilename = filename
+                log.info('Including file: "%s"' % includefilename)
+                content = stripComments(file(includefilename, "r").read())
                 lines = content.split("\n") + lines[iLine:]
                 iLine = 0
                 continue
