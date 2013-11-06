@@ -314,6 +314,11 @@ class SmartGroundingFactory(object):
 
 
 class BPLLGroundingFactory(DefaultGroundingFactory):
+    '''
+    Grounding factory for efficient grounding for pseudo-likelihood
+    learning. Treats conjunctions in linear time by exploitation
+    of their semantics. Groundings for BPLL can be constructed directly.
+    '''
     
     def __init__(self, mrf, db, **params):
         DefaultGroundingFactory.__init__(self, mrf, db, **params)
@@ -363,6 +368,10 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
     def _createGroundFormulas(self): pass
     
     def litIterGnd(self, mrf, lit):
+        '''
+        Iterate over all groundings of the given literal.
+        Yields the grounding itself and the respective variable assignments.
+        '''
         vars2doms = lit.getVariables(mrf)
         vars = vars2doms.keys()
         domains = [mrf.domains[vars2doms[v]] for v in vars]
@@ -373,20 +382,15 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
             assignment = dict([(v,a) for v,a in zip(vars,c)])
             yield lit.ground(mrf, assignment, allowPartialGroundings=True), assignment
     
-    def generateTrueConjunctionGroundings(self, fIdx, formula, conjSoFar, falseLit=None):
-        conjuncts = formula.children
-        eqConstraints = []
-        while len(conjuncts) > 0 and type(conjuncts[0]) is Equality:
-            eq = conjuncts[0]
-            if eq.isTrue(None) is False: return
-            elif eq.isTrue(None) is None: eqConstraints.append(eq)
-            conjuncts = conjuncts[1:]
-        if len(conjuncts) == 0:
+    def generateTrueConjunctionGroundings(self, fIdx, formula, conjunctsSoFar, falseLit=None):
+        '''
+        Recursively generate the true groundings of a conjunction and
+        collect the statistics for pseudo-likelihood learning.
+        '''
+        if formula is None:
             if falseLit is None:
-#                 print 'alltrue:'
-#                 print '  ', map(str, conjSoFar)
                 self.trueGroundingsCounter[fIdx] = self.trueGroundingsCounter.get(formula, 0) + 1
-                for conj in conjSoFar:
+                for conj in conjunctsSoFar:
                     idxVar = self.mrf.atom2BlockIdx[conj.gndAtom.idx]
                     (idxGA, block) = self.mrf.pllBlocks[idxVar]
                     if block is not None:
@@ -395,8 +399,6 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                         self._addMBCount(idxVar, 2, 0, fIdx)
                     else: assert False
             else:
-#                 print 'only true if inverted:', falseLit
-#                 print '  ', map(str, conjSoFar)
                 idxVar = self.mrf.atom2BlockIdx[falseLit.gndAtom.idx]
                 (idxGA, block) = self.mrf.pllBlocks[idxVar]
                 if idxGA is not None:
@@ -404,17 +406,29 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                 else:
                     self._addMBCount(idxVar, len(block), self.mrf.atom2ValueIdx[falseLit.gndAtom.idx], fIdx)
             return
-        conj = conjuncts[0]
-        for gndLit, varAssign in self.litIterGnd(self.mrf, conj):
-            gndLitTruth = gndLit.isTrue(self.mrf.evidence)
-#             print gndLit, gndLitTruth
-            # we can stop when we encounter more than one false conjunct
-            if not gndLitTruth: 
-                if falseLit is not None: return
-                else: falseLit = gndLit
-            newConj = Conjunction(eqConstraints + conjuncts[1:]).ground(self.mrf, varAssign, allowPartialGroundings=True)
-            self.generateTrueConjunctionGroundings(fIdx, newConj, conjSoFar + [gndLit], falseLit)
-            falseLit = None
+        # remove the true equality constraints
+        conjuncts = formula.children
+        eqConstraints = []
+        while len(conjuncts) > 0 and type(conjuncts[0]) is Equality:
+            eq = conjuncts[0]
+            if eq.isTrue(None) is False: return
+            elif eq.isTrue(None) is None: eqConstraints.append(eq)
+            conjuncts = conjuncts[1:]
+        
+        if len(conjuncts) >= 1:
+            conj = conjuncts[0]
+            for gndLit, varAssign in self.litIterGnd(self.mrf, conj):
+                gndLitTruth = gndLit.isTrue(self.mrf.evidence)
+                # we can stop when we encounter more than one false conjunct
+                if not gndLitTruth: 
+                    if falseLit is not None: return
+                    else: falseLit = gndLit
+                if len(conjuncts) + len(eqConstraints) >= 3:
+                    newConj = Conjunction(eqConstraints + conjuncts[1:]).ground(self.mrf, varAssign, allowPartialGroundings=True)
+                else:
+                    newConj = None
+                self.generateTrueConjunctionGroundings(fIdx, newConj, conjunctsSoFar + [gndLit], falseLit)
+                falseLit = None
             
     def _computeStatistics(self): 
         self.createVariablesAndEvidence()
