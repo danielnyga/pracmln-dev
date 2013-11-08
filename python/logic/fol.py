@@ -23,6 +23,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import sys
+import logging
 
 DEBUG_NF = False # whether to display debug information while performing normal form conversion
 
@@ -91,54 +92,60 @@ class Formula(Constraint):
         Gets all the template variants of the formula for the given
         MLN (ground Markov Random Field)
         '''
+        log = logging.getLogger('fol')
         uniqueVars = mln.uniqueFormulaExpansions.get(self, None)
-        uniqueVarsDomain = {}
         if uniqueVars is not None:
-            uniqueVarsDomain[uniqueVars] = list(mln.domains[self.getVarDomain(uniqueVars[0], mln)])
-        tvars = self._getTemplateVariables(mln)
+            uniqueVarsDomain = list(mln.domains[self.getVarDomain(uniqueVars[0], mln)])
+        else:
+            uniqueVarsDomain = None
+        log.info(uniqueVars)
+        log.info(uniqueVarsDomain)
+        variables = []
+        domains = []
+        for v, d in self._getTemplateVariables(mln).iteritems():
+            variables.append(v)
+            domains.append(list(mln.domains[d]))
+        log.info(variables)
+        log.info(domains)
         variants = []
-        self._getTemplateVariants(mln, tvars.items(), {}, variants, 0, uniqueVarsDomain)
+        for variant in self._getTemplateVariants(mln, variables, domains, uniqueVarsDomain):
+            variants.extend(self._groundTemplate(variant))
         return variants
 
-    def _getTemplateVariants(self, mln, vars, assignment, variants, i, uniqueVarsDomain={}):
-        if i == len(vars): # all template variables have been assigned a value
-            # ground the vars in all children
-            variants.extend(self._groundTemplate(assignment))
+    def _getTemplateVariants(self, mln, variables, domains, uniqueDomain):
+        if len(variables) == 0:
+            yield {}
             return
-        else:
-            # ground the next variable
-            varname, domname = vars[i]
-            uVarDom = None
-            for value in mln.domains[domname]:
-                if not len(uniqueVarsDomain) == 0:
-                    for uvars, dom in uniqueVarsDomain.iteritems(): break
-                    if varname in uvars and len(uvars) > 1:
-                        del uniqueVarsDomain[uvars]
-                        uniqueVarsDomain[tuple([v for v in uvars if v != varname])] = dom
-                        uVarDom = dom
-                    elif varname in uvars and not value in dom:
-                        continue
-                assignment[varname] = value
-                self._getTemplateVariants(mln, vars, assignment, variants, i+1, uniqueVarsDomain)
-                if uVarDom:
-                    uVarDom.remove(value)
-                    
+        # ground the next variable
+        varname = variables[0]
+        isUnique = varname in mln.uniqueFormulaExpansions.get(self, [])
+        domain = domains[0] if not isUnique else uniqueDomain
+        for valIdx, value in enumerate(domain):
+            uDomain = uniqueDomain if not isUnique else uniqueDomain[valIdx+1:]
+            for assignment in self._getTemplateVariants(mln, variables[1:], domains[1:], uDomain):
+                yield dict(assignment.items() + [(varname, value)])
+            
     def _getTemplateVariables(self, mln, vars = None):
-        '''gets all variables of this formula that are required to be expanded (i.e. variables to which a '+' was appended) and returns a mapping (dict) from variable name to domain name'''
+        '''
+        gets all variables of this formula that are required to be expanded 
+        (i.e. variables to which a '+' was appended) and returns a 
+        mapping (dict) from variable name to domain name.
+        '''
         raise Exception("%s does not implement _getTemplateVariables" % str(type(self)))
     
     def _groundTemplate(self, assignment):
-        '''grounds this formula for the given assignment of template variables and returns a list of formulas, the list of template variants
-                assignment: a mapping from variable names to constants'''
+        '''grounds this formula for the given assignment of template variables 
+        and returns a list of formulas, the list of template variants
+        - assignment: a mapping from variable names to constants'''
         raise Exception("%s does not implement _groundTemplate" % str(type(self)))
 
     def iterGroundings(self, mrf, simplify=False):
         '''
-            iteratively yields the groundings of the formula for the given grounder
-            mrf: an object, such as an MRF instance, which
-                - has an "mln" member (MarkovLogicNetwork instance)
-                - has a "domains" member (like an MLN/MRF)
-                - has a "gndAtoms" member that can be indexed, i.e. gndAtoms[string] should return a ground atom instance
+        iteratively yields the groundings of the formula for the given grounder
+        mrf: an object, such as an MRF instance, which
+            - has an "mln" member (MarkovLogicNetwork instance)
+            - has a "domains" member (like an MLN/MRF)
+            - has a "gndAtoms" member that can be indexed, i.e. gndAtoms[string] should return a ground atom instance
         '''
         try:
             vars = self.getVariables(mrf.mln)
