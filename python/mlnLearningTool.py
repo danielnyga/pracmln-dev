@@ -40,6 +40,7 @@ from mln.MarkovLogicNetwork import readMLNFromFile
 from mln.methods import ParameterLearningMeasures
 import cProfile
 from cProfile import Profile
+import logging
 
 # --- generic learning interface ---
 
@@ -132,6 +133,9 @@ class MLNLearn:
                 mln = self.settings["mln"]
             else:
                 raise Exception("Argument 'mln' must be either string or MLN object")
+            
+            # set the debug level
+            logging.getLogger().setLevel(eval('logging.%s' % args.get('debug', 'WARNING').upper()))
             
             if args.get('profile', False):
                 prof = Profile()
