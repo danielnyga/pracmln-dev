@@ -241,13 +241,13 @@ class MLN(object):
         
         # obtain full domain with all objects 
         fullDomain = mergeDomains(self.domains, *[db.domains for db in dbs])
-        
+
         # collect the admissible formula templates. templates might be not
         # admissible since the domain of a template variable might be empty.
         for ft in list(newMLN.formulas):
             domNames = ft.getVariables(self).values()
             if any([not domName in fullDomain for domName in domNames]):
-                log.warning('Discarding formula template %s,\n         since it cannot be grounded (domain "%s" empty).' % \
+                log.debug('Discarding formula template %s, since it cannot be grounded (domain(s) %s empty).' % \
                     (strFormula(ft), ','.join([d for d in domNames if d not in fullDomain])))
                 newMLN.formulas.remove(ft)
         
@@ -260,10 +260,10 @@ class MLN(object):
         for pred, domains in self.predicates.iteritems():
             remove = False
             if any([not dom in fullDomain for dom in self.predicates[pred]]):
-                log.warning('Discarding predicate %s, since it cannot be grounded.' % (pred))
+                log.debug('Discarding predicate %s, since it cannot be grounded.' % (pred))
                 remove = True
             if pred not in predicatesUsed:
-                log.warning('Discarding predicate %s, since it is unused.' % pred)
+                log.debug('Discarding predicate %s, since it is unused.' % pred)
                 remove = True
             if remove: del newMLN.predicates[pred]
         
@@ -272,6 +272,7 @@ class MLN(object):
             domNames = ft._getTemplateVariables(self).values()
             for domName in domNames:
                 newMLN.domains[domName] = fullDomain[domName]
+                
         newMLN._materializeFormulaTemplates()
         return newMLN
 
@@ -407,6 +408,8 @@ class MLN(object):
         log = logging.getLogger(self.__class__.__name__)
         self.verbose = params.get('verbose', False)
         # get a list of database objects
+        if len(databases) == 0:
+            log.exception('At least one database is needed for learning.')
         dbs = []
         for db in databases:
             if type(db) == str:
@@ -422,15 +425,15 @@ class MLN(object):
         
         newMLN = self.materializeFormulaTemplates(dbs, self.verbose)
         
-        if DEBUG:
-            print 'predicates:'
-            for p in newMLN.predicates.items():
-                print p
-            print 'MLN domains:'
-            for d in newMLN.domains.items():
-                print d
-            print 'formulas:'
-            newMLN.printFormulas()
+        log.debug('predicates:')
+        for p in newMLN.predicates.items():
+            log.debug(p)
+        log.debug('MLN domains:')
+        for d in newMLN.domains.items():
+            log.debug(d)
+        log.debug('formulas:')
+        for f in newMLN.iterFormulasPrintable():
+            log.debug(f)
 
         # run learner
         if len(dbs) == 1:
@@ -522,14 +525,22 @@ class MLN(object):
         '''
         Nicely prints the formulas and their weights.
         '''
+        for f in self.iterFormulasPrintable():
+            print f
+                
+    def iterFormulasPrintable(self):
+        '''
+        Iterate over all formulas, yield nicely formatted strings.
+        '''
         formulas = sorted(self.formulas)
         for f in formulas:
             if f.weight is None:
-                print '%s.' % strFormula(f)
+                yield '%s.' % strFormula(f)
             elif type(f.weight) is float:
-                print "%-10.6f\t%s" % (f.weight, strFormula(f))
+                yield "%-10.6f\t%s" % (f.weight, strFormula(f))
             else:
-                print "%s\t%s" % (str(f.weight), strFormula(f))
+                yield "%s\t%s" % (str(f.weight), strFormula(f))
+        
     
     def getWeightedFormulas(self):
         return [(f.weight, f) for f in self.formulas]
@@ -899,13 +910,14 @@ class MRF(object):
         Sets the evidence, which is to be given as a dictionary that maps ground atom strings to their truth values.
         Any previous evidence is cleared.
         The closed-world assumption is applied to any predicates for which it was declared.
+        If csAssumption is True, the closed-world assumption is applied to all non-evidence atoms.
         '''
         log = logging.getLogger(self.__class__.__name__)
         if clear is True:
             self._clearEvidence()
         for gndAtom, value in evidence.iteritems():
             if not gndAtom in self.gndAtoms:
-                log.warning('evidence "%s=%s" is not among the ground atoms.' % (gndAtom, str(value)))
+                log.debug('Evidence "%s=%s" is not among the ground atoms.' % (gndAtom, str(value)))
                 continue
             idx = self.gndAtoms[gndAtom].idx
             self._setEvidence(idx, value)
@@ -917,8 +929,7 @@ class MRF(object):
                         self._setEvidence(i, False)
         if cwAssumption:
             # apply closed world assumption
-            if DEBUG:
-                print 'applying CW assumption'
+            log.info('Applying CW assumption')
             self.evidence = map(lambda x: False if x is None else x, self.evidence)
         else:
             # handle closed-world predicates: Set all their instances that aren't yet known to false
@@ -1506,16 +1517,18 @@ class MRF(object):
 
         return (results[len(probConstraints):], {"steps": min(step, maxSteps), "fittingSteps": fittingStep, "maxdiff": maxdiff, "meandiff": meandiff, "time": time.time() - t_start})
 
-    # infer a probability P(F1 | F2) where F1 and F2 are formulas - using the default inference method specified for this MLN
-    #   what: a formula, e.g. "foo(A,B)", or a list of formulas
-    #   given: either
-    #            * another formula, e.g. "bar(A,B) ^ !baz(A,B)"
-    #              Note: it can be an arbitrary formula only for exact inference, otherwise it must be a conjunction
-    #              This will overwrite any evidence previously set in the MLN
-    #            * None if the evidence currently set in the MLN is to be used
-    #   verbose: whether to print the results
-    #   args: any additional arguments to pass on to the actual inference method
     def infer(self, what, given=None, verbose=True, **args):
+        '''
+        Infer a probability P(F1 | F2) where F1 and F2 are formulas - using the default inference method specified for this MLN
+        what: a formula, e.g. "foo(A,B)", or a list of formulas
+        given: either
+                 * another formula, e.g. "bar(A,B) ^ !baz(A,B)"
+                   Note: it can be an arbitrary formula only for exact inference, otherwise it must be a conjunction
+                   This will overwrite any evidence previously set in the MLN
+                 * None if the evidence currently set in the MLN is to be used
+        verbose: whether to print the results
+        args: any additional arguments to pass on to the actual inference method
+        '''
         # call actual inference method
         defaultMethod = self.mln.defaultInferenceMethod
         if defaultMethod == InferenceMethods.Exact:
