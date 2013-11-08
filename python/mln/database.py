@@ -28,6 +28,7 @@ from mln.util import stripComments, parsePredicate, parseDomDecl, parseLiteral,\
 from logic.grammar import parseFormula
 from logic.fol import GroundLit
 import copy
+import logging
 
 class Database(object):
     '''
@@ -56,6 +57,19 @@ class Database(object):
         db.evidence = copy.deepcopy(self.evidence)
         db.softEvidence = copy.deepcopy(self.softEvidence)
         return db
+
+    def iterGroundLiteralStrings(self, pred_names=None):
+        '''
+        Iterates over all ground literals in this database that match any of
+        the given predicate names. If no predicate is specified, it
+        yields all ground literals.
+        '''
+        for atom, truth in self.evidence.iteritems():
+            if pred_names is not None:
+                _, predName, _ = parseLiteral(atom)
+                if not predName in pred_names:
+                    continue
+            yield '%s%s' % ('' if truth else '!', atom)
 
     def addGroundAtom(self, gndLit):
         '''
@@ -98,9 +112,9 @@ class Database(object):
         '''
         for atom, truth in self.evidence.iteritems():
             stream.write('%s%s\n' % ('' if truth else '!', atom))
-               
+
     def printEvidence(self):
-        for atom, truth in self.evidence.iteritems():
+        for atom, truth in sorted(self.evidence.iteritems()):
             print atom, ':', truth
                 
     def retractGndAtom(self, gndLit):
@@ -216,7 +230,7 @@ class Database(object):
             for assignment in formula.iterTrueVariableAssignments(self, self.evidence):
                 yield assignment
                 
-def readDBFromFile(mln, dbfile):
+def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
     '''
     Reads one or multiple database files containing literals and/or domains.
     Returns one or multiple databases where domains is dictionary mapping 
@@ -228,6 +242,7 @@ def readDBFromFile(mln, dbfile):
     Returns:
       either one single or a list of database objects.
     '''
+    log = logging.getLogger('db')
     if type(dbfile) is list:
         dbs = []
         for dbpath in dbfile:
@@ -262,8 +277,13 @@ def readDBFromFile(mln, dbfile):
             if db.getSoftEvidence(gndAtom) == None:
                 db.softEvidence.append(d)
             else:
-                raise Exception("Duplicate soft evidence for '%s'" % gndAtom)
+                raise log.exception("Duplicate soft evidence for '%s'" % gndAtom)
             predName, constants = parsePredicate(gndAtom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
+            if not predName in mln.predicates and ignoreUnknownPredicates:
+                log.debug('Predicate "%s" is undefined.' % predName)
+                continue
+            elif not predName in mln.predicates:
+                log.exception('Predicate "%s" is undefined.' % predName)
             domNames = mln.predicates[predName]
         # domain declaration
         elif "{" in l:
@@ -272,15 +292,20 @@ def readDBFromFile(mln, dbfile):
         # literal
         else:
             if l[0] == "?":
-                raise Exception("Unknown literals not supported (%s)" % l) # this is an Alchemy feature
+                raise log.exception("Unknown literals not supported (%s)" % l) # this is an Alchemy feature
             isTrue, predName, constants = parseLiteral(l)
+            if not predName in mln.predicates and ignoreUnknownPredicates:
+                log.debug('Predicate "%s" is undefined.' % predName)
+                continue
+            elif not predName in mln.predicates:
+                log.exception('Predicate "%s" is undefined.' % predName)
             domNames = mln.predicates[predName]
             # save evidence
             db.evidence["%s(%s)" % (predName, ",".join(constants))] = isTrue
 
         # expand domains
         if len(domNames) != len(constants):
-            raise Exception("Ground atom %s in database %s has wrong number of parameters" % (l, dbfile))
+            raise log.exception("Ground atom %s in database %s has wrong number of parameters" % (l, dbfile))
 
         if "{" in l or db.includeNonExplicitDomains:
             for i, c in enumerate(constants):
