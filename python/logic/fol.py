@@ -94,8 +94,8 @@ class Formula(Constraint):
         MLN (ground Markov Random Field)
         '''
         log = logging.getLogger('fol')
-        uniqueVars = mln.uniqueFormulaExpansions.get(self, None)
-        if uniqueVars is not None:
+        uniqueVars = mln.uniqueFormulaExpansions.get(self, [])
+        if len(uniqueVars) > 0:
             uniqueVarsDomain = list(mln.domains[self.getVarDomain(uniqueVars[0], mln)])
         else:
             uniqueVarsDomain = None
@@ -117,7 +117,7 @@ class Formula(Constraint):
             for variant in variants_tmp:
                 for valueCombination in itertools.combinations_with_replacement(uniqueVarsDomain, len(uniqueVars)):
                     assignment = dict([(var, val) for var, val in zip(uniqueVars, valueCombination)])
-                    variants.extend(self._groundTemplate(assignment))
+                    variants.extend(variant._groundTemplate(assignment))
         return variants
 
     def _getTemplateVariants(self, mln, variables, domains):
