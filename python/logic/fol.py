@@ -24,6 +24,7 @@
 
 import sys
 import logging
+import itertools
 
 DEBUG_NF = False # whether to display debug information while performing normal form conversion
 
@@ -98,32 +99,35 @@ class Formula(Constraint):
             uniqueVarsDomain = list(mln.domains[self.getVarDomain(uniqueVars[0], mln)])
         else:
             uniqueVarsDomain = None
-        log.info(uniqueVars)
-        log.info(uniqueVarsDomain)
         variables = []
         domains = []
         for v, d in self._getTemplateVariables(mln).iteritems():
+            # temporarily remove the unique variable combinations
+            if v in uniqueVars: continue
             variables.append(v)
             domains.append(list(mln.domains[d]))
-        log.info(variables)
-        log.info(domains)
+        variants_tmp = []
+        for variant in self._getTemplateVariants(mln, variables, domains):
+            variants_tmp.extend(self._groundTemplate(variant))
+        # add the variants with unique template variable constraints
         variants = []
-        for variant in self._getTemplateVariants(mln, variables, domains, uniqueVarsDomain):
-            variants.extend(self._groundTemplate(variant))
+        if len(uniqueVars) == 0:
+            variants = variants_tmp
+        else:
+            for variant in variants_tmp:
+                for valueCombination in itertools.combinations_with_replacement(uniqueVarsDomain, len(uniqueVars)):
+                    assignment = dict([(var, val) for var, val in zip(uniqueVars, valueCombination)])
+                    variants.extend(self._groundTemplate(assignment))
         return variants
 
-    def _getTemplateVariants(self, mln, variables, domains, uniqueDomain):
+    def _getTemplateVariants(self, mln, variables, domains):
         if len(variables) == 0:
             yield {}
             return
         # ground the next variable
-        varname = variables[0]
-        isUnique = varname in mln.uniqueFormulaExpansions.get(self, [])
-        domain = domains[0] if not isUnique else uniqueDomain
-        for valIdx, value in enumerate(domain):
-            uDomain = uniqueDomain if not isUnique else uniqueDomain[valIdx+1:]
-            for assignment in self._getTemplateVariants(mln, variables[1:], domains[1:], uDomain):
-                yield dict(assignment.items() + [(varname, value)])
+        for value in domains[0]:
+            for assignment in self._getTemplateVariants(mln, variables[1:], domains[1:]):
+                yield dict(assignment.items() + [(variables[0], value)])
             
     def _getTemplateVariables(self, mln, vars = None):
         '''
