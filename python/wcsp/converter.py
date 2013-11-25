@@ -221,26 +221,35 @@ class WCSPConverter(object):
         varIndices = set(map(lambda x: self.gndAtom2VarIndex[x], gndAtoms))
         
         varIndices = tuple(sorted(varIndices))
-        if wf.isHard:
-#             cost = self.top
-            cost = WCSP.TOP
-        else:
-            cost = wf.weight#long(wf.weight / self.divisor)
-        
+#         if wf.isHard:
+# #             cost = self.top
+#             cost = WCSP.TOP
+#         else:
+#             cost = wf.weight#long(wf.weight / self.divisor)
+        log = logging.getLogger('wcsp')
         # collect the constraint tuples
-        true, false = self.gatherConstraintTuples(wcsp, varIndices, wf)
+        cost2assignments = self.gatherConstraintTuples(wcsp, varIndices, wf)
+        defaultCost = max(cost2assignments, key=lambda x: len(cost2assignments[x]))
 #        print true, false
-        constraint = Constraint(varIndices)
-        tuples = None
-        if true is None or false is not None and len(true) > len(false):
-            constraint.defCost = 0
-            tuples = false
-        else:
-            constraint.defCost = cost
-            cost = 0
-            tuples = true
-        for t in tuples:
-            constraint.addTuple(t, cost)
+        log.warning(cost2assignments)
+        log.warning(defaultCost)
+        constraint = Constraint(varIndices, defCost=defaultCost)
+        constraint.defCost = defaultCost
+        for cost, tuples in cost2assignments.iteritems():
+            if cost == defaultCost: continue
+            for t in tuples:
+                constraint.addTuple(t, cost)
+#         
+#         tuples = None
+#         if true is None or false is not None and len(true) > len(false):
+#             constraint.defCost = 0
+#             tuples = false
+#         else:
+#             constraint.defCost = cost
+#             cost = 0
+#             tuples = true
+#         for t in tuples:
+#             constraint.addTuple(t, cost)
             
         # merge the constraint if possible
         cOld = self.constraintBySignature.get(varIndices, None)
@@ -270,10 +279,13 @@ class WCSPConverter(object):
         Collects and evaluates all tuples that belong to the constraint
         given by a formula. In case of disjunctions and conjunctions,
         this is fairly efficiently since not all combinations
-        need to be evaluated.
+        need to be evaluated. Returns a dictionary mapping the constraint
+        costs to the list of respective variable assignments.
         ''' 
+        log = logging.getLogger()
         try:
             # we can treat conjunctions and disjunctions fairly efficiently
+            raise # TODO: implement also the efficient way
             conj = isConjunctionOfLiterals(formula)
             if not conj and not isDisjunctionOfLiterals(formula): raise
             assignment = [0] * len(varIndices)
@@ -296,8 +308,9 @@ class WCSPConverter(object):
         except: 
             # fallback: go through all combinations of truth assignments
             domains = [range(d) for i,d in enumerate(wcsp.domSizes) if i in varIndices]
-            trueAssignments = []
-            falseAssignments = []
+            cost2assignments = {}
+#             trueAssignments = []
+#             falseAssignments = []
             for c in utils.combinations(domains):
                 world = [0] * len(self.mrf.gndAtoms)
                 for var, assignment in zip(varIndices, c):
@@ -305,11 +318,14 @@ class WCSPConverter(object):
                         world[self.varIdx2GndAtom[var][assignment].idx] = 1
                     else:
                         world[self.varIdx2GndAtom[var][0].idx] = 1 if assignment > 0 else 0
-                if formula.isTrue(world):
-                    trueAssignments.append(c)
-                else:
-                    falseAssignments.append(c)
-            return trueAssignments, falseAssignments
+                # the MRF feature imposed by this formula 
+                truth = formula.isTrue(world)
+#                 log.warning(formula.isHard)
+                formula_feature = WCSP.TOP if (1 - truth) and formula.isHard else (1 - truth) * formula.weight
+                assignments = cost2assignments.get(formula_feature, [])
+                cost2assignments[formula_feature] = assignments
+                assignments.append(c)
+            return cost2assignments#trueAssignments, falseAssignments
         
         
     def forbidGndAtom(self, atom, wcsp, trueFalse=True):

@@ -157,13 +157,13 @@ class WCSP(object):
         Writes the WCSP problem in WCSP format into an arbitrary stream
         providing a write method.
         '''
-        wcsp = self.makeIntegerCostWCSP()
-        stream.write('%s %d %d %d %d\n' % (wcsp.name, len(wcsp.domSizes), max(wcsp.domSizes), len(wcsp.constraints), wcsp.top))
+        wcsp = self#.makeIntegerCostWCSP()
+        stream.write('%s %d %d %d %f\n' % (wcsp.name, len(wcsp.domSizes), max(wcsp.domSizes), len(wcsp.constraints), wcsp.top))
         stream.write(' '.join(map(str, wcsp.domSizes)) + '\n')
         for c in wcsp.constraints:
             stream.write('%d %s %d %d\n' % (len(c.varIndices), ' '.join(map(str, c.varIndices)), c.defCost, len(c.tuples)))
             for t in c.tuples.keys():
-                stream.write('%s %d\n' % (' '.join(map(str, t)), c.tuples[t]))
+                stream.write('%s %f\n' % (' '.join(map(str, t)), c.tuples[t]))
         
     def read(self, stream):
         '''
@@ -194,6 +194,7 @@ class WCSP(object):
         '''
         # store all costs in a sorted list
         costs = []
+        log = logging.getLogger('wcsp')
         minWeight = None
         for constraint in self.constraints:
             for value in [constraint.defCost] + constraint.tuples.values():
@@ -218,6 +219,7 @@ class WCSP(object):
             divisor *= minWeight
         if deltaMin < 1.0:
             divisor *= deltaMin
+        log.warning('divisor=%f, deltaMin=%f, minWeight=%f' % (divisor, deltaMin, minWeight))
         return divisor
     
     
@@ -229,8 +231,6 @@ class WCSP(object):
         costSum = long(0)
         for constraint in self.constraints:
             maxCost = max([constraint.defCost] + constraint.tuples.values())
-            if maxCost < 0:
-                raise Exception('Costs must not be negative.')
             if maxCost == WCSP.TOP or maxCost == 0.0: continue
             cost = abs(long(maxCost / divisor))
             newSum = costSum + cost
@@ -238,6 +238,7 @@ class WCSP(object):
                 raise Exception("Numeric Overflow")
             costSum = newSum
         top = costSum + 1
+        print top
         if top < costSum:
             raise Exception("Numeric Overflow")
         if top > WCSP.MAX_COST:
