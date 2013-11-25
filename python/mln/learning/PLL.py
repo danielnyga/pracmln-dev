@@ -36,36 +36,40 @@ class PLL(AbstractLearner):
     
     def __init__(self, mln, mrf, pmbMethod="old", diffMethod="blocking", **params):
         '''
-            pmbMethod: 'excl' or 'old'
-                concerns the calculation of the probability of a ground atom assignment given the ground atom's Markov blanket
-                If set to 'old', consider only the two assignments of the ground atom x (i.e. add the weights of any ground
-                formulas within which x appears for both cases and then use the appriopriate fraction).
-                If set to 'excl', consider mutual exclusiveness and exhaustiveness by looking at all the assignments of the
-                block that x is in (and all the formulas that are affected by any of the atoms in the block). We obtain an exp. sum of
-                weights for each block assignment and consider the fraction of those block assignments where x has a given value.
-            
-            diffMethod: "blocking" or "simple"
-                This applies to parameter learning with pseudo-likelihood, where, for each ground atom x, the difference in the number
-                of true groundings of a formula is computed for the case where x's truth value is flipped and where x's truth value
-                remains the same (as indicated by the training db).
-                If set to 'blocking', then we not only consider the effects of flipping x itself but also flips of any
-                ground atoms with which x appears together in a block, because flipping them may (or may not) affect the truth
-                value of x and thus the truth of ground formulas within which x appears.        
+        pmbMethod: 'excl' or 'old'
+            concerns the calculation of the probability of a ground atom assignment given the ground atom's Markov blanket
+            If set to 'old', consider only the two assignments of the ground atom x (i.e. add the weights of any ground
+            formulas within which x appears for both cases and then use the appriopriate fraction).
+            If set to 'excl', consider mutual exclusiveness and exhaustiveness by looking at all the assignments of the
+            block that x is in (and all the formulas that are affected by any of the atoms in the block). We obtain an exp. sum of
+            weights for each block assignment and consider the fraction of those block assignments where x has a given value.
+        
+        diffMethod: "blocking" or "simple"
+            This applies to parameter learning with pseudo-likelihood, where, for each ground atom x, the difference in the number
+            of true groundings of a formula is computed for the case where x's truth value is flipped and where x's truth value
+            remains the same (as indicated by the training db).
+            If set to 'blocking', then we not only consider the effects of flipping x itself but also flips of any
+            ground atoms with which x appears together in a block, because flipping them may (or may not) affect the truth
+            value of x and thus the truth of ground formulas within which x appears.        
         '''
         AbstractLearner.__init__(self, mln, mrf, **params)
         self.pmbMethod = pmbMethod
         self.diffMethod = diffMethod
     
-    # determines the probability of the given ground atom (string) given its Markov blanket
-    # (the MLN must have been provided with evidence using combineDB)
     def getAtomProbMB(self, atom):
+        '''
+        determines the probability of the given ground atom (string) given its Markov blanket
+        (the MLN must have been provided with evidence using combineDB)
+        '''
         idxGndAtom = self.mrf.gndAtoms[atom].idx
         weights = self._weights()
         return self._getAtomProbMB(idxGndAtom, weights)
 
-    # gets the probability of the ground atom with index idxGndAtom when given its Markov blanket (evidence set)
-    # using the specified weight vector
-    def _getAtomProbMB(self, idxGndAtom, wt, relevantGroundFormulas=None):            
+    def _getAtomProbMB(self, idxGndAtom, wt, relevantGroundFormulas=None):
+        '''            
+        gets the probability of the ground atom with index idxGndAtom when given its Markov blanket (evidence set)
+        using the specified weight vector
+        '''
         #old_tv = self._getEvidence(idxGndAtom)
         # check if the ground atom is in a block
         block = None
@@ -164,7 +168,7 @@ class PLL(AbstractLearner):
     
     def _setInvertedEvidence(self, idxGndAtom):
         old_tv = self.mrf._getEvidence(idxGndAtom)
-        self.mrf._setEvidence(idxGndAtom, not old_tv)
+        self.mrf._setEvidence(idxGndAtom, 1 - old_tv)
 
     # prints the probability of each ground atom truth assignment given its Markov blanket
     def printAtomProbsMB(self):
@@ -208,7 +212,7 @@ class PLL(AbstractLearner):
                 # check if formula is true if gnd atom's truth value is inversed
                 cnt2 = 0
                 old_tv = self.mrf._getEvidence(idxGndAtom)
-                self.mrf._setTemporaryEvidence(idxGndAtom, not old_tv)
+                self.mrf._setTemporaryEvidence(idxGndAtom, 1 - old_tv)
                 if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula): cnt2 = 1
                 self.mrf._removeTemporaryEvidence()
                 # save difference

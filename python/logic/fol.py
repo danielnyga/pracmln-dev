@@ -267,7 +267,7 @@ class Formula(Constraint):
     def isTrue(self, world_values):
         '''
         Evaluates the formula for truth wrt. the truth values
-        of ground atoms (world_values being a dict: gndAtomIdx -> {True, False, None}
+        of ground atoms (world_values being a dict: gndAtomIdx -> {1, 0, None}
         '''
         raise Exception('%s does not implement isTrue' % str(type(self)))
     
@@ -277,10 +277,11 @@ class Formula(Constraint):
         variables in this formula. (NB: this does _not_ generate the groundings.)
         '''
         gf_count = 1
-        for var, dom in self.getVariables(mrf).iteritems():
+        for _, dom in self.getVariables(mrf).iteritems():
             domain = mrf.domains[dom]
             gf_count *= len(domain)
         return gf_count
+
     
 class ComplexFormula(Formula):
     '''
@@ -477,7 +478,8 @@ class Lit(Formula):
         
     def isTrue(self, world_values):
         return None
-        
+    
+
 class GroundAtom(Formula):
     '''
     Represents a ground atom.
@@ -489,7 +491,7 @@ class GroundAtom(Formula):
 
     def isTrue(self, world_values):
         return world_values[self.idx]
-
+    
     def __repr__(self):
         return str(self)
 
@@ -522,7 +524,7 @@ class GroundLit(Formula):
     def isTrue(self, world_values):
         tv = world_values[self.gndAtom.idx]
         if self.negated and not (tv is None):
-            return (not tv)
+            return (1 - tv)
         return tv
 
     def __str__(self):
@@ -587,14 +589,14 @@ class Disjunction(ComplexFormula):
         dontKnow = False
         for child in self.children:
             childValue = child.isTrue(world_values)
-            if childValue is True:
-                return True
+            if childValue == 1:
+                return 1
             if childValue is None:
                 dontKnow = True
         if dontKnow:
             return None
         else:
-            return False
+            return 0
         
     def toCNF(self, level=0):
         if DEBUG_NF: print "%-8s %*c%s" % ("disj", level*2, ' ', str(self))
@@ -680,6 +682,10 @@ class Disjunction(ComplexFormula):
             return TrueFalse(False)
         
 class Conjunction(ComplexFormula):
+    '''
+    Represents a logical conjunction.
+    '''
+    
     def __init__(self, children):
         assert len(children) >= 2
         self.children = children
@@ -687,19 +693,20 @@ class Conjunction(ComplexFormula):
     def __str__(self):
         return "("+" ^ ".join(map(str, self.children))+")"
 
+
     def isTrue(self, world_values):
         dontKnow = False
         for child in self.children:
             childValue = child.isTrue(world_values)
-            if childValue is False:
-                return False
+            if childValue is 0:
+                return 0
             if childValue is None:
                 dontKnow = True
         if dontKnow:
             return None
         else:
-            return True
-    
+            return 1
+        
     def toCNF(self, level=0):
         if DEBUG_NF: print "%-8s %*c%s" % ("conj", level*2, ' ', str(self))
         clauses = []
@@ -783,12 +790,12 @@ class Implication(ComplexFormula):
     def isTrue(self, world_values):
         ant = self.children[0].isTrue(world_values)
         cons = self.children[1].isTrue(world_values)
-        if ant is False or cons is True:
-            return True
+        if ant is 0 or cons is 1:
+            return 1
         if ant is None or cons is None:
             return None
-        return False
-        
+        return 0
+    
     def toCNF(self, level=0):
         if DEBUG_NF: print "%-8s %*c%s" % ("impl", level*2, ' ', str(self))
         return Disjunction([Negation([self.children[0]]), self.children[1]]).toCNF(level+1)
@@ -816,7 +823,7 @@ class Biimplication(ComplexFormula):
         c2 = self.children[1].isTrue(world_values)
         if c1 is None or c2 is None:
             return None
-        return (c1 == c2)
+        return 1 if (c1 == c2) else 0
     
     def toCNF(self, level=0):
         if DEBUG_NF: print "%-8s %*c%s" % ("biimpl", level*2, ' ', str(self))
@@ -850,7 +857,7 @@ class Negation(ComplexFormula):
         childValue = self.children[0].isTrue(world_values)
         if childValue is None:
             return None
-        return not childValue
+        return 1 - childValue
     
     def toCNF(self, level=0):
         if DEBUG_NF: print "%-8s %*c%s" % ("neg", level*2, ' ', str(self))
@@ -1048,8 +1055,8 @@ class Equality(Formula):
     def isTrue(self, world_values):
         if any(map(isVar, self.params)):
             return None
-        equals = (self.params[0] == self.params[1])
-        return (not equals) if self.negated else equals
+        equals = 1 if (self.params[0] == self.params[1]) else 0
+        return (1 - equals) if self.negated else equals
     
     def simplify(self, mrf):
         truth = self.isTrue(mrf.evidence) 

@@ -289,12 +289,12 @@ class WCSPConverter(object):
             trueAssignments = []
             falseAssignments = []
             for c in utils.combinations(domains):
-                world = [False] * len(self.mrf.gndAtoms)
+                world = [0] * len(self.mrf.gndAtoms)
                 for var, assignment in zip(varIndices, c):
                     if var in self.mutexVars: # mutex constraint
-                        world[self.varIdx2GndAtom[var][assignment].idx] = True
+                        world[self.varIdx2GndAtom[var][assignment].idx] = 1
                     else:
-                        world[self.varIdx2GndAtom[var][0].idx] = assignment > 0
+                        world[self.varIdx2GndAtom[var][0].idx] = 1 if assignment > 0 else 0
                 if formula.isTrue(world):
                     trueAssignments.append(c)
                 else:

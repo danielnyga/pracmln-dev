@@ -24,8 +24,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from pyparsing import *
+# from logic.fol import Lit, Negation, Disjunction, Conjunction, Exist,\
+#     Implication, Biimplication, Equality, CountConstraint, Constraint, isVar
 from logic.fol import Lit, Negation, Disjunction, Conjunction, Exist,\
-    Implication, Biimplication, Equality, CountConstraint, Constraint, isVar
+    Implication, Biimplication, Equality, isVar
+from logic.fol import CountConstraint, Constraint
+    
 
 def isConstant(identifier):
     return not isVar(identifier)

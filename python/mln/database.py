@@ -71,7 +71,7 @@ class Database(object):
                     continue
             yield '%s%s' % ('' if truth else '!', atom)
 
-    def addGroundAtom(self, gndLit):
+    def addGroundAtom(self, gndLit, truth=1):
         '''
         Adds the fact represented by the ground atom, which might be
         a GroundLit object or a string.
@@ -86,7 +86,8 @@ class Database(object):
             predName = gndLit.predName
         else:
             raise Exception('gndLit has an illegal type')
-        self.evidence[atomString] = isTrue
+        truth = truth if isTrue else 1 - truth
+        self.evidence[atomString] = truth
         # update the domains
         domNames = self.mln.predicates[predName]
         for i, domName in enumerate(domNames):
@@ -96,6 +97,14 @@ class Database(object):
                 self.domains[domName] = dom
             if not params[i] in dom:
                 dom.append(params[i])
+                
+    def isHard(self):
+        '''
+        Determines whether or not this database contains exclusively
+        hard evidences.
+        '''
+        return any(map(lambda x: x != 1 and x != 0, self.evidence))
+    
                 
     def writeToFile(self, filename):
         '''
@@ -136,7 +145,7 @@ class Database(object):
         database and False if the truth values all ground atoms are None
         AND all domains are empty.
         '''
-        return not any(map(lambda x: x is True or x is False,  self.evidence.values())) and \
+        return not any(map(lambda x: x >= 0 and x <= 1,  self.evidence.values())) and \
             len(self.domains) == 0
                 
     def query(self, formula):
@@ -204,7 +213,7 @@ class Database(object):
                 self.db = db
             
             def __getitem__(self, gndAtomString):
-                return self.db.evidence.get(gndAtomString, False)
+                return self.db.evidence.get(gndAtomString, 0)
             
         def iterGroundings(self, formula):
             for t in formula.iterGroundings(self):
@@ -218,8 +227,7 @@ class Database(object):
             numTrue = 0
             for gf, _ in self.iterGroundings(formula):
                 numTotal += 1
-                if gf.isTrue(self.evidence):
-                    numTrue += 1
+                numTrue += gf.isTrue(self.evidence)
             return (numTrue, numTotal)
         
         def iterTrueVariableAssignments(self, formula):
@@ -269,10 +277,15 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
             dbs.append(db)
             db = Database(mln)
             continue
-        # soft evidence
+        # domain declaration
+        elif "{" in l:
+            domName, constants = parseDomDecl(l)
+            domNames = [domName for _ in constants]
+        # valued evidence
         elif l[0] in "0123456789":
             s = l.find(" ")
             gndAtom = l[s + 1:].replace(" ", "")
+            value = float(l[:s])
             d = {"expr": gndAtom, "p": float(l[:s])}
             if db.getSoftEvidence(gndAtom) == None:
                 db.softEvidence.append(d)
@@ -285,10 +298,7 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
             elif not predName in mln.predicates:
                 log.exception('Predicate "%s" is undefined.' % predName)
             domNames = mln.predicates[predName]
-        # domain declaration
-        elif "{" in l:
-            domName, constants = parseDomDecl(l)
-            domNames = [domName for _ in constants]
+            db.addGroundAtom(gndAtom, value)
         # literal
         else:
             if l[0] == "?":
@@ -301,7 +311,9 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
                 log.exception('Predicate "%s" is undefined.' % predName)
             domNames = mln.predicates[predName]
             # save evidence
-            db.evidence["%s(%s)" % (predName, ",".join(constants))] = isTrue
+            isTrue = 1 if isTrue else 0
+            db.addGroundAtom("%s(%s)" % (predName, ",".join(constants)), isTrue)
+#             db.evidence["%s(%s)" % (predName, ",".join(constants))] = isTrue
 
         # expand domains
         if len(domNames) != len(constants):

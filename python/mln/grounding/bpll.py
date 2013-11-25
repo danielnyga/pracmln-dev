@@ -411,7 +411,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
         eqConstraints = []
         while len(conjuncts) > 0 and type(conjuncts[0]) is Equality:
             eq = conjuncts[0]
-            if eq.isTrue(None) is False: return
+            if eq.isTrue(None) == 0: return
             elif eq.isTrue(None) is None: eqConstraints.append(eq)
             conjuncts = conjuncts[1:]
         
@@ -447,35 +447,28 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                     for idxGA in gndFormula.idxGroundAtoms():
 #                        if debug: print self.mrf.gndAtomsByIdx[idxGA]
                         idxBlocks.add(self.mrf.atom2BlockIdx[idxGA])
-                     
                     for idxVar in idxBlocks:
-                         
                         (idxGA, block) = self.mrf.pllBlocks[idxVar]
-                     
                         if idxGA is not None: # ground atom is the variable as it's not in a block
-                             
                             # check if formula is true if gnd atom maintains its truth value
                             if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula):
                                 self._addMBCount(idxVar, 2, 0, fIdx)
                                 self.trueGroundingsCounter[fIdx] = self.trueGroundingsCounter.get(fIdx, 0) + 1
-                             
                             # check if formula is true if gnd atom's truth value is inverted
                             old_tv = self.mrf._getEvidence(idxGA)
-                            self.mrf._setTemporaryEvidence(idxGA, not old_tv)
+                            self.mrf._setTemporaryEvidence(idxGA, 1 - old_tv)
                             if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula):
                                 self._addMBCount(idxVar, 2, 1, fIdx)
                             self.mrf._removeTemporaryEvidence()
                                  
                         else: # the block is the variable (idxGA is None)
-         
                             size = len(block)
                             idxGATrueone = block[self.evidenceIndices[idxVar]]
-                             
                             # check true groundings for each block assigment
                             for idxValue, idxGA in enumerate(block):
                                 if idxGA != idxGATrueone:
-                                    self.mrf._setTemporaryEvidence(idxGATrueone, False)
-                                    self.mrf._setTemporaryEvidence(idxGA, True)
+                                    self.mrf._setTemporaryEvidence(idxGATrueone, 0)
+                                    self.mrf._setTemporaryEvidence(idxGA, 1)
                                 if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula):
                                     self._addMBCount(idxVar, size, idxValue, fIdx)
                                 self.mrf._removeTemporaryEvidence()

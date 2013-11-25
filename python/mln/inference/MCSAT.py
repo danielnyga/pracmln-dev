@@ -27,6 +27,7 @@ from MCMCInference import *
 from SAMaxWalkSAT import *
 import pickle
 from logic.grammar import parseFormula
+from logic import fuzzy as logic
 
 class MCSAT(MCMCInference):
     ''' MC-SAT/MC-SAT-PC '''
@@ -58,7 +59,7 @@ class MCSAT(MCMCInference):
         # process all ground formulas
         for idxGndFormula, f in enumerate(self.gndFormulas):
             # get the list of clauses
-            if type(f) == fol.Conjunction:
+            if type(f) == logic.Conjunction:
                 lc = f.children
             else:
                 lc = [f]
@@ -85,7 +86,7 @@ class MCSAT(MCMCInference):
                 #print clause
                 idxClause += 1
             se["idxClausePositive"] = (idxFirst, idxClause)
-            cnf = fol.Negation([formula]).toCNF().ground(self.mrf, {})
+            cnf = logic.Negation([formula]).toCNF().ground(self.mrf, {})
             idxFirst = idxClause
             for clause in self._formulaClauses(cnf):                
                 self.clauses.append(clause)
@@ -95,7 +96,7 @@ class MCSAT(MCMCInference):
             
     def _formulaClauses(self, f):
         # get the list of clauses
-        if type(f) == fol.Conjunction:
+        if type(f) == logic.Conjunction:
             lc = f.children
         else:
             lc = [f]
@@ -451,7 +452,7 @@ class SampleSAT:
             for f in self.ss.mln.gndFormulas:
                 if not f.isLogical():
                     continue
-                if type(f) == fol.Conjunction:
+                if type(f) == logic.Conjunction:
                     n = len(f.children)
                 else:
                     n = 1

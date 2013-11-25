@@ -422,7 +422,9 @@ class MLN(object):
                 dbs.extend(db)
             else:
                 dbs.append(db)
-        
+        log.debug('evidence databases:')
+        for db in dbs:
+            db.printEvidence()
         newMLN = self.materializeFormulaTemplates(dbs, self.verbose)
         
         log.debug('predicates:')
@@ -617,6 +619,12 @@ class MRF(object):
 #         if self.mln.formulas is None:
 #             db = self.mln.materializeFormulaTemplates([db],verbose)[0]
         self.formulas = list(mln.formulas) # copy the list of formulas, because we may change or extend it
+        # get combined domain
+        self.domains = mergeDomains(mln.domains, db.domains)
+        log.debug('MRF domains:')
+        for d in self.domains.items():
+            log.debug(d)
+            
         # materialize formula weights
         self._materializeFormulaWeights(verbose)
 
@@ -624,25 +632,16 @@ class MRF(object):
         self.probreqs = list(mln.probreqs)
         self.posteriorProbReqs = list(mln.posteriorProbReqs)
         self.predicates = copy.deepcopy(mln.predicates)
-        self.predicates = copy.deepcopy(mln.predicates)
         self.templateIdx2GroupIdx = mln.templateIdx2GroupIdx
 
-        # get combined domain
-        self.domains = mergeDomains(mln.domains, db.domains)
-        if DEBUG:
-            print 'MRF domains:'
-            for d in self.domains.items():
-                print d
-            
         # grounding
         if verbose: print 'Loading %s...' % groundingMethod
         groundingMethod = eval('%s(self, db, **self.params)' % groundingMethod)
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(cwAssumption=cwAssumption)
-        if DEBUG:
-            print 'ground atoms  vs. evidence' + (' (all should be known):' if cwAssumption else ':')
-            for a in self.gndAtoms.values():
-                print a.idx, a, '->', self.evidence[a.idx]
+        log.debug('ground atoms  vs. evidence' + (' (all should be known):' if cwAssumption else ':'))
+#         for a in self.gndAtoms.values():
+#             log.debug('%s%s -> %2.2f' % (('%d' % a.idx).ljust(5), a, self.evidence[a.idx]))
         assert len(self.gndAtoms) == len(self.evidence)
 
     def getHardFormulas(self):
@@ -794,8 +793,8 @@ class MRF(object):
             if closedWorld is True, False instead of None is returned
         '''
         v = self.evidence[idxGndAtom]
-        if closedWorld and v == None:
-            return False
+        if closedWorld and v is None:
+            return 0
         return v
 
     def _clearEvidence(self):
@@ -816,7 +815,7 @@ class MRF(object):
 
     def printEvidence(self):
         for idxGA, value in enumerate(self.evidence):
-            print "%s = %s" % (str(self.gndAtomsByIdx[idxGA]), str(value))
+            print "%s = %2.2" % (str(self.gndAtomsByIdx[idxGA]), value)
 
     def _getEvidenceTruthDegreeCW(self, gndAtom, worldValues):
         '''
@@ -825,7 +824,7 @@ class MRF(object):
         '''
         se = self._getSoftEvidence(gndAtom)
         if se is not None:
-            if (True == worldValues[gndAtom.idx] or None == worldValues[gndAtom.idx]):
+            if (1 == worldValues[gndAtom.idx] or None == worldValues[gndAtom.idx]):
                 return se 
             else: 
                 return 1.0 - se # TODO allSoft currently unsupported
@@ -913,6 +912,7 @@ class MRF(object):
         If csAssumption is True, the closed-world assumption is applied to all non-evidence atoms.
         '''
         log = logging.getLogger(self.__class__.__name__)
+        log.debug(self.evidence)
         if clear is True:
             self._clearEvidence()
         for gndAtom, value in evidence.iteritems():
@@ -922,23 +922,25 @@ class MRF(object):
             idx = self.gndAtoms[gndAtom].idx
             self._setEvidence(idx, value)
             # If the value is true, set evidence for other vars in block (if any)
-            if value == True and idx in self.gndBlockLookup:
+            # this is applicable only if the evidence if hard.
+            if idx in self.gndBlockLookup:
                 block = self.gndBlocks[self.gndBlockLookup[idx]]
-                for i in block:
-                    if i != idx:
-                        self._setEvidence(i, False)
+                if value == 1:
+                    for i in block:
+                        if i != idx:
+                            self._setEvidence(i, 0)
         if cwAssumption:
             # apply closed world assumption
             log.info('Applying CW assumption')
-            self.evidence = map(lambda x: False if x is None else x, self.evidence)
+            self.evidence = map(lambda x: 0 if x is None else x, self.evidence)
         else:
             # handle closed-world predicates: Set all their instances that aren't yet known to false
             for pred in self.closedWorldPreds:
                 if not pred in self.predicates: continue
                 cwIndices = self._getPredGroundingsAsIndices(pred)
                 for idxGA in cwIndices:
-                    if self._getEvidence(idxGA, False) == None:
-                        self._setEvidence(idxGA, False)
+                    if self._getEvidence(idxGA, 0) == None:
+                        self._setEvidence(idxGA, 0)
 
     def _getPllBlocks(self):
         '''
@@ -1085,12 +1087,13 @@ class MRF(object):
             self.worldCode2Index[code] = len(self.worlds)
             self.worlds.append({"values": values})
             if len(self.worlds) % 1000 == 0:
-                #print "%d\r" % len(self.worlds)
+                sys.stdout.write("%d\r" % len(self.worlds))
                 pass
             return
         # values that can be set for the truth value of the ground atom with index idx
-        possible_settings = [True, False]
-        # check if setting the truth value for idx is critical for a block (which is the case when idx is the highest index in a block)
+        possible_settings = [1, 0]
+        # check if setting the truth value for idx is critical for a block 
+        # (which is the case when idx is the highest index in a block)
         if idx in self.gndBlockLookup and POSSWORLDS_BLOCKING:
             block = self.gndBlocks[self.gndBlockLookup[idx]]
             if idx == max(block):
@@ -1103,9 +1106,9 @@ class MRF(object):
                 if nTrue >= 2: # violation, cannot continue
                     return
                 if nTrue == 1: # already have a true value, must set current value to false
-                    possible_settings.remove(True)
+                    possible_settings.remove(1)
                 if nTrue == 0: # no true value yet, must set current value to true
-                    possible_settings.remove(False)
+                    possible_settings.remove(0)
         # recursive descent
         for x in possible_settings:
             if x: offset = bit
