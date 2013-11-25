@@ -30,17 +30,13 @@ from logic.fol import isConjunctionOfLiterals
 from logic.fol import isDisjunctionOfLiterals
 from mln.database import Database
 import logging
-
-class MaxCostExceeded(Exception): pass
+from utils import deprecated
 
 class WCSPConverter(object):
     '''
     Class for converting an MLN into a WCSP problem for efficient
     MPE inference.
     '''
-    
-    # maximum costs imposed by toulbar
-    MAX_COST = 1537228672809129301L
     
     def __init__(self, mrf):
         self.mrf = mrf
@@ -51,8 +47,8 @@ class WCSPConverter(object):
         self.mutexVars = set() # hold indices of mutex variables
         self.createVariables()
         self.simplifyVariables()
-        self.divisor = self.computeDivisor()
-        self.top = self.computeHardCosts()
+#         self.divisor = self.computeDivisor()
+#         self.top = self.computeHardCosts()
         self.constraintBySignature = {}
     
     def createVariables(self):
@@ -103,8 +99,10 @@ class WCSPConverter(object):
         self.varIdx2GndAtom = sf_varIdx2GndAtoms
         self.mutexVars = sf_mutexVars
         
+    @deprecated
     def computeDivisor(self):
         '''
+        === DEPRECATED: this functionality has been moved to the WCSP class. ===
         Computes a divisor for making all formula weights integers.
         '''
         # store all weights in a sorted list
@@ -137,8 +135,10 @@ class WCSPConverter(object):
             divisor *= deltaMin
         return divisor
     
+    @deprecated
     def computeHardCosts(self):
         '''
+        === DEPRECATED: this functionality has been moved to the WCSP class. ===
         Computes the costs for hard constraints that determine
         costs for entirely inconsistent worlds (0 probability).
         '''
@@ -160,6 +160,7 @@ class WCSPConverter(object):
     
     def generateEvidenceConstraints(self):
         '''
+        === DEPRECATED ===
         Creates a hard constraint for every evidence variable that
         could not be eliminated by variable simplification.
         '''
@@ -185,12 +186,29 @@ class WCSPConverter(object):
         Performs a conversion from an MLN into a WCSP.
         '''
         wcsp = WCSP()
-        wcsp.top = self.top
+#         wcsp.top = self.top
         wcsp.domSizes = [max(2,len(self.varIdx2GndAtom[i])) for i, _ in enumerate(self.vars)]
 #         wcsp.constraints.extend(self.generateEvidenceConstraints())
-        for f in self.mrf.gndFormulas:
-            f.weight = self.mln.formulas[f.idxFormula].weight
-            f.isHard = self.mln.formulas[f.idxFormula].isHard
+
+        # preprocess the ground formulas
+        gfs = []
+        for gf in self.mrf.gndFormulas:
+            gf.weight = self.mln.formulas[gf.idxFormula].weight
+            gf.isHard = self.mln.formulas[gf.idxFormula].isHard
+            if gf.weight < 0:
+                f = Negation([gf])
+                f.weight = abs(gf.weight)
+                f.isHard = gf.isHard
+            else: f = gf
+            f_ = f.simplify(self.mrf)
+            if isinstance(f_, TrueFalse) or gf.weight == 0:
+                continue
+            f_ = f_.toNNF()
+            f_.weight = f.weight
+            f_.isHard = f.isHard
+            gfs.append(f_)
+            
+        for f in gfs:
             self.generateConstraint(wcsp, f)
         return wcsp
 
@@ -198,30 +216,19 @@ class WCSPConverter(object):
         '''
         Generates and adds a constraint from a given weighted formula.
         '''
-        if wf.weight < 0:
-            f = Negation([wf])
-            f.weight = abs(wf.weight)
-            f.isHard = wf.isHard
-        else: f = wf
-        f_ = f.simplify(self.mrf)
-        if isinstance(f_, TrueFalse):
-            return
-        f_ = f_.toNNF()
-        f_.weight = f.weight
-        f_.isHard = f.isHard 
-#         print strFormula(f_)
-        idxGndAtoms = f_.idxGroundAtoms()
+        idxGndAtoms = wf.idxGroundAtoms()
         gndAtoms = map(lambda x: self.mrf.gndAtomsByIdx[x], idxGndAtoms)
         varIndices = set(map(lambda x: self.gndAtom2VarIndex[x], gndAtoms))
         
         varIndices = tuple(sorted(varIndices))
-        if f_.isHard:
-            cost = self.top
+        if wf.isHard:
+#             cost = self.top
+            cost = WCSP.TOP
         else:
-            cost = long(f_.weight / self.divisor)
+            cost = wf.weight#long(wf.weight / self.divisor)
         
         # collect the constraint tuples
-        true, false = self.gatherConstraintTuples(wcsp, varIndices, f_)
+        true, false = self.gatherConstraintTuples(wcsp, varIndices, wf)
 #        print true, false
         constraint = Constraint(varIndices)
         tuples = None
@@ -240,20 +247,23 @@ class WCSPConverter(object):
         if not cOld is None:
             for t in constraint.tuples.keys():
                 tOldCosts = cOld.tuples.get(t, None)
-                if tOldCosts is not None:
-                    assert (cost + tOldCosts >= tOldCosts)
-                    cOld.addTuple(t, cost + tOldCosts)
-                else:
-                    assert (cost + cOld.defCost >= cOld.defCost)
-                    cOld.addTuple(t, cost + cOld.defCost)
+                if tOldCosts is not None and tOldCosts != WCSP.TOP:
+#                     assert (cost + tOldCosts >= tOldCosts)
+                    cOld.addTuple(t, WCSP.TOP if cost == WCSP.TOP else cost + tOldCosts)
+                elif cOld.defCost != WCSP.TOP:
+#                     assert (cost + cOld.defCost >= cOld.defCost)
+                    cOld.addTuple(t, WCSP.TOP if cost == WCSP.TOP else cost + cOld.defCost)
             if constraint.defCost != 0:
                 for t in filter(lambda x: x not in constraint.tuples, cOld.tuples):
                     oldCost = cOld.tuples[t]
-                    cOld.addTuple(t, oldCost + constraint.defCost)
-                cOld.defCost += constraint.defCost
+                    if oldCost != WCSP.TOP:
+                        cOld.addTuple(t, WCSP.TOP if constraint.defCost == WCSP.TOP else oldCost + constraint.defCost)
+                if cOld.defCost != WCSP.TOP:
+                    cOld.defCost = WCSP.TOP if constraint.defCost == WCSP.TOP else cOld.defCost + constraint.defCost
         else:
             self.constraintBySignature[varIndices] = constraint
             wcsp.constraints.append(constraint)
+        
         
     def gatherConstraintTuples(self, wcsp, varIndices, formula):
         '''
