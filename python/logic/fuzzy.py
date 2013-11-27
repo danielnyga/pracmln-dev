@@ -21,189 +21,232 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import fol
-from logic.fol import isVar
-import logging
+from logic.fol import FirstOrderLogic
+from logic.common import Logic, logic_factory
 
 
-def min_undef(*args):
+class FuzzyLogic(Logic):
     '''
-    Custom minimum function return None if one of its arguments
-    is None and min(*args) otherwise.
+    Implementation of fuzzy logic for MLNs.
     '''
-    return reduce(lambda x, y: None if (x is None or y is None) else min(x, y), *args)
-
-def max_undef(*args):
-    '''
-    Custom maximum function return None if one of its arguments
-    is None and max(*args) otherwise.
-    '''
-    return reduce(lambda x, y: None if x is None or y is None else max(x, y), *args)
 
 
-class Formula(fol.Formula):
-    '''
-    Represents a formula in fuzzy logic.
-    '''
-    pass
-
-
-class ComplexFormula(fol.ComplexFormula):
-    pass
-
-
-class Lit(fol.Lit):
+    @staticmethod
+    def min_undef(*args):
+        '''
+        Custom minimum function return None if one of its arguments
+        is None and min(*args) otherwise.
+        '''
+        return reduce(lambda x, y: None if (x is None or y is None) else min(x, y), *args)
     
-    def simplify(self, mrf):
-        if any(map(isVar, self.params)):
-            return Lit(self.negated, self.predName, self.params)
-        s = "%s(%s)" % (self.predName, ",".join(self.params))
-        truth = mrf.gndAtoms[s].isTrue(mrf.evidence) 
-        if truth is None:
-            return self
-        else:
-            if self.negated: truth = 1 - truth
-            return TrueFalse(truth)
-
-
-class GroundLit(fol.GroundLit):
+    @staticmethod
+    def max_undef(*args):
+        '''
+        Custom maximum function return None if one of its arguments
+        is None and max(*args) otherwise.
+        '''
+        return reduce(lambda x, y: None if x is None or y is None else max(x, y), *args)
     
-    def isTrue(self, world_values):
-        truth = self.gndAtom.isTrue(world_values)
-        if truth is None: return None
-        return (1 - truth) if self.negated else truth 
-
-    def simplify(self, mrf):
-        f = self.gndAtom.simplify(mrf)
-        if isinstance(f, TrueFalse):
-            if self.negated:
+    
+    class Constraint(FirstOrderLogic.Constraint): pass
+    class Formula(FirstOrderLogic.Formula): pass
+    class ComplexFormula(FirstOrderLogic.Formula): pass
+    
+    
+    class Lit(FirstOrderLogic.Lit):
+        
+        def simplify(self, mrf):
+            if any(map(self.logic.isVar, self.params)):
+                return self.logic.lit(self.negated, self.predName, self.params)
+            s = "%s(%s)" % (self.predName, ",".join(self.params))
+            truth = mrf.gndAtoms[s].isTrue(mrf.evidence)
+            if truth is None:
+                return self
+            else:
+                if self.negated: truth = 1 - truth
+                return self.logic.true_false(truth)
+    
+    
+    class GroundLit(FirstOrderLogic.GroundLit):
+        
+        def isTrue(self, world_values):
+            truth = self.gndAtom.isTrue(world_values)
+            if truth is None: return None
+            return (1 - truth) if self.negated else truth 
+    
+        def simplify(self, mrf):
+            f = self.gndAtom.simplify(mrf)
+            if isinstance(f, Logic.TrueFalse):
+                if self.negated:
+                    return f.invert()
+                else:
+                    return f
+            return self.logic.gnd_lit(self.gndAtom, self.negated)
+        
+        
+    class GroundAtom(FirstOrderLogic.GroundAtom):
+        
+        def isTrue(self, world_values):
+            val = world_values[self.gndAtom.idx]
+            if val is None: return None
+            return val
+        
+        def simplify(self, mrf):
+            truth = mrf.evidence[self.idx]
+            if truth is None:
+                return self
+            return self.logic.true_false(truth)
+    
+    
+    class Negation(FirstOrderLogic.Negation):
+        
+        def isTrue(self, world_values):
+            return 1 - self.children[0].isTrue(world_values)
+        
+        def simplify(self, mrf):
+            f = self.children[0].simplify(mrf)
+            if isinstance(f, Logic.TrueFalse):
                 return f.invert()
             else:
-                return f
-        return GroundLit(self.gndAtom, self.negated)
+                return self.logic.negation([f])
     
-    
-class GroundAtom(fol.GroundAtom):
-    
-    def isTrue(self, world_values):
-        val = world_values[self.gndAtom.idx]
-        if val is None: return None
-        return val
-    
-    def simplify(self, mrf):
-        truth = mrf.evidence[self.idx]
-        if truth is None:
-            return self
-        return TrueFalse(truth)
-
-
-class Negation(fol.Negation):
-    
-    def isTrue(self, world_values):
-        return 1 - self.children[0].isTrue(world_values)
-    
-    def simplify(self, mrf):
-        f = self.children[0].simplify(mrf)
-        if isinstance(f, TrueFalse):
-            return f.invert()
-        else:
-            return Negation([f])
-
-class Conjunction(fol.Conjunction):
-    
-    def isTrue(self, world_values):
-        return min_undef(map(lambda a: a.isTrue(world_values), self.children))
-    
-    def simplify(self, mrf):
-        sf_children = []
-        minTruth = None
-        for child in self.children:
-            child = child.simplify(mrf)
-            if isinstance(child, TrueFalse):
-                if minTruth is None or child.isTrue() < minTruth:
-                    minTruth = child.isTrue()
-            else:
-                sf_children.append(child)
-        if len(sf_children) == 1 and minTruth is None:
-            return sf_children[0]
-        elif len(sf_children) >= 1 and (minTruth is None or minTruth > 0):
-            if minTruth is not None:
-                sf_children.append(TrueFalse(minTruth))
-            return Conjunction(sf_children)
-        else:
-            return TrueFalse(minTruth)
-
-
-class Disjunction(fol.Disjunction):
-    
-    def isTrue(self, world_values):
-        return max_undef(map(lambda a: a.isTrue(world_values), self.children))
-
-    def simplify(self, mrf):
-        sf_children = []
-        maxTruth = None
-        for child in self.children:
-            child = child.simplify(mrf)
-            if isinstance(child, TrueFalse):
-                if maxTruth is None and child.isTrue() > maxTruth:
-                    maxTruth = child.isTrue()
-            else:
-                sf_children.append(child)
-        if len(sf_children) == 1 and maxTruth is None:
-            return sf_children[0]
-        elif len(sf_children) >= 1 and (maxTruth is None or maxTruth < 1):
-            if maxTruth is not None:
-                sf_children.append(TrueFalse(maxTruth))
-            return Disjunction(sf_children)
-        else:
-            return TrueFalse(maxTruth)
+    class Conjunction(FirstOrderLogic.Conjunction):
         
+        def isTrue(self, world_values):
+            return FuzzyLogic.min_undef(map(lambda a: a.isTrue(world_values), self.children))
+        
+        def simplify(self, mrf):
+            sf_children = []
+            minTruth = None
+            for child in self.children:
+                child = child.simplify(mrf)
+                if isinstance(child, Logic.TrueFalse):
+                    if minTruth is None or child.isTrue() < minTruth:
+                        minTruth = child.isTrue()
+                else:
+                    sf_children.append(child)
+            if len(sf_children) == 1 and minTruth is None:
+                return sf_children[0]
+            elif len(sf_children) >= 1 and (minTruth is None or minTruth > 0):
+                if minTruth is not None:
+                    sf_children.append(self.logic.true_false(minTruth))
+                return self.logic.conjunction(sf_children)
+            else:
+                return self.logic.true_false(minTruth)
+    
+    
+    class Disjunction(FirstOrderLogic.Disjunction):
+        
+        def isTrue(self, world_values):
+            return FuzzyLogic.max_undef(map(lambda a: a.isTrue(world_values), self.children))
+    
+        def simplify(self, mrf):
+            sf_children = []
+            maxTruth = None
+            for child in self.children:
+                child = child.simplify(mrf)
+                if isinstance(child, Logic.TrueFalse):
+                    if maxTruth is None and child.isTrue() > maxTruth:
+                        maxTruth = child.isTrue()
+                else:
+                    sf_children.append(child)
+            if len(sf_children) == 1 and maxTruth is None:
+                return sf_children[0]
+            elif len(sf_children) >= 1 and (maxTruth is None or maxTruth < 1):
+                if maxTruth is not None:
+                    sf_children.append(self.logic.true_false(maxTruth))
+                return self.logic.disjunction(sf_children)
+            else:
+                return self.logic.true_false(maxTruth)
+            
+    
+    class Implication(FirstOrderLogic.Implication):
+        
+        def isTrue(self, world_values):
+            return FuzzyLogic.max_undef(1. - self.children[0].isTrue(world_values), self.children[1].isTrue(world_values))
+    
+        def simplify(self, mrf):
+            return self.logic.disjunction([self.logic.negation([self.children[0]]), self.children[1]]).simplify(mrf)
+        
+        
+    class Biimplication(FirstOrderLogic.Biimplication):
+        
+        def isTrue(self, world_values):
+            return FuzzyLogic.min_undef(self.children[0].isTrue(world_values), self.children[1].isTrue(world_values))
+    
+        def simplify(self, mrf):
+            c1 = self.logic.disjunction([self.logic.negation([self.children[0]]), self.children[1]])
+            c2 = self.logic.disjunction([self.children[0], self.logic.negation([self.children[1]])])
+            return self.logic.conjunction([c1,c2]).simplify(mrf)
+        
+        
+    class Equality(FirstOrderLogic.Equality):
+        
+        def isTrue(self, world_values):
+            if any(map(self.logic.isVar, self.params)):
+                return None
+            equals = 1 if (self.params[0] == self.params[1]) else 0
+            return (1 - equals) if self.negated else equals
+        
+        def simplify(self, mrf):
+            truth = self.isTrue(mrf.evidence) 
+            if truth != None: return self.logic.true_false(truth)
+            return self.logic.equality(list(self.params), negated=self.negated)
+        
+    class TrueFalse(Formula):
+        
+        def invert(self):
+            return self.logic.true_false(1 - self.value)
+    
+    class Exist(FirstOrderLogic.Exist):
+        pass
 
-class Implication(fol.Implication):
+    @logic_factory
+    def conjunction(self, *args, **kwargs):
+        return FuzzyLogic.Conjunction(*args, **kwargs)
     
-    def isTrue(self, world_values):
-        return max_undef(1. - self.children[0].isTrue(world_values), self.children[1].isTrue(world_values))
-
-    def simplify(self, mrf):
-        return Disjunction([Negation([self.children[0]]), self.children[1]]).simplify(mrf)
+    @logic_factory 
+    def disjunction(self, *args, **kwargs):
+        return FuzzyLogic.Disjunction(*args, **kwargs)
     
+    @logic_factory
+    def negation(self, *args, **kwargs):
+        return FuzzyLogic.Negation(*args, **kwargs)
     
-class Biimplication(fol.Biimplication):
+    @logic_factory 
+    def implication(self, *args, **kwargs):
+        return FuzzyLogic.Implication(*args, **kwargs)
     
-    def isTrue(self, world_values):
-        return min_undef(self.children[0].isTrue(world_values), self.children[1].isTrue(world_values))
-
-    def simplify(self, mrf):
-        c1 = Disjunction([Negation([self.children[0]]), self.children[1]])
-        c2 = Disjunction([self.children[0], Negation([self.children[1]])])
-        return Conjunction([c1,c2]).simplify(mrf)
+    @logic_factory
+    def biimplication(self, *args, **kwargs):
+        return FuzzyLogic.Biimplication(*args, **kwargs)
     
+    @logic_factory
+    def equality(self, *args, **kwargs):
+        return FuzzyLogic.Equality(*args, **kwargs)
+     
+    @logic_factory
+    def exist(self, *args, **kwargs):
+        return FuzzyLogic.Exist(*args, **kwargs)
     
-class Equality(fol.Equality):
+    @logic_factory
+    def gnd_atom(self, *args, **kwargs):
+        return FuzzyLogic.GroundAtom(*args, **kwargs)
     
-    def isTrue(self, world_values):
-        if any(map(isVar, self.params)):
-            return None
-        equals = 1 if (self.params[0] == self.params[1]) else 0
-        return (1 - equals) if self.negated else equals
+    @logic_factory
+    def lit(self, *args, **kwargs):
+        return FuzzyLogic.Lit(*args, **kwargs)
     
-    def simplify(self, mrf):
-        truth = self.isTrue(mrf.evidence) 
-        if truth != None: return TrueFalse(truth)
-        return Equality(list(self.params), negated=self.negated)
+    @logic_factory
+    def gnd_lit(self, *args, **kwargs):
+        return FuzzyLogic.GroundLit(*args, **kwargs)
     
-class TrueFalse(Formula):
+    @logic_factory
+    def count_constraint(self, *args, **kwargs):
+        return FuzzyLogic.CountConstraint(*args, **kwargs)
     
-    def invert(self):
-        return TrueFalse(1 - self.value)
-
-
-class Exist(fol.Exist):
-    pass
-
-
-if __name__ == '__main__':
-    
-    print min_undef(0, 1, 0)
+    @logic_factory
+    def true_false(self, *args, **kwargs):
+        return FuzzyLogic.TrueFalse(*args, **kwargs)
 
     
