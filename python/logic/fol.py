@@ -61,7 +61,7 @@ class FirstOrderLogic(Logic):
             raise Exception("%s does not implement getGroundAtoms" % str(type(self)))
     
         
-    class Formula(Logic.Formula, FirstOrderLogic.Constraint):
+    class Formula(Logic.Formula, Constraint):
         ''' 
         The base class for all logical constraints.
         '''
@@ -285,7 +285,7 @@ class FirstOrderLogic(Logic):
             return gf_count
     
         
-    class ComplexFormula(Logic.ComplexFormula, FirstOrderLogic.Formula):
+    class ComplexFormula(Logic.ComplexFormula, Formula):
         '''
         A formula that has other formulas as subelements (children)
         '''
@@ -369,7 +369,7 @@ class FirstOrderLogic(Logic):
                 predNames = child.getPredicateNames(predNames)
             return predNames
             
-    class Lit(Logic.Lit, FirstOrderLogic.Formula):
+    class Lit(Logic.Lit, Formula):
         '''
         Represents a literal.
         '''
@@ -482,7 +482,7 @@ class FirstOrderLogic(Logic):
             return None
         
     
-    class GroundAtom(Logic.GroundAtom, FirstOrderLogic.Formula):
+    class GroundAtom(Logic.GroundAtom, Formula):
         '''
         Represents a ground atom.
         '''
@@ -516,7 +516,7 @@ class FirstOrderLogic(Logic):
             return predNames
             
             
-    class GroundLit(Logic.GroundLit, FirstOrderLogic.Formula):
+    class GroundLit(Logic.GroundLit, Formula):
         '''
         Represents a ground literal.
         '''
@@ -578,7 +578,7 @@ class FirstOrderLogic(Logic):
                 predNames.append(self.gndAtoms.predName)
             return predNames
     
-    class Disjunction(Logic.Disjunction, FirstOrderLogic.ComplexFormula):
+    class Disjunction(Logic.Disjunction, ComplexFormula):
         '''
         Represents a disjunction of formulas.
         '''
@@ -683,7 +683,7 @@ class FirstOrderLogic(Logic):
             else:
                 return self.logic.true_false(0)
             
-    class Conjunction(Logic.Conjunction, FirstOrderLogic.ComplexFormula):
+    class Conjunction(Logic.Conjunction, ComplexFormula):
         '''
         Represents a logical conjunction.
         '''
@@ -778,7 +778,7 @@ class FirstOrderLogic(Logic):
             else:
                 return self.logic.true_false(1)
                 
-    class Implication(Logic.Implication, FirstOrderLogic.ComplexFormula):
+    class Implication(Logic.Implication, ComplexFormula):
         
         def __init__(self, children):
             assert len(children) == 2
@@ -808,7 +808,7 @@ class FirstOrderLogic(Logic):
         def simplify(self, mrf):
             return self.logic.disjunction([self.logic.negation([self.children[0]]), self.children[1]]).simplify(mrf)
     
-    class Biimplication(Logic.Biimplication, FirstOrderLogic.ComplexFormula):
+    class Biimplication(Logic.Biimplication, ComplexFormula):
         '''
         Represents a bi-implication.
         '''
@@ -842,7 +842,7 @@ class FirstOrderLogic(Logic):
             return self.logic.conjunction([c1,c2]).simplify(mrf)
         
         
-    class Negation(Logic.Negation, FirstOrderLogic.ComplexFormula):
+    class Negation(Logic.Negation, ComplexFormula):
         '''
         Represents a negation of a complex formula.
         '''
@@ -929,7 +929,7 @@ class FirstOrderLogic(Logic):
             else:
                 return self.logic.negation([f])
             
-    class Exist(Logic.Exist, FirstOrderLogic.ComplexFormula):
+    class Exist(Logic.Exist, ComplexFormula):
         '''
         Existential quantifier.
         '''
@@ -992,14 +992,14 @@ class FirstOrderLogic(Logic):
                 # recursive descent to ground further variables
                 self._ground(formula, dict(variables), assignment, gndings, mrf)
         
-        def toCNF(self):
+        def toCNF(self,l=0):
             raise Exception("'%s' cannot be converted to CNF. Ground this formula first!" % str(self))
     
         def isTrue(self, w):
             raise Exception("'%s' does not implement isTrue()")
     
     
-    class Equality(Logic.Equality, FirstOrderLogic.ComplexFormula):
+    class Equality(Logic.Equality, ComplexFormula):
         '''
         Represents (in)equality constraints between two symbols.
         '''
@@ -1064,7 +1064,7 @@ class FirstOrderLogic(Logic):
             return self.logic.equality(list(self.params), negated=self.negated)
     
             
-    class TrueFalse(Logic.TrueFalse, FirstOrderLogic.Formula):
+    class TrueFalse(Logic.TrueFalse, Formula):
         '''
         Represents the constants true and false.
         '''
@@ -1090,7 +1090,7 @@ class FirstOrderLogic(Logic):
             return vars
     
     
-    class NonLogicalConstraint(Logic.NonLogicalConstraint, FirstOrderLogic.Constraint):
+    class NonLogicalConstraint(Logic.NonLogicalConstraint, Constraint):
         '''
         A constraint that is not somehow made up of logical connectives and (ground) atoms.
         '''
@@ -1106,7 +1106,7 @@ class FirstOrderLogic(Logic):
             raise Exception("%s does not implement negate()" % str(type(self)))
         
         
-    class CountConstraint(Logic.CountConstraint, FirstOrderLogic.NonLogicalConstraint):
+    class CountConstraint(Logic.CountConstraint, NonLogicalConstraint):
         '''
         A constraint that tests the number of relation instances against an integer.
         '''
@@ -1164,7 +1164,7 @@ class FirstOrderLogic(Logic):
                 self.literal.getVariables(mln, vars, constants)
             return vars
                 
-    class GroundCountConstraint(Logic.GroundCountConstraint, FirstOrderLogic.NonLogicalConstraint):
+    class GroundCountConstraint(Logic.GroundCountConstraint, NonLogicalConstraint):
         def __init__(self, gndAtoms, op, count):
             self.gndAtoms = gndAtoms
             self.count = count

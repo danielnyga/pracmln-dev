@@ -24,7 +24,6 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from pyparsing import *
-from common import Logic
 
 
 class TreeBuilder(object):
@@ -101,8 +100,8 @@ class TreeBuilder(object):
             raise Exception("Not a valid formula - reduces to more than one element %s" % str(self.stack))
         if len(self.stack) == 0:
             raise Exception("Constraint could not be parsed")
-        if not isinstance(self.stack[0], Logic.Constraint):
-            raise Exception("Not an instance of Constraint!")
+#         if not isinstance(self.stack[0], Logic.Constraint):
+#             raise Exception("Not an instance of Constraint!")
         return self.stack[0]
 
 
@@ -208,7 +207,7 @@ class PRACGrammar(Grammar):
     def __init__(self, logic):
         # grammar
         
-        identifierCharacter = alphanums + '_' + '-' + "'" + '.' + ':' + ';' + '$'
+        identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$'
         lcCharacter = alphas.lower()
         ucCharacter = alphas.upper()
         lcName = Word(lcCharacter, alphanums + '_')
@@ -277,19 +276,25 @@ class PRACGrammar(Grammar):
 
 # main app for testing purposes only
 if __name__=='__main__':
+    from fol import FirstOrderLogic
+    from fuzzy import FuzzyLogic
+    
     test = 'parsing'
+#     logic = FirstOrderLogic('PRACGrammar')
+    logic = FuzzyLogic('PRACGrammar')
+    
     if test == 'parsing':
-        tests = ["numberEats(o,2) <=> EXIST p, p2 (eats(o,p) ^ eats(o,p2) ^ !(o=p) ^ !(o=p2) ^ !(p=p2) ^ !(EXIST q (eats(o,q) ^ !(p=q) ^ !(p2=q))))",
-                 "EXIST y (rel(x,y) ^ EXIST y2 (!(y2=y) ^ rel(x,y2)) ^ !(EXIST y3 (!(y3=y) ^ !(y3=y2) ^ rel(x,y3))))",
-                 "((a(x) ^ b(x)) v (c(x) ^ !(d(x) ^ e(x) ^ g(x)))) => f(x)"
+        tests = [#"numberEats(o,2) <=> EXIST p, p2 (eats(o,p) ^ eats(o,p2) ^ !(o=p) ^ !(o=p2) ^ !(p=p2) ^ !(EXIST q (eats(o,q) ^ !(p=q) ^ !(p2=q))))",
+                 #"EXIST y (rel(x,y) ^ EXIST y2 (!(y2=y) ^ rel(x,y2)) ^ !(EXIST y3 (!(y3=y) ^ !(y3=y2) ^ rel(x,y3))))",
+                 "((a(?x) ^ b(?x)) v (c(?x) ^ !(d(?x) ^ e(?x) ^ g(?x)))) => f(?x)"
                  ]#,"foo(x) <=> !(EXIST p (foo(p)))", "numberEats(o,1) <=> !(EXIST p (eats(o,p) ^ !(o=p)))", "!a(c,d) => c=d", "c(b) v !(a(b) ^ b(c))"]
 #         tests = ["((!a(x) => b(x)) ^ (b(x) => a(x))) v !(b(x)=>c(x))"]
 #         tests = ["(EXIST y1 (rel(x,y1) ^ EXIST y2 (rel(x,y2) ^ !(y1=y2) ^ !(EXIST y3 (rel(?x,y3) ^ !(y1=y3) ^ !(y2=y3))))))"]
 #         tests = ["EXIST ?x (a(?x))"]
-        tests = ['!foo(?x, ?y) ^ ?x =/= ?y']
+#         tests = ['!foo(?x, ?y) ^ ?x =/= ?y']
         for test in tests:
             print "trying to parse %s..." % test
-            f = parseFormula(test).toCNF()
+            f = logic.grammar.parseFormula(test).toCNF()
             print "got this: %s" % str(f)
             f.printStructure()
     elif test == 'NF':
@@ -309,14 +314,14 @@ if __name__=='__main__':
         #f = "(a(x) ^ b(x) ^ !c(x) ^ !d(x)) v (a(x) ^ !b(x) ^ c(x) ^ !d(x)) v (!a(x) ^ b(x) ^ c(x) ^ !d(x)) v (a(x) ^ !b(x) ^ !c(x) ^ d(x)) v (!a(x) ^ b(x) ^ !c(x) ^ d(x)) v (!a(x) ^ !b(x) ^ c(x) ^ d(x))"
         #f = "consumesAny(P,Coffee) <=> ((consumedBy(C3,P) ^ goodsT(C3,Coffee)) v (consumedBy(C2,P) ^ goodsT(C2,Coffee)) v (consumedBy(C1,P) ^ goodsT(C1,Coffee)) v (consumedBy(C4,P) ^ goodsT(C4,Coffee)))"
         #f = "consumesAny(P,Coffee) <=> ((consumedBy(C3,P) ^ goodsT(C3,Coffee)) v (consumedBy(C2,P) ^ goodsT(C2,Coffee)) v (consumedBy(C1,P) ^ goodsT(C1,Coffee)))"
-        f = parseFormula(f)
+        f = g.parseFormula(f)
         f = f.toCNF()
         f.printStructure()
     elif test == 'count':
         c = "count(directs(a,m)|m) >= 4"
         c = "count(foo(a,Const)) = 2"
         #c = count_constraint.parseString(c)
-        c = parseFormula(c).toCNF()
+        c = logic.grammar.parseFormula(c).toCNF()
         print str(c)
         pass
     

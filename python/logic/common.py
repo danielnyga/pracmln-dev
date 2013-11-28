@@ -21,6 +21,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from grammar import StandardGrammar, PRACGrammar
 
 # ======================================================================================
 # decorator for storing the factory object in each created instance
@@ -45,7 +46,7 @@ class Logic(object):
         '''
         - grammar:     an instance of grammar.Grammar
         '''
-        self.grammar = grammar
+        self.grammar = eval(grammar)(self)
     
     
     # ======================================================================================
