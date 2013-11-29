@@ -25,7 +25,6 @@
 
 from Inference import Inference
 from mln.methods import *
-from logic.grammar import parseFormula
 
 class IPFPM(Inference):
     ''' the iterative proportional fitting procedure applied at the model level (IPFP-M) '''
@@ -40,7 +39,7 @@ class IPFPM(Inference):
         # add formulas to the model whose weights we can then fit
         if verbose: print "extending model with %d formulas whose weights will be fit..." % len(self.mrf.softEvidence)
         for req in self.mrf.softEvidence:            
-            formula = parseFormula(req["expr"])
+            formula = self.mln.logic.parseFormula(req["expr"])
             idxFormula = self.mrf._addFormula(formula, 0.0)                        
             gndFormula = formula.ground(self.mrf, {})
             self.mrf._addGroundFormula(gndFormula, idxFormula)

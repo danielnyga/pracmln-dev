@@ -36,11 +36,14 @@ import shlex
 import tkMessageBox
 from fnmatch import fnmatch
 from pprint import pprint
-from mln.MarkovLogicNetwork import readMLNFromFile
 from mln.methods import ParameterLearningMeasures
 import cProfile
 from cProfile import Profile
 import logging
+from mln import readMLNFromFile
+
+from logic import StandardGrammar, PRACGrammar
+from logic import FirstOrderLogic, FuzzyLogic
 
 # --- generic learning interface ---
 
@@ -128,7 +131,7 @@ class MLNLearn:
                 args["gaussianPriorSigma"] = float(self.settings["priorStdDev"])
             # learn weights
             if type(self.settings["mln"]) == str:
-                mln = readMLNFromFile(self.settings["mln"])
+                mln = readMLNFromFile(self.settings["mln"], logic=self.settings['logic'], grammar=self.settings['grammar'])
             elif type(self.settings["mln"] == mln.MLN):
                 mln = self.settings["mln"]
             else:
@@ -292,6 +295,30 @@ class MLNLearnGUI:
         list = apply(OptionMenu, (self.frame, self.selected_engine) + tuple(engines))
         list.grid(row=row, column=1, sticky="NWE")
 
+        # grammar selection
+        row += 1
+        Label(self.frame, text='Grammar: ').grid(row=row, column=0, sticky='E')
+        grammars = ['StandardGrammar', 'PRACGrammar']
+        self.selected_grammar = StringVar(master)
+        grammar = self.settings.get('grammar')
+        if not grammar in grammars: grammar = grammars[0]
+        self.selected_grammar.set(grammar)
+        self.selected_grammar.trace('w', self.onChangeGrammar)
+        l = apply(OptionMenu, (self.frame, self.selected_grammar) + tuple(grammars))
+        l.grid(row=row, column=1, sticky='NWE')
+        
+        # logic selection
+        row += 1
+        Label(self.frame, text='Logic: ').grid(row=row, column=0, sticky='E')
+        logics = ['FirstOrderLogic', 'FuzzyLogic']
+        self.selected_logic = StringVar(master)
+        logic = self.settings.get('logic')
+        if not logic in logics: logic = logics[0]
+        self.selected_logic.set(logic)
+        self.selected_logic.trace('w', self.onChangeLogic)
+        l = apply(OptionMenu, (self.frame, self.selected_logic) + tuple(logics))
+        l.grid(row=row, column=1, sticky='NWE')
+
         row += 1
         Label(self.frame, text="MLN: ").grid(row=row, column=0, sticky="NE")
         self.selected_mln = FilePickEdit(self.frame, config.learnwts_mln_filemask, self.settings.get("mln"), 20, self.changedMLN, font=config.fixed_width_font)
@@ -436,6 +463,13 @@ class MLNLearnGUI:
         self.db_filename = name
         self.setOutputFilename()
 
+    def onChangeLogic(self, name = None, index = None, mode = None):
+        pass
+    
+    def onChangeGrammar(self, name=None, index=None, mode=None):
+        grammar = eval(self.selected_grammar.get())(None)
+        self.selected_mln.editor.grammar = grammar        
+
     def onChangeMethod(self):
         method = self.selected_method.get()
         state = NORMAL if "[discriminative]" in method else DISABLED
@@ -466,6 +500,8 @@ class MLNLearnGUI:
             self.settings["priorStdDev"] = self.priorStdDev.get()
             self.settings["nePreds"] = self.nePreds.get()
             self.settings["addUnitClauses"] = int(self.add_unit_clauses.get())
+            self.settings['logic'] = self.selected_logic.get()
+            self.settings['grammar'] = self.selected_grammar.get()
             if saveGeometry:
                 self.settings["geometry"] = self.master.winfo_geometry()
             pickle.dump(self.settings, file("learnweights.config.dat", "w+"))

@@ -21,10 +21,10 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from logic import fol as logic
 from AbstractGrounding import AbstractGroundingFactory
 import logging
 from mln.util import strFormula
+from logic.common import Logic
 
 class DefaultGroundingFactory(AbstractGroundingFactory):
     '''
@@ -47,7 +47,7 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         mrf = self.mrf
         assert len(mrf.gndFormulas) == 0
         if domNames == []:
-            atom = logic.GroundAtom(predName, cur)
+            atom = mrf.mln.logic.gnd_atom(predName, cur)
             mrf.addGroundAtom(atom)
             return True
         log = logging.getLogger(self.__class__.__name__)
@@ -77,7 +77,7 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
                     log.debug('    %s\t-> %s' % (strFormula(gndFormula), str(gndFormula.isTrue(mrf.evidence))))
                 gndFormula.isHard = formula.isHard
                 gndFormula.weight = formula.weight
-                if isinstance(gndFormula, logic.TrueFalse):
+                if isinstance(gndFormula, Logic.TrueFalse):
                     continue
                 gndFormulas.append(gndFormula)
                 mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)

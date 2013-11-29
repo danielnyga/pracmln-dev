@@ -26,8 +26,7 @@
 from MCMCInference import * 
 from SAMaxWalkSAT import *
 import pickle
-from logic.grammar import parseFormula
-from logic import fuzzy as logic
+from logic.common import Logic
 
 class MCSAT(MCMCInference):
     ''' MC-SAT/MC-SAT-PC '''
@@ -48,7 +47,7 @@ class MCSAT(MCMCInference):
         # convert the MLN ground formulas to CNF
         if verbose: print "converting formulas to CNF..."
         #self.mln._toCNF(allPositive=True)
-        self.gndFormulas, self.formulas = toCNF(self.mrf.gndFormulas, self.mln.formulas, allPositive=True)
+        self.gndFormulas, self.formulas = toCNF(self.mrf.gndFormulas, self.mln.formulas, self.mln.mln.logic, allPositive=True)
 
         # get clause data
         if verbose: print "gathering clause data..."
@@ -77,7 +76,7 @@ class MCSAT(MCMCInference):
         # add clauses for soft evidence atoms
         for se in self.softEvidence:
             se["numTrue"] = 0.0
-            formula = parseFormula(se["expr"])
+            formula = self.mln.logic.parseFormula(se["expr"])
             se["formula"] = formula.ground(self.mrf, {})
             cnf = formula.toCNF().ground(self.mrf, {}) 
             idxFirst = idxClause
@@ -379,7 +378,7 @@ class SampleSAT:
             SampleSAT._Clause(self, idxClause)
         # instantiate non-logical constraints
         for nlc in NLConstraints:
-            if isinstance(nlc, fol.GroundCountConstraint): # count constraint
+            if isinstance(nlc, Logic.GroundCountConstraint): # count constraint
                 SampleSAT._CountConstraint(self, nlc)
             else:
                 raise Exception("SampleSAT cannot handle constraints of type '%s'" % str(type(nlc)))

@@ -23,12 +23,10 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
 
-from mln.util import stripComments, parsePredicate, parseDomDecl, parseLiteral,\
-    strFormula, mergeDomains
-from logic.grammar import parseFormula
-from logic.fol import GroundLit
+from util import stripComments, strFormula, mergeDomains
 import copy
 import logging
+from logic.common import Logic
 
 class Database(object):
     '''
@@ -66,7 +64,7 @@ class Database(object):
         '''
         for atom, truth in self.evidence.iteritems():
             if pred_names is not None:
-                _, predName, _ = parseLiteral(atom)
+                _, predName, _ = self.mln.logic.parseLiteral(atom)
                 if not predName in pred_names:
                     continue
             yield '%s%s' % ('' if truth else '!', atom)
@@ -77,9 +75,9 @@ class Database(object):
         a GroundLit object or a string.
         '''
         if type(gndLit) is str:
-            isTrue, predName, params = parseLiteral(gndLit)
+            isTrue, predName, params = self.mln.logic.parseLiteral(gndLit)
             atomString = "%s(%s)" % (predName, ",".join(params))
-        elif isinstance(gndLit, GroundLit):
+        elif isinstance(gndLit, Logic.GroundLit):
             atomString = gndLit.gndAtom
             isTrue = not gndLit.negated
             params = gndLit.params
@@ -131,9 +129,9 @@ class Database(object):
         Removes the evidence of the given ground atom in this database.
         '''
         if type(gndLit) is str:
-            _, predName, params = parseLiteral(gndLit)
+            _, predName, params = self.mln.logic.parseLiteral(gndLit)
             atomString = "%s(%s)" % (predName, ",".join(params))
-        elif isinstance(gndLit, GroundLit):
+        elif isinstance(gndLit, Logic.GroundLit):
             atomString = gndLit.gndAtom
         else:
             raise Exception('gndLit has an illegal type')
@@ -156,7 +154,7 @@ class Database(object):
             instantiated; so keep the queries short ;)
         ''' 
         pseudoMRF = Database.PseudoMRF(self)
-        formula = parseFormula(formula)
+        formula = self.mln.logic.parseFormula(formula)
         for varAssignment in pseudoMRF.iterTrueVariableAssignments(formula):
             yield varAssignment
                         
@@ -279,7 +277,7 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
             continue
         # domain declaration
         elif "{" in l:
-            domName, constants = parseDomDecl(l)
+            domName, constants = db.mln.logic.parseDomDecl(l)
             domNames = [domName for _ in constants]
         # valued evidence
         elif l[0] in "0123456789":
@@ -291,7 +289,7 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
                 db.softEvidence.append(d)
             else:
                 raise log.exception("Duplicate soft evidence for '%s'" % gndAtom)
-            predName, constants = parsePredicate(gndAtom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
+            predName, constants =   mln.logic.parsePredDecl(gndAtom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
             if not predName in mln.predicates and ignoreUnknownPredicates:
                 log.debug('Predicate "%s" is undefined.' % predName)
                 continue
@@ -303,7 +301,7 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
         else:
             if l[0] == "?":
                 raise log.exception("Unknown literals not supported (%s)" % l) # this is an Alchemy feature
-            isTrue, predName, constants = parseLiteral(l)
+            isTrue, predName, constants = mln.logic.parseLiteral(l)
             if not predName in mln.predicates and ignoreUnknownPredicates:
                 log.debug('Predicate "%s" is undefined.' % predName)
                 continue

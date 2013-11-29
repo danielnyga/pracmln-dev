@@ -158,12 +158,12 @@ class WCSP(object):
         providing a write method.
         '''
         wcsp = self#.makeIntegerCostWCSP()
-        stream.write('%s %d %d %d %f\n' % (wcsp.name, len(wcsp.domSizes), max(wcsp.domSizes), len(wcsp.constraints), wcsp.top))
+        stream.write('%s %d %d %d %d\n' % (wcsp.name, len(wcsp.domSizes), max(wcsp.domSizes), len(wcsp.constraints), int(wcsp.top)))
         stream.write(' '.join(map(str, wcsp.domSizes)) + '\n')
         for c in wcsp.constraints:
             stream.write('%d %s %d %d\n' % (len(c.varIndices), ' '.join(map(str, c.varIndices)), c.defCost, len(c.tuples)))
             for t in c.tuples.keys():
-                stream.write('%s %f\n' % (' '.join(map(str, t)), c.tuples[t]))
+                stream.write('%s %d\n' % (' '.join(map(str, t)), int(c.tuples[t])))
         
     def read(self, stream):
         '''
@@ -196,14 +196,19 @@ class WCSP(object):
         costs = []
         log = logging.getLogger('wcsp')
         minWeight = None
+        if len(self.constraints) == 0:
+            log.critical('There are no satisfiable constraints.')
         for constraint in self.constraints:
+            print constraint
             for value in [constraint.defCost] + constraint.tuples.values():
                 if value in costs or value == WCSP.TOP:
                     continue
                 bisect.insort(costs, value)
                 if (minWeight is None or value < minWeight) and value > 0:
                     minWeight = value
-        
+        # no smallest real-valued weight -> all constraints are hard
+        if minWeight is None: 
+            return None
         # compute the smallest difference between subsequent costs
         deltaMin = None
         w1 = costs[0]
@@ -228,6 +233,8 @@ class WCSP(object):
         Computes the costs for hard constraints that determine
         costs for entirely inconsistent worlds (0 probability).
         '''
+        if divisor is None:
+            return 1
         costSum = long(0)
         for constraint in self.constraints:
             maxCost = max([constraint.defCost] + constraint.tuples.values())
@@ -258,15 +265,16 @@ class WCSP(object):
         log.warning(divisor)
         top = wcsp_.top = wcsp_._computeHardCosts(divisor)
         for constraint in wcsp_.constraints:
+            constraint.write(sys.stdout)
             if constraint.defCost == WCSP.TOP:
                 constraint.defCost = top
             else:
-                constraint.defCost = long(float(constraint.defCost) / divisor)
+                constraint.defCost = 0 if divisor is None else long(float(constraint.defCost) / divisor)
             for tup, cost in constraint.tuples.iteritems():
                 if cost == WCSP.TOP:
                     constraint.tuples[tup] = top
                 else:
-                    constraint.tuples[tup] = long(float(cost) / divisor)
+                    constraint.tuples[tup] = 0 if divisor is None else long(float(cost) / divisor)
         return wcsp_
     
                     
@@ -282,6 +290,7 @@ class WCSP(object):
         wcspfilename = temp_wcsp_file % os.getpid()
         f = open(wcspfilename, 'w+')
         wcsp_.write(f)
+        wcsp_.write(sys.stdout)
 #         cmd = 'toulbar2 -s -v=1 -e=0 -nopre -k=0 %s' % temp_wcsp_file
         f.close()
         cmd = 'toulbar2 -s %s' % wcspfilename

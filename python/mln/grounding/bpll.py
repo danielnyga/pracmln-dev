@@ -26,13 +26,13 @@ from collections import defaultdict
 # from logic.fol import isConjunctionOfLiterals
 from utils.undo import Ref, Number, List, ListDict, Boolean
 import utils
-from logic.fol import Equality, isConjunctionOfLiterals, Conjunction
 from mln.grounding.DefaultGrounding import DefaultGroundingFactory
 from mln.learning.AbstractLearner import AbstractLearner
 from debug import DEBUG
 from utils import combinations
 from mln.util import strFormula
 import math
+from logic.common import Logic
 
 
 class FormulaGrounding(object):
@@ -163,7 +163,7 @@ class SmartGroundingFactory(object):
         '''
         self.mrf = mrf
         self.costs = .0
-        if isinstance(formula, fol.Formula):
+        if isinstance(formula, Logic.Formula):
             self.formula = formula
             self.root = FormulaGrounding(formula, mrf)
         elif isinstance(formula, FormulaGrounding):
@@ -304,10 +304,10 @@ class SmartGroundingFactory(object):
         '''
         Returns None if the literal and the atom do not match.
         '''
-        if type(lit) is Equality or lit.predName != atom.predName: return None
+        if type(lit) is Logic.Equality or lit.predName != atom.predName: return None
         assignment = {}
         for p1, p2 in zip(lit.params, atom.params):
-            if grammar.isVar(p1):
+            if self.mrf.mln.logic.isVar(p1):
                 assignment[p1] = p2
             elif p1 != p2: return None
         return assignment
@@ -409,7 +409,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
         # remove the true equality constraints
         conjuncts = formula.children
         eqConstraints = []
-        while len(conjuncts) > 0 and type(conjuncts[0]) is Equality:
+        while len(conjuncts) > 0 and type(conjuncts[0]) is Logic.Equality:
             eq = conjuncts[0]
             if eq.isTrue(None) == 0: return
             elif eq.isTrue(None) is None: eqConstraints.append(eq)
@@ -424,7 +424,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                     if falseLit is not None: return
                     else: falseLit = gndLit
                 if len(conjuncts) + len(eqConstraints) >= 3:
-                    newConj = Conjunction(eqConstraints + conjuncts[1:]).ground(self.mrf, varAssign, allowPartialGroundings=True)
+                    newConj = Logic.Conjunction(eqConstraints + conjuncts[1:]).ground(self.mrf, varAssign, allowPartialGroundings=True)
                 else:
                     newConj = None
                 self.generateTrueConjunctionGroundings(fIdx, newConj, conjunctsSoFar + [gndLit], falseLit)
@@ -435,7 +435,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
         mrf = self.mrf
         for fIdx, formula in enumerate(mrf.formulas):
 #             stdout.write('%d/%d\r' % (fIdx, len(mrf.formulas)))
-            if isConjunctionOfLiterals(formula):
+            if self.mrf.mln.logic.isConjunctionOfLiterals(formula):
 #                 print 'grounding:'
 #                 print strFormula(formula)
                 self.generateTrueConjunctionGroundings(fIdx, formula, [])

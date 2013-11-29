@@ -25,10 +25,8 @@ from Tkinter import *
 from ScrolledText import ScrolledText
 from string import ascii_letters, digits, punctuation
 import re
-from logic.fol import isVar
-from logic.grammar import identifierCharacter
 try:
-    import Pmw
+    import Pmw  # @UnresolvedImport
     havePMW = True
 except:
     havePMW = False
@@ -44,6 +42,7 @@ class ScrolledText2(ScrolledText):
         ScrolledText.__init__(self,root,wrap=NONE,bd=0,width=80,height=25,undo=1,maxundo=50,padx=0,pady=0,background="white",foreground="black")
 
 class Highlighter(object):
+    
     def __init__(self):
         # syntax highlighting definitions
         self.tags = {
@@ -72,7 +71,7 @@ class BLNHighlighter(Highlighter):
 class SyntaxHighlightingText(ScrolledText2):
 
     # constructor
-    def __init__(self, root, change_hook = None, highlighter = None):
+    def __init__(self, root, change_hook = None, highlighter = None, grammar=None):
         ScrolledText2.__init__(self,root,change_hook)
         # Non-wrapping, no border, undo turned on, max undo 50
         self.text = self # For the methods taken from IDLE
@@ -101,7 +100,9 @@ class SyntaxHighlightingText(ScrolledText2):
         self.bind('<Button-3>', self.popup) # right mouse button opens popup
         self.bind('<Button-1>', self.recolorCurrentLine) # left mouse can reposition cursor, so recolor (e.g. bracket highlighting necessary)
         self.bind('<Control-Any-KeyPress>', self.ctrl)
-
+        
+        self.grammar = grammar
+        
         self.setHighlighter(highlighter)
 
     def setHighlighter(self, highlighter):
@@ -323,7 +324,7 @@ class SyntaxHighlightingText(ScrolledText2):
         # variable and predicate highlighting
         for match in re.finditer('(\\?[a-zA-Z0-9]+|[\w]*[a-zA-Z]\\()', buffer):
             token = match.group(0)
-            if isVar(token):
+            if self.grammar is not None and self.grammar.isVar(token):
                 self.tag_add('var', '%s.%d' % (cline, match.start()), '%s.%d' % (cline, match.end()))
             elif token[-1] == '(':
                 self.tag_add('pred', '%s.%d' % (cline, match.start()), '%s.%d' % (cline, match.end()-1))
@@ -357,6 +358,7 @@ class SyntaxHighlightingText(ScrolledText2):
             self.colorize(str(line+i))
 
 class FilePickEdit(Frame):
+    
     def reloadFile(self):
         self.editor.delete("1.0", END)
         filename = self.picked_name.get()

@@ -24,13 +24,11 @@
 import bisect
 from wcsp import WCSP
 from wcsp import Constraint
-from logic.fol import Negation, GroundAtom, GroundLit, TrueFalse
 import utils
-from logic.fol import isConjunctionOfLiterals
-from logic.fol import isDisjunctionOfLiterals
-from mln.database import Database
 import logging
 from utils import deprecated
+from logic.common import Logic
+from mln.database import Database
 
 class WCSPConverter(object):
     '''
@@ -155,9 +153,10 @@ class WCSPConverter(object):
             raise Exception("Numeric Overflow")
         if top > WCSPConverter.MAX_COST:
             self.log.error('Maximum costs exceeded: %d > %d' % (top, WCSPConverter.MAX_COST))
-            raise MaxCostExceeded()
+            raise
         return long(top)
     
+    @deprecated
     def generateEvidenceConstraints(self):
         '''
         === DEPRECATED ===
@@ -189,19 +188,20 @@ class WCSPConverter(object):
 #         wcsp.top = self.top
         wcsp.domSizes = [max(2,len(self.varIdx2GndAtom[i])) for i, _ in enumerate(self.vars)]
 #         wcsp.constraints.extend(self.generateEvidenceConstraints())
-
+        log = logging.getLogger('wcsp')
+        logic = self.mrf.mln.logic
         # preprocess the ground formulas
         gfs = []
         for gf in self.mrf.gndFormulas:
             gf.weight = self.mln.formulas[gf.idxFormula].weight
             gf.isHard = self.mln.formulas[gf.idxFormula].isHard
             if gf.weight < 0:
-                f = Negation([gf])
+                f = self.mrf.mln.logic.negation([gf])
                 f.weight = abs(gf.weight)
                 f.isHard = gf.isHard
             else: f = gf
             f_ = f.simplify(self.mrf)
-            if isinstance(f_, TrueFalse) or gf.weight == 0:
+            if isinstance(f_, Logic.TrueFalse) or gf.weight == 0:
                 continue
             f_ = f_.toNNF()
             f_.weight = f.weight
@@ -216,59 +216,55 @@ class WCSPConverter(object):
         '''
         Generates and adds a constraint from a given weighted formula.
         '''
+        log = logging.getLogger('wcsp')
         idxGndAtoms = wf.idxGroundAtoms()
         gndAtoms = map(lambda x: self.mrf.gndAtomsByIdx[x], idxGndAtoms)
         varIndices = set(map(lambda x: self.gndAtom2VarIndex[x], gndAtoms))
         
         varIndices = tuple(sorted(varIndices))
-#         if wf.isHard:
-# #             cost = self.top
-#             cost = WCSP.TOP
-#         else:
-#             cost = wf.weight#long(wf.weight / self.divisor)
-        log = logging.getLogger('wcsp')
         # collect the constraint tuples
         cost2assignments = self.gatherConstraintTuples(wcsp, varIndices, wf)
         defaultCost = max(cost2assignments, key=lambda x: len(cost2assignments[x]))
-#        print true, false
-        log.warning(cost2assignments)
-        log.warning(defaultCost)
         constraint = Constraint(varIndices, defCost=defaultCost)
         constraint.defCost = defaultCost
         for cost, tuples in cost2assignments.iteritems():
             if cost == defaultCost: continue
             for t in tuples:
                 constraint.addTuple(t, cost)
-#         
-#         tuples = None
-#         if true is None or false is not None and len(true) > len(false):
-#             constraint.defCost = 0
-#             tuples = false
-#         else:
-#             constraint.defCost = cost
-#             cost = 0
-#             tuples = true
-#         for t in tuples:
-#             constraint.addTuple(t, cost)
             
         # merge the constraint if possible
         cOld = self.constraintBySignature.get(varIndices, None)
         if not cOld is None:
-            for t in constraint.tuples.keys():
+            # update all the tuples of the old constraint
+            for t, cost in constraint.tuples.iteritems():
                 tOldCosts = cOld.tuples.get(t, None)
-                if tOldCosts is not None and tOldCosts != WCSP.TOP:
-#                     assert (cost + tOldCosts >= tOldCosts)
+                if tOldCosts == WCSP.TOP or tOldCosts is None and cOld.defCost == WCSP.TOP: continue
+                if tOldCosts is not None:
                     cOld.addTuple(t, WCSP.TOP if cost == WCSP.TOP else cost + tOldCosts)
-                elif cOld.defCost != WCSP.TOP:
-#                     assert (cost + cOld.defCost >= cOld.defCost)
+                else:
                     cOld.addTuple(t, WCSP.TOP if cost == WCSP.TOP else cost + cOld.defCost)
-            if constraint.defCost != 0:
+            # update the default costs of the old constraint
+            if constraint.defCost != 0 and cOld.defCost != WCSP.TOP:
                 for t in filter(lambda x: x not in constraint.tuples, cOld.tuples):
                     oldCost = cOld.tuples[t]
                     if oldCost != WCSP.TOP:
                         cOld.addTuple(t, WCSP.TOP if constraint.defCost == WCSP.TOP else oldCost + constraint.defCost)
-                if cOld.defCost != WCSP.TOP:
-                    cOld.defCost = WCSP.TOP if constraint.defCost == WCSP.TOP else cOld.defCost + constraint.defCost
+                cOld.defCost = WCSP.TOP if constraint.defCost == WCSP.TOP else cOld.defCost + constraint.defCost
+            # if the constraint is fully specified by its tuples,
+            # simplify it by introducing default costs
+            if reduce(lambda x, y: x * y, map(lambda x: wcsp.domSizes[x], varIndices)) == len(cOld.tuples):
+                cost2assignments = {}
+                for t, c in cOld.tuples.iteritems():
+                    ass = cost2assignments.get(c, [])
+                    cost2assignments[c] = ass
+                    ass.append(t)
+                defaultCost = max(cost2assignments, key=lambda x: len(cost2assignments[x]))
+                cOld.defCost = defaultCost
+                cOld.tuples = {}
+                for cost, tuples in cost2assignments.iteritems():
+                    if cost == defaultCost: continue
+                    for t in tuples:
+                        cOld.addTuple(t, cost)
         else:
             self.constraintBySignature[varIndices] = constraint
             wcsp.constraints.append(constraint)
@@ -278,27 +274,28 @@ class WCSPConverter(object):
         '''
         Collects and evaluates all tuples that belong to the constraint
         given by a formula. In case of disjunctions and conjunctions,
-        this is fairly efficiently since not all combinations
+        this is fairly efficient since not all combinations
         need to be evaluated. Returns a dictionary mapping the constraint
         costs to the list of respective variable assignments.
         ''' 
         log = logging.getLogger()
+        logic = self.mrf.mln.logic
         try:
             # we can treat conjunctions and disjunctions fairly efficiently
             raise # TODO: implement also the efficient way
-            conj = isConjunctionOfLiterals(formula)
-            if not conj and not isDisjunctionOfLiterals(formula): raise
+            conj = logic.isConjunctionOfLiterals(formula)
+            if not conj and not logic.isDisjunctionOfLiterals(formula): raise
             assignment = [0] * len(varIndices)
             children = []
             for lit in formula.iterLiterals():
                 children.append(lit)
             for gndLiteral in children:
-                (gndAtom, varVal) = (gndLiteral, True) if isinstance(gndLiteral, GroundAtom) else (gndLiteral.gndAtom, not gndLiteral.negated)
+                (gndAtom, varVal) = (gndLiteral, True) if isinstance(gndLiteral, logic.GroundAtom) else (gndLiteral.gndAtom, not gndLiteral.negated)
                 if not conj: varVal = not varVal
                 varVal = 1 if varVal else 0
                 varIdx = self.gndAtom2VarIndex[gndAtom]
                 if varIdx in self.mutexVars:
-                    if isinstance(gndLiteral, GroundLit) and varVal == 0: raise
+                    if isinstance(gndLiteral, logic.GroundLit) and varVal == 0: raise
                     varVal = self.varIdx2GndAtom[varIdx].index(gndAtom)
                 assignment[varIndices.index(varIdx)] = varVal
             if conj:
@@ -308,9 +305,9 @@ class WCSPConverter(object):
         except: 
             # fallback: go through all combinations of truth assignments
             domains = [range(d) for i,d in enumerate(wcsp.domSizes) if i in varIndices]
+            log.warning(varIndices)
+            log.warning(domains)
             cost2assignments = {}
-#             trueAssignments = []
-#             falseAssignments = []
             for c in utils.combinations(domains):
                 world = [0] * len(self.mrf.gndAtoms)
                 for var, assignment in zip(varIndices, c):
@@ -320,12 +317,11 @@ class WCSPConverter(object):
                         world[self.varIdx2GndAtom[var][0].idx] = 1 if assignment > 0 else 0
                 # the MRF feature imposed by this formula 
                 truth = formula.isTrue(world)
-#                 log.warning(formula.isHard)
                 formula_feature = WCSP.TOP if (1 - truth) and formula.isHard else (1 - truth) * formula.weight
                 assignments = cost2assignments.get(formula_feature, [])
                 cost2assignments[formula_feature] = assignments
                 assignments.append(c)
-            return cost2assignments#trueAssignments, falseAssignments
+            return cost2assignments
         
         
     def forbidGndAtom(self, atom, wcsp, trueFalse=True):
@@ -372,7 +368,7 @@ class WCSPConverter(object):
         if isinstance(gndAtom, basestring):
             gndAtom = self.mrf.gndAtoms[gndAtom]
         
-        if not isinstance(gndAtom, GroundAtom):
+        if not isinstance(gndAtom, Logic.GroundAtom):
             raise Exception('Argument must be a ground atom')
         
         varIdx = self.gndAtom2VarIndex[gndAtom]
