@@ -24,6 +24,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from pyparsing import *
+import re
 
 
 class TreeBuilder(object):
@@ -124,6 +125,16 @@ class Grammar(object):
         constr = self.tree.getConstraint()
         return constr
     
+    def parseAtom(self, string):
+        '''
+        Parses a predicate such as p(A,B) and returns a tuple where the first item 
+        is the predicate name and the second is a list of parameters, e.g. ("p", ["A", "B"])
+        '''
+        m = re.match(r'(\w+)\((.*?)\)$', string)
+        if m is not None:
+            return (m.group(1), map(str.strip, m.group(2).split(",")))
+        raise Exception("Could not parse predicate '%s'" % string)
+    
     def parsePredDecl(self, s):
         return self.predDecl.parseString(s)[0]
     
@@ -133,6 +144,27 @@ class Grammar(object):
     def isConstant(self, identifier):
         return not self.isVar(identifier)
     
+    def parseDomDecl(self, s):
+        '''
+        Parses a domain declaration and returns a tuple (domain name, list of constants)
+        '''
+        m = re.match(r'(\w+)\s*=\s*{(.*?)}', s)
+        if m == None:
+            raise Exception("Could not parse the domain declaration '%s'" % line)
+        return (m.group(1), map(str.strip, m.group(2).split(',')))
+    
+    def parseLiteral(self, s):
+        '''
+        Parses a literal such as !p(A,B) or p(A,B)=False and returns a tuple 
+        where the first item is whether the literal is true, the second is the 
+        predicate name and the third is a list of parameters, e.g. (False, "p", ["A", "B"])
+        '''
+        # try regular MLN syntax
+        m = re.match(r'(!?)(\w+)\((.*?)\)$', s)
+        if m is not None:
+            return (m.group(1) != "!", m.group(2), map(str.strip, m.group(3).split(",")))
+        raise Exception("Could not parse literal '%s'" % line)
+
     
 class StandardGrammar(Grammar):
     '''
@@ -148,7 +180,7 @@ class StandardGrammar(Grammar):
         openRB = Literal("(").suppress()
         closeRB = Literal(")").suppress()
         
-        domName = lcName
+        domName = domName = Combine(lcName + Optional('!'))
         
         constant = Word(ucCharacter, identifierCharacter) | Word(nums)
         variable = Word(lcCharacter, identifierCharacter)
@@ -218,7 +250,7 @@ class PRACGrammar(Grammar):
         openSB = Literal('[').suppress()
         closeSB = Literal(']').suppress()
         
-        domName = lcName
+        domName = Combine(lcName + Optional('!'))
         
         constant = Word(identifierCharacter) | Word(nums)
         variable = Word(qMark, identifierCharacter)
@@ -265,6 +297,7 @@ class PRACGrammar(Grammar):
         self.tree = tree
         self.formula = formula + StringEnd()
         self.predDecl = predDecl
+        self.literal = literal
         
     def isVar(self, identifier):
         '''
@@ -281,7 +314,7 @@ if __name__=='__main__':
     
     test = 'parsing'
 #     logic = FirstOrderLogic('StandardGrammar')
-    logic = FuzzyLogic('StandardGrammar')
+    logic = FuzzyLogic('PRACGrammar')
     
     if test == 'parsing':
         tests = [#"numberEats(o,2) <=> EXIST p, p2 (eats(o,p) ^ eats(o,p2) ^ !(o=p) ^ !(o=p2) ^ !(p=p2) ^ !(EXIST q (eats(o,q) ^ !(p=q) ^ !(p2=q))))",
@@ -292,6 +325,7 @@ if __name__=='__main__':
 #         tests = ["(EXIST y1 (rel(x,y1) ^ EXIST y2 (rel(x,y2) ^ !(y1=y2) ^ !(EXIST y3 (rel(?x,y3) ^ !(y1=y3) ^ !(y2=y3))))))"]
 #         tests = ["EXIST ?x (a(?x))"]
 #         tests = ['!foo(?x, ?y) ^ ?x =/= ?y']
+        print logic.grammar.parsePredDecl('foo(ar, bar2!)')
         for test in tests:
             print "trying to parse %s..." % test
             f = logic.grammar.parseFormula(test).toCNF()

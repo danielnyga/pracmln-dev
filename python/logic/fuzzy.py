@@ -21,8 +21,8 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from logic.fol import FirstOrderLogic
-from logic.common import Logic, logic_factory
+from fol import FirstOrderLogic
+from common import Logic, logic_factory
 
 
 class FuzzyLogic(Logic):
@@ -87,7 +87,7 @@ class FuzzyLogic(Logic):
     class GroundAtom(FirstOrderLogic.GroundAtom):
         
         def isTrue(self, world_values):
-            val = world_values[self.gndAtom.idx]
+            val = world_values[self.idx]
             if val is None: return None
             return val
         
@@ -193,7 +193,11 @@ class FuzzyLogic(Logic):
             if truth != None: return self.logic.true_false(truth)
             return self.logic.equality(list(self.params), negated=self.negated)
         
-    class TrueFalse(Formula):
+    class TrueFalse(Formula, FirstOrderLogic.TrueFalse):
+        
+        def __init__(self, value):
+            assert value >= 0 and value <= 1
+            self.value = value
         
         def invert(self):
             return self.logic.true_false(1 - self.value)

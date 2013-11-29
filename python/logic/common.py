@@ -22,6 +22,8 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from grammar import StandardGrammar, PRACGrammar
+import re
+import logging
 
 # ======================================================================================
 # decorator for storing the factory object in each created instance
@@ -39,7 +41,7 @@ class Logic(object):
     Abstract factory class for instantiating logical constructs like conjunctions, 
     disjunctions etc. Every specifc logic should implement the methods and return
     an instance of the respective element. They also might override the respective
-    implementations of behaviors of the logic.
+    implementations and behavior of the logic.
     '''
     
     def __init__(self, grammar):
@@ -85,6 +87,24 @@ class Logic(object):
         to the used grammar, and False otherwise.
         '''
         return self.grammar.isConstant(identifier)
+    
+    def parseFormula(self, formula):
+        '''
+        Returns the Formula object parsed by the grammar.
+        '''
+        return self.grammar.parseFormula(formula)
+    
+    def parsePredDecl(self, string):
+        return self.grammar.parsePredDecl(string)
+    
+    def parseAtom(self, string):
+        return self.grammar.parseAtom(string)    
+    
+    def parseDomDecl(self, decl):
+        return self.grammar.parseDomDecl(decl)
+    
+    def parseLiteral(self, lit):
+        return self.grammar.parseLiteral(lit)
     
     @logic_factory
     def conjunction(self, *args, **kwargs):

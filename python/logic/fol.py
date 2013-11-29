@@ -322,7 +322,7 @@ class FirstOrderLogic(Logic):
             for child in self.children:
                 gndChild = child.ground(mrf, assignment, referencedGndAtoms, simplify, allowPartialGroundings)
                 children.append(gndChild)
-            gndFormula = self.logic.create(type(self), *children)
+            gndFormula = self.logic.create(type(self), children)
             if simplify:
                 gndFormula = gndFormula.simplify(mrf)
             return gndFormula
@@ -766,7 +766,7 @@ class FirstOrderLogic(Logic):
             sf_children = []
             for child in self.children:
                 child = child.simplify(mrf)
-                if isinstance(child, child.TrueFalse):
+                if isinstance(child, Logic.TrueFalse):
                     if not child.isTrue():
                         return self.logic.true_false(0)
                 else:
@@ -1070,6 +1070,7 @@ class FirstOrderLogic(Logic):
         '''
         
         def __init__(self, value):
+            assert value == 0 or value == 1
             self.value = value
         
         def __str__(self):
