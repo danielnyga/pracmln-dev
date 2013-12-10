@@ -27,3 +27,4 @@ from mln import MLN
 from mln import readMLNFromFile
 from database import Database
 from database import readDBFromFile
+from errors import *
