@@ -199,8 +199,8 @@ class WCSP(object):
         if len(self.constraints) == 0:
             log.critical('There are no satisfiable constraints.')
         for constraint in self.constraints:
-            print constraint
             for value in [constraint.defCost] + constraint.tuples.values():
+                value = eval('%.6f' % value)
                 if value in costs or value == WCSP.TOP:
                     continue
                 bisect.insort(costs, value)
@@ -212,6 +212,7 @@ class WCSP(object):
         # compute the smallest difference between subsequent costs
         deltaMin = None
         w1 = costs[0]
+        log.warning(costs)
         if len(costs) == 1:
             deltaMin = costs[0]
         for w2 in costs[1:]:
@@ -236,6 +237,7 @@ class WCSP(object):
         if divisor is None:
             return 1
         costSum = long(0)
+        log = logging.getLogger('wcsp')
         for constraint in self.constraints:
             maxCost = max([constraint.defCost] + constraint.tuples.values())
             if maxCost == WCSP.TOP or maxCost == 0.0: continue
@@ -245,11 +247,10 @@ class WCSP(object):
                 raise Exception("Numeric Overflow")
             costSum = newSum
         top = costSum + 1
-        print top
         if top < costSum:
             raise Exception("Numeric Overflow")
         if top > WCSP.MAX_COST:
-            self.log.critical('Maximum costs exceeded: %d > %d' % (top, WCSP.MAX_COST))
+            log.critical('Maximum costs exceeded: %d > %d' % (top, WCSP.MAX_COST))
             raise MaxCostExceeded()
         return long(top)
     
@@ -262,10 +263,10 @@ class WCSP(object):
         log = logging.getLogger()
         wcsp_ = copy.copy(self)
         divisor = wcsp_._computeDivisor()
-        log.warning(divisor)
+#         log.warning(divisor)
         top = wcsp_.top = wcsp_._computeHardCosts(divisor)
         for constraint in wcsp_.constraints:
-            constraint.write(sys.stdout)
+#             constraint.write(sys.stdout)
             if constraint.defCost == WCSP.TOP:
                 constraint.defCost = top
             else:
@@ -290,7 +291,7 @@ class WCSP(object):
         wcspfilename = temp_wcsp_file % os.getpid()
         f = open(wcspfilename, 'w+')
         wcsp_.write(f)
-        wcsp_.write(sys.stdout)
+#         wcsp_.write(sys.stdout)
 #         cmd = 'toulbar2 -s -v=1 -e=0 -nopre -k=0 %s' % temp_wcsp_file
         f.close()
         cmd = 'toulbar2 -s %s' % wcspfilename

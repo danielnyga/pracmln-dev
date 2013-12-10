@@ -195,6 +195,8 @@ class WCSPConverter(object):
         for gf in self.mrf.gndFormulas:
             gf.weight = self.mln.formulas[gf.idxFormula].weight
             gf.isHard = self.mln.formulas[gf.idxFormula].isHard
+            if gf.weight == 0 and not gf.isHard:
+                continue
             if gf.weight < 0:
                 f = self.mrf.mln.logic.negation([gf])
                 f.weight = abs(gf.weight)
@@ -278,8 +280,9 @@ class WCSPConverter(object):
         need to be evaluated. Returns a dictionary mapping the constraint
         costs to the list of respective variable assignments.
         ''' 
-        log = logging.getLogger()
+        log = logging.getLogger('wcsp')
         logic = self.mrf.mln.logic
+        log.info(str(formula) + ': %f' % formula.weight)
         try:
             # we can treat conjunctions and disjunctions fairly efficiently
             raise # TODO: implement also the efficient way
@@ -305,8 +308,8 @@ class WCSPConverter(object):
         except: 
             # fallback: go through all combinations of truth assignments
             domains = [range(d) for i,d in enumerate(wcsp.domSizes) if i in varIndices]
-            log.warning(varIndices)
-            log.warning(domains)
+#             log.warning(varIndices)
+#             log.warning(domains)
             cost2assignments = {}
             for c in utils.combinations(domains):
                 world = [0] * len(self.mrf.gndAtoms)
@@ -317,7 +320,8 @@ class WCSPConverter(object):
                         world[self.varIdx2GndAtom[var][0].idx] = 1 if assignment > 0 else 0
                 # the MRF feature imposed by this formula 
                 truth = formula.isTrue(world)
-                formula_feature = WCSP.TOP if (1 - truth) and formula.isHard else (1 - truth) * formula.weight
+                assert truth is not None
+                formula_feature = WCSP.TOP if truth != 1 and formula.isHard else (1 - truth) * formula.weight
                 assignments = cost2assignments.get(formula_feature, [])
                 cost2assignments[formula_feature] = assignments
                 assignments.append(c)
