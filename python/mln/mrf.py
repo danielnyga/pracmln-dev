@@ -933,9 +933,9 @@ class MRF(object):
                     req["idxFormula"] = idxFormula
                 # instantiate a ground formula
                 formula = self.formulas[req["idxFormula"]]
-                vars = formula.getVariables(self)
+                variables = formula.getVariables(self)
                 groundVars = {}
-                for varName, domName in vars.iteritems(): # instantiate vars arbitrarily (just use first element of domain)
+                for varName, domName in variables.iteritems(): # instantiate vars arbitrarily (just use first element of domain)
                     groundVars[varName] = self.domains[domName][0]
                 gndFormula = formula.ground(self, groundVars)
                 req["gndExpr"] = str(gndFormula)

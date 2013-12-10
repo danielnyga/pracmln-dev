@@ -27,7 +27,8 @@
 from database import Database, readDBFromFile
 from logic import FirstOrderLogic, FuzzyLogic
 import copy
-from utils import dict_union
+from utils import dict_union, comment_color, predicate_color, weight_color,\
+    colorize
 
 from debug import DEBUG
 import praclog
@@ -47,6 +48,9 @@ from methods import InferenceMethods, ParameterLearningMeasures
 from util import mergeDomains, strFormula, stripComments
 from mrf import MRF
 import re
+from praclog.logformat import RainbowLoggingHandler
+from errors import MLNParsingError
+
 
 if platform.architecture()[0] == '32bit':
     try:
@@ -160,6 +164,27 @@ class MLN(object):
         self.fixedWeightTemplateIndices = []
         self.verbose = verbose
 
+#     def __getstate__(self):
+#         d = self.__dict__.copy()
+#         del d['formulas']
+#         del d['logic']
+#         d['formulas'] = [(f.weight, (False, True)[hasattr(f,'isHard') and f.isHard], str(f)) for f in self.formulas]
+#         d['logic'] = type(self.logic).__name__
+#         d['grammar'] = type(self.logic.grammar).__name__
+#         return d
+#     
+#     def __setstate__(self, d):
+#         self.__dict__ = d
+#         formulas = []
+#         logic_str = '%s("%s")' % (d['logic'], d['grammar'])
+#         self.logic = eval(logic_str)
+#         for (w, h, f) in self.formulas:
+#             f = self.logic.parseFormula(f)
+#             f.weight = w
+#             f.isHard = h
+#             formulas.append(f)
+#         self.formulas = formulas
+
     def duplicate(self):
         '''
         Returns a deep copy of this MLN, which is not yet materialized.
@@ -182,25 +207,25 @@ class MLN(object):
             func = [(i in functional) for i, _ in enumerate(domains)]
             self.blocks[name] = func
             
-    def loadPRACDatabases(self, dbPath):
-        '''
-        Loads and returns all databases (*.db files) that are located in 
-        the given directory and returns the corresponding Database objects.
-        - dbPath:     the directory path to look for .db files
-        '''
-        dbs = []
-#        senses = set()
-        for dirname, dirnames, filenames in os.walk(dbPath): #@UnusedVariable
-            for f in filenames:
-                if not f.endswith('.db'):
-                    continue
-                p = os.path.join(dirname, f)
-                print "  reading database %s" % p
-                db = Database(self, p)
-#                senses.update(db.domains['sense'])
-                dbs.append(db)
-        print "  %d databases read" % len(dbs)
-        return dbs
+#     def loadPRACDatabases(self, dbPath):
+#         '''
+#         Loads and returns all databases (*.db files) that are located in 
+#         the given directory and returns the corresponding Database objects.
+#         - dbPath:     the directory path to look for .db files
+#         '''
+#         dbs = []
+# #        senses = set()
+#         for dirname, dirnames, filenames in os.walk(dbPath): #@UnusedVariable
+#             for f in filenames:
+#                 if not f.endswith('.db'):
+#                     continue
+#                 p = os.path.join(dirname, f)
+#                 print "  reading database %s" % p
+#                 db = Database(self, p)
+# #                senses.update(db.domains['sense'])
+#                 dbs.append(db)
+#         print "  %d databases read" % len(dbs)
+#         return dbs
     
     def addFormula(self, formula, weight=0, hard=False, fixWeight=False):
         '''
@@ -239,6 +264,9 @@ class MLN(object):
         '''
         log = logging.getLogger(self.__class__.__name__)
         log.info("materializing formula templates...")
+        
+        for f in self.formulas:
+            log.info(f.cstr(True) + ' ' + str(type(f)))
         
         # TODO: duplicate this MLN to avoid side effects
         newMLN = self.duplicate()
@@ -383,19 +411,20 @@ class MLN(object):
             for idxFormula in group:
                 self.formulas[idxFormula].weight -= minWeight
 
-    def setClosedWorldPred(self, predicateName):
+    def setClosedWorldPred(self, *predicates):
         '''
         Sets the given predicate as closed-world (for inference)
         a predicate that is closed-world is assumed to be false for 
         any parameters not explicitly specified otherwise in the evidence.
         If predicateName is None, all predicates are set to open world.
         '''
-        if predicateName is None:
+        if len(predicates) == 1 and predicates[0] is None:
             self.closedWorldPreds = []
         else:
-            if predicateName not in self.predicates:
-                raise Exception("Unknown predicate '%s'" % predicateName)
-            self.closedWorldPreds.append(predicateName)
+            for pred in predicates:
+                if pred not in self.predicates:
+                    raise Exception("Unknown predicate '%s'" % pred)
+                self.closedWorldPreds.append(pred)
 
     def _weights(self):
         '''
@@ -468,9 +497,10 @@ class MLN(object):
             self._fitProbabilityConstraints(self.probreqs, **fittingParams)
         
         if self.verbose:
-            print "\n// formulas"
-            for formula in learnedMLN.formulas:
-                print "%f  %s" % (float(eval(str(formula.weight))), strFormula(formula))
+            learnedMLN.write(sys.stdout, color=True)
+#             print "\n// formulas"
+#             for formula in learnedMLN.formulas:
+#                 print "%f  %s" % (float(eval(str(formula.weight))), strFormula(formula))
         return learnedMLN
 
     def setWeights(self, wt):
@@ -487,45 +517,46 @@ class MLN(object):
         self.write(f)   
         f.close()
 
-    def write(self, f, mutexInDecls=True):
+    def write(self, f, mutexInDecls=True, color=False):
         '''
-            writes the MLN to the given file object
-                mutexInDecls: whether to write the definitions for mutual 
-                exclusiveness directly to the predicate declaration (instead of extra constraints)
+        Writes the MLN to the given stream
+        - mutexInDecls:     whether to write the definitions for mutual 
+        - exclusiveness:    directly to the predicate declaration (instead of extra constraints)
+        - colorize:         whether or not output should be colorized.
         '''
         if 'learnwts_message' in dir(self):
             f.write("/*\n%s*/\n\n" % self.learnwts_message)
-        f.write("// domain declarations\n")
+        f.write(colorize("// domain declarations\n", comment_color, color))
         for d in self.domDecls: 
             f.write("%s\n" % d)
         f.write('\n')
-        f.write("\n// predicate declarations\n")
+        f.write(colorize("\n// predicate declarations\n", comment_color, color))
         for predname, args in self.predicates.iteritems():
             excl = self.blocks.get(predname)
             if not mutexInDecls or excl is None:
-                f.write("%s(%s)\n" % (predname, ", ".join(args)))
+                f.write("%s(%s)\n" % (colorize(predname, predicate_color, color), ", ".join(args)))
             else:
-                f.write("%s(%s)\n" % (predname, ", ".join(map(lambda x: "%s%s" % (x[0], {True:"!", False:""}[x[1]]), zip(args, excl)))))
+                f.write("%s(%s)\n" % (colorize(predname, predicate_color, color), ", ".join(map(lambda x: "%s%s" % (x[0], {True:"!", False:""}[x[1]]), zip(args, excl)))))
         if not mutexInDecls:
-            f.write("\n// mutual exclusiveness and exhaustiveness\n")
+            f.write(colorize("\n// mutual exclusiveness and exhaustiveness\n", comment_color))
             for predname, excl in self.blocks.iteritems():
-                f.write("%s(" % (predname))
+                f.write("%s(" % (colorize(predname, predicate_color)))
                 for i in range(len(excl)):
                     if i > 0: f.write(",")
                     f.write("a%d" % i)
                     if excl[i]: f.write("!")
                 f.write(")\n")
-        f.write("\n// formulas\n")
+        f.write(colorize("\n// formulas\n", comment_color, color))
         formulas = self.formulas if self.formulas is not None else self.formulas
         for formula in formulas:
             if formula.isHard:
-                f.write("%s.\n" % strFormula(formula))
+                f.write("%s.\n" % strFormula(formula.cstr(color)))
             else:
                 try:
-                    weight = "%-10.6f" % float(eval(str(formula.weight)))
+                    w = colorize("%-10.6f", weight_color, color) % float(eval(str(formula.weight)))
                 except:
-                    weight = str(formula.weight)
-                f.write("%s  %s\n" % (weight, strFormula(formula)))
+                    w = colorize(str(formula.weight), weight_color, color)
+                f.write("%s  %s\n" % (w, strFormula(formula.cstr(color))))
 
     def printFormulas(self):
         '''
@@ -575,7 +606,7 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
     dirs = [os.path.dirname(fn) for fn in filename_or_list]
     formulatemplates = []
     if text == "": 
-        raise Exception("No MLN content to construct model from was given; must specify either file/list of files or content string!")
+        raise MLNParsingError("No MLN content to construct model from was given; must specify either file/list of files or content string!")
     # replace some meta-directives in comments
     text = re.compile(r'//\s*<group>\s*$', re.MULTILINE).sub("#group", text)
     text = re.compile(r'//\s*</group>\s*$', re.MULTILINE).sub("#group.", text)
@@ -624,21 +655,23 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
                             break
                     if includefilename is None:
                         log.error('No such file: "%s"' % filename)
+                        raise Exception('File not found: ' % filename)
                 else:
                     includefilename = filename
-                log.info('Including file: "%s"' % includefilename)
+                log.debug('Including file: "%s"' % includefilename)
                 content = stripComments(file(includefilename, "r").read())
                 lines = content.split("\n") + lines[iLine:]
                 iLine = 0
                 continue
             elif line.startswith('#unique'):
                 try:
-                    uniVars = re.search('#unique{(.+)\w*,\w*(.+)}', line)
-                    uniVars = uniVars.groups()
-                    if len(uniVars) != 2: raise
+                    uniVars = re.search('#unique{(.+)}', line)
+                    uniVars = uniVars.groups()[0]
+                    log.debug(uniVars)
+                    uniVars = map(str.strip, uniVars.split(','))
                     nextFormulaUnique = uniVars
                 except:
-                    raise Exception('Malformed #unique expression: "%s"' % line)
+                    raise MLNParsingError('Malformed #unique expression: "%s"' % line)
                 continue
             elif line.startswith("#AdaptiveMLNDependency"): # declared as "#AdaptiveMLNDependency:pred:domain"; seems to be deprecated
                 depPredicate, domain = line.split(":")[1:3]
@@ -654,32 +687,31 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
             if '=' in line:
                 try: # try normal domain definition
                     domName, constants = mln.logic.parseDomDecl(line)
-                    if domName in mln.domains: raise Exception("Domain redefinition: '%s' already defined" % domName)
+                    if domName in mln.domains: 
+                        raise Exception("Domain redefinition: '%s' already defined" % domName)
                     mln.domains[domName] = constants
                     mln.domDecls.append(line)
                     continue
-                except Exception, e: 
-                    log.error(e.message + str(type(e)))
-                    raise e
+                except: pass
             # prior probability requirement
             if line.startswith("P("):
                 m = re.match(r"P\((.*?)\)\s*=\s*([\.\de]+)", line)
                 if m is None:
-                    raise Exception("Prior probability constraint formatted incorrectly: %s" % line)
+                    raise MLNParsingError("Prior probability constraint formatted incorrectly: %s" % line)
                 mln.probreqs.append({"expr": strFormula(mln.logic.parseFormula(m.group(1))).replace(" ", ""), "p": float(m.group(2))})
                 continue
             # posterior probability requirement/soft evidence
             if line.startswith("R(") or line.startswith("SE("):
                 m = re.match(r"(?:R|SE)\((.*?)\)\s*=\s*([\.\de]+)", line)
                 if m is None:
-                    raise Exception("Posterior probability constraint formatted incorrectly: %s" % line)
+                    raise MLNParsingError("Posterior probability constraint formatted incorrectly: %s" % line)
                 mln.posteriorProbReqs.append({"expr": strFormula(mln.logic.parseFormula(m.group(1))).replace(" ", ""), "p": float(m.group(2))})
                 continue
             # variable definition
             if line.startswith("$"):
                 m = re.match(r'(\$\w+)\s*=(.+)', line)
                 if m is None:
-                    raise Exception("Variable assigment malformed: %s" % line)
+                    raise MLNParsingError("Variable assigment malformed: %s" % line)
                 mln.vars[m.group(1)] = "(%s)" % m.group(2).strip()
                 continue                        
             # mutex constraint
@@ -742,12 +774,12 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
                             uniqueFormulaExpansions[formula] = nextFormulaUnique
                             nextFormulaUnique = None
                     except ParseException, e:
-                        raise Exception("Error parsing formula '%s'\n" % formula)
+                        raise MLNParsingError("Error parsing formula '%s'\n" % formula)
         except:
             sys.stderr.write("Error processing line '%s'\n" % line)
             cls, e, tb = sys.exc_info()
             traceback.print_tb(tb)
-            raise e
+            raise MLNParsingError(e.message)
 
     # augment domains with constants appearing in formula templates
     for f in formulatemplates:
