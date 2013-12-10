@@ -25,6 +25,7 @@
 import logging
 import itertools
 from common import Logic, logic_factory
+from utils import colorize, predicate_color
 
 
 class FirstOrderLogic(Logic):
@@ -131,7 +132,7 @@ class FirstOrderLogic(Logic):
                 for assignment in self._getTemplateVariants(mln, variables[1:], domains[1:]):
                     yield dict(assignment.items() + [(variables[0], value)])
                 
-        def _getTemplateVariables(self, mln, vars = None):
+        def _getTemplateVariables(self, mln, variable = None):
             '''
             gets all variables of this formula that are required to be expanded 
             (i.e. variables to which a '+' was appended) and returns a 
@@ -154,10 +155,10 @@ class FirstOrderLogic(Logic):
                 - has a "gndAtoms" member that can be indexed, i.e. gndAtoms[string] should return a ground atom instance
             '''
             try:
-                vars = self.getVariables(mrf.mln)
+                variables = self.getVariables(mrf.mln)
             except Exception, e:
                 raise Exception("Error grounding '%s': %s" % (str(self), str(e)))
-            for grounding, referencedGndAtoms in self._iterGroundings(mrf, vars, {}, simplify):
+            for grounding, referencedGndAtoms in self._iterGroundings(mrf, variables, {}, simplify):
                 yield grounding, referencedGndAtoms
             
         def iterTrueVariableAssignments(self, mrf, world):
@@ -167,10 +168,10 @@ class FirstOrderLogic(Logic):
             for only assignments rendering this formula true.
             '''
             try:
-                vars = self.getVariables(mrf.mln)
+                variables = self.getVariables(mrf.mln)
             except Exception, e:
                 raise Exception("Error grounding '%s': %s" % (str(self), str(e)))
-            for assignment in self._iterTrueVariableAssignments(mrf, vars, {}, world):
+            for assignment in self._iterTrueVariableAssignments(mrf, variables, {}, world):
                 yield assignment
         
         def _iterTrueVariableAssignments(self, mrf, variables, assignment, world):
@@ -204,7 +205,7 @@ class FirstOrderLogic(Logic):
                 for g, r in self._iterGroundings(mrf, dict(variables), assignment, simplify):
                     yield g, r
         
-        def getVariables(self, mln, vars = None, constants=None):
+        def getVariables(self, mln, variables = None, constants=None):
             raise Exception("%s does not implement getVariables" % str(type(self)))
         
         def getPredicateNames(self, predNames=None):
@@ -290,7 +291,7 @@ class FirstOrderLogic(Logic):
         A formula that has other formulas as subelements (children)
         '''
         
-        def getVariables(self, mln, vars = None, constants = None):
+        def getVariables(self, mln, variables = None, constants = None):
             '''
             Get the free (unquantified) variables of the formula in a dict that maps the variable name to the corresp. domain name
             The vars and constants parameters can be omitted.
@@ -300,11 +301,11 @@ class FirstOrderLogic(Logic):
             If constants is not given, then constants are not collected, only variables.
             The dictionary of variables is returned.
             '''
-            if vars is None: vars = {}
+            if variables is None: variables = {}
             for child in self.children:
                 if not hasattr(child, "getVariables"): continue
-                vars = child.getVariables(mln, vars, constants)
-            return vars
+                variables = child.getVariables(mln, variables, constants)
+            return variables
         
         def getConstants(self, mln, constants = None):
             ''' 
@@ -314,7 +315,7 @@ class FirstOrderLogic(Logic):
             if constants == None: constants = {}
             for child in self.children:
                 if not hasattr(child, "getConstants"): continue
-                constants = child.getConstants(mln, vars)
+                constants = child.getConstants(mln, constants)
             return constants  
     
         def ground(self, mrf, assignment, referencedGndAtoms = None, simplify=False, allowPartialGroundings=False):
@@ -354,12 +355,13 @@ class FirstOrderLogic(Logic):
                     return dom
             return None
     
-        def _getTemplateVariables(self, mln, vars = None):
-            if vars == None: vars = {}
+        def _getTemplateVariables(self, mln, variables = None):
+            if variables == None: 
+                variables = {}
             for child in self.children:
                 if not hasattr(child, "_getTemplateVariables"): continue
-                vars = child._getTemplateVariables(mln, vars)
-            return vars
+                variables = child._getTemplateVariables(mln, variables)
+            return variables
         
         def getPredicateNames(self, predNames=None):
             if predNames is None:
@@ -382,8 +384,12 @@ class FirstOrderLogic(Logic):
         def __str__(self):
             return {True:"!", False:""}[self.negated] + self.predName + "(" + ", ".join(self.params) + ")"
     
-        def getVariables(self, mln, vars = None, constants = None):
-            if vars == None: vars = {}
+        def cstr(self, color=False):
+            return {True:"!", False:""}[self.negated] + colorize(self.predName, predicate_color, color) + "(" + ", ".join(self.params) + ")"
+    
+        def getVariables(self, mln, variables = None, constants = None):
+            if variables == None: 
+                variables = {}
             paramDomains = mln.predicates[self.predName]
             if len(paramDomains) != len(self.params): 
                 raise Exception("Wrong number of parameters in '%s'; expected %d!" % (str(self), len(paramDomains)))
@@ -391,18 +397,19 @@ class FirstOrderLogic(Logic):
                 if self.logic.isVar(param):
                     varname = param
                     domain = paramDomains[i]
-                    if varname in vars and vars[varname] != domain:
+                    if varname in variables and variables[varname] != domain:
                         raise Exception("Variable '%s' bound to more than one domain" % varname)
-                    vars[varname] = domain
+                    variables[varname] = domain
                 elif constants is not None:
                     domain = paramDomains[i]
                     if domain not in constants: constants[domain] = []
                     constants[domain].append(param)
-            return vars
+            return variables
         
         def getSingleVariableIndex(self, mln):
             paramDomains = mln.predDecl[self.predName]
-            if len(paramDomains) != len(self.params): raise Exception("Wrong number of parameters in '%s'; expected %d!" % (str(self), len(paramDomains)))
+            if len(paramDomains) != len(self.params): 
+                raise Exception("Wrong number of parameters in '%s'; expected %d!" % (str(self), len(paramDomains)))
             varIndex = -1
             for i,param in enumerate(self.params):
                 if self.logic.isVar(param[0]):
@@ -412,17 +419,17 @@ class FirstOrderLogic(Logic):
                         return -1
             return varIndex
     
-        def _getTemplateVariables(self, mln, vars = None):
-            if vars == None: vars = {}
+        def _getTemplateVariables(self, mln, variables = None):
+            if variables == None: variables = {}
             for i,param in enumerate(self.params):
                 if param[0] == '+':
                     varname = param
                     pred = mln.predicates[self.predName]
                     domain = pred[i]
-                    if varname in vars and vars[varname] != domain:
+                    if varname in variables and variables[varname] != domain:
                         raise Exception("Variable '%s' bound to more than one domain" % varname)
-                    vars[varname] = domain
-            return vars
+                    variables[varname] = domain
+            return variables
         
         def getPredicateNames(self, predNames=None):
             if predNames is None:
@@ -502,6 +509,9 @@ class FirstOrderLogic(Logic):
         def __str__(self):
             return "%s(%s)" % (self.predName, ",".join(self.params))
         
+        def cstr(self, color=False):
+            return "%s(%s)" % (colorize(self.predName, predicate_color, color), ",".join(self.params))
+        
         def simplify(self, mrf):
             truth = self.isTrue(mrf.evidence)#mrf.evidence[self.idx]
             if truth is None:
@@ -533,13 +543,16 @@ class FirstOrderLogic(Logic):
     
         def __str__(self):
             return {True:"!", False:""}[self.negated] + str(self.gndAtom)
+        
+        def cstr(self, color=False):
+            return {True:"!", False:""}[self.negated] + self.gndAtom.cstr(color)
     
         def containsGndAtom(self, idxGndAtom):
             return (self.gndAtom.idx == idxGndAtom)
         
-        def getVariables(self, mln, vars=None, constants=None):
-            if vars is None: vars = {}
-            return vars
+        def getVariables(self, mln, variables=None, constants=None):
+            if variables is None: variables = {}
+            return variables
         
         def getVarDomain(self, varname, mln):
             return None
@@ -588,6 +601,9 @@ class FirstOrderLogic(Logic):
     
         def __str__(self):
             return "("+" v ".join(map(str, self.children))+")"
+        
+        def cstr(self, color=False):
+            return "(" + " v ".join(map(lambda c: c.cstr(color), self.children)) + ")"
     
         def isTrue(self, world_values):
             dontKnow = False
@@ -695,6 +711,8 @@ class FirstOrderLogic(Logic):
         def __str__(self):
             return "("+" ^ ".join(map(str, self.children))+")"
     
+        def cstr(self, color=False):
+            return "(" + " ^ ".join(map(lambda c: c.cstr(color), self.children)) + ")"
     
         def isTrue(self, world_values):
             dontKnow = False
@@ -786,6 +804,9 @@ class FirstOrderLogic(Logic):
     
         def __str__(self):
             return "(" + str(self.children[0]) + " => " + str(self.children[1]) + ")"
+        
+        def cstr(self, color=False):
+            return "(" + self.children[0].cstr(color) + " => " + self.children[1].cstr(color) + ")"
     
         def isTrue(self, world_values):
             ant = self.children[0].isTrue(world_values)
@@ -819,6 +840,9 @@ class FirstOrderLogic(Logic):
     
         def __str__(self):
             return "(" + str(self.children[0]) + " <=> " + str(self.children[1]) + ")"
+        
+        def cstr(self, color=False):
+            return "(" + self.children[0].cstr(color) + " <=> " + self.children[1].cstr(color) + ")"
     
         def isTrue(self, world_values):
             c1 = self.children[0].isTrue(world_values)
@@ -853,6 +877,9 @@ class FirstOrderLogic(Logic):
     
         def __str__(self):
             return "!(" + str(self.children[0]) + ")"
+        
+        def cstr(self, color=False):
+            return "!(" + self.children[0].cstr(color) + ")"
     
         def isTrue(self, world_values):
             childValue = self.children[0].isTrue(world_values)
@@ -934,15 +961,19 @@ class FirstOrderLogic(Logic):
         Existential quantifier.
         '''
         
-        def __init__(self, vars, formula):
+        def __init__(self, variables, formula):
             self.children = [formula]
-            self.vars = vars
+            self.vars = variables
     
         def __str__(self):
             return "EXIST " + ", ".join(self.vars) + " (" + str(self.children[0]) + ")"
+#     
+        def cstr(self, color=False):
+            return colorize('EXIST ', predicate_color, color) + ', '.join(self.vars) + ' (' + self.children[0].cstr(color) + ')'
     
-        def getVariables(self, mln, vars = None, constants = None):
-            if vars == None: vars = {}
+        def getVariables(self, mln, variables = None, constants = None):
+            if variables == None: 
+                variables = {}
             # get the child's variables:
             newvars = self.children[0].getVariables(mln, None, constants)
             # remove the quantified variable(s)
@@ -952,13 +983,13 @@ class FirstOrderLogic(Logic):
                 except:
                     raise Exception("Variable '%s' in '%s' not bound to a domain!" % (var, str(self)))
             # add the remaining ones and return
-            vars.update(newvars)
-            return vars
-            
+            variables.update(newvars)
+            return variables
+             
         def ground(self, mrf, assignment, referencedGroundAtoms = None, allowPartialGroundings=False, simplify=False):
             assert len(self.children) == 1
             # find out variable domains
-            vars = {}
+            variables = {}
             for var in self.vars:
                 domName = None
                 for child in self.children:
@@ -967,10 +998,10 @@ class FirstOrderLogic(Logic):
                         break
                 if domName is None:
                     raise Exception("Could not obtain domain of variable '%s', which is part of '%s')" % (var, str(self)))
-                vars[var] = domName
+                variables[var] = domName
             # ground
             gndings = []
-            self._ground(self.children[0], vars, assignment, gndings, mrf, referencedGroundAtoms)
+            self._ground(self.children[0], variables, assignment, gndings, mrf, referencedGroundAtoms)
             if len(gndings) == 1:
                 return gndings[0]
             disj = self.logic.disjunction(gndings)
@@ -978,7 +1009,7 @@ class FirstOrderLogic(Logic):
                 return disj.simplify(mrf)
             else:
                 return disj
-                
+                 
         def _ground(self, formula, variables, assignment, gndings, mrf, referencedGroundAtoms = None):
             # if all variables have been grounded...
             if variables == {}:
@@ -991,13 +1022,13 @@ class FirstOrderLogic(Logic):
                 assignment[varname] = value
                 # recursive descent to ground further variables
                 self._ground(formula, dict(variables), assignment, gndings, mrf)
-        
+         
         def toCNF(self,l=0):
             raise Exception("'%s' cannot be converted to CNF. Ground this formula first!" % str(self))
-    
+      
         def isTrue(self, w):
             raise Exception("'%s' does not implement isTrue()")
-    
+     
     
     class Equality(Logic.Equality, ComplexFormula):
         '''
@@ -1011,6 +1042,9 @@ class FirstOrderLogic(Logic):
     
         def __str__(self):
             return "%s%s%s" % (str(self.params[0]), '=/=' if self.negated else '=', str(self.params[1]))
+        
+        def cstr(self, color=False):
+            return str(self)
     
         def ground(self, mrf, assignment, referencedGndAtoms = None, simplify=False, allowPartialGroundings=False):
             # if the parameter is a variable, do a lookup (it must be bound by now), 
@@ -1028,21 +1062,21 @@ class FirstOrderLogic(Logic):
         def _groundTemplate(self, assignment):
             return [self.logic.equality(self.params, negated=self.negated)]
         
-        def _getTemplateVariables(self, mln, vars = None):
-            return vars
+        def _getTemplateVariables(self, mln, variables = None):
+            return variables
         
-        def getVariables(self, mln, vars = None, constants = None):        
+        def getVariables(self, mln, variables = None, constants = None):        
             if constants is not None:
                 # determine type of constant appearing in expression such as "x=Foo"
                 for i, p in enumerate(self.params):
                     other = self.params[(i + 1) % 2]
                     if self.logic.isConstant(p) and self.logic.isVar(other):
-                        domain = vars.get(other)
+                        domain = variables.get(other)
                         if domain is None:
                             raise Exception("Type of constant '%s' could not be determined" % p)
                         if domain not in constants: constants[domain] = []
                         constants[domain].append(p)
-            return vars
+            return variables
         
         def getVarDomain(self, varname, mln):
             return None
@@ -1074,7 +1108,10 @@ class FirstOrderLogic(Logic):
             self.value = value
         
         def __str__(self):
-            return str(self.value)
+            return str(True if self.value == 1 else False)
+    
+        def cstr(self, color=False):
+            return str(self)
     
         def isTrue(self, world_values = None):
             return self.value
@@ -1085,10 +1122,10 @@ class FirstOrderLogic(Logic):
         def simplify(self, mrf):
             return self
         
-        def getVariables(self, mln, vars = None, constants=None):
-            if vars is None:
+        def getVariables(self, mln, variables = None, constants=None):
+            if variables is None:
                 return {}
-            return vars
+            return variables
     
     
     class NonLogicalConstraint(Logic.NonLogicalConstraint, Constraint):
@@ -1125,6 +1162,9 @@ class FirstOrderLogic(Logic):
             if op == "==": op = "="
             return "count(%s | %s) %s %d" % (str(self.literal), ", ".join(self.fixed_params), op, self.count)
         
+        def cstr(self, color=False):
+            return str(self)
+        
         def iterGroundings(self, mrf, simplify=False):
             a = {}
             other_params = []
@@ -1160,10 +1200,10 @@ class FirstOrderLogic(Logic):
                 for a in self._iterAssignment(mrf, variables, assignment):
                     yield a
         
-        def getVariables(self, mln, vars = None, constants = None):
+        def getVariables(self, mln, variables = None, constants = None):
             if constants is not None:
-                self.literal.getVariables(mln, vars, constants)
-            return vars
+                self.literal.getVariables(mln, variables, constants)
+            return variables
                 
     class GroundCountConstraint(Logic.GroundCountConstraint, NonLogicalConstraint):
         def __init__(self, gndAtoms, op, count):
@@ -1182,6 +1222,11 @@ class FirstOrderLogic(Logic):
             op = self.op
             if op == "==": op = "="
             return "count(%s) %s %d" % (";".join(map(str, self.gndAtoms)), op, self.count)
+        
+        def cstr(self, color=False):
+            op = self.op
+            if op == "==": op = "="
+            return "count(%s) %s %d" % (";".join(map(lambda c: c.cstr(color), self.gndAtoms)), op, self.count)
     
         def negate(self):
             if self.op == "==":
@@ -1257,3 +1302,21 @@ class FirstOrderLogic(Logic):
         return FirstOrderLogic.TrueFalse(*args, **kwargs)
     
 
+# this is a little hack to make nested classes pickleable
+Constraint = FirstOrderLogic.Constraint
+Formula = FirstOrderLogic.Formula
+ComplexFormula = FirstOrderLogic.ComplexFormula
+Conjunction = FirstOrderLogic.Conjunction
+Disjunction = FirstOrderLogic.Disjunction
+Lit = FirstOrderLogic.Lit
+GroundLit = FirstOrderLogic.GroundLit
+GroundAtom = FirstOrderLogic.GroundAtom
+Equality = FirstOrderLogic.Equality
+Implication = FirstOrderLogic.Implication
+Biimplication = FirstOrderLogic.Biimplication
+Negation = FirstOrderLogic.Negation
+Exist = FirstOrderLogic.Exist
+TrueFalse = FirstOrderLogic.TrueFalse
+NonLogicalConstraint = FirstOrderLogic.NonLogicalConstraint
+CountConstraint = FirstOrderLogic.CountConstraint
+GroundCountConstraint = FirstOrderLogic.GroundCountConstraint

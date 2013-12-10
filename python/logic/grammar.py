@@ -66,7 +66,8 @@ class TreeBuilder(object):
         elif op == 'ex':
             if len(toks) == 2:
                 formula = self.stack.pop()
-                self.stack.append(self.logic.exist(toks[0], formula))
+                variables = map(str, toks[0])
+                self.stack.append(self.logic.exist(variables, formula))
         elif op == '=>':
             if len(toks) == 2:
                 children = self.stack[-2:]
@@ -281,18 +282,29 @@ class PRACGrammar(Grammar):
         constraint = biimplication | count_constraint
         formula << constraint
 
+        def lit_parse_action(a, b, c): tree.trigger(a,b,c,'lit')
+        def neg_parse_action(a, b, c): tree.trigger(a,b,c,'!')
+        def disjunction_parse_action(a, b, c): tree.trigger(a,b,c,'v')
+        def conjunction_parse_action(a, b, c): tree.trigger(a,b,c,'^')
+        def exist_parse_action(a, b, c): tree.trigger(a,b,c,"ex")
+        def implication_parse_action(a, b, c): tree.trigger(a,b,c,"=>")
+        def biimplication_parse_action(a, b, c): tree.trigger(a,b,c,"<=>")
+        def equality_parse_action(a, b, c): tree.trigger(a,b,c,"=")
+        def inequality_parse_action(a, b, c): tree.trigger(a,b,c,"!=")
+        def count_constraint_parse_action(a, b, c): tree.trigger(a,b,c,'count')
+        
+
         tree = TreeBuilder(logic)
-        literal.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'lit'))
-        negation.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'!'))
-        #item.setParseAction(lambda a,b,c: foo(a,b,c,'item'))
-        disjunction.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'v'))
-        conjunction.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'^'))
-        exist.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"ex"))
-        implication.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"=>"))
-        biimplication.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"<=>"))
-        equality.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"="))
-        inequality.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"!="))
-        count_constraint.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'count'))
+        literal.setParseAction(lit_parse_action)
+        negation.setParseAction(neg_parse_action)
+        disjunction.setParseAction(disjunction_parse_action)
+        conjunction.setParseAction(conjunction_parse_action)
+        exist.setParseAction(exist_parse_action)
+        implication.setParseAction(implication_parse_action)
+        biimplication.setParseAction(biimplication_parse_action)
+        equality.setParseAction(equality_parse_action)
+        inequality.setParseAction(inequality_parse_action)
+        count_constraint.setParseAction(count_constraint_parse_action)
         
         self.tree = tree
         self.formula = formula + StringEnd()
@@ -319,7 +331,9 @@ if __name__=='__main__':
     if test == 'parsing':
         tests = [#"numberEats(o,2) <=> EXIST p, p2 (eats(o,p) ^ eats(o,p2) ^ !(o=p) ^ !(o=p2) ^ !(p=p2) ^ !(EXIST q (eats(o,q) ^ !(p=q) ^ !(p2=q))))",
                  #"EXIST y (rel(x,y) ^ EXIST y2 (!(y2=y) ^ rel(x,y2)) ^ !(EXIST y3 (!(y3=y) ^ !(y3=y2) ^ rel(x,y3))))",
-                 "((a(x) ^ b(x)) v (c(x) ^ !(d(x) ^ e(x) ^ g(x)))) => f(x)"
+#                  '(EXIST ?w (action_role(?w, +?r)))',
+                  'EXIST ?w (action_role(?w, +?r) ^ is_a(?w, +?c))'
+#                  "((a(x) ^ b(x)) v (c(x) ^ !(d(x) ^ e(x) ^ g(x)))) => f(x)"
                  ]#,"foo(x) <=> !(EXIST p (foo(p)))", "numberEats(o,1) <=> !(EXIST p (eats(o,p) ^ !(o=p)))", "!a(c,d) => c=d", "c(b) v !(a(b) ^ b(c))"]
 #         tests = ["((!a(x) => b(x)) ^ (b(x) => a(x))) v !(b(x)=>c(x))"]
 #         tests = ["(EXIST y1 (rel(x,y1) ^ EXIST y2 (rel(x,y2) ^ !(y1=y2) ^ !(EXIST y3 (rel(?x,y3) ^ !(y1=y3) ^ !(y2=y3))))))"]
@@ -328,9 +342,10 @@ if __name__=='__main__':
         print logic.grammar.parsePredDecl('foo(ar, bar2!)')
         for test in tests:
             print "trying to parse %s..." % test
-            f = logic.grammar.parseFormula(test).toCNF()
-            print "got this: %s" % str(f)
-            f.printStructure()
+            logic.grammar.parseFormula(test).printStructure()
+#             f = logic.grammar.parseFormula(test).toCNF()
+#             print "got this: %s" % str(f)
+#             f.printStructure()
     elif test == 'NF':
         f = "a(x) <=> b(x)"
         f = "((a(x) ^ b(x)) v (c(x) ^ !(d(x) ^ e(x) ^ g(x)))) => f(x)"

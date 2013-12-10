@@ -101,7 +101,8 @@ class FuzzyLogic(Logic):
     class Negation(FirstOrderLogic.Negation):
         
         def isTrue(self, world_values):
-            return 1 - self.children[0].isTrue(world_values)
+            val = self.children[0].isTrue(world_values)
+            return None if val is None else 1 - val
         
         def simplify(self, mrf):
             f = self.children[0].simplify(mrf)
@@ -163,7 +164,8 @@ class FuzzyLogic(Logic):
     class Implication(FirstOrderLogic.Implication):
         
         def isTrue(self, world_values):
-            return FuzzyLogic.max_undef(1. - self.children[0].isTrue(world_values), self.children[1].isTrue(world_values))
+            ant = self.children[0].isTrue(world_values)
+            return FuzzyLogic.max_undef([None if ant is None else 1. - ant, self.children[1].isTrue(world_values)])
     
         def simplify(self, mrf):
             return self.logic.disjunction([self.logic.negation([self.children[0]]), self.children[1]]).simplify(mrf)
@@ -172,7 +174,7 @@ class FuzzyLogic(Logic):
     class Biimplication(FirstOrderLogic.Biimplication):
         
         def isTrue(self, world_values):
-            return FuzzyLogic.min_undef(self.children[0].isTrue(world_values), self.children[1].isTrue(world_values))
+            return FuzzyLogic.min_undef([self.children[0].isTrue(world_values), self.children[1].isTrue(world_values)])
     
         def simplify(self, mrf):
             c1 = self.logic.disjunction([self.logic.negation([self.children[0]]), self.children[1]])
@@ -182,7 +184,7 @@ class FuzzyLogic(Logic):
         
     class Equality(FirstOrderLogic.Equality):
         
-        def isTrue(self, world_values):
+        def isTrue(self, world_values=None):
             if any(map(self.logic.isVar, self.params)):
                 return None
             equals = 1 if (self.params[0] == self.params[1]) else 0
@@ -199,10 +201,16 @@ class FuzzyLogic(Logic):
             assert value >= 0 and value <= 1
             self.value = value
         
+        def __str__(self):
+            return str(self.value)
+        
+        def cstr(self, color=False):
+            return str(self)
+        
         def invert(self):
             return self.logic.true_false(1 - self.value)
     
-    class Exist(FirstOrderLogic.Exist):
+    class Exist(FirstOrderLogic.Exist, Logic.ComplexFormula):
         pass
 
     @logic_factory
@@ -252,5 +260,24 @@ class FuzzyLogic(Logic):
     @logic_factory
     def true_false(self, *args, **kwargs):
         return FuzzyLogic.TrueFalse(*args, **kwargs)
+
+# this is a little hack to make nested classes pickleable
+Constraint = FuzzyLogic.Constraint
+Formula = FuzzyLogic.Formula
+ComplexFormula = FuzzyLogic.ComplexFormula
+Conjunction = FuzzyLogic.Conjunction
+Disjunction = FuzzyLogic.Disjunction
+Lit = FuzzyLogic.Lit
+GroundLit = FuzzyLogic.GroundLit
+GroundAtom = FuzzyLogic.GroundAtom
+Equality = FuzzyLogic.Equality
+Implication = FuzzyLogic.Implication
+Biimplication = FuzzyLogic.Biimplication
+Negation = FuzzyLogic.Negation
+Exist = FuzzyLogic.Exist
+TrueFalse = FuzzyLogic.TrueFalse
+NonLogicalConstraint = FuzzyLogic.NonLogicalConstraint
+CountConstraint = FuzzyLogic.CountConstraint
+GroundCountConstraint = FuzzyLogic.GroundCountConstraint
 
     

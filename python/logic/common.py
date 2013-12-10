@@ -23,7 +23,6 @@
 
 from grammar import StandardGrammar, PRACGrammar
 import re
-import logging
 
 # ======================================================================================
 # decorator for storing the factory object in each created instance
@@ -50,6 +49,15 @@ class Logic(object):
         '''
         self.grammar = eval(grammar)(self)
     
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        d['grammar'] = type(self.grammar).__name__
+        return d
+        
+    def __setstate__(self, d):
+        self.__dict__ = d
+        self.grammar = eval(d['grammar'])(self)
+        
     
     # ======================================================================================
     # abstract super classes of all logical (and non-logical) constraints
@@ -234,3 +242,22 @@ class Logic(object):
                 not isinstance(child, Logic.Equality):
                 return False
         return True
+    
+# this is a little hack to make nested classes pickleable
+Constraint = Logic.Constraint
+Formula = Logic.Formula
+ComplexFormula = Logic.ComplexFormula
+Conjunction = Logic.Conjunction
+Disjunction = Logic.Disjunction
+Lit = Logic.Lit
+GroundLit = Logic.GroundLit
+GroundAtom = Logic.GroundAtom
+Equality = Logic.Equality
+Implication = Logic.Implication
+Biimplication = Logic.Biimplication
+Negation = Logic.Negation
+Exist = Logic.Exist
+TrueFalse = Logic.TrueFalse
+NonLogicalConstraint = Logic.NonLogicalConstraint
+CountConstraint = Logic.CountConstraint
+GroundCountConstraint = Logic.GroundCountConstraint
