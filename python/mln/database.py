@@ -67,7 +67,7 @@ class Database(object):
                 _, predName, _ = self.mln.logic.parseLiteral(atom)
                 if not predName in pred_names:
                     continue
-            yield '%s%s' % ('' if truth else '!', atom)
+            yield truth, atom
 
     def addGroundAtom(self, gndLit, truth=1):
         '''
@@ -83,8 +83,9 @@ class Database(object):
             params = gndLit.params
             predName = gndLit.predName
         else:
-            raise Exception('gndLit has an illegal type')
+            raise Exception('gndLit has an illegal type: %s' % type(gndLit))
         truth = truth if isTrue else 1 - truth
+        truth = eval('%.6f' % truth)
         self.evidence[atomString] = truth
         # update the domains
         domNames = self.mln.predicates[predName]
@@ -112,17 +113,17 @@ class Database(object):
         self.write(f)
         f.close()
                 
-    def write(self, stream):
+    def write(self, stream, color=False):
         '''
         Writes this database into the stream in the MLN Database format.
         The stream must provide a write() method as file objects do.
         '''
         for atom, truth in self.evidence.iteritems():
-            stream.write('%s%s\n' % ('' if truth else '!', atom))
+            stream.write('%.2f  %s\n' % (truth, atom))
 
     def printEvidence(self):
         for atom, truth in sorted(self.evidence.iteritems()):
-            print atom, ':', truth
+            print '%.2f   %s' % (truth, atom)
                 
     def retractGndAtom(self, gndLit):
         '''
@@ -187,7 +188,8 @@ class Database(object):
             self.mln = db.mln
             self.domains = mergeDomains(self.mln.domains, db.domains)
             self.gndAtoms = Database.PseudoMRF.GroundAtomGen()
-            self.evidence = Database.PseudoMRF.WorldValues(db)
+            # duplicate the database to avoid side effects
+            self.evidence = Database.PseudoMRF.WorldValues(db.duplicate())
 
         class GroundAtomGen(object):
             def __getitem__(self, gndAtomName):
@@ -233,6 +235,7 @@ class Database(object):
             Iterates over all groundings of formula that evaluate to true
             given this Pseudo-MRF.
             '''
+#             evidence = self.evidence.copy()
             for assignment in formula.iterTrueVariableAssignments(self, self.evidence):
                 yield assignment
                 
