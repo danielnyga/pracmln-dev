@@ -212,7 +212,7 @@ class WCSP(object):
         # compute the smallest difference between subsequent costs
         deltaMin = None
         w1 = costs[0]
-        log.warning(costs)
+#         log.warning(costs)
         if len(costs) == 1:
             deltaMin = costs[0]
         for w2 in costs[1:]:
@@ -225,7 +225,7 @@ class WCSP(object):
             divisor *= minWeight
         if deltaMin < 1.0:
             divisor *= deltaMin
-        log.warning('divisor=%f, deltaMin=%f, minWeight=%f' % (divisor, deltaMin, minWeight))
+#         log.warning('divisor=%f, deltaMin=%f, minWeight=%f' % (divisor, deltaMin, minWeight))
         return divisor
     
     

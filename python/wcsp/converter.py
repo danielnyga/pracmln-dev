@@ -29,6 +29,7 @@ import logging
 from utils import deprecated
 from logic.common import Logic
 from mln.database import Database
+import sys
 
 class WCSPConverter(object):
     '''
@@ -190,6 +191,7 @@ class WCSPConverter(object):
 #         wcsp.constraints.extend(self.generateEvidenceConstraints())
         log = logging.getLogger('wcsp')
         logic = self.mrf.mln.logic
+        self.mrf.printEvidence()
         # preprocess the ground formulas
         gfs = []
         for gf in self.mrf.gndFormulas:
@@ -203,7 +205,8 @@ class WCSPConverter(object):
                 f.isHard = gf.isHard
             else: f = gf
             f_ = f.simplify(self.mrf)
-            if isinstance(f_, Logic.TrueFalse) or gf.weight == 0:
+#             log.info('%s ===> %s' % (str(gf), str(f_)))
+            if isinstance(f_, Logic.TrueFalse) or gf.weight == 0 and not gf.isHard:
                 continue
             f_ = f_.toNNF()
             f_.weight = f.weight
@@ -226,14 +229,13 @@ class WCSPConverter(object):
         varIndices = tuple(sorted(varIndices))
         # collect the constraint tuples
         cost2assignments = self.gatherConstraintTuples(wcsp, varIndices, wf)
-        defaultCost = max(cost2assignments, key=lambda x: len(cost2assignments[x]))
+        defaultCost = max(cost2assignments, key=lambda x: float('inf') if cost2assignments[x] == 'else' else len(cost2assignments[x]))
         constraint = Constraint(varIndices, defCost=defaultCost)
         constraint.defCost = defaultCost
         for cost, tuples in cost2assignments.iteritems():
             if cost == defaultCost: continue
             for t in tuples:
                 constraint.addTuple(t, cost)
-            
         # merge the constraint if possible
         cOld = self.constraintBySignature.get(varIndices, None)
         if not cOld is None:
@@ -282,30 +284,58 @@ class WCSPConverter(object):
         ''' 
         log = logging.getLogger('wcsp')
         logic = self.mrf.mln.logic
-        log.info(str(formula) + ': %f' % formula.weight)
-        try:
-            # we can treat conjunctions and disjunctions fairly efficiently
-            raise # TODO: implement also the efficient way
-            conj = logic.isConjunctionOfLiterals(formula)
-            if not conj and not logic.isDisjunctionOfLiterals(formula): raise
+#         log.info(str(formula) + ': ' + (str(formula.weight) if not formula.isHard else '(hard)'))
+        
+        # we can treat conjunctions and disjunctions fairly efficiently
+        defaultProcedure = False
+        conj = logic.isConjunctionOfLiterals(formula)
+        disj = logic.isDisjunctionOfLiterals(formula)
+        if not conj and not disj:
+            defaultProcedure = True
+        if not defaultProcedure:
             assignment = [0] * len(varIndices)
             children = []
             for lit in formula.iterLiterals():
                 children.append(lit)
+            pivot = None
             for gndLiteral in children:
-                (gndAtom, varVal) = (gndLiteral, True) if isinstance(gndLiteral, logic.GroundAtom) else (gndLiteral.gndAtom, not gndLiteral.negated)
+                if isinstance(gndLiteral, Logic.TrueFalse):
+                    if (pivot is None) or (conj and gndLiteral.value < pivot) or (not conj and gndLiteral.value > pivot):
+                        pivot = gndLiteral.value
+                    continue
+                (gndAtom, varVal) = (gndLiteral, True) if isinstance(gndLiteral, Logic.GroundAtom) else (gndLiteral.gndAtom, not gndLiteral.negated)
                 if not conj: varVal = not varVal
                 varVal = 1 if varVal else 0
                 varIdx = self.gndAtom2VarIndex[gndAtom]
                 if varIdx in self.mutexVars:
-                    if isinstance(gndLiteral, logic.GroundLit) and varVal == 0: raise
+                    if isinstance(gndLiteral, Logic.GroundLit) and varVal == 0:
+                        defaultProcedure = True
+                        break
                     varVal = self.varIdx2GndAtom[varIdx].index(gndAtom)
                 assignment[varIndices.index(varIdx)] = varVal
-            if conj:
-                return [assignment], None
-            else:
-                return None, [assignment]
-        except: 
+            if not defaultProcedure:
+                if formula.isHard and pivot is not None:
+                    msg = 'No fuzzy truth values are allowed in hard constraints.'
+                    log.exception(msg)
+                    raise Exception(msg)
+                if conj:
+                    if formula.isHard:
+                        cost = 0
+                        defcost = WCSP.TOP
+                    else:
+                        pivot = pivot if pivot is not None else 1 
+                        cost = formula.weight * (1 - pivot)
+                        defcost = formula.weight
+                else:
+                    if formula.isHard:
+                        cost = WCSP.TOP
+                        defcost = 0
+                    else:
+                        pivot = pivot if pivot is not None else 0
+                        defcost = 0
+                        cost = formula.weight * (1 - pivot)
+                return {cost: (assignment,), defcost: 'else'}
+        if defaultProcedure: 
             # fallback: go through all combinations of truth assignments
             domains = [range(d) for i,d in enumerate(wcsp.domSizes) if i in varIndices]
 #             log.warning(varIndices)
@@ -321,12 +351,14 @@ class WCSPConverter(object):
                 # the MRF feature imposed by this formula 
                 truth = formula.isTrue(world)
                 assert truth is not None
-                formula_feature = WCSP.TOP if truth != 1 and formula.isHard else (1 - truth) * formula.weight
-                assignments = cost2assignments.get(formula_feature, [])
-                cost2assignments[formula_feature] = assignments
+                assert not (truth > 0 and truth < 1 and formula.isHard)
+                log.info(str(formula) + str(' %f' % truth))
+                cost = WCSP.TOP if truth < 1 and formula.isHard else (1 - truth) * formula.weight
+                assignments = cost2assignments.get(cost, [])
+                cost2assignments[cost] = assignments
                 assignments.append(c)
             return cost2assignments
-        
+        assert False # unreachable
         
     def forbidGndAtom(self, atom, wcsp, trueFalse=True):
         '''
