@@ -224,7 +224,8 @@ class Logic(object):
             if not isinstance(child, Logic.Lit) and \
                 not isinstance(child, Logic.GroundLit) and \
                 not isinstance(child, Logic.GroundAtom) and \
-                not isinstance(child, Logic.Equality):
+                not isinstance(child, Logic.Equality) and \
+                not isinstance(child, Logic.TrueFalse):
                 return False
         return True
     
@@ -239,7 +240,8 @@ class Logic(object):
             if not isinstance(child, Logic.Lit) and \
                 not isinstance(child, Logic.GroundLit) and \
                 not isinstance(child, Logic.GroundAtom) and \
-                not isinstance(child, Logic.Equality):
+                not isinstance(child, Logic.Equality) and \
+                not isinstance(child, Logic.TrueFalse):
                 return False
         return True
     

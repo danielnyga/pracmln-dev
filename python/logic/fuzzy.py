@@ -23,6 +23,7 @@
 
 from fol import FirstOrderLogic
 from common import Logic, logic_factory
+import logging
 
 
 class FuzzyLogic(Logic):
@@ -119,21 +120,25 @@ class FuzzyLogic(Logic):
         def simplify(self, mrf):
             sf_children = []
             minTruth = None
-            for child in self.children:
-                child = child.simplify(mrf)
+            for child_ in self.children:
+                child = child_.simplify(mrf)
+#                 logging.getLogger().info('%s %s is %s' % (str(type(child_)), child_, child))
                 if isinstance(child, Logic.TrueFalse):
-                    if minTruth is None or child.isTrue() < minTruth:
-                        minTruth = child.isTrue()
+                    truth = child.isTrue()
+                    if truth == 0:
+                        return self.logic.true_false(0.)
+                    if minTruth is None or truth < minTruth:
+                        minTruth = truth
                 else:
                     sf_children.append(child)
-            if len(sf_children) == 1 and minTruth is None:
-                return sf_children[0]
-            elif len(sf_children) >= 1 and (minTruth is None or minTruth > 0):
-                if minTruth is not None:
-                    sf_children.append(self.logic.true_false(minTruth))
+            if minTruth is not None and minTruth < 1 or minTruth == 1 and len(sf_children) == 0:
+                sf_children.append(self.logic.true_false(minTruth))
+            if len(sf_children) > 1:
                 return self.logic.conjunction(sf_children)
+            elif len(sf_children) == 1:
+                return sf_children[0]
             else:
-                return self.logic.true_false(minTruth)
+                assert False # should be unreachable
     
     
     class Disjunction(FirstOrderLogic.Disjunction):
@@ -147,18 +152,21 @@ class FuzzyLogic(Logic):
             for child in self.children:
                 child = child.simplify(mrf)
                 if isinstance(child, Logic.TrueFalse):
-                    if maxTruth is None and child.isTrue() > maxTruth:
+                    truth = child.isTrue()
+                    if truth == 1:
+                        return self.logic.true_false(1.)
+                    if maxTruth is None or truth > maxTruth:
                         maxTruth = child.isTrue()
                 else:
                     sf_children.append(child)
-            if len(sf_children) == 1 and maxTruth is None:
-                return sf_children[0]
-            elif len(sf_children) >= 1 and (maxTruth is None or maxTruth < 1):
-                if maxTruth is not None:
-                    sf_children.append(self.logic.true_false(maxTruth))
+            if maxTruth is not None and maxTruth > 0 or (maxTruth == 0 and len(sf_children) == 0):
+                sf_children.append(self.logic.true_false(maxTruth))
+            if len(sf_children) > 1:
                 return self.logic.disjunction(sf_children)
+            elif len(sf_children) == 1:
+                return sf_children[0]
             else:
-                return self.logic.true_false(maxTruth)
+                assert False
             
     
     class Implication(FirstOrderLogic.Implication):
