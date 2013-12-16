@@ -47,7 +47,7 @@ class MCSAT(MCMCInference):
         # convert the MLN ground formulas to CNF
         if verbose: print "converting formulas to CNF..."
         #self.mln._toCNF(allPositive=True)
-        self.gndFormulas, self.formulas = toCNF(self.mrf.gndFormulas, self.mln.formulas, self.mln.mln.logic, allPositive=True)
+        self.gndFormulas, self.formulas = toCNF(self.mrf.gndFormulas, self.mln.formulas, self.mln.logic, allPositive=True)
 
         # get clause data
         if verbose: print "gathering clause data..."
@@ -85,7 +85,7 @@ class MCSAT(MCMCInference):
                 #print clause
                 idxClause += 1
             se["idxClausePositive"] = (idxFirst, idxClause)
-            cnf = logic.Negation([formula]).toCNF().ground(self.mrf, {})
+            cnf = self.mln.logic.negation([formula]).toCNF().ground(self.mrf, {})
             idxFirst = idxClause
             for clause in self._formulaClauses(cnf):                
                 self.clauses.append(clause)
@@ -680,7 +680,7 @@ class SampleSAT:
     # update the true one and the false ones for a flip of both the given ground atoms (which are in the same block)
     def _updateBlockInfo(self, idxGA, idxGA2):
         # update the block information
-        idxBlock = self.mln.atom2BlockIdx[idxGA]
+        idxBlock = self.mrf.atom2BlockIdx[idxGA]
         bi = self.blockInfo[idxBlock]
         if bi[0] == idxGA: # idxGA is the true one, so add it to the false ones and make idxGA2 the true one
             bi[1].append(idxGA)

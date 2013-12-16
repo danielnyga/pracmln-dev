@@ -472,10 +472,10 @@ class MLN(object):
 
         # run learner
         if len(dbs) == 1:
-            groundingMethod = eval('learning.%s.groundingMethod' % method)
+            groundingMethod = eval('%s.groundingMethod' % method)
             log.info("grounding MRF using %s..." % groundingMethod) 
             mrf = newMLN.groundMRF(dbs[0], False, groundingMethod, True, **params)
-            learner = eval("learning.%s(newMLN, mrf, **params)" % method)
+            learner = eval("%s(newMLN, mrf, **params)" % method)
         else:
             learner = MultipleDatabaseLearner(newMLN, method, dbs, **params)
         log.info("learner: %s" % learner.getName())

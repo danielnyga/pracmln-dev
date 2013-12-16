@@ -26,9 +26,7 @@
 import re
 import sys
 
-from logic import fuzzy as logic
 from logic.common import Logic
-# from logic.fol import Disjunction, Conjunction
 
 # math functions
 
@@ -179,7 +177,7 @@ def toCNF(gndFormulas, formulas, logic, allPositive=False):
             continue
         # logical constraint
         if gf.idxFormula in negate:
-            cnf = logic.Negation([gf]).toCNF()
+            cnf = logic.negation([gf]).toCNF()
         else:
             cnf = gf.toCNF()
         if type(cnf) == logic.TrueFalse: # formulas that are always true or false can be ignored

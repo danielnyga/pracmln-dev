@@ -306,7 +306,7 @@ class MRF(object):
 
     def printEvidence(self):
         for idxGA, value in enumerate(self.evidence):
-            print "%s = %2.2" % (str(self.gndAtomsByIdx[idxGA]), value)
+            print "%s = %s" % (str(self.gndAtomsByIdx[idxGA]), '%2.2f' % value if value is not None else 'None')
 
     def _getEvidenceTruthDegreeCW(self, gndAtom, worldValues):
         '''

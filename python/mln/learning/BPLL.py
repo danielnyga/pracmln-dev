@@ -172,8 +172,9 @@ class BPLL(AbstractLearner):
                     # check if formula is true if gnd atom's truth value is inverted
                     old_tv = self.mrf._getEvidence(idxGA)
                     self.mrf._setTemporaryEvidence(idxGA, 1 - old_tv)
-                    if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula):
-                        self._addMBCount(idxVar, 2, 1, gndFormula.idxFormula)
+                    truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
+                    if truth:
+                        self._addMBCount(idxVar, 2, 1, gndFormula.idxFormula, increment=truth)
                     self.mrf._removeTemporaryEvidence()
                 else: # the block is the variable (idxGA is None)
                     size = len(block)
@@ -182,9 +183,10 @@ class BPLL(AbstractLearner):
                     for idxValue, idxGA in enumerate(block):
                         if idxGA != idxGATrueone:
                             self.mrf._setTemporaryEvidence(idxGATrueone, 0)
-                            self.mrf._setTemporaryEvidence(idxGA, 1)                            
-                        if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula):
-                            self._addMBCount(idxVar, size, idxValue, gndFormula.idxFormula)
+                            self.mrf._setTemporaryEvidence(idxGA, 1)
+                        truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
+                        if truth:
+                            self._addMBCount(idxVar, size, idxValue, gndFormula.idxFormula, increment=truth)
                         self.mrf._removeTemporaryEvidence()
 
 

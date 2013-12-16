@@ -1,4 +1,38 @@
 import logging
+from praclog.logformat import RainbowLoggingHandler
+import sys
+
+
+# this defines the formats in (bg, fg, bold)
+weight_color = (None, 'magenta', False)
+comment_color = (None, 'green', False)
+predicate_color = (None, 'white', True)
+
+def colorize(message, format, color=False):
+    '''
+    Returns the given message in a colorized format
+    string with ANSI escape codes for colorized console outputs:
+    - message:   the message to be formatted.
+    - format:    triple containing format information:
+                 (bg-color, fg-color, bf-boolean) supported colors are
+                 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'
+    - color:     boolean determining whether or not the colorization
+                 is to be actually performed.
+    '''
+    colorize.colorHandler = RainbowLoggingHandler(sys.stdout)
+    if color is False: return message
+    params = []
+    (bg, fg, bold) = format
+    if bg in colorize.colorHandler.color_map:
+        params.append(str(colorize.colorHandler.color_map[bg] + 40))
+    if fg in colorize.colorHandler.color_map:
+        params.append(str(colorize.colorHandler.color_map[fg] + 30))
+    if bold:
+        params.append('1')
+    if params:
+        message = ''.join((colorize.colorHandler.csi, ';'.join(params),
+                           'm', message, colorize.colorHandler.reset))
+    return message
 
 def combinations(domains):
     if len(domains) == 0:
