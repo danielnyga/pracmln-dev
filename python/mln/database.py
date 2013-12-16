@@ -27,6 +27,7 @@ from util import stripComments, strFormula, mergeDomains
 import copy
 import logging
 from logic.common import Logic
+from errors import NoSuchPredicateError
 
 class Database(object):
     '''
@@ -46,14 +47,21 @@ class Database(object):
         self.softEvidence = []
         self.includeNonExplicitDomains = True
         
-    def duplicate(self):
+    def duplicate(self, mln=None, ignoreUnknownPredicates=False):
         '''
-        Returns a deep copy this Database.
+        Returns a deep copy this Database. If mln is specified, asserts
+        this database for the given MLN.
         '''
-        db = Database(self.mln)
-        db.domains = copy.deepcopy(self.domains)
-        db.evidence = copy.deepcopy(self.evidence)
-        db.softEvidence = copy.deepcopy(self.softEvidence)
+        if mln is None:
+            db = Database(self.mln)
+            db.domains = copy.deepcopy(self.domains)
+            db.evidence = copy.deepcopy(self.evidence)
+            db.softEvidence = copy.deepcopy(self.softEvidence)
+        else:
+            db = Database(mln)
+            for truth, atom in self.iterGroundLiteralStrings():
+                try: db.addGroundAtom(atom, truth)
+                except NoSuchPredicateError: pass
         return db
 
     def iterGroundLiteralStrings(self, pred_names=None):
@@ -86,9 +94,10 @@ class Database(object):
             raise Exception('gndLit has an illegal type: %s' % type(gndLit))
         truth = truth if isTrue else 1 - truth
         truth = eval('%.6f' % truth)
-        self.evidence[atomString] = truth
         # update the domains
-        domNames = self.mln.predicates[predName]
+        domNames = self.mln.predicates.get(predName, None)
+        if domNames is None:
+            raise NoSuchPredicateError('No such predicate: %s' % predName)
         for i, domName in enumerate(domNames):
             dom = self.domains.get(domName, None)
             if dom is None:
@@ -96,6 +105,7 @@ class Database(object):
                 self.domains[domName] = dom
             if not params[i] in dom:
                 dom.append(params[i])
+        self.evidence[atomString] = truth
                 
     def isHard(self):
         '''
@@ -133,9 +143,9 @@ class Database(object):
             _, predName, params = self.mln.logic.parseLiteral(gndLit)
             atomString = "%s(%s)" % (predName, ",".join(params))
         elif isinstance(gndLit, Logic.GroundLit):
-            atomString = gndLit.gndAtom
+            atomString = str(gndLit.gndAtom)
         else:
-            raise Exception('gndLit has an illegal type')
+            raise Exception('gndLit has an illegal type: %s' % str(type(gndLit)))
         del self.evidence[atomString]
                 
     def isEmpty(self):
