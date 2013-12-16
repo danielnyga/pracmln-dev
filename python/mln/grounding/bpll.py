@@ -33,6 +33,8 @@ from utils import combinations
 from mln.util import strFormula
 import math
 from logic.common import Logic
+import sys
+import logging
 
 
 class FormulaGrounding(object):
@@ -344,7 +346,10 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                 # find out which ga is true in the block
                 idxValueTrueone = -1
                 for idxValue, idxGA in enumerate(block):
-                    if self.mrf._getEvidence(idxGA):
+                    truth = self.mrf._getEvidence(idxGA)
+                    if truth > 0 and truth < 1:
+                        raise Exception('Block variables must not have fuzzy truth values: %s in block "%s".' % (str(self.mrf.gndAtomsByIdx[idxGA]), str(block)))
+                    if truth:
                         if idxValueTrueone != -1: 
                             raise Exception("More than one true ground atom in block '%s'!" % self.mrf._strBlock(block))
                         idxValueTrueone = idxValue
@@ -382,60 +387,80 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
             assignment = dict([(v,a) for v,a in zip(vars,c)])
             yield lit.ground(mrf, assignment, allowPartialGroundings=True), assignment
     
-    def generateTrueConjunctionGroundings(self, fIdx, formula, conjunctsSoFar, falseLit=None):
+    def generateTrueConjunctionGroundings(self, fIdx, formula, conjunctsSoFar, minTruthLit=None, sndMinTruth=None):
         '''
         Recursively generate the true groundings of a conjunction and
         collect the statistics for pseudo-likelihood learning.
         '''
+#         log = logging.getLogger('bpll')
+#         log.debug(str(formula) + ' CONJ: ' + str(map(str, conjunctsSoFar)))
+#         if minTruthLit is not None:
+#             log.debug('minTruthLits: ' + str(map(str, minTruthLit)))
+#             log.debug('minTruthLit: %.2f' % self.mrf.evidence[minTruthLit[0].gndAtom.idx])
+
         if formula is None:
-            if falseLit is None:
-                self.trueGroundingsCounter[fIdx] = self.trueGroundingsCounter.get(formula, 0) + 1
-                for conj in conjunctsSoFar:
-                    idxVar = self.mrf.atom2BlockIdx[conj.gndAtom.idx]
-                    (idxGA, block) = self.mrf.pllBlocks[idxVar]
-                    if block is not None:
-                        self._addMBCount(idxVar, len(block), self.evidenceIndices[idxVar], fIdx)
-                    elif idxGA:
-                        self._addMBCount(idxVar, 2, 0, fIdx)
-                    else: assert False
-            else:
-                idxVar = self.mrf.atom2BlockIdx[falseLit.gndAtom.idx]
+            minTruth = self.mrf.evidence[minTruthLit[0].gndAtom.idx]
+            for conj in conjunctsSoFar:
+                truth = self.mrf.evidence[conj.gndAtom.idx]
+                invMinTruth = min(1 - truth, minTruth)
+                if conj in minTruthLit:
+                    if len(minTruthLit) == 1 and sndMinTruth is not None:
+                        invMinTruth = min(1 - minTruth, sndMinTruth)
+                idxVar = self.mrf.atom2BlockIdx[conj.gndAtom.idx]
                 (idxGA, block) = self.mrf.pllBlocks[idxVar]
                 if idxGA is not None:
-                    self._addMBCount(idxVar, 2, 1, fIdx)
+                    self._addMBCount(idxVar, 2, 0, fIdx, inc=minTruth)
+                    self._addMBCount(idxVar, 2, 1, fIdx, inc=invMinTruth)
                 else:
-                    self._addMBCount(idxVar, len(block), self.mrf.atom2ValueIdx[falseLit.gndAtom.idx], fIdx)
+                    idxGATrueOne = block[self.evidenceIndices[idxVar]]
+                    if conj.gndAtom.idx == idxGATrueOne and conj.negated is False:
+                        self._addMBCount(idxVar, len(block), self.mrf.atom2ValueIdx[conj.gndAtom.idx], fIdx, inc=minTruth)
+
             return
         # remove the true equality constraints
-        conjuncts = formula.children
+        conjuncts = list(formula.children)
         eqConstraints = []
-        while len(conjuncts) > 0 and type(conjuncts[0]) is Logic.Equality:
+        while len(conjuncts) > 0 and isinstance(conjuncts[0], Logic.Equality):
             eq = conjuncts[0]
-            if eq.isTrue(None) == 0: return
-            elif eq.isTrue(None) is None: eqConstraints.append(eq)
+#             log.debug('  %s = %.2f' % (str(eq), eq.isTrue()))
+            if eq.isTrue() == 0: 
+                return
+            elif eq.isTrue() is None: eqConstraints.append(eq)
             conjuncts = conjuncts[1:]
         
         if len(conjuncts) >= 1:
             conj = conjuncts[0]
             for gndLit, varAssign in self.litIterGnd(self.mrf, conj):
                 gndLitTruth = gndLit.isTrue(self.mrf.evidence)
-                # we can stop when we encounter more than one false conjunct
-                if not gndLitTruth: 
-                    if falseLit is not None: return
-                    else: falseLit = gndLit
-                if len(conjuncts) + len(eqConstraints) >= 3:
-                    newConj = Logic.Conjunction(eqConstraints + conjuncts[1:]).ground(self.mrf, varAssign, allowPartialGroundings=True)
+                sndMinTruth_ = sndMinTruth
+                if minTruthLit is not None:
+                    minTruthLit_ = list(minTruthLit)
+                if minTruthLit is None:
+                    minTruthLit_ = [gndLit]
+                elif gndLitTruth < self.mrf.evidence[minTruthLit_[0].gndAtom.idx]:
+                    sndMinTruth_ = self.mrf.evidence[minTruthLit_[0].gndAtom.idx]
+                    minTruthLit_ = [gndLit]
+                elif gndLitTruth == self.mrf.evidence[minTruthLit_[0].gndAtom.idx]:
+                    minTruthLit_.append(gndLit)
+                # we can stop when we encounter at least two entirely false conjuncts
+                if gndLitTruth == 0 and len(minTruthLit_) == 2: 
+                    continue
+                if len(conjuncts) + len(eqConstraints) >= 2:
+                    newConj = self.mrf.mln.logic.conjunction(eqConstraints + conjuncts[1:]).ground(self.mrf, varAssign, allowPartialGroundings=True)
                 else:
-                    newConj = None
-                self.generateTrueConjunctionGroundings(fIdx, newConj, conjunctsSoFar + [gndLit], falseLit)
-                falseLit = None
+                    newConj = (eqConstraints + conjuncts[1:])[0]
+                self.generateTrueConjunctionGroundings(fIdx, newConj, conjunctsSoFar + [gndLit], minTruthLit_, sndMinTruth_)
+        else:
+            self.generateTrueConjunctionGroundings(fIdx, None, conjunctsSoFar, minTruthLit, sndMinTruth)
             
     def _computeStatistics(self): 
         self.createVariablesAndEvidence()
         mrf = self.mrf
+        log = logging.getLogger('bpll')
         for fIdx, formula in enumerate(mrf.formulas):
-#             stdout.write('%d/%d\r' % (fIdx, len(mrf.formulas)))
-            if self.mrf.mln.logic.isConjunctionOfLiterals(formula):
+            sys.stdout.write('%d/%d\r' % (fIdx, len(mrf.formulas)))
+            if False:#self.mrf.mln.logic.isConjunctionOfLiterals(formula):
+                log.debug(formula)
 #                 print 'grounding:'
 #                 print strFormula(formula)
                 self.generateTrueConjunctionGroundings(fIdx, formula, [])
@@ -451,14 +476,16 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                         (idxGA, block) = self.mrf.pllBlocks[idxVar]
                         if idxGA is not None: # ground atom is the variable as it's not in a block
                             # check if formula is true if gnd atom maintains its truth value
-                            if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula):
-                                self._addMBCount(idxVar, 2, 0, fIdx)
-                                self.trueGroundingsCounter[fIdx] = self.trueGroundingsCounter.get(fIdx, 0) + 1
+                            truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula) 
+                            if truth:
+                                self._addMBCount(idxVar, 2, 0, fIdx, inc=truth)
+#                                 self.trueGroundingsCounter[fIdx] = self.trueGroundingsCounter.get(fIdx, 0) + 1
                             # check if formula is true if gnd atom's truth value is inverted
                             old_tv = self.mrf._getEvidence(idxGA)
                             self.mrf._setTemporaryEvidence(idxGA, 1 - old_tv)
-                            if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula):
-                                self._addMBCount(idxVar, 2, 1, fIdx)
+                            truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
+                            if truth:
+                                self._addMBCount(idxVar, 2, 1, fIdx, inc=truth)
                             self.mrf._removeTemporaryEvidence()
                                  
                         else: # the block is the variable (idxGA is None)
@@ -469,20 +496,21 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                                 if idxGA != idxGATrueone:
                                     self.mrf._setTemporaryEvidence(idxGATrueone, 0)
                                     self.mrf._setTemporaryEvidence(idxGA, 1)
-                                if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula):
-                                    self._addMBCount(idxVar, size, idxValue, fIdx)
+                                truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
+                                if truth:
+                                    self._addMBCount(idxVar, size, idxValue, fIdx, inc=truth)
                                 self.mrf._removeTemporaryEvidence()
-        if self.initWeights:
-            if self.verbose: print 'applying initial weights heuristics...'
-            factor = 0.1
-            for i, f in enumerate(mrf.formulas):
-                totalGroundings = f.computeNoOfGroundings(mrf)
-                if totalGroundings - self.trueGroundingsCounter.get(i, 0) == 0:
-                    f.weight = factor * mrf.hard_weight
-                elif self.trueGroundingsCounter.get(i, 0) == 0:
-                    f.weight = factor * -mrf.hard_weight
-                else:
-                    f.weight = factor * math.log(self.trueGroundingsCounter.get(i, 0) / float(totalGroundings - self.trueGroundingsCounter.get(i, 0)))
+#         if self.initWeights:
+#             if self.verbose: print 'applying initial weights heuristics...'
+#             factor = 0.1
+#             for i, f in enumerate(mrf.formulas):
+#                 totalGroundings = f.computeNoOfGroundings(mrf)
+#                 if totalGroundings - self.trueGroundingsCounter.get(i, 0) == 0:
+#                     f.weight = factor * mrf.hard_weight
+#                 elif self.trueGroundingsCounter.get(i, 0) == 0:
+#                     f.weight = factor * -mrf.hard_weight
+#                 else:
+#                     f.weight = factor * math.log(self.trueGroundingsCounter.get(i, 0) / float(totalGroundings - self.trueGroundingsCounter.get(i, 0)))
 #                 if self.verbose:
 #                     print '  log(%d/%d)=%.6f \t%s' % (self.trueGroundingsCounter.get(i, 0), totalGroundings-self.trueGroundingsCounter.get(i, 0), f.weight, strFormula(f))
      
