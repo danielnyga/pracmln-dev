@@ -203,8 +203,8 @@ class WCSP(object):
                 if verbose: print solution, cost
                 solution = map(int, l.split())
                 nextLineIsSolution = False
-	p.wait()        
-	retCode = p.returncode
+        p.wait()        
+        retCode = p.returncode
         log.debug('toulbar2 process returned %s' % str(retCode))
         return solution, cost
     
