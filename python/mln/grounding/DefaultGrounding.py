@@ -21,11 +21,10 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from logic import fol
-from mln.util import *
 from AbstractGrounding import AbstractGroundingFactory
-from mln.MarkovLogicNetwork import DEBUG
 import logging
+from mln.util import strFormula
+from logic.common import Logic
 
 class DefaultGroundingFactory(AbstractGroundingFactory):
     '''
@@ -48,7 +47,7 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         mrf = self.mrf
         assert len(mrf.gndFormulas) == 0
         if domNames == []:
-            atom = fol.GroundAtom(predName, cur)
+            atom = mrf.mln.logic.gnd_atom(predName, cur)
             mrf.addGroundAtom(atom)
             return True
         log = logging.getLogger(self.__class__.__name__)
@@ -56,9 +55,7 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         # remaining variables whose domains are given in domNames
         dom = mrf.domains.get(domNames[0])
         if dom is None or len(dom) == 0:
-#             raise Exception("Domain '%s' is empty!" % domNames[0])
-            if self.verbose:
-                log.warning("Ground Atoms for predicate %s could not be generated, since the domain '%s' is empty" % (predName, domNames[0]))
+            log.info("Ground Atoms for predicate %s could not be generated, since the domain '%s' is empty" % (predName, domNames[0]))
             return False
         for value in dom:
             if not self._groundAtoms(cur + [value], predName, domNames[1:]): return False
@@ -67,24 +64,21 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
     def _createGroundFormulas(self):
         mrf = self.mrf
         assert len(mrf.gndAtoms) > 0
-        
+        log = logging.getLogger(self.__class__.__name__)
         # generate all groundings
-        if self.verbose: 
-            print "Grounding formulas..."
-        if DEBUG:
-            print 'ground formulas (all should have a truth value):'
+        log.info('Grounding formulas...')
+        log.debug('Ground formulas (all should have a truth value):')
         for idxFormula, formula in enumerate(mrf.formulas):
-            gndFormulas = self.formula2GndFormulas.get(formula, [])
-            self.formula2GndFormulas[formula] = gndFormulas
-            if self.verbose: 
-                print "  %s" % (strFormula(formula))
+#             gndFormulas = self.formula2GndFormulas.get(formula, [])
+#             self.formula2GndFormulas[formula] = gndFormulas
+            
             for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, mrf.simplify):
-                if DEBUG:
-                    print '    %s\t-> %s' % (strFormula(gndFormula), str(gndFormula.isTrue(mrf.evidence)))
+#                 if gndFormula.isTrue(mrf.evidence):
+#                     log.debug('    %s\t-> %s' % (strFormula(gndFormula), str(gndFormula.isTrue(mrf.evidence))))
                 gndFormula.isHard = formula.isHard
                 gndFormula.weight = formula.weight
-                if isinstance(gndFormula, fol.TrueFalse):
-                    continue
-                gndFormulas.append(gndFormula)
+#                 if isinstance(gndFormula, Logic.TrueFalse):
+#                     continue
+#                 gndFormulas.append(gndFormula)
                 mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
         

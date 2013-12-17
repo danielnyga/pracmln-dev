@@ -24,8 +24,8 @@
 from utils.undo import Ref, Number, List, ListDict, Boolean
 from logic import fol, grammar
 import utils
-from logic.fol import Equality
 from mln.util import strFormula
+from logic.common import Logic
 
 
 class FormulaGrounding(object):
@@ -110,7 +110,7 @@ class FormulaGrounding(object):
         self.domains.drop(var_name, val)
         # if the simplified gf reduces to a TrueFalse instance, then
         # we return the costs if it's false, or 0 otherwise.
-        if isinstance(gf, fol.TrueFalse):
+        if isinstance(gf, Logic.TrueFalse):
             if gf.value: costs = 0.0
             else:
                 costs = self.formula.weight * gf_count
@@ -157,7 +157,7 @@ class GroundingFactory(object):
         '''
         self.mrf = mrf
         self.costs = .0
-        if isinstance(formula, fol.Formula):
+        if isinstance(formula, Logic.Formula):
             self.formula = formula
             self.root = FormulaGrounding(formula, mrf)
         elif isinstance(formula, FormulaGrounding):
@@ -312,10 +312,10 @@ class GroundingFactory(object):
         '''
         Returns None if the literal and the atom do not match.
         '''
-        if type(lit) is Equality or lit.predName != atom.predName: return None
+        if type(lit) is Logic.Equality or lit.predName != atom.predName: return None
         assignment = {}
         for p1, p2 in zip(lit.params, atom.params):
-            if grammar.isVar(p1):
+            if self.mrf.mln.logic.isVar(p1):
                 assignment[p1] = p2
             elif p1 != p2: return None
         return assignment

@@ -25,7 +25,8 @@
 
 from Inference import *
 import sys
-from logic.grammar import parseFormula
+
+POSSWORLDS_BLOCKING = True
 
 class ExactInference(Inference):
     '''
@@ -57,7 +58,7 @@ class ExactInference(Inference):
         if given == "":
             given = None
         else:
-            given = parseFormula(given)
+            given = self.mln.logic.parseFormula(given)
             given = given.ground(self.mrf, {})
         # start summing
         if verbose and details: print "summing..."
@@ -118,7 +119,7 @@ class ExactInferenceLinear(Inference):
         if given == "":
             given = None
         else:
-            given = parseFormula(given)
+            given = self.mln.logic.parseFormula(given)
             given = given.ground(self.mrf, {})
         # start summing
         if verbose and details: print "summing..."

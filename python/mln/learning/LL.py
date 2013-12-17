@@ -52,22 +52,17 @@ class LL(AbstractLearner):
     def _calculateWorldValues(self, wts):
         if hasattr(self, 'wtsLastWorldValueComputation') and self.wtsLastWorldValueComputation == list(wts): # avoid computing the values we already have
             return
-
         self.expsums = [0 for i in range(len(self.mrf.worlds))]
-
         for ((idxWorld, idxFormula), count) in self.counts.iteritems():
             self.expsums[idxWorld] += wts[idxFormula] * count
-        
         #for worldIndex, world in enumerate(self.worlds):
             #world["sum"] = exp(world["sum"])
             #if allSoft == False, we added a new world for training (duplicated, but with soft evidence)  
             #  exclude this new one from the normalization (partition_function)
             #if self.learnWtsMode != 'LL_ISE' or self.allSoft == True or worldIndex != self.idxTrainingDB:
             #   total += world["sum"]
-        
         self.expsums = map(exp, self.expsums)
         self.partition_function = fsum(self.expsums)
-        
         self.wtsLastWorldValueComputation = list(wts)
 
     def _grad(self, wt):
@@ -117,7 +112,6 @@ class LL(AbstractLearner):
         self._computeCounts()
         print "  %d counts recorded." % len(self.counts)
 #         self.mrf.printWorlds()
-
 
 from softeval import truthDegreeGivenSoftEvidence
 

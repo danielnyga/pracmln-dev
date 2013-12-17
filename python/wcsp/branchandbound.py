@@ -23,9 +23,8 @@
 
 from utils.undo import Number
 from mln.grounding.bnb import GroundingFactory
-from logic import grammar
 from mln.database import Database
-from logic.fol import GroundAtom, Negation
+from logic.common import Logic
 
 
 class BranchAndBound(object):
@@ -53,7 +52,7 @@ class BranchAndBound(object):
             w = f.weight
             hard = f.isHard
             if f.weight < 0:
-                f_ = Negation([f])
+                f_ = Logic.Negation([f])
                 w = -w
                 f = f_
             print w, f
@@ -99,7 +98,7 @@ class BranchAndBound(object):
     
     def _isEvidenceVariable(self, varIdx):
         val = self._getVariableValue(varIdx)
-        return type(val) is bool or isinstance(val, GroundAtom)
+        return type(val) is bool or isinstance(val, Logic.GroundAtom)
         
     def search(self):
         self.costs = 0.
@@ -190,15 +189,15 @@ class BranchAndBound(object):
             self.mrf._setEvidence(gndAtom.idx, None)
             
 if __name__ == '__main__':
-    from mln.MarkovLogicNetwork import MLN
+    from mln import MLN
     
     mln = MLN()
     mln.declarePredicate('foo', ['x', 'y'], functional=[1])
     mln.declarePredicate('bar', ['y','z'])
      
-    f = grammar.parseFormula('foo(?x1,?y1) ^ foo(?x2,?y1) ^ bar(?y3,Y) ^ bar(?y3, ?z2)')
+    f = mln.logic.parseFormula('foo(?x1,?y1) ^ foo(?x2,?y1) ^ bar(?y3,Y) ^ bar(?y3, ?z2)')
     mln.addFormula(f, 1)
-    f = grammar.parseFormula('!foo(?x1,?y1) v !foo(?x2,?y1) v !bar(?y3,Y) v !bar(?y3, ?z2)')
+    f = mln.logic.parseFormula('!foo(?x1,?y1) v !foo(?x2,?y1) v !bar(?y3,Y) v !bar(?y3, ?z2)')
     mln.addFormula(f, 1.1)
 #    mln.addDomainValue('x', 'Z')
      

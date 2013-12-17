@@ -25,7 +25,7 @@
 import time
 
 from mln.util import *
-from logic import grammar
+from logic.common import Logic
 
 
 class Inference(object):
@@ -58,18 +58,18 @@ class Inference(object):
             if type(query) == str:
                 prevLen = len(equeries)
                 if "(" in query: # a fully or partially grounded formula
-                    f = grammar.parseFormula(query)
+                    f = self.mln.logic.parseFormula(query)
                     for gndFormula in f.iterGroundings(self.mln):
                         equeries.append(gndFormula[0])
                 else: # just a predicate name
                     try:
                         for gndPred in self.mrf._getPredGroundings(query):
-                            equeries.append(grammar.parseFormula(gndPred).ground(self.mrf, {}))
+                            equeries.append(self.mln.logic.parseFormula(gndPred).ground(self.mrf, {}))
                     except:
                         raise #Exception("Could not expand query '%s'" % query)
                 if len(equeries) - prevLen == 0:
                     raise Exception("String query '%s' could not be expanded." % query)
-            elif isinstance(query, fol.Formula):
+            elif isinstance(query, Logic.Formula):
                 equeries.append(query)
             else:
                 raise Exception("Received query of unsupported type '%s'" % str(type(query)))

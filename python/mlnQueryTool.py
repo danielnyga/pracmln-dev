@@ -34,15 +34,17 @@ import pickle
 from fnmatch import fnmatch
 import traceback
 import widgets
-from widgets import *
+# from widgets import *
 import configMLN as config
 import mln
 import tkMessageBox
 import subprocess
 import shlex
 from mln.util import balancedParentheses
-from mln.MarkovLogicNetwork import readMLNFromFile
+from mln import readMLNFromFile
 from mln.methods import InferenceMethods
+from widgets import FilePickEdit
+from logic.grammar import StandardGrammar, PRACGrammar
 
 def config_value(key, default):
     if key in dir(config):
@@ -73,13 +75,13 @@ def readAlchemyResults(output):
 
 class MLNInfer(object):
     def __init__(self):
-        self.pymlns_methods = mln.InferenceMethods.getNames()
+        self.pymlns_methods = InferenceMethods.getNames()
         self.alchemy_methods = {"MC-SAT":"-ms", "Gibbs sampling":"-p", "simulated tempering":"-simtp", "MaxWalkSAT (MPE)":"-a", "belief propagation":"-bp"}
         self.jmlns_methods = {"MaxWalkSAT (MPE)":"-mws", "MC-SAT":"-mcsat", "Toulbar2 B&B (MPE)":"-t2"}
         self.alchemy_versions = config.alchemy_versions
         self.default_settings = {"numChains":"1", "maxSteps":"", "saveResults":False, "convertAlchemy":False, "openWorld":True} # a minimal set of settings required to run inference
     
-    def run(self, mlnFiles, evidenceDB, method, queries, engine="PyMLNs", output_filename=None, params="", **settings):
+    def run(self, mlnFiles, evidenceDB, method, queries, engine="PRACMLNs", output_filename=None, params="", **settings):
         '''
             runs an MLN inference method with the given parameters
         
@@ -135,7 +137,7 @@ class MLNInfer(object):
                 # create MLN
                 verbose = True
                 # mln = MLN.MLN(input_files, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
-                mln = readMLNFromFile(input_files)#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
+                mln = readMLNFromFile(input_files, logic=self.settings['logic'], grammar=self.settings['grammar'])#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
                 mln.defaultInferenceMethod = InferenceMethods.byName(method)
                 mln.verbose = verbose
                 # set closed-world predicates
@@ -349,6 +351,30 @@ class MLNQueryGUI(object):
         list = apply(OptionMenu, (self.frame, self.selected_engine) + tuple(engines))
         list.grid(row=row, column=1, sticky="NWE")
 
+        # grammar selection
+        row += 1
+        Label(self.frame, text='Grammar: ').grid(row=row, column=0, sticky='E')
+        grammars = ['StandardGrammar', 'PRACGrammar']
+        self.selected_grammar = StringVar(master)
+        grammar = self.settings.get('grammar')
+        if not grammar in grammars: grammar = grammars[0]
+        self.selected_grammar.set(grammar)
+        self.selected_grammar.trace('w', self.onChangeGrammar)
+        l = apply(OptionMenu, (self.frame, self.selected_grammar) + tuple(grammars))
+        l.grid(row=row, column=1, sticky='NWE')
+        
+        # logic selection
+        row += 1
+        Label(self.frame, text='Logic: ').grid(row=row, column=0, sticky='E')
+        logics = ['FirstOrderLogic', 'FuzzyLogic']
+        self.selected_logic = StringVar(master)
+        logic = self.settings.get('logic')
+        if not logic in logics: logic = logics[0]
+        self.selected_logic.set(logic)
+        self.selected_logic.trace('w', self.onChangeLogic)
+        l = apply(OptionMenu, (self.frame, self.selected_logic) + tuple(logics))
+        l.grid(row=row, column=1, sticky='NWE')
+        
         # mln selection
         row += 1
         Label(self.frame, text="MLN: ").grid(row=row, column=0, sticky=NE)
@@ -507,6 +533,13 @@ class MLNQueryGUI(object):
         else:
             self.selected_emln.grid(row=self.selected_mln.row+1, column=0, sticky="NWES")
 
+    def onChangeLogic(self, name = None, index = None, mode = None):
+        pass
+    
+    def onChangeGrammar(self, name=None, index=None, mode=None):
+        grammar = eval(self.selected_grammar.get())(None)
+        self.selected_mln.editor.grammar = grammar        
+
     def onChangeEngine(self, name = None, index = None, mode = None):
         # enable/disable controls
         engineName = self.selected_engine.get()
@@ -578,6 +611,9 @@ class MLNQueryGUI(object):
         self.settings["useEMLN"] = self.use_emln.get()
         self.settings["maxSteps"] = self.maxSteps.get()
         self.settings["numChains"] = self.numChains.get()
+        self.settings['logic'] = self.selected_logic.get()
+        self.settings['grammar'] = self.selected_grammar.get()
+        
         if "params" in self.settings: del self.settings["params"]
         if saveGeometry:
             self.settings["geometry"] = self.master.winfo_geometry()

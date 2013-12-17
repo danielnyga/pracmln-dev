@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Markov Logic Networks
+# Ground Markov Random Fields
 #
 # (C) 2012-2013 by Daniel Nyga (nyga@cs.uni-bremen.de)
 # (C) 2006-2011 by Dominik Jain (jain@cs.tum.edu)
@@ -23,521 +23,25 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-from mln.database import Database, readDBFromFile
-import logic
-from logic.grammar import predDecl, parseFormula
-import copy
+
 from utils import dict_union
-
-from debug import DEBUG
-import praclog
 import logging
-from string import whitespace
-
-'''
-Your MLN files may contain:
-    - domain declarations, e.g.
-            domainName = {value1, value2, value3}
-    - predicate declarations, e.g.
-            pred1(domainName1, domainName2)
-        mutual exclusiveness and exhaustiveness may be declared simultaneously, e.g.
-        pred1(a,b!) to state that for every constant value that variable a can take on, there is exactly one value that b can take on
-    - formulas, e.g.
-            12   cloudy(d)
-    - C++-style comments (i.e. // and /* */) anywhere
-
-The syntax of .mln files is mostly compatible to the Alchemy system (see manual of the Alchemy system)
-with the following limitations:
-    - one line per definition, no line breaks allowed
-    - all formulas must be preceded by a weight, which can be expressed as an arithmetic expression such as "1.0/3.0" or "log(0.5)"
-      note that formulas are not decomposed into clauses but processed as is.
-      operators (in order of precedence; use parentheses to change precendence):
-              !   negation
-              v   disjunction
-              ^   conjunction
-              =>  implication
-              <=> biimplication
-      Like Alchemy, we support the prefix operators * on literals and + on variables to specify templates for formulas.
-    - no support for functions
-
-As a special construct of our implementation, an MLN file may contain constraints of the sort
-    P(foo(x, Bar)) = 0.5
-i.e. constraints on formula probabilities that cause weights to be automatically adjusted to conform to the constraint.
-Note that the MLN must contain the corresponding formula.
-
-deprecated features:
-
-We support an alternate representation where the parameters are factors between 0 and 1 instead of regular weights.
-To use this representation, make use of infer2 rather than infer to compute probabilities.
-To learn factors rather than regular weights, use "LL_fac" rather than "LL" as the method you supply to learnwts.
-(pseudolikelihood is currently unsupported for learning such representations)
-'''
-
+from database import readDBFromFile, Database
+from util import mergeDomains
+import copy
 import sys
-import os
-import random
-import time
-import traceback
-
-sys.setrecursionlimit(10000)
-
-import platform
-if platform.architecture()[0] == '32bit':
-    try:
-        if not DEBUG:
-            import psyco # Don't use Psyco when debugging!
-            psyco.full()
-    except:
-        sys.stderr.write("Note: Psyco (http://psyco.sourceforge.net) was not loaded. On 32bit systems, it is recommended to install it for improved performance.\n")
-
-from pyparsing import ParseException
-from inference import *
-from util import *
+import re
+from util import strFormula
+from logic import FirstOrderLogic
+import math
+from util import toCNF, logx
 from methods import *
-import learning
+import time
+from inference import *
+import random
 from grounding import *
 
 POSSWORLDS_BLOCKING = True
-
-# -- Markov logic network
-
-class MLN(object):
-    '''
-    represents a Markov logic network and/or a ground Markov network
-
-    members:
-        blocks:
-            dict: predicate name -> list of booleans that indicate which arguments of the pred are functionally determined by the others
-            (one boolean per argument, True = is functionally determined)
-        closedWorldPreds:
-            list of predicates that are assumed to be closed-world (for inference)
-        formulas:
-            list of formula objects
-        predicates:
-            dict: predicate name -> list of domain names that apply to the predicate's parameters
-        worldCode2Index:
-            dict that maps a world's identification code to its index in self.worlds
-        worlds
-            list of possible worlds, each entry is a dict with
-                'values' -> list of booleans - one for each gnd atom
-        allSoft:
-            for soft evidence learning: flag,
-              if true: compute counts for normalization worlds using soft counts
-              if false: compute counts for normalization worlds using hard counts (boolean worlds)
-        learnWtsMode
-    '''
-
-    def __init__(self, defaultInferenceMethod=InferenceMethods.MCSAT, parameterType='weights', verbose=False):
-        '''
-        Constructs an empty MLN object. For reading an MLN object 
-        from an .mln file, see readMLNFromFile (below).
-        '''
-        self.predicates = {}
-        self.domains = {}
-        self.formulas = []
-        
-        self.blocks = {}
-        self.domDecls = []
-        self.probreqs = []
-        self.posteriorProbReqs = []
-        self.defaultInferenceMethod = defaultInferenceMethod
-        self.probabilityFittingInferenceMethod = InferenceMethods.Exact
-        self.probabilityFittingThreshold = 0.002 # maximum difference between desired and computed probability
-        self.probabilityFittingMaxSteps = 20 # maximum number of steps to run iterative proportional fitting
-        self.parameterType = parameterType
-        self.formulaGroups = []
-        self.closedWorldPreds = []
-        self.learnWtsMode = None
-        self.templateIdx2GroupIdx = {}
-        self.vars = {}
-        self.allSoft = False
-        self.uniqueFormulaExpansions = {}
-        self.fixedWeightFormulas = []
-        self.fixedWeightTemplateIndices = []
-        self.verbose = verbose
-
-    def duplicate(self):
-        '''
-        Returns a deep copy of this MLN, which is not yet materialized.
-        '''
-        return copy.deepcopy(self)
-
-    def declarePredicate(self, name, domains, functional=None):
-        '''
-        Adds a predicate declaration to the MLN:
-        - name:        name of the predicate (string)
-        - domains:     list of domain names of arguments
-        - functional:  indices of args which are functional (optional)
-        '''
-        if name in self.predicates:
-            msg = 'Predicate "%s" has already been declared' % name
-            logging.getLogger(self.__class__.__name__).exception(msg)
-        assert type(domains) == list
-        self.predicates[name] = domains
-        if functional is not None:
-            func = [(i in functional) for i, _ in enumerate(domains)]
-            self.blocks[name] = func
-            
-    def loadPRACDatabases(self, dbPath):
-        '''
-        Loads and returns all databases (*.db files) that are located in 
-        the given directory and returns the corresponding Database objects.
-        - dbPath:     the directory path to look for .db files
-        '''
-        dbs = []
-#        senses = set()
-        for dirname, dirnames, filenames in os.walk(dbPath): #@UnusedVariable
-            for f in filenames:
-                if not f.endswith('.db'):
-                    continue
-                p = os.path.join(dirname, f)
-                print "  reading database %s" % p
-                db = Database(self, p)
-#                senses.update(db.domains['sense'])
-                dbs.append(db)
-        print "  %d databases read" % len(dbs)
-        return dbs
-    
-    def addFormula(self, formula, weight=0, hard=False, fixWeight=False):
-        '''
-        Add a formula to this MLN. The respective domains of constants
-        are updated, if necessary.
-        '''
-        self._addFormula(formula, self.formulas, weight, hard, fixWeight)
-    
-    def _addFormula(self, formula, formulaSet, weight=0, hard=False, fixWeight=False):
-        '''
-        Adds the given formula to the MLN and extends the respective domains, if necessary.
-        - formula:    a FOL.Formula object or a string
-        - weight:     weight of the formula
-        - hard:       determines if the formula is hard
-        - fixWeight:  determines if the weight of the formula is fixed
-        '''
-        if type(formula) is str:
-            formula = parseFormula(formula)
-        formula.weight = weight
-        formula.isHard = hard
-        idxTemplate = len(formulaSet)
-        if fixWeight:
-            self.fixedWeightTemplateIndices.append(idxTemplate)
-        formulaSet.append(formula)
-        # extend domains
-        constants = {}
-        formula.getVariables(self, None, constants)
-        for domain, constants in constants.iteritems():
-            for c in constants: 
-                self.addConstant(domain, c)
-
-    def materializeFormulaTemplates(self, dbs, verbose=False):
-        '''
-        Expand all formula templates.
-        - dbs: list of Database objects
-        '''
-        log = logging.getLogger(self.__class__.__name__)
-        log.info("materializing formula templates...")
-        
-        # TODO: duplicate this MLN to avoid side effects
-        newMLN = self.duplicate()
-        
-        # obtain full domain with all objects 
-        fullDomain = mergeDomains(self.domains, *[db.domains for db in dbs])
-        
-        # collect the admissible formula templates. templates might be not
-        # admissible since the domain of a template variable might be empty.
-        for ft in list(newMLN.formulas):
-            domNames = ft.getVariables(self).values()
-            if any([not domName in fullDomain for domName in domNames]):
-                log.warning('Discarding formula template %s,\n         since it cannot be grounded (domain "%s" empty).' % \
-                    (strFormula(ft), ','.join([d for d in domNames if d not in fullDomain])))
-                newMLN.formulas.remove(ft)
-        
-        # collect the admissible predicates. a predicate may become inadmissible
-        # if either the domain of one of its arguments is empty or there is
-        # no formula containing the respective predicate.
-        predicatesUsed = set()
-        for f in newMLN.formulas:
-            predicatesUsed.update(f.getPredicateNames())
-        for pred, domains in self.predicates.iteritems():
-            remove = False
-            if any([not dom in fullDomain for dom in self.predicates[pred]]):
-                log.warning('Discarding predicate %s, since it cannot be grounded.' % (pred))
-                remove = True
-            if pred not in predicatesUsed:
-                log.warning('Discarding predicate %s, since it is unused.' % pred)
-                remove = True
-            if remove: del newMLN.predicates[pred]
-        
-        # permanently transfer domains of variables that were expanded from templates
-        for ft in newMLN.formulas:
-            domNames = ft._getTemplateVariables(self).values()
-            for domName in domNames:
-                newMLN.domains[domName] = fullDomain[domName]
-        newMLN._materializeFormulaTemplates()
-        return newMLN
-
-    def _materializeFormulaTemplates(self, verbose=False):
-        '''
-        CAUTION: This method has side effects.
-        TODO: Draw this method into materializeFormulaTemplates.
-        '''
-        templateIdx2GroupIdx = self.templateIdx2GroupIdx
-        fixedWeightTemplateIndices = self.fixedWeightTemplateIndices
-        templates = self.formulas
-        self.formulas = []
-        
-        # materialize formula templates
-        idxGroup = None
-        prevIdxGroup = None
-        group = []
-        for idxTemplate, tf in enumerate(templates):
-            idxGroup = templateIdx2GroupIdx.get(idxTemplate)
-            if idxGroup != None:
-                if idxGroup != prevIdxGroup: # starting new group
-                    self.formulaGroups.append(group)
-                    group = []
-                prevIdxGroup = idxGroup
-            # get template variants
-            fl = tf.getTemplateVariants(self)
-            # add them to the list of formulas and set index
-            for f in fl:
-                f.weight = tf.weight
-                f.isHard = tf.isHard
-                if f.weight is None:
-                    self.hard_formulas.append(f)
-                idxFormula = len(self.formulas)
-                self.formulas.append(f)
-                f.idxFormula = idxFormula
-                # add the formula indices to the group if any
-                if idxGroup != None:
-                    group.append(idxFormula)
-                # fix weight of formulas
-                if idxTemplate in fixedWeightTemplateIndices:
-                    self.fixedWeightFormulas.append(f)
-        if group != []: # add the last group (if any)
-            self.formulaGroups.append(group)
-
-    def addConstant(self, domainName, constant):
-        if domainName not in self.domains: self.domains[domainName] = []
-        dom = self.domains[domainName]
-        if constant not in dom: dom.append(constant)
-
-    def _substVar(self, matchobj):
-        varName = matchobj.group(0)
-        if varName not in self.vars:
-            raise Exception("Unknown variable '%s'" % varName)
-        return self.vars[varName]
-
-    def groundMRF(self, db, simplify=False, method='DefaultGroundingFactory', cwAssumption=False, **params):
-        '''
-        Creates and returns a ground Markov Random Field for the given database
-        - db: database filename (string) or Database object
-        '''
-        mrf = MRF(self, db, method, cwAssumption=cwAssumption, **params)
-        return mrf
-
-    def combineOverwrite(self, domain, verbose=False, groundFormulas=True):
-        '''
-            combines the existing domain (if any) with the given one
-                domain: a dictionary with domainName->list of string constants to add
-        '''
-        domNames = set(self.domains.keys() + domain.keys())
-        for domName in domNames:
-            a = self.domains.get(domName, [])
-            b = domain.get(domName, [])
-            if b == [] and a != []:
-                self.domains[domName] = list(a)
-            else:
-                self.domains[domName] = list(b)
-
-        # collect data
-        self._generateGroundAtoms()
-        if groundFormulas: self._createFormulaGroundings()
-        if verbose:
-            print "ground atoms: %d" % len(self.gndAtoms)
-            print "ground formulas: %d" % len(self.gndFormulas)
-
-        self._fitProbabilityConstraints(self.probreqs, self.probabilityFittingInferenceMethod, self.probabilityFittingThreshold, self.probabilityFittingMaxSteps, verbose=True)
-
-    def minimizeGroupWeights(self):
-        '''
-            minimize the weights of formulas in groups by subtracting from each 
-            formula weight the minimum weight in the group
-            this results in weights relative to 0, therefore 
-            this equivalence transformation can be thought of as a normalization
-        '''
-        wt = self._weights()
-        for group in self.formulaGroups:
-            if len(group) == 0:
-                continue
-            # find minimum absolute weight
-            minWeight = wt[group[0]]
-            for idxFormula in group:
-                if abs(wt[idxFormula]) < abs(minWeight):
-                    minWeight = wt[idxFormula]
-            # shift all weights in the group
-            for idxFormula in group:
-                self.formulas[idxFormula].weight -= minWeight
-
-    def setClosedWorldPred(self, predicateName):
-        '''
-        Sets the given predicate as closed-world (for inference)
-        a predicate that is closed-world is assumed to be false for 
-        any parameters not explicitly specified otherwise in the evidence.
-        If predicateName is None, all predicates are set to open world.
-        '''
-        if predicateName is None:
-            self.closedWorldPreds = []
-        else:
-            if predicateName not in self.predicates:
-                raise Exception("Unknown predicate '%s'" % predicateName)
-            self.closedWorldPreds.append(predicateName)
-
-    def _weights(self):
-        '''
-        returns the weight vector of the MLN as a list
-        '''
-        return [f.weight for f in self.formulas]
-
-    def learnWeights(self, databases, method=ParameterLearningMeasures.BPLL, **params):
-        '''
-        Triggers the learning parameter learning process for a given set of databases.
-        Returns a new MLN object with the learned parameters.
-        - databases: list of Database objects or filenames
-        '''
-        log = logging.getLogger(self.__class__.__name__)
-        self.verbose = params.get('verbose', False)
-        # get a list of database objects
-        dbs = []
-        for db in databases:
-            if type(db) == str:
-                db = readDBFromFile(self, db)
-                if type(db) == list:
-                    dbs.extend(db)
-                else:
-                    dbs.append(db)
-            elif type(db) is list:
-                dbs.extend(db)
-            else:
-                dbs.append(db)
-        
-        newMLN = self.materializeFormulaTemplates(dbs, self.verbose)
-        
-        if DEBUG:
-            print 'predicates:'
-            for p in newMLN.predicates.items():
-                print p
-            print 'MLN domains:'
-            for d in newMLN.domains.items():
-                print d
-            print 'formulas:'
-            newMLN.printFormulas()
-
-        # run learner
-        if len(dbs) == 1:
-            groundingMethod = eval('learning.%s.groundingMethod' % method)
-            log.info("grounding MRF using %s..." % groundingMethod) 
-            mrf = newMLN.groundMRF(dbs[0], False, groundingMethod, True, **params)
-            learner = eval("learning.%s(newMLN, mrf, **params)" % method)
-        else:
-            learner = learning.MultipleDatabaseLearner(newMLN, method, dbs, **params)
-        log.info("learner: %s" % learner.getName())
-        wt = learner.run(**params)
-
-        # create the resulting MLN and set its weights
-        learnedMLN = newMLN.duplicate()
-        learnedMLN.setWeights(wt)
-
-        # fit prior prob. constraints if any available
-        if len(self.probreqs) > 0:
-            fittingParams = {
-                "fittingMethod": self.probabilityFittingInferenceMethod,
-                "fittingSteps": self.probabilityFittingMaxSteps,
-                "fittingThreshold": self.probabilityFittingThreshold
-            }
-            fittingParams.update(params)
-            print "fitting with params ", fittingParams
-            self._fitProbabilityConstraints(self.probreqs, **fittingParams)
-        
-        if self.verbose:
-            print "\n// formulas"
-            for formula in learnedMLN.formulas:
-                print "%f  %s" % (float(eval(str(formula.weight))), strFormula(formula))
-        return learnedMLN
-
-    def setWeights(self, wt):
-        if len(wt) != len(self.formulas):
-            raise Exception("length of weight vector != number of formula templates")
-        for i, f in enumerate(self.formulas):
-            f.weight = float('%-10.6f' % float(eval(str(wt[i]))))
-
-    def writeToFile(self, filename):
-        '''
-        Creates the file with the given filename and writes this MLN into it.
-        '''
-        f = open(filename, 'w+')
-        self.write(f)   
-        f.close()
-
-    def write(self, f, mutexInDecls=True):
-        '''
-            writes the MLN to the given file object
-                mutexInDecls: whether to write the definitions for mutual 
-                exclusiveness directly to the predicate declaration (instead of extra constraints)
-        '''
-        if 'learnwts_message' in dir(self):
-            f.write("/*\n%s*/\n\n" % self.learnwts_message)
-        f.write("// domain declarations\n")
-        for d in self.domDecls: 
-            f.write("%s\n" % d)
-        f.write('\n')
-        f.write("\n// predicate declarations\n")
-        for predname, args in self.predicates.iteritems():
-            excl = self.blocks.get(predname)
-            if not mutexInDecls or excl is None:
-                f.write("%s(%s)\n" % (predname, ", ".join(args)))
-            else:
-                f.write("%s(%s)\n" % (predname, ", ".join(map(lambda x: "%s%s" % (x[0], {True:"!", False:""}[x[1]]), zip(args, excl)))))
-        if not mutexInDecls:
-            f.write("\n// mutual exclusiveness and exhaustiveness\n")
-            for predname, excl in self.blocks.iteritems():
-                f.write("%s(" % (predname))
-                for i in range(len(excl)):
-                    if i > 0: f.write(",")
-                    f.write("a%d" % i)
-                    if excl[i]: f.write("!")
-                f.write(")\n")
-        f.write("\n// formulas\n")
-        formulas = self.formulas if self.formulas is not None else self.formulas
-        for formula in formulas:
-            if formula.isHard:
-                f.write("%s.\n" % strFormula(formula))
-            else:
-                try:
-                    weight = "%-10.6f" % float(eval(str(formula.weight)))
-                except:
-                    weight = str(formula.weight)
-                f.write("%s  %s\n" % (weight, strFormula(formula)))
-
-    def printFormulas(self):
-        '''
-        Nicely prints the formulas and their weights.
-        '''
-        formulas = sorted(self.formulas)
-        for f in formulas:
-            if f.weight is None:
-                print '%s.' % strFormula(f)
-            elif type(f.weight) is float:
-                print "%-10.6f\t%s" % (f.weight, strFormula(f))
-            else:
-                print "%s\t%s" % (str(f.weight), strFormula(f))
-    
-    def getWeightedFormulas(self):
-        return [(f.weight, f) for f in self.formulas]
-
-    def getWeights(self):
-        return [f.weight for f in self.formulas]
-
-
 
 class MRF(object):
     '''
@@ -606,6 +110,12 @@ class MRF(object):
 #         if self.mln.formulas is None:
 #             db = self.mln.materializeFormulaTemplates([db],verbose)[0]
         self.formulas = list(mln.formulas) # copy the list of formulas, because we may change or extend it
+        # get combined domain
+        self.domains = mergeDomains(mln.domains, db.domains)
+        log.debug('MRF domains:')
+        for d in self.domains.items():
+            log.debug(d)
+            
         # materialize formula weights
         self._materializeFormulaWeights(verbose)
 
@@ -613,25 +123,16 @@ class MRF(object):
         self.probreqs = list(mln.probreqs)
         self.posteriorProbReqs = list(mln.posteriorProbReqs)
         self.predicates = copy.deepcopy(mln.predicates)
-        self.predicates = copy.deepcopy(mln.predicates)
         self.templateIdx2GroupIdx = mln.templateIdx2GroupIdx
 
-        # get combined domain
-        self.domains = mergeDomains(mln.domains, db.domains)
-        if DEBUG:
-            print 'MRF domains:'
-            for d in self.domains.items():
-                print d
-            
         # grounding
         if verbose: print 'Loading %s...' % groundingMethod
         groundingMethod = eval('%s(self, db, **self.params)' % groundingMethod)
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(cwAssumption=cwAssumption)
-        if DEBUG:
-            print 'ground atoms  vs. evidence' + (' (all should be known):' if cwAssumption else ':')
-            for a in self.gndAtoms.values():
-                print a.idx, a, '->', self.evidence[a.idx]
+        log.debug('ground atoms  vs. evidence' + (' (all should be known):' if cwAssumption else ':'))
+#         for a in self.gndAtoms.values():
+#             log.debug('%s%s -> %2.2f' % (('%d' % a.idx).ljust(5), a, self.evidence[a.idx]))
         assert len(self.gndAtoms) == len(self.evidence)
 
     def getHardFormulas(self):
@@ -659,7 +160,7 @@ class MRF(object):
             if idx >= len(self.gndAtoms):
                 break
             gndAtom = str(self.gndAtomsByIdx[idx])
-            if parsePredicate(gndAtom)[0] != predName:
+            if self.mln.logic.parseAtom(gndAtom)[0] != predName:
                 break
         return groundings
 
@@ -783,8 +284,8 @@ class MRF(object):
             if closedWorld is True, False instead of None is returned
         '''
         v = self.evidence[idxGndAtom]
-        if closedWorld and v == None:
-            return False
+        if closedWorld and v is None:
+            return 0
         return v
 
     def _clearEvidence(self):
@@ -805,7 +306,7 @@ class MRF(object):
 
     def printEvidence(self):
         for idxGA, value in enumerate(self.evidence):
-            print "%s = %s" % (str(self.gndAtomsByIdx[idxGA]), str(value))
+            print "%s = %s" % (str(self.gndAtomsByIdx[idxGA]), '%2.2f' % value if value is not None else 'None')
 
     def _getEvidenceTruthDegreeCW(self, gndAtom, worldValues):
         '''
@@ -814,7 +315,7 @@ class MRF(object):
         '''
         se = self._getSoftEvidence(gndAtom)
         if se is not None:
-            if (True == worldValues[gndAtom.idx] or None == worldValues[gndAtom.idx]):
+            if (1 == worldValues[gndAtom.idx] or None == worldValues[gndAtom.idx]):
                 return se 
             else: 
                 return 1.0 - se # TODO allSoft currently unsupported
@@ -860,7 +361,7 @@ class MRF(object):
     def getTruthDegreeGivenSoftEvidence(self, gf, worldValues):
         cnf = gf.toCNF()
         prod = 1.0
-        if isinstance(cnf, fol.Conjunction):
+        if isinstance(cnf, FirstOrderLogic.Conjunction):
             for disj in cnf.children:
                 prod *= self._noisyOr(worldValues, disj)
         else:
@@ -868,9 +369,9 @@ class MRF(object):
         return prod
 
     def _noisyOr(self, mln, worldValues, disj):
-        if isinstance(disj, fol.GroundLit):
+        if isinstance(disj, FirstOrderLogic.GroundLit):
             lits = [disj]
-        elif isinstance(disj, fol.TrueFalse):
+        elif isinstance(disj, FirstOrderLogic.TrueFalse):
             if disj.isTrue(worldValues):
                 return 1.0
             else: return 0.0
@@ -899,35 +400,38 @@ class MRF(object):
         Sets the evidence, which is to be given as a dictionary that maps ground atom strings to their truth values.
         Any previous evidence is cleared.
         The closed-world assumption is applied to any predicates for which it was declared.
+        If csAssumption is True, the closed-world assumption is applied to all non-evidence atoms.
         '''
         log = logging.getLogger(self.__class__.__name__)
+        log.debug(self.evidence)
         if clear is True:
             self._clearEvidence()
         for gndAtom, value in evidence.iteritems():
             if not gndAtom in self.gndAtoms:
-                log.warning('evidence "%s=%s" is not among the ground atoms.' % (gndAtom, str(value)))
+                log.debug('Evidence "%s=%s" is not among the ground atoms.' % (gndAtom, str(value)))
                 continue
             idx = self.gndAtoms[gndAtom].idx
             self._setEvidence(idx, value)
             # If the value is true, set evidence for other vars in block (if any)
-            if value == True and idx in self.gndBlockLookup:
+            # this is applicable only if the evidence if hard.
+            if idx in self.gndBlockLookup:
                 block = self.gndBlocks[self.gndBlockLookup[idx]]
-                for i in block:
-                    if i != idx:
-                        self._setEvidence(i, False)
+                if value == 1:
+                    for i in block:
+                        if i != idx:
+                            self._setEvidence(i, 0)
         if cwAssumption:
             # apply closed world assumption
-            if DEBUG:
-                print 'applying CW assumption'
-            self.evidence = map(lambda x: False if x is None else x, self.evidence)
+            log.info('Applying CW assumption')
+            self.evidence = map(lambda x: 0 if x is None else x, self.evidence)
         else:
             # handle closed-world predicates: Set all their instances that aren't yet known to false
             for pred in self.closedWorldPreds:
                 if not pred in self.predicates: continue
                 cwIndices = self._getPredGroundingsAsIndices(pred)
                 for idxGA in cwIndices:
-                    if self._getEvidence(idxGA, False) == None:
-                        self._setEvidence(idxGA, False)
+                    if self._getEvidence(idxGA, 0) == None:
+                        self._setEvidence(idxGA, 0)
 
     def _getPllBlocks(self):
         '''
@@ -1034,7 +538,7 @@ class MRF(object):
                 world_values[block[i]] = value
 
         # return the list of exponentiated sums
-        return map(exp, sums)
+        return map(math.exp, sums)
 
     def _getAtomExpsums(self, idxGndAtom, wt, world_values, relevantGroundFormulas=None):
         sums = [0, 0]
@@ -1074,12 +578,13 @@ class MRF(object):
             self.worldCode2Index[code] = len(self.worlds)
             self.worlds.append({"values": values})
             if len(self.worlds) % 1000 == 0:
-                #print "%d\r" % len(self.worlds)
+                sys.stdout.write("%d\r" % len(self.worlds))
                 pass
             return
         # values that can be set for the truth value of the ground atom with index idx
-        possible_settings = [True, False]
-        # check if setting the truth value for idx is critical for a block (which is the case when idx is the highest index in a block)
+        possible_settings = [1, 0]
+        # check if setting the truth value for idx is critical for a block 
+        # (which is the case when idx is the highest index in a block)
         if idx in self.gndBlockLookup and POSSWORLDS_BLOCKING:
             block = self.gndBlocks[self.gndBlockLookup[idx]]
             if idx == max(block):
@@ -1092,9 +597,9 @@ class MRF(object):
                 if nTrue >= 2: # violation, cannot continue
                     return
                 if nTrue == 1: # already have a true value, must set current value to false
-                    possible_settings.remove(True)
+                    possible_settings.remove(1)
                 if nTrue == 0: # no true value yet, must set current value to true
-                    possible_settings.remove(False)
+                    possible_settings.remove(0)
         # recursive descent
         for x in possible_settings:
             if x: offset = bit
@@ -1133,7 +638,7 @@ class MRF(object):
             for gndFormula in self.gndFormulas:
                 if self._isTrue(gndFormula, world["values"]):
                     weights.append(wts[gndFormula.idxFormula])
-            exp_sum = exp(sum(weights))
+            exp_sum = math.exp(sum(weights))
             if self.mln.learnWtsMode != 'LL_ISE' or self.mln.allSoft == True or worldIndex != self.idxTrainingDB:
                 total += exp_sum
             world["sum"] = exp_sum
@@ -1228,7 +733,7 @@ class MRF(object):
             MLN's set of formulas, such that the correspondence between groundings
             and formulas still holds
         '''
-        self.gndFormulas, self.formulas = toCNF(self.gndFormulas, self.formulas)
+        self.gndFormulas, self.formulas = toCNF(self.gndFormulas, self.formulas, logic=self.mln.logic)
 
     def _isTrue(self, gndFormula, world_values):
         return gndFormula.isTrue(world_values)
@@ -1321,7 +826,7 @@ class MRF(object):
 
     # prints the worlds where the given formula (condition) is true (otherwise same as printWorlds)
     def printWorldsFiltered(self, condition, mode=1, format=1):
-        condition = fol.parseFormula(condition).ground(self, {})
+        condition = self.logic.parseFormula(condition).ground(self, {})
         self._getWorlds()
         k = 1
         for world in self.worlds:
@@ -1428,9 +933,9 @@ class MRF(object):
                     req["idxFormula"] = idxFormula
                 # instantiate a ground formula
                 formula = self.formulas[req["idxFormula"]]
-                vars = formula.getVariables(self)
+                variables = formula.getVariables(self)
                 groundVars = {}
-                for varName, domName in vars.iteritems(): # instantiate vars arbitrarily (just use first element of domain)
+                for varName, domName in variables.iteritems(): # instantiate vars arbitrarily (just use first element of domain)
                     groundVars[varName] = self.domains[domName][0]
                 gndFormula = formula.ground(self, groundVars)
                 req["gndExpr"] = str(gndFormula)
@@ -1506,16 +1011,23 @@ class MRF(object):
 
         return (results[len(probConstraints):], {"steps": min(step, maxSteps), "fittingSteps": fittingStep, "maxdiff": maxdiff, "meandiff": meandiff, "time": time.time() - t_start})
 
-    # infer a probability P(F1 | F2) where F1 and F2 are formulas - using the default inference method specified for this MLN
-    #   what: a formula, e.g. "foo(A,B)", or a list of formulas
-    #   given: either
-    #            * another formula, e.g. "bar(A,B) ^ !baz(A,B)"
-    #              Note: it can be an arbitrary formula only for exact inference, otherwise it must be a conjunction
-    #              This will overwrite any evidence previously set in the MLN
-    #            * None if the evidence currently set in the MLN is to be used
-    #   verbose: whether to print the results
-    #   args: any additional arguments to pass on to the actual inference method
+    #
+    # TODO: Move the inference into MLN. It should be the only class 
+    #       a user has to interface.
+    #
+
     def infer(self, what, given=None, verbose=True, **args):
+        '''
+        Infer a probability P(F1 | F2) where F1 and F2 are formulas - using the default inference method specified for this MLN
+        what: a formula, e.g. "foo(A,B)", or a list of formulas
+        given: either
+                 * another formula, e.g. "bar(A,B) ^ !baz(A,B)"
+                   Note: it can be an arbitrary formula only for exact inference, otherwise it must be a conjunction
+                   This will overwrite any evidence previously set in the MLN
+                 * None if the evidence currently set in the MLN is to be used
+        verbose: whether to print the results
+        args: any additional arguments to pass on to the actual inference method
+        '''
         # call actual inference method
         defaultMethod = self.mln.defaultInferenceMethod
         if defaultMethod == InferenceMethods.Exact:
@@ -1529,7 +1041,7 @@ class MRF(object):
         elif defaultMethod == InferenceMethods.IPFPM_MCSAT:
             return self.inferIPFPM(what, given, inferenceMethod=InferenceMethods.MCSAT, **args)
         elif defaultMethod == InferenceMethods.EnumerationAsk:
-            return self._infer(EnumerationAsk(self), what, given, verbose=verbose, **args)
+            return self.inferEnumerationAsk(what, given, verbose=verbose, **args)
         elif defaultMethod == InferenceMethods.WCSP:
             return self.inferWCSP(what, given, verbose, **args)
         elif defaultMethod == InferenceMethods.BnB:
@@ -1640,7 +1152,7 @@ class MRF(object):
         f.close()
 
     def writeGraphML(self, filename):
-        import graphml
+        import graphml  # @UnresolvedImport
         G = graphml.Graph()
         nodes = []
         for i in xrange(len(self.gndAtomsByIdx)):
@@ -1660,210 +1172,3 @@ class MRF(object):
         f = open(filename, "w")
         G.write(f)
         f.close()
-
-def readMLNFromFile(filename_or_list, verbose=False):
-    '''
-    Reads an MLN object from a file or a set of files.
-    '''
-    # read MLN file
-    text = ""
-    if filename_or_list is not None:
-        if not type(filename_or_list) == list:
-            filename_or_list = [filename_or_list]
-        for filename in filename_or_list:
-            #print filename
-            f = file(filename)
-            text += f.read()
-            f.close()
-    dirs = [os.path.dirname(fn) for fn in filename_or_list]
-    formulatemplates = []
-    if text == "": 
-        raise Exception("No MLN content to construct model from was given; must specify either file/list of files or content string!")
-    # replace some meta-directives in comments
-    text = re.compile(r'//\s*<group>\s*$', re.MULTILINE).sub("#group", text)
-    text = re.compile(r'//\s*</group>\s*$', re.MULTILINE).sub("#group.", text)
-    # remove comments
-    text = stripComments(text)
-    mln = MLN()
-    # read lines
-    mln.hard_formulas = []
-    if verbose: print "reading MLN..."
-    templateIdx2GroupIdx = {}
-    inGroup = False
-    idxGroup = -1
-    fixWeightOfNextFormula = False
-    nextFormulaUnique = None
-    uniqueFormulaExpansions = {}
-    fixedWeightTemplateIndices = []
-    lines = text.split("\n")
-    iLine = 0
-    log = logging.getLogger('parsing')
-    while iLine < len(lines):
-        line = lines[iLine]
-        iLine += 1
-        line = line.strip()
-        try:
-            if len(line) == 0: continue
-            # meta directives
-            if line == "#group":
-                idxGroup += 1
-                inGroup = True
-                continue
-            elif line == "#group.":
-                inGroup = False
-                continue
-            elif line.startswith("#fixWeightFreq"):
-                fixWeightOfNextFormula = True
-                continue
-            elif line.startswith("#include"):
-                filename = line[len("#include "):].strip(whitespace + '"')
-                # if the path is relative, look for the respective file 
-                # relatively to all paths specified. Take the first file matching.
-                if not os.path.isabs(filename):
-                    includefilename = None
-                    for d in dirs:
-                        if os.path.exists(os.path.join(d, filename)):
-                            includefilename = os.path.join(d, filename)
-                            break
-                    if includefilename is None:
-                        log.error('No such file: "%s"' % filename)
-                else:
-                    includefilename = filename
-                log.info('Including file: "%s"' % includefilename)
-                content = stripComments(file(includefilename, "r").read())
-                lines = content.split("\n") + lines[iLine:]
-                iLine = 0
-                continue
-            elif line.startswith('#unique'):
-                try:
-                    uniVars = re.search('#unique{(.+)\w*,\w*(.+)}', line)
-                    uniVars = uniVars.groups()
-                    if len(uniVars) != 2: raise
-                    nextFormulaUnique = uniVars
-                except:
-                    raise Exception('Malformed #unique expression: "%s"' % line)
-                continue
-            elif line.startswith("#AdaptiveMLNDependency"): # declared as "#AdaptiveMLNDependency:pred:domain"; seems to be deprecated
-                depPredicate, domain = line.split(":")[1:3]
-                if hasattr(mln, 'AdaptiveDependencyMap'):
-                    if depPredicate in mln.AdaptiveDependencyMap:
-                        mln.AdaptiveDependencyMap[depPredicate].add(domain)
-                    else:
-                        mln.AdaptiveDependencyMap[depPredicate] = set([domain])
-                else:
-                    mln.AdaptiveDependencyMap = {depPredicate:set([domain])}
-                continue
-            # domain decl
-            if '=' in line:
-                try: # try normal domain definition
-                    domName, constants = parseDomDecl(line)
-                    if domName in mln.domains: raise Exception("Domain redefinition: '%s' already defined" % domName)
-                    mln.domains[domName] = constants
-                    mln.domDecls.append(line)
-                    continue
-                except: pass
-#                  # try noisy string domain 
-#                     m = re.match(r'(.+)\s*=\s*noisy', line)
-#                     if m is not None:
-#                         mln.noisyStringDomains.append(m.group(1).strip())
-#                         continue
-            # prior probability requirement
-            if line.startswith("P("):
-                m = re.match(r"P\((.*?)\)\s*=\s*([\.\de]+)", line)
-                if m is None:
-                    raise Exception("Prior probability constraint formatted incorrectly: %s" % line)
-                mln.probreqs.append({"expr": strFormula(fol.parseFormula(m.group(1))).replace(" ", ""), "p": float(m.group(2))})
-                continue
-            # posterior probability requirement/soft evidence
-            if line.startswith("R(") or line.startswith("SE("):
-                m = re.match(r"(?:R|SE)\((.*?)\)\s*=\s*([\.\de]+)", line)
-                if m is None:
-                    raise Exception("Posterior probability constraint formatted incorrectly: %s" % line)
-                mln.posteriorProbReqs.append({"expr": strFormula(fol.parseFormula(m.group(1))).replace(" ", ""), "p": float(m.group(2))})
-                continue
-            # variable definition
-            if line.startswith("$"):
-                m = re.match(r'(\$\w+)\s*=(.+)', line)
-                if m is None:
-                    raise Exception("Variable assigment malformed: %s" % line)
-                mln.vars[m.group(1)] = "(%s)" % m.group(2).strip()
-                continue                        
-            # mutex constraint
-            if re.search(r"[a-z_][-_'a-zA-Z0-9]*\!", line) != None:
-                pred = parsePredicate(line)
-                mutex = []
-                for param in pred[1]:
-                    if param[-1] == '!':
-                        mutex.append(True)
-                    else:
-                        mutex.append(False)
-                mln.blocks[pred[0]] = mutex
-                # if the corresponding predicate is not yet declared, take this to be the declaration
-                if not pred[0] in mln.predicates:
-                    argTypes = map(lambda x: x.strip("!"), pred[1])
-                    mln.predicates[pred[0]] = argTypes
-                continue
-            # predicate decl or formula with weight
-            else:
-                isHard = False
-                isPredDecl = False
-                if line[ -1] == '.': # hard (without explicit weight -> determine later)
-                    isHard = True
-                    formula = line[:-1]
-                else: # with weight
-                    # try predicate declaration
-                    isPredDecl = True
-                    try:
-                        pred = predDecl.parseString(line)[0]
-                    except Exception, e:
-                        isPredDecl = False
-                if isPredDecl:
-                    predName = pred[0]
-                    if predName in mln.predicates:
-                        raise Exception("Predicate redefinition: '%s' already defined" % predName)
-                    mln.predicates[predName] = list(pred[1])
-                    continue
-                else:
-                    # formula (template) with weight or terminated by '.'
-                    if not isHard:
-                        spacepos = line.find(' ')
-                        weight = line[:spacepos]
-                        formula = line[spacepos:].strip()
-                    try:
-                        formula = logic.grammar.parseFormula(formula)
-                        if not isHard:
-                            formula.weight = weight
-                        else:
-                            formula.weight = None # not set until instantiation when other weights are known
-                        formula.isHard = isHard
-                        idxTemplate = len(formulatemplates)
-                        formulatemplates.append(formula)
-                        if inGroup:
-                            templateIdx2GroupIdx[idxTemplate] = idxGroup
-                        if fixWeightOfNextFormula == True:
-                            fixWeightOfNextFormula = False
-                            fixedWeightTemplateIndices.append(idxTemplate)
-                        if nextFormulaUnique:
-                            uniqueFormulaExpansions[formula] = nextFormulaUnique
-                            nextFormulaUnique = None
-                    except ParseException, e:
-                        raise Exception("Error parsing formula '%s'\n" % formula)
-        except:
-            sys.stderr.write("Error processing line '%s'\n" % line)
-            cls, e, tb = sys.exc_info()
-            traceback.print_tb(tb)
-            raise e
-
-    # augment domains with constants appearing in formula templates
-    for f in formulatemplates:
-        constants = {}
-        f.getVariables(mln, None, constants)
-        for domain, constants in constants.iteritems():
-            for c in constants: mln.addConstant(domain, c)
-    
-    # save data on formula templates for materialization
-    mln.uniqueFormulaExpansions = uniqueFormulaExpansions
-    mln.formulas = formulatemplates
-    mln.templateIdx2GroupIdx = templateIdx2GroupIdx
-    mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices
-    return mln

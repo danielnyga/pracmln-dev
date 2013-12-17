@@ -26,7 +26,7 @@
 from MCMCInference import * 
 from SAMaxWalkSAT import *
 import pickle
-from logic.grammar import parseFormula
+from logic.common import Logic
 
 class MCSAT(MCMCInference):
     ''' MC-SAT/MC-SAT-PC '''
@@ -47,7 +47,7 @@ class MCSAT(MCMCInference):
         # convert the MLN ground formulas to CNF
         if verbose: print "converting formulas to CNF..."
         #self.mln._toCNF(allPositive=True)
-        self.gndFormulas, self.formulas = toCNF(self.mrf.gndFormulas, self.mln.formulas, allPositive=True)
+        self.gndFormulas, self.formulas = toCNF(self.mrf.gndFormulas, self.mln.formulas, self.mln.logic, allPositive=True)
 
         # get clause data
         if verbose: print "gathering clause data..."
@@ -58,7 +58,7 @@ class MCSAT(MCMCInference):
         # process all ground formulas
         for idxGndFormula, f in enumerate(self.gndFormulas):
             # get the list of clauses
-            if type(f) == fol.Conjunction:
+            if type(f) == logic.Conjunction:
                 lc = f.children
             else:
                 lc = [f]
@@ -76,7 +76,7 @@ class MCSAT(MCMCInference):
         # add clauses for soft evidence atoms
         for se in self.softEvidence:
             se["numTrue"] = 0.0
-            formula = parseFormula(se["expr"])
+            formula = self.mln.logic.parseFormula(se["expr"])
             se["formula"] = formula.ground(self.mrf, {})
             cnf = formula.toCNF().ground(self.mrf, {}) 
             idxFirst = idxClause
@@ -85,7 +85,7 @@ class MCSAT(MCMCInference):
                 #print clause
                 idxClause += 1
             se["idxClausePositive"] = (idxFirst, idxClause)
-            cnf = fol.Negation([formula]).toCNF().ground(self.mrf, {})
+            cnf = self.mln.logic.negation([formula]).toCNF().ground(self.mrf, {})
             idxFirst = idxClause
             for clause in self._formulaClauses(cnf):                
                 self.clauses.append(clause)
@@ -95,7 +95,7 @@ class MCSAT(MCMCInference):
             
     def _formulaClauses(self, f):
         # get the list of clauses
-        if type(f) == fol.Conjunction:
+        if type(f) == logic.Conjunction:
             lc = f.children
         else:
             lc = [f]
@@ -378,7 +378,7 @@ class SampleSAT:
             SampleSAT._Clause(self, idxClause)
         # instantiate non-logical constraints
         for nlc in NLConstraints:
-            if isinstance(nlc, fol.GroundCountConstraint): # count constraint
+            if isinstance(nlc, Logic.GroundCountConstraint): # count constraint
                 SampleSAT._CountConstraint(self, nlc)
             else:
                 raise Exception("SampleSAT cannot handle constraints of type '%s'" % str(type(nlc)))
@@ -451,7 +451,7 @@ class SampleSAT:
             for f in self.ss.mln.gndFormulas:
                 if not f.isLogical():
                     continue
-                if type(f) == fol.Conjunction:
+                if type(f) == logic.Conjunction:
                     n = len(f.children)
                 else:
                     n = 1
@@ -680,7 +680,7 @@ class SampleSAT:
     # update the true one and the false ones for a flip of both the given ground atoms (which are in the same block)
     def _updateBlockInfo(self, idxGA, idxGA2):
         # update the block information
-        idxBlock = self.mln.atom2BlockIdx[idxGA]
+        idxBlock = self.mrf.atom2BlockIdx[idxGA]
         bi = self.blockInfo[idxBlock]
         if bi[0] == idxGA: # idxGA is the true one, so add it to the false ones and make idxGA2 the true one
             bi[1].append(idxGA)

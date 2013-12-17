@@ -23,11 +23,11 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
 
-from mln.util import stripComments, parsePredicate, parseDomDecl, parseLiteral,\
-    strFormula, mergeDomains
-from logic.grammar import parseFormula
-from logic.fol import GroundLit
+from util import stripComments, strFormula, mergeDomains
 import copy
+import logging
+from logic.common import Logic
+from errors import NoSuchPredicateError
 
 class Database(object):
     '''
@@ -47,34 +47,57 @@ class Database(object):
         self.softEvidence = []
         self.includeNonExplicitDomains = True
         
-    def duplicate(self):
+    def duplicate(self, mln=None, ignoreUnknownPredicates=False):
         '''
-        Returns a deep copy this Database.
+        Returns a deep copy this Database. If mln is specified, asserts
+        this database for the given MLN.
         '''
-        db = Database(self.mln)
-        db.domains = copy.deepcopy(self.domains)
-        db.evidence = copy.deepcopy(self.evidence)
-        db.softEvidence = copy.deepcopy(self.softEvidence)
+        if mln is None:
+            db = Database(self.mln)
+            db.domains = copy.deepcopy(self.domains)
+            db.evidence = copy.deepcopy(self.evidence)
+            db.softEvidence = copy.deepcopy(self.softEvidence)
+        else:
+            db = Database(mln)
+            for truth, atom in self.iterGroundLiteralStrings():
+                try: db.addGroundAtom(atom, truth)
+                except NoSuchPredicateError: pass
         return db
 
-    def addGroundAtom(self, gndLit):
+    def iterGroundLiteralStrings(self, pred_names=None):
+        '''
+        Iterates over all ground literals in this database that match any of
+        the given predicate names. If no predicate is specified, it
+        yields all ground literals.
+        '''
+        for atom, truth in self.evidence.iteritems():
+            if pred_names is not None:
+                _, predName, _ = self.mln.logic.parseLiteral(atom)
+                if not predName in pred_names:
+                    continue
+            yield truth, atom
+
+    def addGroundAtom(self, gndLit, truth=1):
         '''
         Adds the fact represented by the ground atom, which might be
         a GroundLit object or a string.
         '''
         if type(gndLit) is str:
-            isTrue, predName, params = parseLiteral(gndLit)
+            isTrue, predName, params = self.mln.logic.parseLiteral(gndLit)
             atomString = "%s(%s)" % (predName, ",".join(params))
-        elif isinstance(gndLit, GroundLit):
+        elif isinstance(gndLit, Logic.GroundLit):
             atomString = gndLit.gndAtom
             isTrue = not gndLit.negated
             params = gndLit.params
             predName = gndLit.predName
         else:
-            raise Exception('gndLit has an illegal type')
-        self.evidence[atomString] = isTrue
+            raise Exception('gndLit has an illegal type: %s' % type(gndLit))
+        truth = truth if isTrue else 1 - truth
+        truth = eval('%.6f' % truth)
         # update the domains
-        domNames = self.mln.predicates[predName]
+        domNames = self.mln.predicates.get(predName, None)
+        if domNames is None:
+            raise NoSuchPredicateError('No such predicate: %s' % predName)
         for i, domName in enumerate(domNames):
             dom = self.domains.get(domName, None)
             if dom is None:
@@ -82,6 +105,15 @@ class Database(object):
                 self.domains[domName] = dom
             if not params[i] in dom:
                 dom.append(params[i])
+        self.evidence[atomString] = truth
+                
+    def isHard(self):
+        '''
+        Determines whether or not this database contains exclusively
+        hard evidences.
+        '''
+        return any(map(lambda x: x != 1 and x != 0, self.evidence))
+    
                 
     def writeToFile(self, filename):
         '''
@@ -91,29 +123,29 @@ class Database(object):
         self.write(f)
         f.close()
                 
-    def write(self, stream):
+    def write(self, stream, color=False):
         '''
         Writes this database into the stream in the MLN Database format.
         The stream must provide a write() method as file objects do.
         '''
         for atom, truth in self.evidence.iteritems():
-            stream.write('%s%s\n' % ('' if truth else '!', atom))
-               
+            stream.write('%.2f  %s\n' % (truth, atom))
+
     def printEvidence(self):
-        for atom, truth in self.evidence.iteritems():
-            print atom, ':', truth
+        for atom, truth in sorted(self.evidence.iteritems()):
+            print '%.2f   %s' % (truth, atom)
                 
     def retractGndAtom(self, gndLit):
         '''
         Removes the evidence of the given ground atom in this database.
         '''
         if type(gndLit) is str:
-            _, predName, params = parseLiteral(gndLit)
+            _, predName, params = self.mln.logic.parseLiteral(gndLit)
             atomString = "%s(%s)" % (predName, ",".join(params))
-        elif isinstance(gndLit, GroundLit):
-            atomString = gndLit.gndAtom
+        elif isinstance(gndLit, Logic.GroundLit):
+            atomString = str(gndLit.gndAtom)
         else:
-            raise Exception('gndLit has an illegal type')
+            raise Exception('gndLit has an illegal type: %s' % str(type(gndLit)))
         del self.evidence[atomString]
                 
     def isEmpty(self):
@@ -122,7 +154,7 @@ class Database(object):
         database and False if the truth values all ground atoms are None
         AND all domains are empty.
         '''
-        return not any(map(lambda x: x is True or x is False,  self.evidence.values())) and \
+        return not any(map(lambda x: x >= 0 and x <= 1,  self.evidence.values())) and \
             len(self.domains) == 0
                 
     def query(self, formula):
@@ -133,7 +165,7 @@ class Database(object):
             instantiated; so keep the queries short ;)
         ''' 
         pseudoMRF = Database.PseudoMRF(self)
-        formula = parseFormula(formula)
+        formula = self.mln.logic.parseFormula(formula)
         for varAssignment in pseudoMRF.iterTrueVariableAssignments(formula):
             yield varAssignment
                         
@@ -166,7 +198,8 @@ class Database(object):
             self.mln = db.mln
             self.domains = mergeDomains(self.mln.domains, db.domains)
             self.gndAtoms = Database.PseudoMRF.GroundAtomGen()
-            self.evidence = Database.PseudoMRF.WorldValues(db)
+            # duplicate the database to avoid side effects
+            self.evidence = Database.PseudoMRF.WorldValues(db.duplicate())
 
         class GroundAtomGen(object):
             def __getitem__(self, gndAtomName):
@@ -190,7 +223,7 @@ class Database(object):
                 self.db = db
             
             def __getitem__(self, gndAtomString):
-                return self.db.evidence.get(gndAtomString, False)
+                return self.db.evidence.get(gndAtomString, 0)
             
         def iterGroundings(self, formula):
             for t in formula.iterGroundings(self):
@@ -204,8 +237,7 @@ class Database(object):
             numTrue = 0
             for gf, _ in self.iterGroundings(formula):
                 numTotal += 1
-                if gf.isTrue(self.evidence):
-                    numTrue += 1
+                numTrue += gf.isTrue(self.evidence)
             return (numTrue, numTotal)
         
         def iterTrueVariableAssignments(self, formula):
@@ -213,10 +245,11 @@ class Database(object):
             Iterates over all groundings of formula that evaluate to true
             given this Pseudo-MRF.
             '''
+#             evidence = self.evidence.copy()
             for assignment in formula.iterTrueVariableAssignments(self, self.evidence):
                 yield assignment
                 
-def readDBFromFile(mln, dbfile):
+def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
     '''
     Reads one or multiple database files containing literals and/or domains.
     Returns one or multiple databases where domains is dictionary mapping 
@@ -228,6 +261,7 @@ def readDBFromFile(mln, dbfile):
     Returns:
       either one single or a list of database objects.
     '''
+    log = logging.getLogger('db')
     if type(dbfile) is list:
         dbs = []
         for dbpath in dbfile:
@@ -254,33 +288,47 @@ def readDBFromFile(mln, dbfile):
             dbs.append(db)
             db = Database(mln)
             continue
-        # soft evidence
+        # domain declaration
+        elif "{" in l:
+            domName, constants = db.mln.logic.parseDomDecl(l)
+            domNames = [domName for _ in constants]
+        # valued evidence
         elif l[0] in "0123456789":
             s = l.find(" ")
             gndAtom = l[s + 1:].replace(" ", "")
+            value = float(l[:s])
             d = {"expr": gndAtom, "p": float(l[:s])}
             if db.getSoftEvidence(gndAtom) == None:
                 db.softEvidence.append(d)
             else:
-                raise Exception("Duplicate soft evidence for '%s'" % gndAtom)
-            predName, constants = parsePredicate(gndAtom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
+                raise log.exception("Duplicate soft evidence for '%s'" % gndAtom)
+            predName, constants =   mln.logic.parsePredDecl(gndAtom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
+            if not predName in mln.predicates and ignoreUnknownPredicates:
+                log.debug('Predicate "%s" is undefined.' % predName)
+                continue
+            elif not predName in mln.predicates:
+                log.exception('Predicate "%s" is undefined.' % predName)
             domNames = mln.predicates[predName]
-        # domain declaration
-        elif "{" in l:
-            domName, constants = parseDomDecl(l)
-            domNames = [domName for _ in constants]
+            db.addGroundAtom(gndAtom, value)
         # literal
         else:
             if l[0] == "?":
-                raise Exception("Unknown literals not supported (%s)" % l) # this is an Alchemy feature
-            isTrue, predName, constants = parseLiteral(l)
+                raise log.exception("Unknown literals not supported (%s)" % l) # this is an Alchemy feature
+            isTrue, predName, constants = mln.logic.parseLiteral(l)
+            if not predName in mln.predicates and ignoreUnknownPredicates:
+                log.debug('Predicate "%s" is undefined.' % predName)
+                continue
+            elif not predName in mln.predicates:
+                log.exception('Predicate "%s" is undefined.' % predName)
             domNames = mln.predicates[predName]
             # save evidence
-            db.evidence["%s(%s)" % (predName, ",".join(constants))] = isTrue
+            isTrue = 1 if isTrue else 0
+            db.addGroundAtom("%s(%s)" % (predName, ",".join(constants)), isTrue)
+#             db.evidence["%s(%s)" % (predName, ",".join(constants))] = isTrue
 
         # expand domains
         if len(domNames) != len(constants):
-            raise Exception("Ground atom %s in database %s has wrong number of parameters" % (l, dbfile))
+            raise log.exception("Ground atom %s in database %s has wrong number of parameters" % (l, dbfile))
 
         if "{" in l or db.includeNonExplicitDomains:
             for i, c in enumerate(constants):

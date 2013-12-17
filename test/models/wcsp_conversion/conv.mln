@@ -1,0 +1,9 @@
+foo(x, y)
+bar(x, y)
+
+x = {X1, X2, X3}
+y = {Y1, Y2}
+
+foo(?x, ?y) => bar(?x, ?y).
+0.5 foo(?x, Y1) ^ bar(?x, Y1)
+-0.5 foo(?x, Y2) ^ bar(?x, Y2)

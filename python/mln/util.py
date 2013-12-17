@@ -26,8 +26,7 @@
 import re
 import sys
 
-from logic import fol
-from logic.fol import Disjunction, Conjunction
+from logic.common import Logic
 
 # math functions
 
@@ -36,9 +35,9 @@ USE_MPMATH = True
 try:
     if not USE_MPMATH:
         raise Exception()
-    import mpmath
+    import mpmath  # @UnresolvedImport
     mpmath.mp.dps = 80
-    from mpmath import exp, fsum, log
+    from mpmath import exp, fsum, log  # @UnresolvedImport
 except:
     from math import exp, log
     try:
@@ -77,49 +76,49 @@ def getPredicateList(filename):
 def avg(*a):
     return sum(map(float, a)) / len(a)
 
-def parsePredicate(line):
-    '''
-    Parses a predicate such as p(A,B) and returns a tuple where the first item 
-    is the predicate name and the second is a list of parameters, e.g. ("p", ["A", "B"])
-    '''
-    m = re.match(r'(\w+)\((.*?)\)$', line)
-    if m is not None:
-        return (m.group(1), map(str.strip, m.group(2).split(",")))
-    raise Exception("Could not parse predicate '%s'" % line)
+# def parsePredicate(line):
+#     '''
+#     Parses a predicate such as p(A,B) and returns a tuple where the first item 
+#     is the predicate name and the second is a list of parameters, e.g. ("p", ["A", "B"])
+#     '''
+#     m = re.match(r'(\w+)\((.*?)\)$', line)
+#     if m is not None:
+#         return (m.group(1), map(str.strip, m.group(2).split(",")))
+#     raise Exception("Could not parse predicate '%s'" % line)
 
-def parseLiteral(line):
-    '''
-    Parses a literal such as !p(A,B) or p(A,B)=False and returns a tuple 
-    where the first item is whether the literal is true, the second is the 
-    predicate name and the third is a list of parameters, e.g. (False, "p", ["A", "B"])
-    '''
-    # try regular MLN syntax
-    m = re.match(r'(!?)(\w+)\((.*?)\)$', line)
-    if m is not None:
-        return (m.group(1) != "!", m.group(2), map(str.strip, m.group(3).split(",")))
-    # try BLOG syntax where instead of p(A,B) we have p(A)=B or instead of !q(A) we have q(A)=False
-    m = re.match(r'(\w+)\((.*?)\)\s*=\s*(\w+)$', line)
-    if m is not None:
-        params = map(str.strip, m.group(2).split(","))
-        value = m.group(3).strip()
-        isTrue = True
-        if value == 'True':
-            pass
-        elif value == 'False':
-            isTrue = False
-        else:
-            params.append(value)
-        return (isTrue, m.group(1), params)
-    raise Exception("Could not parse literal '%s'" % line)
+# def parseLiteral(line):
+#     '''
+#     Parses a literal such as !p(A,B) or p(A,B)=False and returns a tuple 
+#     where the first item is whether the literal is true, the second is the 
+#     predicate name and the third is a list of parameters, e.g. (False, "p", ["A", "B"])
+#     '''
+#     # try regular MLN syntax
+#     m = re.match(r'(!?)(\w+)\((.*?)\)$', line)
+#     if m is not None:
+#         return (m.group(1) != "!", m.group(2), map(str.strip, m.group(3).split(",")))
+#     # try BLOG syntax where instead of p(A,B) we have p(A)=B or instead of !q(A) we have q(A)=False
+#     m = re.match(r'(\w+)\((.*?)\)\s*=\s*(\w+)$', line)
+#     if m is not None:
+#         params = map(str.strip, m.group(2).split(","))
+#         value = m.group(3).strip()
+#         isTrue = True
+#         if value == 'True':
+#             pass
+#         elif value == 'False':
+#             isTrue = False
+#         else:
+#             params.append(value)
+#         return (isTrue, m.group(1), params)
+#     raise Exception("Could not parse literal '%s'" % line)
     
-def parseDomDecl(line):
-    '''
-    Parses a domain declaration and returns a tuple (domain name, list of constants)
-    '''
-    m = re.match(r'(\w+)\s*=\s*{(.*?)}', line)
-    if m == None:
-        raise Exception("Could not parse the domain declaration '%s'" % line)
-    return (m.group(1), map(str.strip, m.group(2).split(',')))
+# def parseDomDecl(line):
+#     '''
+#     Parses a domain declaration and returns a tuple (domain name, list of constants)
+#     '''
+#     m = re.match(r'(\w+)\s*=\s*{(.*?)}', line)
+#     if m == None:
+#         raise Exception("Could not parse the domain declaration '%s'" % line)
+#     return (m.group(1), map(str.strip, m.group(2).split(',')))
 
 def balancedParentheses(s):
     cnt = 0
@@ -146,7 +145,7 @@ def evidence2conjunction(evidence):
     evidence = map(lambda x: ("" if x[1] else "!") + x[0], evidence.iteritems())
     return " ^ ".join(evidence)
 
-def toCNF(gndFormulas, formulas, allPositive=False):
+def toCNF(gndFormulas, formulas, logic, allPositive=False):
     '''
     convert the given ground formulas to CNF
     if allPositive=True, then formulas with negative weights are negated to make all weights positive
@@ -160,10 +159,10 @@ def toCNF(gndFormulas, formulas, allPositive=False):
             f = formula
             if formula.weight < 0:
                 negate.append(idxFormula)
-                if isinstance(formula, fol.Negation):
+                if isinstance(formula, Logic.Negation):
                     f = formula.children[0]                        
                 else:
-                    f = fol.Negation([formula])                 
+                    f = logic.negation([formula])                 
                 f.weight = -formula.weight
                 f.idxFormula = idxFormula
             newFormulas.append(f)
@@ -178,10 +177,10 @@ def toCNF(gndFormulas, formulas, allPositive=False):
             continue
         # logical constraint
         if gf.idxFormula in negate:
-            cnf = fol.Negation([gf]).toCNF()
+            cnf = logic.negation([gf]).toCNF()
         else:
             cnf = gf.toCNF()
-        if type(cnf) == fol.TrueFalse: # formulas that are always true or false can be ignored
+        if type(cnf) == logic.TrueFalse: # formulas that are always true or false can be ignored
             continue
         cnf.idxFormula = gf.idxFormula
         newGndFormulas.append(cnf)
@@ -194,13 +193,13 @@ def toClauseSet(cnf):
     containing literals. All literals are converted into strings.
     '''
     clauses = []
-    if type(cnf) is Disjunction:
+    if isinstance(cnf, Logic.Disjunction):
         clauses.append(set(map(str, cnf.children)))
-    elif type(cnf) is Conjunction:
+    elif isinstance(cnf, Logic.Conjunction):
         for disj in cnf.children:
             clause = set()
             clauses.append(clause)
-            if type(disj) is Disjunction:
+            if isinstance(disj, Logic.Disjunction):
                 for c in disj.children:
                     clause.add(str(c))
             else:
