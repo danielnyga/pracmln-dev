@@ -27,15 +27,20 @@ import random
 
 import copy
 
-from Inference import *
+from inference import *
 
-# abstract super class for Markov chain Monte Carlo-based inference
 class MCMCInference(Inference):
-    # set a random state, taking the evidence blocks and block exclusions into account
-    # blockInfo [out]
+    '''
+    Abstract super class for Markov chain Monte Carlo-based inference.
+    '''
+
     def setRandomState(self, state, blockInfo=None):
+        '''
+        set a random state, taking the evidence blocks and block exclusions into account
+        blockInfo [out].
+        '''
         if state == []: #no evidence given -> initialize list, elements are overwritten below
-            for i in range(len(self.mln.gndAtoms)): state.append(None)        
+            state = [None] * len(self.mln.gndAtoms)        
         
         mln = self.mln
         for idxBlock, (idxGA, block) in enumerate(self.mrf.pllBlocks):
@@ -45,7 +50,7 @@ class MCMCInference(Inference):
                     if blockExcl == None:
                         chosen = block[random.randint(0, len(block) - 1)]
                         for idxGA in block:
-                            state[idxGA] = (idxGA == chosen)
+                            state[idxGA] = 1 if (idxGA == chosen) is True else 0
                         if blockInfo != None:
                             falseOnes = filter(lambda x: x != chosen, block)
                             blockInfo[idxBlock] = [chosen, falseOnes]
@@ -59,20 +64,18 @@ class MCMCInference(Inference):
                             raise Exception("Evidence forces all ground atoms in block %s to be false" % mln._strBlock(block))
                         chosen = choosable[random.randint(0, maxidx)]
                         for idxGA in choosable:
-                            state[idxGA] = (idxGA == chosen)
+                            state[idxGA] = 1 if (idxGA == chosen) is True else 0
                         if blockInfo != None:
                             choosable.remove(chosen)
                             blockInfo[idxBlock] = [chosen, choosable]
                 else: # regular ground atom, which can either be true or false
                     chosen = random.randint(0, 1)
-                    state[idxGA] = bool(chosen)
+                    state[idxGA] = chosen
 
     def _readEvidence(self, conjunction):
         #save old evidence as evidence is changed in here #HACK
         oldEvidence = copy.copy(self.mrf.evidence)
-        
         self._getEvidenceBlockData(conjunction)
-
         self.mrf.evidence = oldEvidence #reset old evidence
 
     class Chain:
@@ -80,7 +83,7 @@ class MCMCInference(Inference):
             self.queries = queries
             self.softEvidence = None
             self.numSteps = 0
-            self.numTrue = [0 for i in range(len(self.queries))]
+            self.numTrue = [0] * len(self.queries)
             self.converged = False
             self.lastResult = 10
             self.inferenceObject = inferenceObject
@@ -108,18 +111,18 @@ class MCMCInference(Inference):
             if self.softEvidence is not None:
                 for se in self.softEvidence:
                     self.softEvidenceCounts[se["expr"]] += self.currentlyTrue(se["formula"])
+                    log.info(self.currentlyTrue(se["formula"]))
             # debug output
-            if self.numSteps % 50 == 0 and debug:
-                #print "  --> %s" % str(self.state),
-                #print "after %d steps: P(%s | e) = %f" % (self.numSteps, str(self.query), float(self.numTrue) / self.numSteps)
-                pass
+#             if True:#self.numSteps % 50 == 0 and debug:
+#                 print "  --> %s" % str(self.state), "after %d steps: P(%s | e) = %f" % (self.numSteps, str(self.queries), float(self.numTrue) / self.numSteps)
+#                 pass
         
         def setSoftEvidence(self, softEvidence):
             self.softEvidence = softEvidence
             self.softEvidenceCounts = {}
             for se in softEvidence:
                 if "formula" not in se:
-                    formula = fol.parseFormula(se["expr"])
+                    formula = self.inferenceObject.mln.logic.parseFormula(se["expr"])
                     se["formula"] = formula.ground(self.inferenceObject.mln, {})
                     se["expr"] = strFormula(se["formula"])
                 self.softEvidenceCounts[se["expr"]] = self.currentlyTrue(se["formula"])
@@ -136,7 +139,7 @@ class MCMCInference(Inference):
     
         def currentlyTrue(self, formula):
             ''' returns 1 if the given formula is true in the current state, 0 otherwise '''
-            if formula.isTrue(self.state):
+            if formula.isTrue(self.state) == 1:
                 return 1
             return 0
         

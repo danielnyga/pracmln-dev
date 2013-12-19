@@ -1,3 +1,3 @@
-from DefaultGrounding import DefaultGroundingFactory
+from default import DefaultGroundingFactory
 from bpll import BPLLGroundingFactory
 from wcsp import WCSPGroundingFactory

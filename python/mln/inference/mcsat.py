@@ -23,10 +23,14 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from MCMCInference import * 
+from mcmc import * 
 from SAMaxWalkSAT import *
 import pickle
 from logic.common import Logic
+import logging
+import time
+import math
+from mln.util import strFormula
 
 class MCSAT(MCMCInference):
     ''' MC-SAT/MC-SAT-PC '''
@@ -58,7 +62,7 @@ class MCSAT(MCMCInference):
         # process all ground formulas
         for idxGndFormula, f in enumerate(self.gndFormulas):
             # get the list of clauses
-            if type(f) == logic.Conjunction:
+            if isinstance(f, Logic.Conjunction):
                 lc = f.children
             else:
                 lc = [f]
@@ -95,7 +99,7 @@ class MCSAT(MCMCInference):
             
     def _formulaClauses(self, f):
         # get the list of clauses
-        if type(f) == logic.Conjunction:
+        if isinstance(f, Logic.Conjunction):
             lc = f.children
         else:
             lc = [f]
@@ -106,7 +110,10 @@ class MCSAT(MCMCInference):
             else: # unit clause
                 yield [c]
     
-    def _infer(self, numChains=1, maxSteps=5000, verbose=True, shortOutput=False, details=True, debug=False, debugLevel=1, initAlgo="SampleSAT", randomSeed=None, infoInterval=None, resultsInterval=None, p=0.5, keepResultsHistory=False, referenceResults=None, saveHistoryFile=None, sampleCallback=None, softEvidence=None, maxSoftEvidenceDeviation=None, handleSoftEvidence=True, **args):
+    def _infer(self, numChains=1, maxSteps=5000, verbose=True, shortOutput=False, details=True, 
+               debug=False, debugLevel=1, initAlgo="SampleSAT", randomSeed=None, infoInterval=None, 
+               resultsInterval=None, p=0.5, keepResultsHistory=False, referenceResults=None, 
+               saveHistoryFile=None, sampleCallback=None, softEvidence=None, maxSoftEvidenceDeviation=None, handleSoftEvidence=True, **args):
         '''
         p: probability of a greedy (WalkSAT) move
         initAlgo: algorithm to use in order to find an initial state that satisfies all hard constraints ("SampleSAT" or "SAMaxWalkSat")
@@ -123,12 +130,18 @@ class MCSAT(MCMCInference):
         softEvidence: if None, use soft evidence from MLN, otherwise use given dictionary of soft evidence
         handleSoftEvidence: if False, ignore all soft evidence in the MCMC sampling (but still compute softe evidence statistics if soft evidence is there)
         '''
-        
-        if verbose: print "starting MC-SAT with maxSteps=%d, handleSoftEvidence=%s" % (maxSteps, handleSoftEvidence)
+        log = logging.getLogger('mcsat')
+        if verbose: log.info("starting MC-SAT with maxSteps=%d, handleSoftEvidence=%s" % (maxSteps, handleSoftEvidence))
         if softEvidence is None:
-            self.softEvidence = self.mrf.softEvidence
+            self.softEvidence = self.mrf.getSoftEvidence()
+            self.softEvidence.extend(self.mrf.posteriorProbReqs)
+            for se in self.softEvidence:
+                atom = self.mrf.gndAtoms.get(se['expr'], None)
+                if atom is None: continue
+                self.mrf.evidence[atom.idx] = None
         else:
             self.softEvidence = softEvidence
+        log.info(self.softEvidence)
         self.handleSoftEvidence = handleSoftEvidence
 
         # initialize the KB and gather required info
@@ -147,21 +160,21 @@ class MCSAT(MCMCInference):
         details = verbose and details
         # print CNF KB
         if self.debug:
-            print "\nCNF KB:"
+            log.info("\nCNF KB:")
             for gf in self.gndFormulas:
-                print "%7.3f  %s" % (self.formulas[gf.idxFormula].weight, strFormula(gf))
+                log.info("%7.3f  %s" % (self.formulas[gf.idxFormula].weight, strFormula(gf)))
             print
         # set the random seed if it was given
         if randomSeed != None:
             random.seed(randomSeed)
         # read evidence
-        if details: print "reading evidence..."
+        if details: log.info("reading evidence...")
         self._readEvidence(self.given)
         #print "evidence", self.evidence
         if details:
-            print "evidence blocks: %d" % len(self.evidenceBlocks)
-            print "block exclusions: %d" % len(self.blockExclusions)
-            print "initializing %d chain(s)..." % numChains
+            log.info("evidence blocks: %d" % len(self.evidenceBlocks))
+            log.info("block exclusions: %d" % len(self.blockExclusions))
+            log.info("initializing %d chain(s)..." % numChains)
             
             
 #        self.phistory = {} # HACK for debugging (see all references to self.phistory)
@@ -200,7 +213,7 @@ class MCSAT(MCMCInference):
                 print "\ninitial state:"
                 mln.printState(chain.state)
         # do MCSAT sampling
-        if details: print "sampling (p=%f)... time elapsed: %s" % (self.p, self._getElapsedTime()[1])
+        if details: log.info("sampling (p=%f)... time elapsed: %s" % (self.p, self._getElapsedTime()[1]))
         if debug: print
         if infoInterval is None: infoInterval = {True:1, False:10}[debug]
         if resultsInterval is None: resultsInterval = {True:1, False:50}[debug]
@@ -217,7 +230,7 @@ class MCSAT(MCMCInference):
             # take one step in each chain
             for chain in chainGroup.chains:
                 if debug: 
-                    print "step %d..." % self.step
+                    log.info("step %d..." % self.step)
                 # choose a subset of the satisfied formulas and sample a state that satisfies them
                 numSatisfied = self._satisfySubset(chain)
                 # update chain counts
@@ -274,22 +287,24 @@ class MCSAT(MCMCInference):
         return results
     
     def _satisfySubset(self, chain):
-        # choose a set of logical formulas M to be satisfied (more specifically, M is a set of clause indices)
-        # and also choose a set of non-logical constraints NLC to satisfy
+        '''
+        Choose a set of logical formulas M to be satisfied (more specifically, M is a set of clause indices)
+        and also choose a set of non-logical constraints NLC to satisfy
+        '''
         t0 = time.time()
         M = []
         NLC = []
         for idxGF, gf in enumerate(self.gndFormulas):
-            if gf.isTrue(chain.state):                
-                    u = random.uniform(0, math.exp(self.wt[gf.idxFormula]))
-                    if u > 1:
-                        if gf.isLogical():
-                            clauseRange = self.gndFormula2ClauseIdx[idxGF]
-                            M.extend(range(*clauseRange))
-                        else:
-                            NLC.append(gf)
-                        if self.debug and self.debugLevel >= 3:
-                            print "  to satisfy:", strFormula(gf)
+            if gf.isTrue(chain.state) == 1:                
+                u = random.uniform(0, math.exp(self.wt[gf.idxFormula]))
+                if u > 1:
+                    if gf.isLogical():
+                        clauseRange = self.gndFormula2ClauseIdx[idxGF]
+                        M.extend(range(*clauseRange))
+                    else:
+                        NLC.append(gf)
+                    if self.debug and self.debugLevel >= 3:
+                        print "  to satisfy:", strFormula(gf)
         # add soft evidence constraints
         if self.handleSoftEvidence:
             for se in self.softEvidence:
@@ -451,7 +466,7 @@ class SampleSAT:
             for f in self.ss.mln.gndFormulas:
                 if not f.isLogical():
                     continue
-                if type(f) == logic.Conjunction:
+                if isinstance(f, Logic.Conjunction):
                     n = len(f.children)
                 else:
                     n = 1
