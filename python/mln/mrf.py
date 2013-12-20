@@ -33,7 +33,7 @@ import sys
 import re
 from util import strFormula
 from logic import FirstOrderLogic
-import math
+from math import *
 from util import toCNF, logx
 from methods import *
 import time
@@ -87,7 +87,7 @@ class MRF(object):
         self.mln = mln
         self.evidence = None
         self.evidenceBackup = {}
-        self.softEvidence = list(mln.posteriorProbReqs) # constraints on posterior 
+#         self.softEvidence = list(mln.posteriorProbReqs) # constraints on posterior 
                                                         # probabilities are nothing but 
                                                         #soft evidence and can be handled in exactly the same way
         self.simplify = self.params['simplify']
@@ -308,55 +308,64 @@ class MRF(object):
         for idxGA, value in enumerate(self.evidence):
             print "%s = %s" % (str(self.gndAtomsByIdx[idxGA]), '%2.2f' % value if value is not None else 'None')
 
-    def _getEvidenceTruthDegreeCW(self, gndAtom, worldValues):
-        '''
-            gets (soft or hard) evidence as a degree of belief from 0 to 1, making the closed world assumption,
-            soft evidence has precedence over hard evidence
-        '''
-        se = self._getSoftEvidence(gndAtom)
-        if se is not None:
-            if (1 == worldValues[gndAtom.idx] or None == worldValues[gndAtom.idx]):
-                return se 
-            else: 
-                return 1.0 - se # TODO allSoft currently unsupported
-        if worldValues[gndAtom.idx]:
-            return 1.0
-        else: return 0.0
+    
+    def getSoftEvidence(self):
+        se = []
+        for i, atom in self.gndAtomsByIdx.iteritems():
+            truth = self.evidence[i]
+            if truth > 0 and truth < 1:
+                se.append({'expr': str(atom), 'p': truth})
+        return se
 
-    def _getEvidenceDegree(self, gndAtom):
-        '''
-            gets (soft or hard) evidence as a degree of belief from 0 to 1 or None if no evidence is given,
-            soft evidence takes precedence over hard evidence
-        '''
-        se = self._getSoftEvidence(gndAtom)
-        if se is not None:
-            return se
-        he = self._getEvidence(gndAtom.idx, False)
-        if he is None:
-            return None
-        if he == True:
-            return 1.0
-        else: return 0.0
+#     def _getEvidenceTruthDegreeCW(self, gndAtom, worldValues):
+#         '''
+#             gets (soft or hard) evidence as a degree of belief from 0 to 1, making the closed world assumption,
+#             soft evidence has precedence over hard evidence
+#         '''
+#         se = self._getSoftEvidence(gndAtom)
+#         if se is not None:
+#             if (1 == worldValues[gndAtom.idx] or None == worldValues[gndAtom.idx]):
+#                 return se 
+#             else: 
+#                 return 1.0 - se # TODO allSoft currently unsupported
+#         if worldValues[gndAtom.idx]:
+#             return 1.0
+#         else: return 0.0
+# 
+#     def _getEvidenceDegree(self, gndAtom):
+#         '''
+#             gets (soft or hard) evidence as a degree of belief from 0 to 1 or None if no evidence is given,
+#             soft evidence takes precedence over hard evidence
+#         '''
+#         se = self._getSoftEvidence(gndAtom)
+#         if se is not None:
+#             return se
+#         he = self._getEvidence(gndAtom.idx, False)
+#         if he is None:
+#             return None
+#         if he == True:
+#             return 1.0
+#         else: return 0.0
 
 
-    def _getSoftEvidence(self, gndAtom):
-        '''
-            gets the soft evidence value (probability) for a given ground atom (or complex formula)
-            returns None if there is no such value
-        '''
-        s = strFormula(gndAtom)
-        for se in self.softEvidence: # TODO optimize
-            if se["expr"] == s:
-                #print "worldValues[gndAtom.idx]", worldValues[gndAtom.idx]
-                return se["p"]
-        return None
-
-    def _setSoftEvidence(self, gndAtom, value):
-        s = strFormula(gndAtom)
-        for se in self.softEvidence:
-            if se["expr"] == s:
-                se["p"] = value
-                return
+#     def _getSoftEvidence(self, gndAtom):
+#         '''
+#         gets the soft evidence value (probability) for a given ground atom (or complex formula)
+#         returns None if there is no such value
+#         '''
+#         s = strFormula(gndAtom)
+#         for se in self.softEvidence: # TODO optimize
+#             if se["expr"] == s:
+#                 #print "worldValues[gndAtom.idx]", worldValues[gndAtom.idx]
+#                 return se["p"]
+#         return None
+# 
+#     def _setSoftEvidence(self, gndAtom, value):
+#         s = strFormula(gndAtom)
+#         for se in self.softEvidence:
+#             if se["expr"] == s:
+#                 se["p"] = value
+#                 return
 
     def getTruthDegreeGivenSoftEvidence(self, gf, worldValues):
         cnf = gf.toCNF()
@@ -372,9 +381,7 @@ class MRF(object):
         if isinstance(disj, FirstOrderLogic.GroundLit):
             lits = [disj]
         elif isinstance(disj, FirstOrderLogic.TrueFalse):
-            if disj.isTrue(worldValues):
-                return 1.0
-            else: return 0.0
+            return disj.isTrue(worldValues)
         else:
             lits = disj.children
         prod = 1.0
@@ -538,7 +545,7 @@ class MRF(object):
                 world_values[block[i]] = value
 
         # return the list of exponentiated sums
-        return map(math.exp, sums)
+        return map(exp, sums)
 
     def _getAtomExpsums(self, idxGndAtom, wt, world_values, relevantGroundFormulas=None):
         sums = [0, 0]
@@ -557,7 +564,7 @@ class MRF(object):
                 if gf.isTrue(world_values):
                     sums[i] += wt[gf.idxFormula]
                 world_values[idxGndAtom] = old_tv
-        return map(math.exp, sums)
+        return map(exp, sums)
 
     def _getAtom2BlockIdx(self):
         self.atom2BlockIdx = {}
@@ -638,7 +645,7 @@ class MRF(object):
             for gndFormula in self.gndFormulas:
                 if self._isTrue(gndFormula, world["values"]):
                     weights.append(wts[gndFormula.idxFormula])
-            exp_sum = math.exp(sum(weights))
+            exp_sum = exp(sum(weights))
             if self.mln.learnWtsMode != 'LL_ISE' or self.mln.allSoft == True or worldIndex != self.idxTrainingDB:
                 total += exp_sum
             world["sum"] = exp_sum
@@ -652,7 +659,7 @@ class MRF(object):
         for gndFormula in self.gndFormulas:
             if self._isTrue(gndFormula, world):
                 sum += wts[gndFormula.idxFormula]
-        return math.exp(sum)
+        return exp(sum)
 
     def _countNumTrueGroundingsInWorld(self, idxFormula, world):
         numTrue = 0
@@ -819,7 +826,7 @@ class MRF(object):
         print
         k = 1
         for world in worlds:
-            print "%*d " % (int(math.ceil(math.log(len(self.worlds)) / math.log(10))), k),
+            print "%*d " % (int(ceil(log(len(self.worlds)) / log(10))), k),
             self.printWorld(world, mode=mode, format=format)
             k += 1
         print "Z = %f" % self.partition_function
@@ -831,7 +838,7 @@ class MRF(object):
         k = 1
         for world in self.worlds:
             if condition.isTrue(world["values"]):
-                print "%*d " % (int(math.ceil(math.log(len(self.worlds)) / math.log(10))), k),
+                print "%*d " % (int(ceil(log(len(self.worlds)) / log(10))), k),
                 self.printWorld(world, mode=mode, format=format)
                 k += 1
 

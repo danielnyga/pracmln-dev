@@ -4,14 +4,16 @@ import os
 import sys
 from mln.methods import *
 from pprint import pprint
-from mln.MarkovLogicNetwork import readMLNFromFile
+from mln import *
 from wcsp.converter import WCSPConverter
 from wcsp.wcsp import WCSP
+import logging
 
 class MLNTestCase(unittest.TestCase):
     
     def setUp(self):
         join = os.path.join
+        logging.getLogger().setLevel(logging.INFO)
         self.modelsDir = join("..", "models")
         self.simpleLearnDir = join(self.modelsDir, "simpleLearning")
         self.simpleLearnDB = join(self.simpleLearnDir, "train.db")
@@ -115,10 +117,11 @@ class MLNTestCase(unittest.TestCase):
         mrf = mln.groundMRF(os.path.join(self.wcspDir, 'evidence.db'))
         resultWCSP = WCSP()
         resultWCSP.read(open(os.path.join(self.wcspDir, 'result.wcsp')))
-#         resultWCSP.write(sys.stdout)
+        resultWCSP.write(sys.stdout)
         converter = WCSPConverter(mrf)
         wcsp = converter.convert()
-#         wcsp.write(sys.stdout)
+        wcsp = wcsp.makeIntegerCostWCSP()
+        wcsp.write(sys.stdout)
         self.assertTrue(wcsp == resultWCSP, 'WCSP conversion test failed.')
     
     # TODO:

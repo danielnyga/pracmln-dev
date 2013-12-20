@@ -46,6 +46,6 @@ class AbstractGroundingFactory(object):
     def groundMRF(self, cwAssumption=False):
         self._createGroundAtoms()
         self.mrf.setEvidence(self.db.evidence, cwAssumption=cwAssumption)
-        self.mrf.softEvidence = self.db.softEvidence
+#         self.mrf.softEvidence = self.db.softEvidence
         self._createGroundFormulas()
         return self.mrf

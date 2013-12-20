@@ -85,9 +85,9 @@ class Inference(object):
             evidence = {}
             for gndAtom in literals:
                 if gndAtom == '': continue
-                tv = True
+                tv = 1
                 if(gndAtom[0] == '!'):
-                    tv = False
+                    tv = 0
                     gndAtom = gndAtom[1:]
                 evidence[gndAtom] = tv
             self.mrfEvidenceBackup = self.mrf.evidence
@@ -106,10 +106,10 @@ class Inference(object):
                 falseones = []
                 for i, idxGA in enumerate(block):
                     ev = self.mrf._getEvidence(idxGA, False)
-                    if ev == True:
+                    if ev == 1:
                         haveTrueone = True
                         break
-                    elif ev == False:
+                    elif ev == 0:
                         falseones.append(i)
                 if haveTrueone:
                     self.evidenceBlocks.append(idxBlock)

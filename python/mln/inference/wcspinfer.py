@@ -22,7 +22,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from mln.util import strFormula
-from mln.inference.Inference import Inference
+from mln.inference.inference import Inference
 from wcsp.converter import WCSPConverter
 
 class WCSPInference(Inference):

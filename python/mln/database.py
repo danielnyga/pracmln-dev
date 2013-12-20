@@ -44,7 +44,7 @@ class Database(object):
         self.mln = mln
         self.domains = {}
         self.evidence = {}
-        self.softEvidence = []
+#         self.softEvidence = []
         self.includeNonExplicitDomains = True
         
     def duplicate(self, mln=None, ignoreUnknownPredicates=False):
@@ -56,7 +56,7 @@ class Database(object):
             db = Database(self.mln)
             db.domains = copy.deepcopy(self.domains)
             db.evidence = copy.deepcopy(self.evidence)
-            db.softEvidence = copy.deepcopy(self.softEvidence)
+#             db.softEvidence = copy.deepcopy(self.softEvidence)
         else:
             db = Database(mln)
             for truth, atom in self.iterGroundLiteralStrings():
@@ -169,16 +169,16 @@ class Database(object):
         for varAssignment in pseudoMRF.iterTrueVariableAssignments(formula):
             yield varAssignment
                         
-    def getSoftEvidence(self, gndAtom):
-        '''
-        gets the soft evidence value (probability) for a given ground atom (or complex formula)
-        returns None if there is no such value
-        '''
-        s = strFormula(gndAtom)
-        for se in self.softEvidence: # TODO optimize
-            if se["expr"] == s:
-                return se["p"]
-        return None
+#     def getSoftEvidence(self, gndAtom):
+#         '''
+#         gets the soft evidence value (probability) for a given ground atom (or complex formula)
+#         returns None if there is no such value
+#         '''
+#         s = strFormula(gndAtom)
+#         for se in self.softEvidence: # TODO optimize
+#             if se["expr"] == s:
+#                 return se["p"]
+#         return None
     
     def getPseudoMRF(self):
         '''
@@ -297,12 +297,16 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
             s = l.find(" ")
             gndAtom = l[s + 1:].replace(" ", "")
             value = float(l[:s])
-            d = {"expr": gndAtom, "p": float(l[:s])}
-            if db.getSoftEvidence(gndAtom) == None:
-                db.softEvidence.append(d)
-            else:
+            if value < 0 or value > 1:
+                raise Exception('Valued evidence must be in [0,1]') 
+#             d = {"expr": gndAtom, "p": float(l[:s])}
+#             if db.getSoftEvidence(gndAtom) == None:
+#                 db.softEvidence.append(d)
+#             else:
+            if db.evidence.get(gndAtom, None) != None:
                 raise log.exception("Duplicate soft evidence for '%s'" % gndAtom)
-            predName, constants =   mln.logic.parsePredDecl(gndAtom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
+            positive, predName, constants =   mln.logic.parseLiteral(gndAtom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
+            if not positive: value = 1. - value
             if not predName in mln.predicates and ignoreUnknownPredicates:
                 log.debug('Predicate "%s" is undefined.' % predName)
                 continue

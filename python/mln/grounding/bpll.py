@@ -26,7 +26,7 @@ from collections import defaultdict
 # from logic.fol import isConjunctionOfLiterals
 from utils.undo import Ref, Number, List, ListDict, Boolean
 import utils
-from mln.grounding.DefaultGrounding import DefaultGroundingFactory
+from mln.grounding.default import DefaultGroundingFactory
 from mln.learning.AbstractLearner import AbstractLearner
 from debug import DEBUG
 from utils import combinations
