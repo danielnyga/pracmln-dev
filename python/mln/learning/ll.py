@@ -25,7 +25,7 @@
 
 import sys
 
-from AbstractLearner import *
+from common import *
 
 
 class LL(AbstractLearner):

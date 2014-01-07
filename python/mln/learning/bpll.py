@@ -23,7 +23,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from AbstractLearner import AbstractLearner
+from common import AbstractLearner
 from collections import defaultdict
 from mln.util import *
 import numpy

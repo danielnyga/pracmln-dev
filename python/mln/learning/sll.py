@@ -27,8 +27,8 @@
 
 import sys
 
-from AbstractLearner import *
-from LL import *
+from common import *
+from ll import *
 
 class MCMCSampler(object):
     def __init__(self, mrf, mcsatParams, discardDuplicateWorlds = False, keepTopWorldCounts = False, computeHessian = False):
