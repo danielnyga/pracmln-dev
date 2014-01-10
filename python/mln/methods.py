@@ -42,6 +42,8 @@ ParameterLearningMeasures = Enum(
       "SLL_DN": "sampling-based log-likelihood via diagonal Newton",
       "PLL": "pseudo-log-likelihood",
       "DPLL": "[discriminative] pseudo-log-likelihood",
+      "VP": "[discriminative] Voted Perceptron",
+      "CD": "[discriminative] Contrastive Divergence",
       "BPLL": "pseudo-log-likelihood with blocking",
       "BPLL_CG": "pseudo-log-likelihood with blocking (custom grounding)",
       #"BPLLMemoryEfficient": "pseudo-log-likelihood with blocking, memory-efficient", # NOTE: this method has now been merged into BPLL

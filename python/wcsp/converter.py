@@ -191,7 +191,8 @@ class WCSPConverter(object):
 #         wcsp.constraints.extend(self.generateEvidenceConstraints())
         log = logging.getLogger('wcsp')
         logic = self.mrf.mln.logic
-        self.mrf.printEvidence()
+        if log.level == logging.DEBUG:
+            self.mrf.printEvidence()
         # preprocess the ground formulas
         gfs = []
         for gf in self.mrf.gndFormulas:
@@ -212,7 +213,7 @@ class WCSPConverter(object):
             f_.weight = f.weight
             f_.isHard = f.isHard
             gfs.append(f_)
-            
+#         log.info('gfs: ' + str(gfs))
         for f in gfs:
             self.generateConstraint(wcsp, f)
         return wcsp
@@ -352,7 +353,7 @@ class WCSPConverter(object):
                 truth = formula.isTrue(world)
                 assert truth is not None
                 assert not (truth > 0 and truth < 1 and formula.isHard)
-                log.info(str(formula) + str(' %f' % truth))
+#                 log.info(str(formula) + str(' %f' % truth))
                 cost = WCSP.TOP if truth < 1 and formula.isHard else (1 - truth) * formula.weight
                 assignments = cost2assignments.get(cost, [])
                 cost2assignments[cost] = assignments
@@ -390,9 +391,9 @@ class WCSPConverter(object):
         for varIdx, valIdx in enumerate(solution):
             if len(self.varIdx2GndAtom[varIdx]) > 1:
                 for v in range(len(self.varIdx2GndAtom[varIdx])):
-                    resultDB.evidence[str(self.varIdx2GndAtom[varIdx][v])] = (valIdx == v)
+                    resultDB.evidence[str(self.varIdx2GndAtom[varIdx][v])] = 1 if (valIdx == v) else 0
             else:
-                resultDB.evidence[str(self.varIdx2GndAtom[varIdx][0])] = (valIdx == 1)
+                resultDB.evidence[str(self.varIdx2GndAtom[varIdx][0])] = 1 if (valIdx == 1) else 0
         return resultDB
 
     def getPseudoDistributionForGndAtom(self, gndAtom):

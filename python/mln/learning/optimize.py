@@ -1,5 +1,4 @@
 
-import math
 import sys
 import logging
 try:
@@ -10,24 +9,29 @@ except:
 
 
 class DirectDescent(object):
-    ''' naive gradient descent '''    
+    '''
+    Naive gradient descent optimization.
+    '''    
     
-    def __init__(self, wt, problem, gtol=1e-3, maxSteps=100, **params):
+    def __init__(self, wt, problem, gtol=1e-3, maxSteps=100, learningRate=0.1, **params):
         self.problem = problem
         self.wt = wt
         self.gtol = gtol
         self.maxSteps = maxSteps
+        self.learningRate = learningRate
     
     def run(self):
+        log = logging.getLogger(self.__class__.__name__)
         norm = 1
-        alpha = 0.1
+        alpha = self.learningRate
         step = 1
+        log.info('starting optimization with %s... (alpha=%f)' % (self.__class__.__name__, alpha))
         while True:
             grad = self.problem.grad(self.wt)
             norm = numpy.linalg.norm(grad)
-            print "step %d, norm: %f" % (step, norm)
-            print grad
-            print self.wt
+            log.info("step %d, norm: %f" % (step, norm))
+            log.info('grad = %s' % str(grad))
+            log.info('wt = %s' % str(self.wt))
             if norm < self.gtol or step > self.maxSteps:
                 break
             step += 1
@@ -129,6 +133,11 @@ class DiagonalNewton(object):
     
 
 class SciPyOpt(object):
+    '''
+    Wrapper around the optimization techniques implemented by SciPy.
+    '''
+    
+    
     def __init__(self, optimizer, wt, problem, **optParams):
         self.wt = wt
         self.problem = problem        
@@ -149,7 +158,8 @@ class SciPyOpt(object):
         neg_f = lambda wt: -f(wt)
         neg_grad = lambda wt: -grad(wt)
         #if not useGrad or not p.useGrad(): neg_grad = None
-        #if not useF or not p.useF(): neg_f = lambda wt: -p.__fDummy(wt)
+        if not p.useF(): 
+            neg_f = lambda wt: -p._fDummy(wt)
         log = logging.getLogger(self.__class__.__name__)
         if optimizer == "bfgs":
             params = dict(filter(lambda (k,v): k in ["gtol", "epsilon", "maxiter"], self.optParams.iteritems()))

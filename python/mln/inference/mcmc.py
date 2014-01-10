@@ -33,7 +33,7 @@ class MCMCInference(Inference):
     '''
     Abstract super class for Markov chain Monte Carlo-based inference.
     '''
-
+    
     def setRandomState(self, state, blockInfo=None):
         '''
         set a random state, taking the evidence blocks and block exclusions into account

@@ -456,8 +456,9 @@ class MLN(object):
             else:
                 dbs.append(db)
         log.debug('evidence databases:')
-        for db in dbs:
-            db.printEvidence()
+        if log.level == logging.DEBUG:
+            for db in dbs:
+                db.printEvidence()
         newMLN = self.materializeFormulaTemplates(dbs, self.verbose)
         
         log.debug('predicates:')
