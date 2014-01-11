@@ -103,7 +103,7 @@ class FuzzyLogic(Logic):
         
         def isTrue(self, world_values):
             val = self.children[0].isTrue(world_values)
-            return None if val is None else 1 - val
+            return None if val is None else 1. - val
         
         def simplify(self, mrf):
             f = self.children[0].simplify(mrf)
@@ -122,7 +122,7 @@ class FuzzyLogic(Logic):
             minTruth = None
             for child_ in self.children:
                 child = child_.simplify(mrf)
-#                 logging.getLogger().info('%s %s is %s' % (str(type(child_)), child_, child))
+#                 logging.getLogger().info('%s %s is %s (%s)' % (str(type(child_)), child_, child, child.__class__.__name__))
                 if isinstance(child, Logic.TrueFalse):
                     truth = child.isTrue()
                     if truth == 0:
@@ -133,6 +133,7 @@ class FuzzyLogic(Logic):
                     sf_children.append(child)
             if minTruth is not None and minTruth < 1 or minTruth == 1 and len(sf_children) == 0:
                 sf_children.append(self.logic.true_false(minTruth))
+    #             logging.getLogger().info(sf_children)
             if len(sf_children) > 1:
                 return self.logic.conjunction(sf_children)
             elif len(sf_children) == 1:
@@ -156,7 +157,7 @@ class FuzzyLogic(Logic):
                     if truth == 1:
                         return self.logic.true_false(1.)
                     if maxTruth is None or truth > maxTruth:
-                        maxTruth = child.isTrue()
+                        maxTruth = truth
                 else:
                     sf_children.append(child)
             if maxTruth is not None and maxTruth > 0 or (maxTruth == 0 and len(sf_children) == 0):
@@ -195,8 +196,8 @@ class FuzzyLogic(Logic):
         def isTrue(self, world_values=None):
             if any(map(self.logic.isVar, self.params)):
                 return None
-            equals = 1 if (self.params[0] == self.params[1]) else 0
-            return (1 - equals) if self.negated else equals
+            equals = 1. if (self.params[0] == self.params[1]) else 0.
+            return (1. - equals) if self.negated else equals
         
         def simplify(self, mrf):
             truth = self.isTrue(mrf.evidence) 
@@ -206,7 +207,7 @@ class FuzzyLogic(Logic):
     class TrueFalse(Formula, FirstOrderLogic.TrueFalse):
         
         def __init__(self, value):
-            assert value >= 0 and value <= 1
+            assert value >= 0. and value <= 1.
             self.value = value
         
         def __str__(self):
@@ -216,7 +217,7 @@ class FuzzyLogic(Logic):
             return str(self)
         
         def invert(self):
-            return self.logic.true_false(1 - self.value)
+            return self.logic.true_false(1. - self.value)
     
     class Exist(FirstOrderLogic.Exist, Logic.ComplexFormula):
         pass
