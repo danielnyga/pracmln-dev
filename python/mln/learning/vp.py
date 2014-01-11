@@ -36,7 +36,7 @@ class VP(AbstractLearner):
     '''
     
     def __init__(self, mln, mrf, **params):
-        AbstractLearner.__init__(self, mln, mrf)
+        AbstractLearner.__init__(self, mln, mrf, **params)
         # initialize the weights randomly
         self.initialWts = True
         for f in mln.formulas:
