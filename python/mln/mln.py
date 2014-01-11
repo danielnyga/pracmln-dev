@@ -252,7 +252,7 @@ class MLN(object):
         formulaSet.append(formula)
         # extend domains
         constants = {}
-        formula.getVariables(self, None, constants)
+        formula.getConstants(self, constants)
         for domain, constants in constants.iteritems():
             for c in constants: 
                 self.addConstant(domain, c)
@@ -758,7 +758,7 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
                         formula = line[spacepos:].strip()
                     try:
                         formula = mln.logic.parseFormula(formula)
-                        log.warning(type(formula))
+#                         log.warning(type(formula))
                         if not isHard:
                             formula.weight = weight
                         else:
