@@ -45,6 +45,7 @@ from mln import readMLNFromFile
 from mln.methods import InferenceMethods
 from widgets import FilePickEdit
 from logic.grammar import StandardGrammar, PRACGrammar
+import logging
 
 def config_value(key, default):
     if key in dir(config):
@@ -118,6 +119,25 @@ class MLNInfer(object):
         haveOutFile = False
         results = None
         
+        # collect inference arguments
+        args = {"details":True, "shortOutput":True, "debugLevel":1}
+        args.update(eval("dict(%s)" % params)) # add additional parameters
+        # set the debug level
+        logging.getLogger().setLevel(eval('logging.%s' % args.get('debug', 'WARNING').upper()))
+#         if args.get("debug", False) and args["debugLevel"] > 1:
+#             print "\nground formulas:"
+#             mrf.printGroundFormulas()
+#             print
+        if self.settings["numChains"] != "":
+            args["numChains"] = int(self.settings["numChains"])
+        if self.settings["maxSteps"] != "":
+            args["maxSteps"] = int(self.settings["maxSteps"])
+        outFile = None
+        if self.settings["saveResults"]:
+            haveOutFile = True
+            outFile = file(output_filename, "w")
+            args["outFile"] = outFile
+        args["probabilityFittingResultFileName"] = output_base_filename + "_fitted.mln"
         # engine-specific handling
         if engine in ("internal", "PRACMLNs"): 
             try:
@@ -135,35 +155,16 @@ class MLNInfer(object):
                 if q != "": raise Exception("Unbalanced parentheses in queries!")
                 
                 # create MLN
-                verbose = True
                 # mln = MLN.MLN(input_files, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
                 mln = readMLNFromFile(input_files, logic=self.settings['logic'], grammar=self.settings['grammar'])#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
                 mln.defaultInferenceMethod = InferenceMethods.byName(method)
-                mln.verbose = verbose
                 # set closed-world predicates
                 for pred in cwPreds:
                     mln.setClosedWorldPred(pred)
                 
                 # create ground MRF
-                mrf = mln.groundMRF(db, verbose=verbose)
+                mrf = mln.groundMRF(db, verbose=args.get('verbose', False))
                 
-                # collect inference arguments
-                args = {"details":True, "verbose":verbose, "shortOutput":True, "debugLevel":1}
-                args.update(eval("dict(%s)" % params)) # add additional parameters
-                if args.get("debug", False) and args["debugLevel"] > 1:
-                    print "\nground formulas:"
-                    mrf.printGroundFormulas()
-                    print
-                if self.settings["numChains"] != "":
-                    args["numChains"] = int(self.settings["numChains"])
-                if self.settings["maxSteps"] != "":
-                    args["maxSteps"] = int(self.settings["maxSteps"])
-                outFile = None
-                if self.settings["saveResults"]:
-                    haveOutFile = True
-                    outFile = file(output_filename, "w")
-                    args["outFile"] = outFile
-                args["probabilityFittingResultFileName"] = output_base_filename + "_fitted.mln"
 
                 # check for print/write requests
                 if "printGroundAtoms" in args:
