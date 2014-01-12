@@ -1,0 +1,76 @@
+//word = {w1, w2}
+//!has_sense(w1,s1)
+//has_sense(w1,s2)
+//!has_sense(w1,s3)
+!has_sense(w1,s4)
+!has_sense(w1,s5)
+
+!has_sense(w2,s1)
+!has_sense(w2,s2)
+!has_sense(w2,s3)
+
+//action_role(w1,theme)
+
+0.2 is_a(s1, coffee)
+0.15 is_a(s1, water)
+0.1 is_a(s1, batter)
+0.11 is_a(s1, milk)
+0.2 is_a(s1, cup)
+0.2 is_a(s1, bowl)
+0.1 is_a(s1, glass)
+
+0.9 is_a(s2, coffee)
+0.8 is_a(s2, water)
+0.8 is_a(s2, batter)
+is_a(s2, milk)
+0.2 is_a(s2, cup)
+0.2 is_a(s2, bowl)
+0.1 is_a(s2, glass)
+
+0.2 is_a(s3, coffee)
+0.15 is_a(s3, water)
+0.1 is_a(s3, batter)
+0.11 is_a(s3, milk)
+0.2 is_a(s3, cup)
+0.2 is_a(s3, bowl)
+0.1 is_a(s3, glass)
+
+0.2 is_a(s4, coffee)
+0.15 is_a(s4, water)
+0.1 is_a(s4, batter)
+0.11 is_a(s4, milk)
+is_a(s4, cup)
+0.8 is_a(s4, bowl)
+0.9 is_a(s4, glass)
+
+0.2 is_a(s5, coffee)
+0.15 is_a(s5, water)
+0.1 is_a(s5, batter)
+0.11 is_a(s5, milk)
+0.8 is_a(s5, cup)
+is_a(s5, bowl)
+0.9 is_a(s5, glass)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

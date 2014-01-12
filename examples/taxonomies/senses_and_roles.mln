@@ -1,0 +1,157 @@
+has_sense(word, sense!)
+is_a(sense, concept)
+action_role(word, role!)
+
+role = {theme, goal} 
+
+//0 action_role(?w, +?r) ^ has_sense(?w, ?s) ^ is_a(?s, +?c)
+#unique{+?r1,+?r2}
+0 action_role(?w1, +?r1) ^ action_role(?w2, +?r2) ^ is_a(?s1, +?c1) ^ is_a(?s2, +?c2) ^ has_sense(?w1, ?s1)  ^ has_sense(?w2, ?s2) ^ ?w1=/=?w2
+//#unique{+?r1,+?r2}
+//0 action_role(?w1, +?r1) ^ action_role(?w2, +?r2) => ?w1=?w2
+/*
+0 has_sense(?w, ?s) ^ is_a(?s, water)
+0 has_sense(?w, ?s) ^ is_a(?s, coffee)
+0 has_sense(?w, ?s) ^ is_a(?s, batter)
+0 has_sense(?w, ?s) ^ is_a(?s, bowl)
+0 has_sense(?w, ?s) ^ is_a(?s, cup)
+0 has_sense(?w, ?s) ^ is_a(?s, glass)
+*/
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, water)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ !is_a(?s, water)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, coffee)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ !is_a(?s, coffee)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, batter)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ !is_a(?s, batter)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, milk)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ !is_a(?s, milk)
+
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, glass)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ !is_a(?s, glass)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, bowl)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ !is_a(?s, bowl)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, cup)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ !is_a(?s, cup)
+
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, cup) ^ action_role(?w2, theme) ^ has_sense(?w2, ?s2) ^ is_a(?s2, coffee)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, glass) ^ action_role(?w2, theme) ^ has_sense(?w2, ?s2) ^ is_a(?s2, milk)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, glass) ^ action_role(?w2, theme) ^ has_sense(?w2, ?s2) ^ is_a(?s2, water)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, bowl) ^ action_role(?w2, theme) ^ has_sense(?w2, ?s2) ^ is_a(?s2, batter)
+
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, glass)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, thing)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, water)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, glass)
+
+//0 action_role(?w, +?r)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, thing) ^ is_a(?s, physical_thing) ^ is_a(?s, liquid) ^ is_a(?s, water)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, thing)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, physical_thing)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, liquid)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, water)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, physical_thing)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, container)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, glass)
+
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, thing)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, physical_thing)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, liquid)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, water)
+//0 action_role(?w, theme) ^ has_sense(?w, ?s) ^ is_a(?s, physical_thing)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, container)
+//0 action_role(?w, goal) ^ has_sense(?w, ?s) ^ is_a(?s, glass)
+
+//0 action_role(?w, +?r) ^ has_sense(?w, ?s) ^ is_a(?s, thing) ^ is_a(?s, physical_thing) ^ is_a(?s, container) ^ is_a(?s, glass)
+//0 action_role(?w, +?r) ^ has_sense(?w, ?s) ^ is_a(?s, thing) ^ is_a(?s, physical_thing) ^ is_a(?s, liquid) ^ is_a(?s, water)
+//0 action_role(?w, +?r) => has_sense(?w, ?s) ^ is_a(?s, thing) ^ is_a(?s, physical_thing) ^ is_a(?s, liquid) ^ is_a(?s, milk)
+//0 action_role(?w, +?r) ^ has_sense(?w, ?s) ^ is_a(?s, thing) ^ is_a(?s, physical_thing) ^ is_a(?s, container) ^ is_a(?s, bowl)  
+//0 action_role(?w, +?r) ^ has_sense(?w, ?s) ^ is_a(?s, thing) ^ is_a(?s, physical_thing) ^ is_a(?s, container) ^ is_a(?s, cup)  
+//0 action_role(?w, +?r) ^ has_sense(?w, ?s) ^ is_a(?s, thing) ^ is_a(?s, physical_thing) ^ is_a(?s, container) ^ is_a(?s, glass)  
+//0 action_role(?w, +?r) ^ has_sense(?w, ?s) ^ is_a(?s, thing) ^ is_a(?s, physical_thing) ^ is_a(?s, liquid) ^ is_a(?s, water)  
+//0 action_role(?w, +?r) ^ has_sense(?w, ?s) ^ is_a(?s, thing) ^ is_a(?s, physical_thing) ^ is_a(?s, liquid) ^ is_a(?s, milk)  
+//0 action_role(?w, +?r) ^ has_sense(?w, ?s) ^ is_a(?s, thing) ^ is_a(?s, physical_thing) ^ is_a(?s, liquid) ^ is_a(?s, batter)  
+//0 action_role(?w, +?r) ^ has_sense(?w, ?s) ^ is_a(?s, thing) ^ is_a(?s, physical_thing) ^ is_a(?s, liquid) ^ is_a(?s, coffee)  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
