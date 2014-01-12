@@ -59,7 +59,7 @@ class Inference(object):
                 prevLen = len(equeries)
                 if "(" in query: # a fully or partially grounded formula
                     f = self.mln.logic.parseFormula(query)
-                    for gndFormula in f.iterGroundings(self.mln):
+                    for gndFormula in f.iterGroundings(self.mrf):
                         equeries.append(gndFormula[0])
                 else: # just a predicate name
                     try:
@@ -75,29 +75,35 @@ class Inference(object):
                 raise Exception("Received query of unsupported type '%s'" % str(type(query)))
         return equeries
     
-    def _setEvidence(self, conjunction):
-        '''
-        Set evidence in the MRF according to the given conjunction of 
-        ground literals, keeping a backup to undo the assignment later
-        '''
-        if conjunction is not None:
-            literals = map(lambda x: x.strip().replace(" ", ""), conjunction.split("^"))
-            evidence = {}
-            for gndAtom in literals:
-                if gndAtom == '': continue
-                tv = 1
-                if(gndAtom[0] == '!'):
-                    tv = 0
-                    gndAtom = gndAtom[1:]
-                evidence[gndAtom] = tv
-            self.mrfEvidenceBackup = self.mrf.evidence
-            self.mrf.setEvidence(evidence)
-            
-    def _getEvidenceBlockData(self, conjunction):
+    def _infer(self, verbose=False, **args):
+        raise Exception('%s does not implement _infer()' % self.__class__.__name__)
+    
+#     def _setEvidence(self, conjunction):
+#         '''
+#         Set evidence in the MRF according to the given conjunction of 
+#         ground literals, keeping a backup to undo the assignment later
+#         '''
+#         if conjunction is not None:
+#             literals = map(lambda x: x.strip().replace(" ", ""), conjunction.split("^"))
+#             evidence = {}
+#             for gndAtom in literals:
+#                 if gndAtom == '': continue
+#                 tv = 1
+#                 if(gndAtom[0] == '!'):
+#                     tv = 0
+#                     gndAtom = gndAtom[1:]
+#                 evidence[gndAtom] = tv
+#             self.mrfEvidenceBackup = self.mrf.evidence
+#             self.mrf.setEvidence(evidence)
+
+    def _readEvidence(self):
+        self._getEvidenceBlockData()
+        
+        
+    def _getEvidenceBlockData(self):
         # set evidence
-        self._setEvidence(conjunction)
+#         self._setEvidence(conjunction)
         # build up data structures
-        self.evidence = conjunction
         self.evidenceBlocks = [] # list of pll block indices where we know the true one (and thus the setting for all of the block's atoms)
         self.blockExclusions = {} # dict: pll block index -> list (of indices into the block) of atoms that mustn't be set to true
         for idxBlock, (idxGA, block) in enumerate(self.mrf.pllBlocks): # fill the list of blocks that we have evidence for
@@ -157,7 +163,7 @@ class Inference(object):
         if outFile != None:
             self.writeResults(outFile, shortOutput=True, saveResultsProlog=saveResultsProlog)
         
-        # undo potential side-effects
+#         # undo potential side-effects
         if self.mrfEvidenceBackup is not None:
             self.mrf.evidence = self.mrfEvidenceBackup
             
