@@ -622,7 +622,10 @@ class FirstOrderLogic(Logic):
             return self.gndAtom.toRRF()
     
         def ground(self, mrf, assignment, referencedGndAtoms = None, simplify=False, allowPartialGroundings=False):
-            return self.logic.gnd_lit(self.gndAtom, self.negated)
+#             return self.logic.gnd_lit(self.gndAtom, self.negated)
+            # always get the gnd atom from the mrf, so that
+            # formulas can be transferred between different MRFs
+            return self.logic.gnd_lit(mrf.gndAtoms[str(self.gndAtom)], self.negated)
     
         def simplify(self, mrf):
             f = self.gndAtom.simplify(mrf)
