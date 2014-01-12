@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Markov Logic Networks
 #
@@ -28,6 +28,7 @@ import random
 import copy
 
 from inference import *
+import logging
 
 class MCMCInference(Inference):
     '''
@@ -39,9 +40,7 @@ class MCMCInference(Inference):
         set a random state, taking the evidence blocks and block exclusions into account
         blockInfo [out].
         '''
-        if state == []: #no evidence given -> initialize list, elements are overwritten below
-            state = [None] * len(self.mln.gndAtoms)        
-        
+        log = logging.getLogger(self.__class__.__name__)
         mln = self.mln
         for idxBlock, (idxGA, block) in enumerate(self.mrf.pllBlocks):
             if idxBlock not in self.evidenceBlocks:
@@ -50,7 +49,7 @@ class MCMCInference(Inference):
                     if blockExcl == None:
                         chosen = block[random.randint(0, len(block) - 1)]
                         for idxGA in block:
-                            state[idxGA] = 1 if (idxGA == chosen) is True else 0
+                            state[idxGA] = 1. if (idxGA == chosen) == True else 0.
                         if blockInfo != None:
                             falseOnes = filter(lambda x: x != chosen, block)
                             blockInfo[idxBlock] = [chosen, falseOnes]
@@ -64,21 +63,20 @@ class MCMCInference(Inference):
                             raise Exception("Evidence forces all ground atoms in block %s to be false" % mln._strBlock(block))
                         chosen = choosable[random.randint(0, maxidx)]
                         for idxGA in choosable:
-                            state[idxGA] = 1 if (idxGA == chosen) is True else 0
+                            state[idxGA] = 1. if (idxGA == chosen) is True else .0
                         if blockInfo != None:
                             choosable.remove(chosen)
                             blockInfo[idxBlock] = [chosen, choosable]
                 else: # regular ground atom, which can either be true or false
                     chosen = random.randint(0, 1)
-                    state[idxGA] = chosen
-
-    def _readEvidence(self, conjunction):
-        #save old evidence as evidence is changed in here #HACK
-        oldEvidence = copy.copy(self.mrf.evidence)
-        self._getEvidenceBlockData(conjunction)
-        self.mrf.evidence = oldEvidence #reset old evidence
+                    state[idxGA] = float(chosen)
 
     class Chain:
+        '''
+        Represents the state of a Markov Chain.
+        '''
+        
+        
         def __init__(self, inferenceObject, queries):
             self.queries = queries
             self.softEvidence = None
@@ -156,7 +154,7 @@ class MCMCInference(Inference):
             numChains = len(self.chains)
             queries = self.chains[0].queries
             # compute average
-            results = [0.0 for i in range(len(queries))]
+            results = [0.0] * len(queries)
             for chain in self.chains:
                 cr = chain.getResults()
                 for i in range(len(queries)):

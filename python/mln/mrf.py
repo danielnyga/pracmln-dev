@@ -106,6 +106,7 @@ class MRF(object):
             pass
         else:
             raise Exception("Not a valid database argument (type %s)" % (str(type(db))))
+        self.db = db
         # materialize MLN formulas
 #         if self.mln.formulas is None:
 #             db = self.mln.materializeFormulaTemplates([db],verbose)[0]
@@ -166,7 +167,7 @@ class MRF(object):
 
     def _getPredGroundingsAsIndices(self, predName):
         '''
-            get a list of all the indices of all groundings of the given predicate
+        Get a list of all the indices of all groundings of the given predicate
         '''
         # get the index of the first grounding of the predicate and the number of groundings
         domNames = self.predicates[predName]
@@ -219,7 +220,6 @@ class MRF(object):
         '''
         if str(gndLit) in self.gndAtoms:
             return
-
         atomIdx = len(self.gndAtoms)
         gndLit.idx = atomIdx
         self.gndAtomsByIdx[gndLit.idx] = gndLit
@@ -765,7 +765,7 @@ class MRF(object):
         return str(self.gndAtomsByIdx[idx])
 
     def printState(self, world_values, showIndices=False):
-        for idxGA, block in enumerate(self.pllBlocks):
+        for idxGA, block in self.pllBlocks:
             if idxGA != None:
                 if showIndices: print "%-5d" % idxGA,
                 print "%s=%s" % (str(self.gndAtomsByIdx[idxGA]), str(world_values[idxGA]))
@@ -1043,6 +1043,8 @@ class MRF(object):
             return self.inferGibbs(what, given, verbose, **args)
         elif defaultMethod == InferenceMethods.MCSAT:
             return self.inferMCSAT(what, given, verbose, **args)
+        elif defaultMethod == InferenceMethods.FuzzyMCSAT:
+            return self.inferFuzzyMCSAT(what, given, verbose, **args)
         elif defaultMethod == InferenceMethods.IPFPM_exact:
             return self.inferIPFPM(what, given, inferenceMethod=InferenceMethods.Exact, **args)
         elif defaultMethod == InferenceMethods.IPFPM_MCSAT:
@@ -1069,17 +1071,18 @@ class MRF(object):
         return self._infer(GibbsSampler(self), what, given, verbose=verbose, **args)
 
     def inferMCSAT(self, what, given=None, verbose=True, **args):
-        self.mcsat = MCSAT(self, verbose=verbose) # can be used for later data retrieval
-        self.mln.mcsat = self.mcsat # only for backwards compatibility
-        return self._infer(self.mcsat, what, given, verbose, **args)
+        mcsat = MCSAT(self, verbose=verbose) # can be used for later data retrieval
+        return self._infer(mcsat, what, given, verbose, **args)
+    
+    def inferFuzzyMCSAT(self, what, given=None, verbose=True, **args):
+        return self._infer(FuzzyMCSAT(self), what, given, verbose, **args)
 
     def inferIPFPM(self, what, given=None, verbose=True, **args):
         '''
             inference based on the iterative proportional fitting procedure at the model level (IPFP-M)
         '''
-        self.ipfpm = IPFPM(self) # can be used for later data retrieval
-        self.mln.ipfpm = self.ipfpm # only for backwards compatibility
-        return self._infer(self.ipfpm, what, given, verbose, **args)
+        ipfpm = IPFPM(self) # can be used for later data retrieval
+        return self._infer(ipfpm, what, given, verbose, **args)
     
     def inferWCSP(self, what, given=None, verbose=True, **args):
         '''

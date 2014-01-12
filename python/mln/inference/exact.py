@@ -223,8 +223,6 @@ class EnumerationAsk(Inference):
         # get blocks
         self.mrf._getPllBlocks()
         self._getEvidenceBlockData()
-        log.info(self.blockExclusions)
-        log.info(self.evidenceBlocks)
         # start summing
         log.info("Summing over possible worlds...")
         numerators = [0.0 for i in range(len(self.queries))]
