@@ -99,8 +99,8 @@ class AbstractLearner(object):
         # compute prior
         prior = 0
         if self.gaussianPriorSigma is not None:
-            for weight in wt:
-                prior += gaussianZeroMean(weight, self.gaussianPriorSigma)
+            for weight in wt: # we have to use the log of the prior here
+                prior -= 1./(2.*(self.gaussianPriorSigma**2)) * weight**2 #gaussianZeroMean(weight, self.gaussianPriorSigma)
         
         # reconstruct full weight vector
         wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
@@ -157,7 +157,7 @@ class AbstractLearner(object):
         # add gaussian prior
         if self.gaussianPriorSigma is not None:
             for i, weight in enumerate(wt):
-                grad[i] += gradGaussianZeroMean(weight, self.gaussianPriorSigma)
+                grad[i] -= 1./(self.gaussianPriorSigma**2) * weight#gradGaussianZeroMean(weight, self.gaussianPriorSigma)
         
         return self._projectVectorToNonFixedWeightIndices(grad)
     
