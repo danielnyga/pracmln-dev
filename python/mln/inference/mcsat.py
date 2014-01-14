@@ -326,11 +326,8 @@ class MCSAT(MCMCInference):
                 results = chainGroup.getResults()
                 if details:
                     chainGroup.printResults(shortOutput=True)
-                    if debug: print
                 if keepResultsHistory: self._extendResultsHistory(results)
             self.step += 1
-            
-            
             #termination condition
             #TODO:
             minStep = 1000
