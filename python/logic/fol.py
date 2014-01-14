@@ -161,25 +161,28 @@ class FirstOrderLogic(Logic):
             for grounding, referencedGndAtoms in self._iterGroundings(mrf, variables, {}, simplify):
                 yield grounding, referencedGndAtoms
             
-        def iterTrueVariableAssignments(self, mrf, world):
+        def iterTrueVariableAssignments(self, mrf, world, truthThreshold=1.0):
             '''
             Iteratively yields the variable assignments (as a dict) for which this
             formula is true. Same as iterGroundings, but returns variable mappings
             for only assignments rendering this formula true.
+            If strictlyTrue == True, only evaluations with truth == 1 are returned,
+            if False, all evaluations with truth > 0 are returned.
             '''
             try:
                 variables = self.getVariables(mrf.mln)
             except Exception, e:
                 raise Exception("Error grounding '%s': %s" % (str(self), str(e)))
-            for assignment in self._iterTrueVariableAssignments(mrf, variables, {}, world):
+            for assignment in self._iterTrueVariableAssignments(mrf, variables, {}, world, truthThreshold=truthThreshold):
                 yield assignment
         
-        def _iterTrueVariableAssignments(self, mrf, variables, assignment, world):
+        def _iterTrueVariableAssignments(self, mrf, variables, assignment, world, truthThreshold=1.0):
             # if all variables have been grounded...
             if variables == {}:
                 referencedGndAtoms = []
                 gndFormula = self.ground(mrf, assignment, referencedGndAtoms)
-                if gndFormula.isTrue(world):
+                truth = gndFormula.isTrue(world)
+                if (truth >= truthThreshold):
                     yield assignment
                 return
             # ground the first variable...
@@ -187,7 +190,7 @@ class FirstOrderLogic(Logic):
             for value in mrf.domains[domName]: # replacing it with one of the constants
                 assignment[varname] = value
                 # recursive descent to ground further variables
-                for assignment in self._iterTrueVariableAssignments(mrf, dict(variables), assignment, world):
+                for assignment in self._iterTrueVariableAssignments(mrf, dict(variables), assignment, world, truthThreshold=truthThreshold):
                     yield assignment
                     
         def _iterGroundings(self, mrf, variables, assignment, simplify=False):
