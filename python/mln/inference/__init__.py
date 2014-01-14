@@ -1,7 +1,7 @@
 
-from ExactInference import ExactInference, ExactInferenceLinear, EnumerationAsk
-from mcsat import MCSAT, SampleSAT
-from GibbsSampler import GibbsSampler
+from exact import ExactInference, ExactInferenceLinear, EnumerationAsk
+from mcsat import MCSAT, SampleSAT, FuzzyMCSAT
+from gibbs import GibbsSampler
 from ipfpm import IPFPM
 from SAMaxWalkSAT import SAMaxWalkSAT
 from wcspinfer import WCSPInference

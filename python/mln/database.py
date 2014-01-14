@@ -157,17 +157,19 @@ class Database(object):
         return not any(map(lambda x: x >= 0 and x <= 1,  self.evidence.values())) and \
             len(self.domains) == 0
                 
-    def query(self, formula):
+    def query(self, formula, truthThreshold=1):
         '''
         Makes to the database a 'prolog-like' query given by the specified formula.
-        Returns a dictionary with variable-value assignments for which the formula is true.
+        Returns a dictionary with variable-value assignments for which the formula has
+        a truth value of at least truthThreshold.
         Note: this is _very_ inefficient, since all groundings are gonna be
             instantiated; so keep the queries short ;)
         ''' 
         pseudoMRF = Database.PseudoMRF(self)
         formula = self.mln.logic.parseFormula(formula)
-        for varAssignment in pseudoMRF.iterTrueVariableAssignments(formula):
+        for varAssignment in pseudoMRF.iterTrueVariableAssignments(formula, truthThreshold=truthThreshold):
             yield varAssignment
+
                         
 #     def getSoftEvidence(self, gndAtom):
 #         '''
@@ -240,13 +242,13 @@ class Database(object):
                 numTrue += gf.isTrue(self.evidence)
             return (numTrue, numTotal)
         
-        def iterTrueVariableAssignments(self, formula):
+        def iterTrueVariableAssignments(self, formula, truthThreshold=1.0):
             '''
             Iterates over all groundings of formula that evaluate to true
             given this Pseudo-MRF.
             '''
 #             evidence = self.evidence.copy()
-            for assignment in formula.iterTrueVariableAssignments(self, self.evidence):
+            for assignment in formula.iterTrueVariableAssignments(self, self.evidence, truthThreshold=truthThreshold):
                 yield assignment
                 
 def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):

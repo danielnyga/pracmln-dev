@@ -125,7 +125,7 @@ class GibbsSampler(MCMCInference):
     def _infer(self, verbose=True, numChains=3, maxSteps=5000, shortOutput=False, details=False, debug=False, debugLevel=1, infoInterval=10, resultsInterval=100, softEvidence=None, **args):
         random.seed(time.time())
         # set evidence according to given conjunction (if any)
-        self._readEvidence(self.given)
+        self._readEvidence()
         if softEvidence is None:
             self.softEvidence = self.mln.softEvidence
         else:

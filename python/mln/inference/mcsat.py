@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Markov Logic Networks
 #
@@ -31,20 +31,85 @@ import logging
 import time
 import math
 from mln.util import strFormula
+from mln.database import Database
+
+
+class FuzzyMCSAT(Inference):
+    '''
+    MC-SAT version supporting fuzzy evidence atoms.
+    '''
+    
+    def __init__(self, mrf, verbose=False):
+        # find the fuzzy evidence atoms
+        Inference.__init__(self, mrf)
+        
+    def _infer(self, *args, **kwargs):
+        self.fuzzy = []
+        self.fuzzyEvidence = [None] * len(self.mrf.gndAtoms)
+        log = logging.getLogger(self.__class__.__name__)
+        for atomIdx, truth in enumerate(self.mrf.evidence):
+            if truth > 0 and truth < 1:
+                predName = self.mrf.gndAtomsByIdx[atomIdx].predName
+                if not predName in self.fuzzy:
+                    self.fuzzy.append(predName)
+        log.info('detected %d fuzzy evidence vars: %s' % (len(self.fuzzy), str(self.fuzzy)))
+        # check if all fuzzy ground atoms are given
+        for pred in self.fuzzy:
+            for atomIdx in self.mrf._getPredGroundingsAsIndices(pred):
+                truth = self.mrf.evidence[atomIdx]
+                if truth is None:
+                    raise Exception('Not all fuzzy ground atoms have truth values: %s' % pred)
+                self.fuzzyEvidence[atomIdx] = truth
+        
+        # create the transformed MLN without fuzzy evidence
+        mln = self.mln.duplicate()
+        mln.domains = {}
+        mln.formulas = []
+        # remove fuzzy preds
+        for p in self.fuzzy:
+            del mln.predicates[p]
+        mrf = self.mrf
+        evidenceBackup = list(mrf.evidence)
+        mrf.printEvidence()
+        mrf.evidence = self.fuzzyEvidence
+        for gndFormula in mrf.gndFormulas:
+            cnf = gndFormula.simplify(mrf).toCNF()
+            if isinstance(cnf, Logic.TrueFalse) or not hasattr(cnf, 'children'): continue
+            # get the smallest maximum of all atoms in the disjunctions
+            # and remove the constants
+            maxtruth = cnf.maxTruth(mrf.evidence)
+            for c in list(cnf.children):
+                if isinstance(c, Logic.TrueFalse):
+                    cnf.children.remove(c)
+            wt = maxtruth * gndFormula.weight
+            mln.addFormula(cnf, wt)
+        mrf.evidence = evidenceBackup
+        # perform standard MCSAT on the transformed MLN
+        db = Database(mln)
+        for t, e in mrf.db.iterGroundLiteralStrings(mln.predicates):
+            db.addGroundAtom(e, t)        
+        mrf_ = mln.groundMRF(db)
+        # the query and evidence need to be adapted to the new MRF
+        queries = map(lambda a: a.ground(mrf_, {}), self.queries)
+        if self.given is not None:
+            evidence = map(str, self.given)
+        else: evidence = None
+        return mrf_.inferMCSAT(queries, evidence, handleSoftEvidence=False, *args, **kwargs)
+        
 
 class MCSAT(MCMCInference):
     ''' MC-SAT/MC-SAT-PC '''
     
-    def __init__(self, mln, verbose=False):
-        Inference.__init__(self, mln)
+    def __init__(self, mrf, verbose=False):
+        Inference.__init__(self, mrf)
         # minimize the formulas' weights by exploiting group information (in order to speed up convergence)
         if verbose: print "normalizing weights..."
         #mln.minimizeGroupWeights() # TODO!!! disabled because weights are not yet evaluated
         # get the pll blocks
         if verbose: print "getting blocks..."
-        mln._getPllBlocks()
+        mrf._getPllBlocks()
         # get the block index for each ground atom
-        mln._getAtom2BlockIdx()
+        mrf._getAtom2BlockIdx()
  
     # initialize the knowledge base to the required format and collect structural information for optimization purposes
     def _initKB(self, verbose=False):
@@ -141,7 +206,6 @@ class MCSAT(MCMCInference):
                 self.mrf.evidence[atom.idx] = None
         else:
             self.softEvidence = softEvidence
-        log.info(self.softEvidence)
         self.handleSoftEvidence = handleSoftEvidence
 
         # initialize the KB and gather required info
@@ -160,16 +224,16 @@ class MCSAT(MCMCInference):
         details = verbose and details
         # print CNF KB
         if self.debug:
-            log.info("\nCNF KB:")
+            log.debug("\nCNF KB:")
             for gf in self.gndFormulas:
-                log.info("%7.3f  %s" % (self.formulas[gf.idxFormula].weight, strFormula(gf)))
+                log.debug("%7.3f  %s" % (self.formulas[gf.idxFormula].weight, strFormula(gf)))
             print
         # set the random seed if it was given
         if randomSeed != None:
             random.seed(randomSeed)
         # read evidence
         if details: log.info("reading evidence...")
-        self._readEvidence(self.given)
+        self._readEvidence()
         #print "evidence", self.evidence
         if details:
             log.info("evidence blocks: %d" % len(self.evidenceBlocks))
@@ -184,7 +248,6 @@ class MCSAT(MCMCInference):
         # create chains
         chainGroup = MCMCInference.ChainGroup(self)
         self.chainGroup = chainGroup
-        mln = self.mln
         self.wt = [f.weight for f in self.formulas]
         for i in range(numChains):
             chain = MCMCInference.Chain(self, self.queries)
@@ -198,7 +261,8 @@ class MCSAT(MCMCInference):
                 M = []
                 NLC = []
                 for idxGF, gf in enumerate(self.gndFormulas):
-                    if self.wt[gf.idxFormula] >= 20:
+#                     if self.wt[gf.idxFormula] >= 20:
+                    if self.mln.formulas[gf.idxFormula].isHard:
                         if gf.isLogical():
                             clauseRange = self.gndFormula2ClauseIdx[idxGF]
                             M.extend(range(*clauseRange))
@@ -209,14 +273,13 @@ class MCSAT(MCMCInference):
             else:
                 raise Exception("MC-SAT Error: Unknown initialization algorithm specified")
             # some debug info
-            if debug:
+            if debug and False:
                 print "\ninitial state:"
-                mln.printState(chain.state)
+                self.mrf.printState(chain.state)
         # do MCSAT sampling
         if details: log.info("sampling (p=%f)... time elapsed: %s" % (self.p, self._getElapsedTime()[1]))
-        if debug: print
-        if infoInterval is None: infoInterval = {True:1, False:10}[debug]
-        if resultsInterval is None: resultsInterval = {True:1, False:50}[debug]
+        if infoInterval is None: infoInterval = {True:1, False:10}[debug == 'INFO' or debug == 'DEBUG']
+        if resultsInterval is None: resultsInterval = {True:1, False:50}[debug == 'INFO' or debug == 'DEBUG']
         
         
         if len(self.softEvidence) == 0 and maxSoftEvidenceDeviation is not None:
@@ -232,13 +295,15 @@ class MCSAT(MCMCInference):
                 if debug: 
                     log.info("step %d..." % self.step)
                 # choose a subset of the satisfied formulas and sample a state that satisfies them
+#                 log.info(chain.state)
                 numSatisfied = self._satisfySubset(chain)
+#                 log.info(chain.state)
                 # update chain counts
                 chain.update()
                 # print progress
                 
                 if details and self.step % infoInterval == 0:
-                    print "step %d (%d constraints were to be satisfied), time elapsed: %s" % (self.step, numSatisfied, self._getElapsedTime()[1]),
+                    log.info("step %d (%d constraints were to be satisfied), time elapsed: %s" % (self.step, numSatisfied, self._getElapsedTime()[1]))
                     if referenceResults is not None:
                         ref = self._compareResults(referenceResults)
                         print "  REF me=%f, maxe=%f" % (ref["reference_me"], ref["reference_maxe"]),
@@ -246,8 +311,8 @@ class MCSAT(MCMCInference):
                         dev = self._getProbConstraintsDeviation()
                         print "  PC dev. mean=%f, max=%f (%s)" % (dev["pc_dev_mean"], dev["pc_dev_max"], dev["pc_dev_max_item"]),
                     print
-                    if debug:
-                        self.mln.printState(chain.state)
+                    if log.level == logging.DEBUG:
+                        self.mrf.printState(chain.state)
                         print
             # update soft evidence counts
             for se in self.softEvidence:
@@ -261,11 +326,8 @@ class MCSAT(MCMCInference):
                 results = chainGroup.getResults()
                 if details:
                     chainGroup.printResults(shortOutput=True)
-                    if debug: print
                 if keepResultsHistory: self._extendResultsHistory(results)
             self.step += 1
-            
-            
             #termination condition
             #TODO:
             minStep = 1000
@@ -291,11 +353,11 @@ class MCSAT(MCMCInference):
         Choose a set of logical formulas M to be satisfied (more specifically, M is a set of clause indices)
         and also choose a set of non-logical constraints NLC to satisfy
         '''
-        t0 = time.time()
+        log = logging.getLogger(self.__class__.__name__)
         M = []
         NLC = []
         for idxGF, gf in enumerate(self.gndFormulas):
-            if gf.isTrue(chain.state) == 1:                
+            if gf.isTrue(chain.state) == 1:
                 u = random.uniform(0, math.exp(self.wt[gf.idxFormula]))
                 if u > 1:
                     if gf.isLogical():
@@ -331,12 +393,8 @@ class MCSAT(MCMCInference):
                         M.extend(range(*se["idxClauseNegative"]))
                     #print "negative case: add=%s, %s, %f should become %f" % (add, map(str, [map(str, self.clauses[i]) for i in range(*se["idxClauseNegative"])]), p, se["p"])
         # (uniformly) sample a state that satisfies them
-        t1 = time.time()
         ss = SampleSAT(self.mrf, chain.state, M, NLC, self, debug=self.debug and self.debugLevel >= 2, p=self.p)
-        t2 = time.time()
         ss.run()
-        t3 = time.time()
-        #print "select formulas: %f, SS init: %f, SS run: %f" % (t1-t0, t2-t1, t3-t2)
         return len(M) + len(NLC)
     
     def _getProbConstraintsDeviation(self):
@@ -364,11 +422,17 @@ class MCSAT(MCMCInference):
 
 
 class SampleSAT:
-    # clauseIdxs: list of indices of clauses to satisfy
-    # p: probability of performing a greedy WalkSAT move
-    # state: the state (array of booleans) to work with (is reinitialized randomly by this constructor)
-    # NLConstraints: list of grounded non-logical constraints
-    def __init__(self, mrf, state, clauseIdxs, NLConstraints, inferObject, p=0.5, debug=False):
+    '''
+    Sample-SAT algorithm.
+    '''
+    
+    def __init__(self, mrf, state, clauseIdxs, NLConstraints, inferObject, p=0.1, debug=False):
+        '''
+        clauseIdxs: list of indices of clauses to satisfy
+        p: probability of performing a greedy WalkSAT move
+        state: the state (array of booleans) to work with (is reinitialized randomly by this constructor)
+        NLConstraints: list of grounded non-logical constraints
+        '''
         t_start = time.time()
         self.debug = debug
         self.inferObject = inferObject
@@ -410,7 +474,9 @@ class SampleSAT:
         occ.append(constraint)
     
     class _Clause:
+        
         def __init__(self, sampleSAT, idxClause):
+            log = logging.getLogger(self.__class__.__name__)
             self.ss = sampleSAT
             self.idxClause = idxClause
             self.lits = sampleSAT.inferObject.clauses[idxClause]
@@ -419,7 +485,7 @@ class SampleSAT:
             idxTrueGndAtoms = {}
             for gndLit in self.lits:
                 idxGA = gndLit.gndAtom.idx
-                if gndLit.isTrue(self.ss.state):
+                if gndLit.isTrue(self.ss.state) == 1:
                     numTrue += 1
                     idxTrueGndAtoms[idxGA] = True
                 # save ground atom occurrence
@@ -435,7 +501,10 @@ class SampleSAT:
             self.ss._pickAndFlipLiteral(map(lambda x: x.gndAtom.idx, self.lits), self)
         
         def handleFlip(self, idxGA):
-            '''handle all effects of the flip except bottlenecks of the flipped gnd atom and clauses that became unsatisfied as a result of a bottleneck flip'''
+            '''
+            Handle all effects of the flip except bottlenecks of the flipped
+            gnd atom and clauses that became unsatisfied as a result of a bottleneck flip
+            '''
             trueLits = self.trueGndLits
             numTrueLits = len(trueLits)
             if idxGA in trueLits: # the lit was true and is now false, remove it from the clause's list of true lits
@@ -453,15 +522,20 @@ class SampleSAT:
                 self.ss._addBottleneck(trueLits.keys()[0], self)
         
         def flipSatisfies(self, idxGA):
-            '''returns true iff the constraint is currently unsatisfied and flipping the given ground atom would satisfy it'''
+            '''
+            Returns true iff the constraint is currently unsatisfied and
+            flipping the given ground atom would satisfy it
+            '''
             return len(self.trueGndLits) == 0
         
         def __str__(self):
             return " v ".join(map(lambda x: strFormula(x), self.lits))
     
         def getFormula(self):
-            ''' gets the original formula that the clause with the given index is part of
-                (this is slow and should only be used for informational purposes, e.g. error reporting)'''
+            '''
+            Gets the original formula that the clause with the given index is part of
+            (this is slow and should only be used for informational purposes, e.g. error reporting)
+            '''
             i = 0
             for f in self.ss.mln.gndFormulas:
                 if not f.isLogical():
@@ -537,7 +611,10 @@ class SampleSAT:
             return eval("c2 %s self.cc.count" % self.cc.op)
         
         def handleFlip(self, idxGA):
-            '''handle all effects of the flip except bottlenecks of the flipped gnd atom and clauses that became unsatisfied as a result of a bottleneck flip'''
+            '''
+            Handle all effects of the flip except bottlenecks of the flipped
+            gnd atom and clauses that became unsatisfied as a result of a bottleneck flip
+            '''
             wasSatisfied = self._isSatisfied()
             # update true and false ones
             if idxGA in self.trueOnes:
@@ -580,13 +657,9 @@ class SampleSAT:
             print "    %s" % str(constraint)
     
     def run(self):
-        t_start = time.time()
         p = self.p # probability of performing a WalkSat move
-        iter = 1
-        steps = [0, 0]
-        times = [0.0, 0.0]
+        log = logging.getLogger(self.__class__.__name__)
         while len(self.unsatisfiedConstraints) > 0:
-            
             # in debug mode, check if really exactly the unsatisfied clauses are in the corresponding list
             if False and self.debug:
                 for idxClause, clause in enumerate(self.realClauses):
@@ -597,7 +670,6 @@ class SampleSAT:
                     else:
                         if idxClause in self.unsatisfiedClauseIdx:
                             print "    %s is satisfied but in the list" % strFormula(clause)
-            
             if self.debug and False:
                 self.mln.printState(self.state, True)
                 print "bottlenecks:", self.bottlenecks
@@ -609,33 +681,29 @@ class SampleSAT:
                     self._printUnsatisfiedConstraints()
                 #t = time.time()
                 self._walkSatMove()
-                #steps[0] += 1
-                #times[0] += time.time()-t
             else:
                 if self.debug:
                     print "%d SA (%d left)" % (iter, len(self.unsatisfiedConstraints))
                     self._printUnsatisfiedConstraints()
-                #t = time.time()
                 self._SAMove()
-                #steps[1] += 1
-                #times[1] += time.time()-t
-            iter += 1
-        #print "run time: %f" % (time.time()-t_start)
-        #print "avg rw time: %f" % (times[0]/steps[0])
-        #print "avg sa time: %f" % (times[1]/steps[1])
     
     def _walkSatMove(self):
-        '''randomly pick one of the unsatisfied constraints and satisfy it (or at least make one step towards satisfying it'''
+        '''
+        Randomly pick one of the unsatisfied constraints and satisfy it
+        (or at least make one step towards satisfying it
+        '''
         constraint = self.unsatisfiedConstraints[random.randint(0, len(self.unsatisfiedConstraints) - 1)]
         constraint.greedySatisfy()
     
     def _pickAndFlipLiteral(self, candidates, constraint):
-        '''chooses from the list of given literals (as ground atom indices: candidates) the best one to flip, i.e. the one that causes the fewest constraints to become unsatisified'''
+        '''
+        Chooses from the list of given literals (as ground atom indices: candidates) 
+        the best one to flip, i.e. the one that causes the fewest constraints to become unsatisified
+        '''
         # get the literal that makes the fewest other formulas false
         bestNum = len(self.inferObject.clauses) * 3
         bestGA = None
         bestGAsecond = None
-        mln = self.mln
         mrf = self.mrf
         inferObject = self.inferObject
         for idxGA in candidates:
@@ -656,7 +724,7 @@ class SampleSAT:
             if block is not None: # if the atom is in a real block, select a second atom to flip to get a consistent state
                 trueOne, falseOnes = self.blockInfo[idxBlock]
                 if trueOne in falseOnes: 
-                    print "Error: The true one is part of the false ones!"
+                    raise Exception("Error: The true one is part of the false ones!")
                 if len(falseOnes) == 0: # there are no false atoms that we could set to true, so skip this ground atom
                     #print "no false ones for %s" % strGA
                     continue
@@ -666,7 +734,9 @@ class SampleSAT:
                     idxGAsecond = trueOne
                 else: # otherwise, this literal must be excluded and must not be flipped
                     continue
-                num += len(self.bottlenecks.get(idxGAsecond, [])) # !!!!!! additivity ignores the possibility that the first and the second GA could occur together in the same formula (should perhaps perform the first flip temporarily)
+                num += len(self.bottlenecks.get(idxGAsecond, []))   # !!!!!! additivity ignores the possibility 
+                                                                    # that the first and the second GA could occur 
+                                                                    # together in the same formula (should perhaps perform the first flip temporarily)
             num += len(self.bottlenecks.get(idxGA, []))
             # check if it's better than the previous best (or equally good)
             newBest = False
@@ -681,8 +751,6 @@ class SampleSAT:
             #else:
             #   print "%s is not good enough (%d)" % (strGA, num)
         if bestGA == None:
-            #c = self.realClauses[clauseIdx]
-            #print "UNSATISFIABLE: %s" % str(c)
             #print self.mln.printState(self.state)
             gf = constraint.getFormula()
             raise Exception("SampleSAT error: unsatisfiable constraint '%s' given the evidence! It is an instance of '%s'." % (strFormula(gf), strFormula(self.mln.formulas[gf.idxFormula])))
@@ -713,8 +781,9 @@ class SampleSAT:
     # If an atom in a block is flipped, be sure to also call _updateBlockInfo
     def _flipGndAtom(self, idxGA):
         # flip the ground atom
+        log = logging.getLogger(self.__class__.__name__)
         if self.debug: print "  flipping %s" % str(self.mln.gndAtomsByIdx[idxGA])
-        self.state[idxGA] = not self.state[idxGA]
+        self.state[idxGA] = 1. - self.state[idxGA]
         # the constraints where the literal was a bottleneck are now unsatisfied
         bn = self.bottlenecks.get(idxGA)
         if bn is not None:

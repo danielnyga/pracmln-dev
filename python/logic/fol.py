@@ -161,25 +161,28 @@ class FirstOrderLogic(Logic):
             for grounding, referencedGndAtoms in self._iterGroundings(mrf, variables, {}, simplify):
                 yield grounding, referencedGndAtoms
             
-        def iterTrueVariableAssignments(self, mrf, world):
+        def iterTrueVariableAssignments(self, mrf, world, truthThreshold=1.0):
             '''
             Iteratively yields the variable assignments (as a dict) for which this
             formula is true. Same as iterGroundings, but returns variable mappings
             for only assignments rendering this formula true.
+            If strictlyTrue == True, only evaluations with truth == 1 are returned,
+            if False, all evaluations with truth > 0 are returned.
             '''
             try:
                 variables = self.getVariables(mrf.mln)
             except Exception, e:
                 raise Exception("Error grounding '%s': %s" % (str(self), str(e)))
-            for assignment in self._iterTrueVariableAssignments(mrf, variables, {}, world):
+            for assignment in self._iterTrueVariableAssignments(mrf, variables, {}, world, truthThreshold=truthThreshold):
                 yield assignment
         
-        def _iterTrueVariableAssignments(self, mrf, variables, assignment, world):
+        def _iterTrueVariableAssignments(self, mrf, variables, assignment, world, truthThreshold=1.0):
             # if all variables have been grounded...
             if variables == {}:
                 referencedGndAtoms = []
                 gndFormula = self.ground(mrf, assignment, referencedGndAtoms)
-                if gndFormula.isTrue(world):
+                truth = gndFormula.isTrue(world)
+                if (truth >= truthThreshold):
                     yield assignment
                 return
             # ground the first variable...
@@ -187,7 +190,7 @@ class FirstOrderLogic(Logic):
             for value in mrf.domains[domName]: # replacing it with one of the constants
                 assignment[varname] = value
                 # recursive descent to ground further variables
-                for assignment in self._iterTrueVariableAssignments(mrf, dict(variables), assignment, world):
+                for assignment in self._iterTrueVariableAssignments(mrf, dict(variables), assignment, world, truthThreshold=truthThreshold):
                     yield assignment
                     
         def _iterGroundings(self, mrf, variables, assignment, simplify=False):
@@ -285,6 +288,19 @@ class FirstOrderLogic(Logic):
                 gf_count *= len(domain)
             return gf_count
     
+        def maxTruth(self, world_values):
+            '''
+            Returns the maximum truth value of this formula given the evidence.
+            For FOL, this is always 1 if the formula is not rendered false by evidence.
+            '''
+            raise Exception('%s does not implement maxTruth()' % self.__class__.__name__)
+        
+        def minTruth(self, world_values):
+            '''
+            Returns the minimum truth value of this formula given the evidence.
+            For FOL, this is always 0 if the formula is not rendered true by evidence.
+            '''
+            raise Exception('%s does not implement maxTruth()' % self.__class__.__name__)
         
     class ComplexFormula(Logic.ComplexFormula, Formula):
         '''
@@ -488,6 +504,11 @@ class FirstOrderLogic(Logic):
         def isTrue(self, world_values):
             return None
         
+        def minTruth(self, world_values):
+            return 0
+        
+        def maxTruth(self, world_values):
+            return 1
     
     class GroundAtom(Logic.GroundAtom, Formula):
         '''
@@ -502,6 +523,16 @@ class FirstOrderLogic(Logic):
             truth = world_values[self.idx]
             if truth is None: return None
             return 1 if world_values[self.idx] == 1 else 0
+        
+        def minTruth(self, world_values):
+            truth = self.isTrue(world_values)
+            if truth is None: return 0
+            else: return truth
+        
+        def maxTruth(self, world_values):
+            truth = self.isTrue(world_values)
+            if truth is None: return 1
+            else: return truth
         
         def __repr__(self):
             return str(self)
@@ -540,6 +571,16 @@ class FirstOrderLogic(Logic):
             if tv is None: return None
             if self.negated: return (1 - tv)
             return tv
+        
+        def minTruth(self, world_values):
+            truth = self.isTrue(world_values)
+            if truth is None: return 0
+            else: return truth
+    
+        def maxTruth(self, world_values):
+            truth = self.isTrue(world_values)
+            if truth is None: return 1
+            else: return truth
     
         def __str__(self):
             return {True:"!", False:""}[self.negated] + str(self.gndAtom)
@@ -554,6 +595,17 @@ class FirstOrderLogic(Logic):
             if variables is None: variables = {}
             return variables
         
+        def getConstants(self, mln, constants=None):
+            if constants is None: constants = {}
+            for i, c in enumerate(self.gndAtom.params):
+                domName = mln.predicates[self.gndAtom.predName][i]
+                values = constants.get(domName, None)
+                if values is None: 
+                    values = []
+                    constants[domName] = values
+                if not c in values: values.append(c)
+            return constants
+         
         def getVarDomain(self, varname, mln):
             return None
     
@@ -573,7 +625,10 @@ class FirstOrderLogic(Logic):
             return self.gndAtom.toRRF()
     
         def ground(self, mrf, assignment, referencedGndAtoms = None, simplify=False, allowPartialGroundings=False):
-            return self.logic.gnd_lit(self.gndAtom, self.negated)
+#             return self.logic.gnd_lit(self.gndAtom, self.negated)
+            # always get the gnd atom from the mrf, so that
+            # formulas can be transferred between different MRFs
+            return self.logic.gnd_lit(mrf.gndAtoms[str(self.gndAtom)], self.negated)
     
         def simplify(self, mrf):
             f = self.gndAtom.simplify(mrf)
@@ -617,6 +672,22 @@ class FirstOrderLogic(Logic):
                 return None
             else:
                 return 0
+            
+        def maxTruth(self, world_values):
+            mintruth = 1
+            for c in self.children:
+                truth = c.isTrue(world_values)
+                if truth is None: continue
+                if truth < mintruth: mintruth = truth
+            return mintruth
+        
+        def minTruth(self, world_values):
+            maxtruth = 0
+            for c in self.children:
+                truth = c.isTrue(world_values)
+                if truth is None: continue
+                if truth < maxtruth: maxtruth = truth
+            return maxtruth
             
         def toCNF(self, level=0):
             disj = []
@@ -719,13 +790,29 @@ class FirstOrderLogic(Logic):
             for child in self.children:
                 childValue = child.isTrue(world_values)
                 if childValue is 0:
-                    return 0
+                    return 0.
                 if childValue is None:
                     dontKnow = True
             if dontKnow:
                 return None
             else:
-                return 1
+                return 1.
+            
+        def maxTruth(self, world_values):
+            mintruth = 1
+            for c in self.children:
+                truth = c.isTrue(world_values)
+                if truth is None: continue
+                if truth < mintruth: mintruth = truth
+            return mintruth
+        
+        def minTruth(self, world_values):
+            maxtruth = 0
+            for c in self.children:
+                truth = c.isTrue(world_values)
+                if truth is None: continue
+                if truth < maxtruth: maxtruth = truth
+            return maxtruth
             
         def toCNF(self, level=0):
             clauses = []
@@ -739,9 +826,9 @@ class FirstOrderLogic(Logic):
                 for clause in l: # (clause is either a disjunction, a literal or a constant)
                     # if the clause is always true, it can be ignored; if it's always false, then so is the conjunction
                     if isinstance(clause, Logic.TrueFalse):
-                        if clause.isTrue():
+                        if clause.isTrue() == 1:
                             continue
-                        else:
+                        elif clause.isTrue() == 0:
                             return self.logic.true_false(0)
                     # get the set of string literals
                     if hasattr(clause, "children"):
@@ -1092,6 +1179,17 @@ class FirstOrderLogic(Logic):
             equals = 1 if (self.params[0] == self.params[1]) else 0
             return (1 - equals) if self.negated else equals
         
+        def maxTruth(self, world_values):
+            truth = self.isTrue(world_values)
+            if truth is None: return 1
+            else: return truth 
+        
+        def minTruth(self, world_values):
+            truth = self.isTrue(world_values)
+            if truth is None: return 0
+            else: return truth 
+        
+        
         def simplify(self, mrf):
             truth = self.isTrue(mrf.evidence) 
             if truth != None: return self.logic.true_false(truth)
@@ -1114,6 +1212,12 @@ class FirstOrderLogic(Logic):
             return str(self)
     
         def isTrue(self, world_values = None):
+            return self.value
+        
+        def minTruth(self, world_values=None):
+            return self.value
+        
+        def maxTruth(self, world_values=None):
             return self.value
     
         def invert(self):

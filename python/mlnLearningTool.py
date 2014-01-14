@@ -126,7 +126,7 @@ class MLNLearn:
                 raise("Argument 'params' must be string or a dictionary")
             args.update(params) # add additional parameters
             if discriminative:
-                args["queryPreds"] = self.settings["nePreds"].split(",")
+                args["queryPreds"] = map(str.strip, self.settings["nePreds"].split(","))
             if self.settings["usePrior"]:
                 args["gaussianPriorSigma"] = float(self.settings["priorStdDev"])
             # learn weights
@@ -356,7 +356,7 @@ class MLNLearnGUI:
         row += 1
         frame = Frame(self.frame)        
         frame.grid(row=row, column=1, sticky="NEWS")
-        self.l_nePreds = Label(frame, text="non-evidence predicates:")
+        self.l_nePreds = Label(frame, text="Non-evidence predicates:")
         self.l_nePreds.grid(row=0, column=0, sticky="NE")        
         self.nePreds = StringVar(master)
         self.nePreds.set(self.settings.get("nePreds", ""))

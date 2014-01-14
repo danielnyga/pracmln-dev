@@ -24,10 +24,11 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from mln.util import *
-from AbstractLearner import *
 
 import re
-from mln.learning.AbstractLearner import SoftEvidenceLearner
+from mln.learning.common import SoftEvidenceLearner
+from mln.learning.common import AbstractLearner
+import numpy
 
 
 # TODO Note: when counting diffs (PLL), the assumption is made that no formula contains two atoms that are in the same block

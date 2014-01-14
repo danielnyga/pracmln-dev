@@ -99,8 +99,8 @@ class AbstractLearner(object):
         # compute prior
         prior = 0
         if self.gaussianPriorSigma is not None:
-            for weight in wt:
-                prior += gaussianZeroMean(weight, self.gaussianPriorSigma)
+            for weight in wt: # we have to use the log of the prior here
+                prior -= 1./(2.*(self.gaussianPriorSigma**2)) * weight**2 #gaussianZeroMean(weight, self.gaussianPriorSigma)
         
         # reconstruct full weight vector
         wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
@@ -116,7 +116,7 @@ class AbstractLearner(object):
         return likelihood + prior
         
     
-    def __fDummy(self, wt):
+    def _fDummy(self, wt):
         ''' a dummy target function that is used when f is disabled '''
         if not hasattr(self, 'dummyFValue'):
             self.dummyFCount = 0
@@ -141,7 +141,6 @@ class AbstractLearner(object):
 #                self.dummyFValue += 1
 #            
 #        self.secondlastFullGradient = self.lastFullGradient     
-            
         
         return self.dummyFValue
         
@@ -158,7 +157,7 @@ class AbstractLearner(object):
         # add gaussian prior
         if self.gaussianPriorSigma is not None:
             for i, weight in enumerate(wt):
-                grad[i] += gradGaussianZeroMean(weight, self.gaussianPriorSigma)
+                grad[i] -= 1./(self.gaussianPriorSigma**2) * weight#gradGaussianZeroMean(weight, self.gaussianPriorSigma)
         
         return self._projectVectorToNonFixedWeightIndices(grad)
     
@@ -175,14 +174,15 @@ class AbstractLearner(object):
         initialWts: whether to use the MLN's current weights as the starting point for the optimization
         '''
         
+        log = logging.getLogger(self.__class__.__name__)
         if not 'scipy' in sys.modules:
             raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
-        
         # initial parameter vector: all zeros or weights from formulas
         wt = numpy.zeros(len(self.mln.formulas), numpy.float64)# + numpy.random.ranf(len(self.mln.formulas)) * 100
         if self.initialWts:
             for i in range(len(self.mln.formulas)):
                 wt[i] = self.mln.formulas[i].weight
+            log.debug('Using initial weight vector: %s' % str(wt))
                 
         # precompute fixed formula weights
         self._fixFormulaWeights()
@@ -192,10 +192,14 @@ class AbstractLearner(object):
     
         self._prepareOpt()
         self._optimize(**params)
+        self._postProcess()
             
         return self.wt
     
     def _prepareOpt(self):
+        pass
+    
+    def _postProcess(self):
         pass
     
     def _optimize(self, optimizer = None, **params):

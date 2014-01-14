@@ -21,13 +21,12 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from logic import fol, grammar
 from collections import defaultdict
 # from logic.fol import isConjunctionOfLiterals
 from utils.undo import Ref, Number, List, ListDict, Boolean
 import utils
 from mln.grounding.default import DefaultGroundingFactory
-from mln.learning.AbstractLearner import AbstractLearner
+from mln.learning.common import AbstractLearner
 from debug import DEBUG
 from utils import combinations
 from mln.util import strFormula

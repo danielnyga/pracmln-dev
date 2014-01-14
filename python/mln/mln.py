@@ -39,7 +39,7 @@ import os
 import traceback
 from pyparsing import ParseException
 
-from grounding import DefaultGroundingFactory 
+from grounding import * 
 from learning import *
 from inference import *
 
@@ -48,7 +48,6 @@ from methods import InferenceMethods, ParameterLearningMeasures
 from util import mergeDomains, strFormula, stripComments
 from mrf import MRF
 import re
-from praclog.logformat import RainbowLoggingHandler
 from errors import MLNParsingError
 
 
@@ -207,26 +206,6 @@ class MLN(object):
             func = [(i in functional) for i, _ in enumerate(domains)]
             self.blocks[name] = func
             
-#     def loadPRACDatabases(self, dbPath):
-#         '''
-#         Loads and returns all databases (*.db files) that are located in 
-#         the given directory and returns the corresponding Database objects.
-#         - dbPath:     the directory path to look for .db files
-#         '''
-#         dbs = []
-# #        senses = set()
-#         for dirname, dirnames, filenames in os.walk(dbPath): #@UnusedVariable
-#             for f in filenames:
-#                 if not f.endswith('.db'):
-#                     continue
-#                 p = os.path.join(dirname, f)
-#                 print "  reading database %s" % p
-#                 db = Database(self, p)
-# #                senses.update(db.domains['sense'])
-#                 dbs.append(db)
-#         print "  %d databases read" % len(dbs)
-#         return dbs
-    
     def addFormula(self, formula, weight=0, hard=False, fixWeight=False):
         '''
         Add a formula to this MLN. The respective domains of constants
@@ -252,7 +231,7 @@ class MLN(object):
         formulaSet.append(formula)
         # extend domains
         constants = {}
-        formula.getVariables(self, None, constants)
+        formula.getConstants(self, constants)
         for domain, constants in constants.iteritems():
             for c in constants: 
                 self.addConstant(domain, c)
@@ -267,13 +246,9 @@ class MLN(object):
         
         for f in self.formulas:
             log.info(f.cstr(True) + ' ' + str(type(f)))
-        
-        # TODO: duplicate this MLN to avoid side effects
         newMLN = self.duplicate()
-        
         # obtain full domain with all objects 
         fullDomain = mergeDomains(self.domains, *[db.domains for db in dbs])
-
         # collect the admissible formula templates. templates might be not
         # admissible since the domain of a template variable might be empty.
         for ft in list(newMLN.formulas):
@@ -289,7 +264,7 @@ class MLN(object):
         predicatesUsed = set()
         for f in newMLN.formulas:
             predicatesUsed.update(f.getPredicateNames())
-        for pred, domains in self.predicates.iteritems():
+        for pred, _ in self.predicates.iteritems():
             remove = False
             if any([not dom in fullDomain for dom in self.predicates[pred]]):
                 log.debug('Discarding predicate %s, since it cannot be grounded.' % (pred))
@@ -456,8 +431,9 @@ class MLN(object):
             else:
                 dbs.append(db)
         log.debug('evidence databases:')
-        for db in dbs:
-            db.printEvidence()
+        if log.level == logging.DEBUG:
+            for db in dbs:
+                db.printEvidence()
         newMLN = self.materializeFormulaTemplates(dbs, self.verbose)
         
         log.debug('predicates:')
@@ -474,7 +450,7 @@ class MLN(object):
         if len(dbs) == 1:
             groundingMethod = eval('%s.groundingMethod' % method)
             log.info("grounding MRF using %s..." % groundingMethod) 
-            mrf = newMLN.groundMRF(dbs[0], False, groundingMethod, True, **params)
+            mrf = newMLN.groundMRF(dbs[0], False, groundingMethod, True, **params)  # @UnusedVariable
             learner = eval("%s(newMLN, mrf, **params)" % method)
         else:
             learner = MultipleDatabaseLearner(newMLN, method, dbs, **params)
@@ -757,7 +733,7 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
                         formula = line[spacepos:].strip()
                     try:
                         formula = mln.logic.parseFormula(formula)
-                        log.warning(type(formula))
+#                         log.warning(type(formula))
                         if not isHard:
                             formula.weight = weight
                         else:

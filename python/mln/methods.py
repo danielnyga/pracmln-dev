@@ -28,6 +28,7 @@ InferenceMethods = Enum(
     {"Exact": "exact inference", 
      "GibbsSampling": "Gibbs sampling", 
      "MCSAT": "MC-SAT", 
+     "FuzzyMCSAT": "Fuzzy MC-SAT",
      #"ExactLinear": "exact inference (linear space)",  # deprecated, as EnumerationAsk is preferable
      "IPFPM_exact": "IPFP-M[exact]", 
      "IPFPM_MCSAT": "IPFP-M[MC-SAT]",
@@ -42,6 +43,8 @@ ParameterLearningMeasures = Enum(
       "SLL_DN": "sampling-based log-likelihood via diagonal Newton",
       "PLL": "pseudo-log-likelihood",
       "DPLL": "[discriminative] pseudo-log-likelihood",
+      "VP": "[discriminative] Voted Perceptron",
+      "CD": "[discriminative] Contrastive Divergence",
       "BPLL": "pseudo-log-likelihood with blocking",
       "BPLL_CG": "pseudo-log-likelihood with blocking (custom grounding)",
       #"BPLLMemoryEfficient": "pseudo-log-likelihood with blocking, memory-efficient", # NOTE: this method has now been merged into BPLL

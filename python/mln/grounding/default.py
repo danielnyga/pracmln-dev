@@ -69,9 +69,6 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         log.info('Grounding formulas...')
         log.debug('Ground formulas (all should have a truth value):')
         for idxFormula, formula in enumerate(mrf.formulas):
-#             gndFormulas = self.formula2GndFormulas.get(formula, [])
-#             self.formula2GndFormulas[formula] = gndFormulas
-            
             for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, mrf.simplify):
 #                 if gndFormula.isTrue(mrf.evidence):
 #                     log.debug('    %s\t-> %s' % (strFormula(gndFormula), str(gndFormula.isTrue(mrf.evidence))))
@@ -80,5 +77,6 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
 #                 if isinstance(gndFormula, Logic.TrueFalse):
 #                     continue
 #                 gndFormulas.append(gndFormula)
+#                 log.info(referencedGndAtoms)
                 mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
         
