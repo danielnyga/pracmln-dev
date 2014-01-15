@@ -223,13 +223,23 @@ class EnumerationAsk(Inference):
         # get blocks
         self.mrf._getPllBlocks()
         self._getEvidenceBlockData()
+        # compute number of possible worlds
+        worlds = 1
+        for i, (idxGA, block) in enumerate(self.mrf.pllBlocks):
+            if idxGA is not None and self.mrf.evidence[idxGA] is None:
+                worlds *= 2
+            elif block is not None:
+                if block in self.evidenceBlocks: continue
+                elif i in self.blockExclusions: worlds *= len(block) - len(self.blockExclusions[i])
+                else: worlds *= len(block)
         # start summing
-        log.info("Summing over possible worlds...")
+        log.info("Summing over %d possible worlds..." % worlds)
         numerators = [0.0 for i in range(len(self.queries))]
         denominator = 0.
         k = 0
         for worldValues in self._enumerateWorlds():
             # compute exp. sum of weights for this world
+            sys.stdout.write('  %d/%d\r' % ((k+1), worlds))
             expsum = 0
 #             log.info(worldValues)
             if self.haveSoftEvidence:
@@ -254,7 +264,7 @@ class EnumerationAsk(Inference):
                 sys.stdout.flush()
         log.info("%d worlds enumerated" % k)
         # normalize answers
-        log.info('%s / %f' % (numerators, denominator))
+        log.debug('%s / %f' % (numerators, denominator))
         return map(lambda x: float(x) / denominator, numerators)
     
     def _enumerateWorlds(self):
