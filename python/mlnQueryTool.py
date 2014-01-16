@@ -124,10 +124,7 @@ class MLNInfer(object):
         args.update(eval("dict(%s)" % params)) # add additional parameters
         # set the debug level
         logging.getLogger().setLevel(eval('logging.%s' % args.get('debug', 'WARNING').upper()))
-#         if args.get("debug", False) and args["debugLevel"] > 1:
-#             print "\nground formulas:"
-#             mrf.printGroundFormulas()
-#             print
+
         if self.settings["numChains"] != "":
             args["numChains"] = int(self.settings["numChains"])
         if self.settings["maxSteps"] != "":
@@ -137,7 +134,10 @@ class MLNInfer(object):
             haveOutFile = True
             outFile = file(output_filename, "w")
             args["outFile"] = outFile
+        args['useMultiCPU'] = self.settings.get('useMultiCPU', False)
         args["probabilityFittingResultFileName"] = output_base_filename + "_fitted.mln"
+
+        print args
         # engine-specific handling
         if engine in ("internal", "PRACMLNs"): 
             try:
@@ -178,7 +178,6 @@ class MLNInfer(object):
                         graphml_filename = output_base_filename + ".graphml"
                         print "writing ground MRF as GraphML to %s..." % graphml_filename
                         mrf.writeGraphML(graphml_filename)
-                    
                 # invoke inference and retrieve results
                 mrf.infer(queries, **args)
                 results = {}
@@ -332,7 +331,8 @@ class MLNQueryGUI(object):
         self.settings = settings
         if not "queryByDB" in self.settings: self.settings["queryByDB"] = {}
         if not "emlnByDB" in self.settings: self.settings["emlnByDB"] = {}
-
+        if not "use_multiCPU" in self.settings: self.settings['use_multiCPU'] = False 
+        
         self.frame = Frame(master)
         self.frame.pack(fill=BOTH, expand=1)
         self.frame.columnconfigure(1, weight=1)
@@ -457,11 +457,20 @@ class MLNQueryGUI(object):
         self.entry_cw.grid(row=row, column=1, sticky="NEW")
 
         # all preds open-world
+        option_container = Frame(self.frame)
+        option_container.grid(row=row, column=1, sticky="NESW")
         row += 1
         self.open_world = IntVar()
-        self.cb_open_world = Checkbutton(self.frame, text="Apply open-world assumption to all predicates", variable=self.open_world)
+        self.cb_open_world = Checkbutton(option_container, text="Apply open-world assumption to all predicates", variable=self.open_world)
         self.cb_open_world.grid(row=row, column=1, sticky=W)
         self.open_world.set(self.settings.get("openWorld", True))
+        
+        # Multiprocessing 
+        self.use_multiCPU = IntVar()
+        self.cb_use_multiCPU = Checkbutton(option_container, text="Use all CPUs", variable=self.use_multiCPU)
+        self.cb_use_multiCPU.grid(row=row, column=2, sticky=W)
+        self.use_multiCPU.set(self.settings.get("useMultiCPU", False))
+
 
         # output filename
         row += 1
@@ -527,6 +536,9 @@ class MLNQueryGUI(object):
         emln = self.settings["emlnByDB"].get(name)
         if not emln is None:
             self.selected_emln.set(emln)
+            
+    def onChangeUseMultiCPU(self, *args):
+        pass
 
     def onChangeUseEMLN(self, *args):
         if self.use_emln.get() == 0:
@@ -614,6 +626,8 @@ class MLNQueryGUI(object):
         self.settings["numChains"] = self.numChains.get()
         self.settings['logic'] = self.selected_logic.get()
         self.settings['grammar'] = self.selected_grammar.get()
+        self.settings['useMultiCPU'] = self.use_multiCPU.get()
+        
         
         if "params" in self.settings: del self.settings["params"]
         if saveGeometry:
@@ -628,6 +642,7 @@ class MLNQueryGUI(object):
             f.close()
         # write settings
         pickle.dump(self.settings, file(configname, "w+"))
+        
         # some information
         print "\n--- query ---\n%s" % self.settings["query"]        
         print "\n--- evidence (%s) ---\n%s" % (db, db_text.strip())
