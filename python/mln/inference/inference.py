@@ -168,10 +168,7 @@ class Inference(object):
             self.mrf.evidence = self.mrfEvidenceBackup
             
         # return results
-        if len(self.queries) > 1:
-            return self.results
-        else:
-            return self.results[0]
+        return self.getResultsDict()
     
     def getResultsDict(self):
         '''
