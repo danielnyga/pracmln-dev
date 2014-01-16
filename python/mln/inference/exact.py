@@ -27,6 +27,8 @@ from inference import *
 import sys
 from logic.fol import FirstOrderLogic
 import logging
+from multiprocessing import Pool
+from utils.multicore import with_tracing
 
 POSSWORLDS_BLOCKING = True
 
@@ -183,6 +185,32 @@ class ExactInferenceLinear(Inference):
                     yield w
                 values.pop()
 
+# this readonly global is for multiprocessing to exploit copy-on-write
+# on linux systems
+global_enumAsk = None
+
+def evaluateQueries(world_values):
+    '''
+    Evaluates the queries given a possible world.
+    '''
+    numerators = [0] * len(global_enumAsk.queries)
+    denominator = 0
+    expsum = 0
+    if global_enumAsk.haveSoftEvidence:
+        for gf in global_enumAsk.mrf.gndFormulas:                
+            expsum += global_enumAsk.mrf.mln.getTruthDegreeGivenSoftEvidence(gf, world_values) * global_enumAsk.mrf.formulas[gf.idxFormula].weight
+    else:
+        for gf in global_enumAsk.mrf.gndFormulas:
+            expsum += global_enumAsk.mrf.formulas[gf.idxFormula].weight * gf.isTrue(world_values)
+    expsum = exp(expsum)
+    # update numerators
+    for i, query in enumerate(global_enumAsk.queries):
+        if query.isTrue(world_values):
+            numerators[i] += expsum
+    denominator += expsum
+    return numerators, denominator
+
+
 class EnumerationAsk(Inference):
     '''
     Inference based on enumeration of (only) the worlds compatible with the evidence;
@@ -210,6 +238,7 @@ class EnumerationAsk(Inference):
                     if truth is None:
                         raise Exception('Not all fuzzy ground atoms have truth values: %s' % pred)
     
+
     def _infer(self, verbose=True, details=False, shortOutput=False, debug=False, debugLevel=1, **args):
         '''
         verbose: whether to print results (or anything at all, in fact)
@@ -237,31 +266,41 @@ class EnumerationAsk(Inference):
         numerators = [0.0 for i in range(len(self.queries))]
         denominator = 0.
         k = 0
-        for worldValues in self._enumerateWorlds():
-            # compute exp. sum of weights for this world
-            sys.stdout.write('  %d/%d\r' % ((k+1), worlds))
-            expsum = 0
-#             log.info(worldValues)
-            if self.haveSoftEvidence:
-                for gf in self.mrf.gndFormulas:                
-                    expsum += self.mln.getTruthDegreeGivenSoftEvidence(gf, worldValues) * self.mrf.formulas[gf.idxFormula].weight
-            else:
-                for gf in self.mrf.gndFormulas:
-#                     log.info('%s: %f' % (str(gf), gf.isTrue(worldValues)))
-                    expsum +=  self.mrf.formulas[gf.idxFormula].weight * gf.isTrue(worldValues)
-            expsum = exp(expsum)
-            # update numerators
-            for i, query in enumerate(self.queries):
-                if query.isTrue(worldValues):
-                    numerators[i] += expsum
-#                 log.info('query %s: %f' % (str(query), query.isTrue(worldValues)))
-#                 numerators[i] += query.isTrue(worldValues)
-            denominator += expsum
-            k += 1
-            #print "%d %s\r" % (k, map(str, self.summedGndAtoms)),
-            if verbose and k % 500 == 0:
-                print "%d of %f worlds enumerated\r" % (k, self.totalWorlds),
-                sys.stdout.flush()
+        multicore = args.get('useMultiCPU', False) 
+        if multicore: 
+            global global_enumAsk
+            global_enumAsk = self
+            pool = Pool()
+            log.info('Using multiprocessing on %d core(s)...' % pool._processes)
+            try:
+                for r in pool.map(with_tracing(evaluateQueries), global_enumAsk._enumerateWorlds()):
+                    denominator += r[1]
+                    for i, v in enumerate(r[0]):
+                        numerators[i] += v
+            except:
+                pool.terminate()
+                pool.join()
+        else: # do it single core
+            for worldValues in self._enumerateWorlds():
+                # compute exp. sum of weights for this world
+                sys.stdout.write('  %d/%d\r' % ((k+1), worlds))
+                expsum = 0
+                if self.haveSoftEvidence:
+                    for gf in self.mrf.gndFormulas:                
+                        expsum += self.mln.getTruthDegreeGivenSoftEvidence(gf, worldValues) * self.mrf.formulas[gf.idxFormula].weight
+                else:
+                    for gf in self.mrf.gndFormulas:
+                        expsum +=  self.mrf.formulas[gf.idxFormula].weight * gf.isTrue(worldValues)
+                expsum = exp(expsum)
+                # update numerators
+                for i, query in enumerate(self.queries):
+                    if query.isTrue(worldValues):
+                        numerators[i] += expsum
+                denominator += expsum
+                k += 1
+                if verbose and k % 500 == 0:
+                    print "%d of %f worlds enumerated\r" % (k, self.totalWorlds),
+                    sys.stdout.flush()
         log.info("%d worlds enumerated" % k)
         # normalize answers
         log.debug('%s / %f' % (numerators, denominator))
@@ -269,7 +308,7 @@ class EnumerationAsk(Inference):
     
     def _enumerateWorlds(self):
         self.summedGndAtoms = set()
-        for w in self.__enumerateWorlds(0, self.mrf.evidence):
+        for w in self.__enumerateWorlds(0, list(self.mrf.evidence)):
             yield w
         
     def __enumerateWorlds(self, i, worldValues):
@@ -288,12 +327,12 @@ class EnumerationAsk(Inference):
                     se = self.mrf._getSoftEvidence(self.mrf.gndAtomsByIdx[idxGA])
                     if se is not None:
                         numSoft += 1
-                        worldValues[idxGA] = True
+                        worldValues[idxGA] = 1.
                 if numSoft != len(block) and numSoft != 0:
                     raise Exception("Partial soft evidence for mutex block not allowed")
                 haveTrueEvidence = numSoft == len(block)
             if haveTrueEvidence:
-                for w in self.__enumerateWorlds(i+1, worldValues):
+                for w in self.__enumerateWorlds(i+1, list(worldValues)):
                     yield w
             else:
                 if not self.doneCountingTotalWorlds: self.totalWorlds *= len(block)
@@ -303,7 +342,7 @@ class EnumerationAsk(Inference):
                         continue
                     for idxGA2 in block:
                         worldValues[idxGA2] = 1 if idxGA == idxGA2 else 0
-                    for w in self.__enumerateWorlds(i+1, worldValues):
+                    for w in self.__enumerateWorlds(i+1, list(worldValues)):
                         yield w
         else: # it's a regular ground atom
             gndAtom = self.mrf.gndAtomsByIdx[idxGA]
@@ -313,12 +352,12 @@ class EnumerationAsk(Inference):
                 e = self.mrf._getEvidence(idxGA, False)
             if e is not None:
                 worldValues[idxGA] = e
-                for w in self.__enumerateWorlds(i+1, worldValues):
+                for w in self.__enumerateWorlds(i+1, list(worldValues)):
                     yield w
             else:
                 if not self.doneCountingTotalWorlds: self.totalWorlds *= 2
                 self.summedGndAtoms.add(gndAtom)
                 for v in (1, 0):
                     worldValues[gndAtom.idx] = v                
-                    for w in self.__enumerateWorlds(i+1, worldValues):
+                    for w in self.__enumerateWorlds(i+1, list(worldValues)):
                         yield w
