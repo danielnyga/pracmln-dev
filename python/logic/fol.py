@@ -194,12 +194,12 @@ class FirstOrderLogic(Logic):
                 return
             # ground the first variable...
             varname, domName = variables.popitem()
-            assignment = dict(assignment)
+            assignment = dict(assignment) # copy for avoiding side effects
             for value in mrf.domains[domName]: # replacing it with one of the constants
                 assignment[varname] = value
                 # recursive descent to ground further variables
-                for assignment in self._iterTrueVariableAssignments(mrf, dict(variables), assignment, world, truthThreshold=truthThreshold, strict=strict, includeUnknown=includeUnknown):
-                    yield assignment
+                for ass in self._iterTrueVariableAssignments(mrf, dict(variables), assignment, world, truthThreshold=truthThreshold, strict=strict, includeUnknown=includeUnknown):
+                    yield ass
                     
         def _iterGroundings(self, mrf, variables, assignment, simplify=False):
             # if all variables have been grounded...
