@@ -163,8 +163,10 @@ class MLNInfer(object):
                     mln.setClosedWorldPred(pred)
                 
                 # create ground MRF
-                mrf = mln.groundMRF(db, verbose=args.get('verbose', False))
-                
+                start = time.time()
+                mrf = mln.groundMRF(db, verbose=args.get('verbose', False), method='FastConjunctionGrounding')
+                groundingTime = time.time() - start
+                print 'Grounding took %.2f sec.' % groundingTime
 
                 # check for print/write requests
                 if "printGroundAtoms" in args:
