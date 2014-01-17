@@ -161,36 +161,44 @@ class FirstOrderLogic(Logic):
             for grounding, referencedGndAtoms in self._iterGroundings(mrf, variables, {}, simplify):
                 yield grounding, referencedGndAtoms
             
-        def iterTrueVariableAssignments(self, mrf, world, truthThreshold=1.0):
+        def iterTrueVariableAssignments(self, mrf, world, truthThreshold=1.0, strict=False, includeUnknown=False, partialAssignment=None):
             '''
             Iteratively yields the variable assignments (as a dict) for which this
-            formula is true. Same as iterGroundings, but returns variable mappings
-            for only assignments rendering this formula true.
-            If strictlyTrue == True, only evaluations with truth == 1 are returned,
-            if False, all evaluations with truth > 0 are returned.
+            formula exceeds the given truth threshold. Same as iterGroundings, 
+            but returns variable mappings for only assignments rendering this formula true.
+            If includeUnknown is True, groundings with the truth value 'None' are returned
+            as well.
+            If strict is True, the truth value must be strictly greater than the threshold,
+            if False, its greater or equal.
             '''
+            if partialAssignment is None:
+                partialAssignment = {}
             try:
                 variables = self.getVariables(mrf.mln)
+                for var in partialAssignment:
+                    if var in variables: del variables[var]
             except Exception, e:
                 raise Exception("Error grounding '%s': %s" % (str(self), str(e)))
-            for assignment in self._iterTrueVariableAssignments(mrf, variables, {}, world, truthThreshold=truthThreshold):
+            for assignment in self._iterTrueVariableAssignments(mrf, variables, partialAssignment, world, 
+                                                                truthThreshold=truthThreshold, strict=strict, includeUnknown=includeUnknown):
                 yield assignment
         
-        def _iterTrueVariableAssignments(self, mrf, variables, assignment, world, truthThreshold=1.0):
+        def _iterTrueVariableAssignments(self, mrf, variables, assignment, world, truthThreshold=1.0, strict=False, includeUnknown=False):
             # if all variables have been grounded...
             if variables == {}:
                 referencedGndAtoms = []
                 gndFormula = self.ground(mrf, assignment, referencedGndAtoms)
                 truth = gndFormula.isTrue(world)
-                if (truth >= truthThreshold):
+                if (((truth >= truthThreshold) if not strict else (truth > truthThreshold)) and truth is not None) or (truth is None and includeUnknown):
                     yield assignment
                 return
             # ground the first variable...
             varname, domName = variables.popitem()
+            assignment = dict(assignment)
             for value in mrf.domains[domName]: # replacing it with one of the constants
                 assignment[varname] = value
                 # recursive descent to ground further variables
-                for assignment in self._iterTrueVariableAssignments(mrf, dict(variables), assignment, world, truthThreshold=truthThreshold):
+                for assignment in self._iterTrueVariableAssignments(mrf, dict(variables), assignment, world, truthThreshold=truthThreshold, strict=strict, includeUnknown=includeUnknown):
                     yield assignment
                     
         def _iterGroundings(self, mrf, variables, assignment, simplify=False):
@@ -457,8 +465,8 @@ class FirstOrderLogic(Logic):
         def ground(self, mrf, assignment, referencedGndAtoms = None, simplify=False, allowPartialGroundings=False):
             params = map(lambda x: assignment.get(x, x), self.params)
             s = "%s(%s)" % (self.predName, ",".join(params))
-            try:
-                gndAtom = mrf.gndAtoms[s]
+            gndAtom = mrf.gndAtoms.get(s, None)
+            if gndAtom is not None:
                 if simplify and mrf.evidence[gndAtom.idx] is not None:
                     truth = mrf.evidence[gndAtom.idx]
                     if self.negated: truth = not truth
@@ -466,9 +474,11 @@ class FirstOrderLogic(Logic):
                 gndFormula = self.logic.gnd_lit(gndAtom, self.negated)
                 if referencedGndAtoms != None: referencedGndAtoms.append(gndAtom.idx)
                 return gndFormula
-            except:
+            else:
                 if allowPartialGroundings:
                     return self.logic.lit(self.negated, self.predName, params)
+                if any(map(lambda s: self.logic.isVar(s), params)):
+                    raise Exception('Partial formula groundings are not allowed. Consider setting allowPartialGroundings=True if desired.')
                 else:
                     print "\nground atoms:"
                     mrf.printGroundAtoms()
@@ -1153,16 +1163,18 @@ class FirstOrderLogic(Logic):
             return variables
         
         def getVariables(self, mln, variables = None, constants = None):        
-            if constants is not None:
-                # determine type of constant appearing in expression such as "x=Foo"
-                for i, p in enumerate(self.params):
-                    other = self.params[(i + 1) % 2]
-                    if self.logic.isConstant(p) and self.logic.isVar(other):
-                        domain = variables.get(other)
-                        if domain is None:
-                            raise Exception("Type of constant '%s' could not be determined" % p)
-                        if domain not in constants: constants[domain] = []
-                        constants[domain].append(p)
+            if variables is None:
+                variables = {}
+#             if constants is not None:
+#                 # determine type of constant appearing in expression such as "x=Foo"
+#                 for i, p in enumerate(self.params):
+#                     other = self.params[(i + 1) % 2]
+#                     if self.logic.isConstant(p) and self.logic.isVar(other):
+#                         domain = variables.get(other)
+#                         if domain is None:
+#                             raise Exception("Type of constant '%s' could not be determined" % p)
+#                         if domain not in constants: constants[domain] = []
+#                         constants[domain].append(p)
             return variables
         
         def getVarDomain(self, varname, mln):
