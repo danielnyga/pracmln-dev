@@ -458,7 +458,7 @@ class MLNQueryGUI(object):
 
         # all preds open-world
         option_container = Frame(self.frame)
-        option_container.grid(row=row, column=1, sticky="NESW")
+        option_container.grid(row=row, column=1, sticky="NES")
         row += 1
         self.open_world = IntVar()
         self.cb_open_world = Checkbutton(option_container, text="Apply open-world assumption to all predicates", variable=self.open_world)
@@ -470,7 +470,6 @@ class MLNQueryGUI(object):
         self.cb_use_multiCPU = Checkbutton(option_container, text="Use all CPUs", variable=self.use_multiCPU)
         self.cb_use_multiCPU.grid(row=row, column=2, sticky=W)
         self.use_multiCPU.set(self.settings.get("useMultiCPU", False))
-
 
         # output filename
         row += 1
