@@ -180,17 +180,20 @@ class FirstOrderLogic(Logic):
             except Exception, e:
                 raise Exception("Error grounding '%s': %s" % (str(self), str(e)))
             for assignment in self._iterTrueVariableAssignments(mrf, variables, partialAssignment, world, 
-                                                                truthThreshold=truthThreshold, strict=strict, includeUnknown=includeUnknown):
+                                                                dict(variables), truthThreshold=truthThreshold, strict=strict, includeUnknown=includeUnknown):
                 yield assignment
         
-        def _iterTrueVariableAssignments(self, mrf, variables, assignment, world, truthThreshold=1.0, strict=False, includeUnknown=False):
+        def _iterTrueVariableAssignments(self, mrf, variables, assignment, world, allVariables, truthThreshold=1.0, strict=False, includeUnknown=False):
             # if all variables have been grounded...
             if variables == {}:
                 referencedGndAtoms = []
                 gndFormula = self.ground(mrf, assignment, referencedGndAtoms)
                 truth = gndFormula.isTrue(world)
                 if (((truth >= truthThreshold) if not strict else (truth > truthThreshold)) and truth is not None) or (truth is None and includeUnknown):
-                    yield assignment
+                    trueAssignment = {}
+                    for v in allVariables:
+                        trueAssignment[v] = assignment[v]
+                    yield trueAssignment
                 return
             # ground the first variable...
             varname, domName = variables.popitem()
@@ -198,7 +201,8 @@ class FirstOrderLogic(Logic):
             for value in mrf.domains[domName]: # replacing it with one of the constants
                 assignment[varname] = value
                 # recursive descent to ground further variables
-                for ass in self._iterTrueVariableAssignments(mrf, dict(variables), assignment, world, truthThreshold=truthThreshold, strict=strict, includeUnknown=includeUnknown):
+                for ass in self._iterTrueVariableAssignments(mrf, dict(variables), assignment, world, allVariables, 
+                                                             truthThreshold=truthThreshold, strict=strict, includeUnknown=includeUnknown):
                     yield ass
                     
         def _iterGroundings(self, mrf, variables, assignment, simplify=False):
@@ -506,7 +510,7 @@ class FirstOrderLogic(Logic):
             s = "%s(%s)" % (self.predName, ",".join(self.params))
             truth = mrf.gndAtoms[s].isTrue(mrf.evidence) 
             if truth != None:
-                return self
+                return mrf.mln.logic.gnd_lit(mrf.gndAtoms[s], self.negated)
             else:
                 if self.negated: truth = 1 - truth
                 return self.logic.true_false(truth)
