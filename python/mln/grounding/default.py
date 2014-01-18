@@ -25,6 +25,7 @@ from common import AbstractGroundingFactory
 import logging
 from mln.util import strFormula
 from logic.common import Logic
+import time
 
 class DefaultGroundingFactory(AbstractGroundingFactory):
     '''
@@ -68,6 +69,7 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         # generate all groundings
         log.info('Grounding formulas...')
         log.debug('Ground formulas (all should have a truth value):')
+        self.gndTime = time.time()
         for idxFormula, formula in enumerate(mrf.formulas):
             for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, mrf.simplify):
 #                 if gndFormula.isTrue(mrf.evidence):
@@ -79,4 +81,4 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
 #                 gndFormulas.append(gndFormula)
 #                 log.info(referencedGndAtoms)
                 mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
-        
+        self.gndTime = time.time() - self.gndTime

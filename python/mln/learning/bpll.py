@@ -29,6 +29,7 @@ from mln.util import *
 import numpy
 import logging
 import praclog
+import time
 
 class BPLL(AbstractLearner):
     '''
@@ -44,13 +45,15 @@ class BPLL(AbstractLearner):
         AbstractLearner.__init__(self, mln, mrf, **params)
         
     def _prepareOpt(self):
-        logging.getLogger(self.__class__.__name__).info("constructing blocks...") 
+        log = logging.getLogger(self.__class__.__name__)
+        log.info("constructing blocks...") 
         self.mrf._getPllBlocks()
         self.mrf._getAtom2BlockIdx()        
         self._computeStatistics()
         # remove data that is now obsolete
         self.mrf.removeGroundFormulaData()
         self.mrf.atom2BlockIdx = None
+        log.info('Total time: %.2f' % (self.mrf.groundingMethod.gndTime + self.statTime))
     
     def _addMBCount(self, idxVar, size, idxValue, idxWeight, increment=1):
         '''
@@ -125,7 +128,7 @@ class BPLL(AbstractLearner):
         debug = False
         log = logging.getLogger(self.__class__.__name__)
         log.info("computing statistics...")
-        
+        self.statTime = time.time()
         # get evidence indices
         self.evidenceIndices = []
         for (idxGA, block) in self.mrf.pllBlocks:
@@ -188,7 +191,7 @@ class BPLL(AbstractLearner):
                         if truth:
                             self._addMBCount(idxVar, size, idxValue, gndFormula.idxFormula, increment=truth)
                         self.mrf._removeTemporaryEvidence()
-
+        self.statTime = time.time() - self.statTime
 
 class BPLL_CG(BPLL):
     '''
@@ -202,10 +205,13 @@ class BPLL_CG(BPLL):
         BPLL.__init__(self, mln, mrf, **params)
     
     def _prepareOpt(self):
-        logging.getLogger(self.__class__.__name__).info("constructing blocks...")
+        log = logging.getLogger(self.__class__.__name__)
+        log.info("constructing blocks...")
         self.mrf._getPllBlocks()
         self.mrf._getAtom2BlockIdx()
+        start = time.time()
         self.mrf.groundingMethod._computeStatistics()
+        log.info('Total time: %.2f' % (time.time() - start))
         self.fcounts = self.mrf.groundingMethod.fcounts
         self.blockRelevantFormulas = self.mrf.groundingMethod.blockRelevantFormulas
         self.evidenceIndices = self.mrf.groundingMethod.evidenceIndices
