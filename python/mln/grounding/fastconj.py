@@ -100,14 +100,18 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
     def _iterConjunctionGroundings(self, formula, litIdx, numChildren, mrf, assignment):
         log = logging.getLogger(self.__class__.__name__)
         if litIdx == numChildren:
-            if formula.isTrue(mrf.evidence) is not None: # the gnd formula is rendered true by the evidence. skip this one
-                return
-            yield formula.ground(mrf, assignment, simplify=True)#.simplify(mrf)
+#             if formula.isTrue(mrf.evidence) is not None: # the gnd formula is rendered true by the evidence. skip this one
+#                 return
+            gndFormula = formula.ground(mrf, assignment, simplify=True)#.simplify(mrf)
+            if isinstance(gndFormula, Logic.TrueFalse): return
+            else: yield gndFormula
             return
         lit = formula.children[litIdx]
         for varAssignment in lit.iterTrueVariableAssignments(mrf, mrf.evidence, truthThreshold=.0, strict=True, includeUnknown=True, partialAssignment=assignment):
             if varAssignment == {}:
-                if lit.ground(mrf, varAssignment).isTrue(mrf.evidence) == 0: return
+                if len(set(lit.getVariables(mrf.mln).keys()).difference(assignment.keys())) > 0 or \
+                    lit.ground(mrf, assignment).isTrue(mrf.evidence) == 0: 
+                    return
             assignment = dict(assignment)
             assignment.update(varAssignment)
             for gndFormula in self._iterConjunctionGroundings(formula, litIdx+1, numChildren, mrf, assignment):
