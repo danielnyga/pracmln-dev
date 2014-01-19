@@ -56,6 +56,8 @@ class ColorizingStreamHandler(logging.StreamHandler):
     @property
     def is_tty(self):
         "Returns true if the handler's stream is a terminal."
+        if self.stream.name in ('<stdout>', '<stderr>'):
+            return True
         isatty = getattr(self.stream, 'isatty', None)
         return isatty and isatty()
 
