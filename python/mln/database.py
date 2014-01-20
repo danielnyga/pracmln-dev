@@ -206,6 +206,9 @@ class Database(object):
         class GroundAtomGen(object):
             def __getitem__(self, gndAtomName):
                 return Database.PseudoMRF.TextGroundAtom(gndAtomName)
+            
+            def get(self, key, default=None):
+                return self[key]
         
         class TextGroundAtom(object):
             def __init__(self, name):
