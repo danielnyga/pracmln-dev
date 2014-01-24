@@ -124,6 +124,7 @@ class MLNLearn:
                 params = eval("dict(%s)" % params)
             elif type(params) != dict:
                 raise("Argument 'params' must be string or a dictionary")
+            args['useMultiCPU'] = self.settings.get('useMultiCPU', False)
             args.update(params) # add additional parameters
             if discriminative:
                 args["queryPreds"] = map(str.strip, self.settings["nePreds"].split(","))
@@ -384,11 +385,18 @@ class MLNLearnGUI:
         self.entry_pattern = Entry(frame, textvariable = var)
         self.entry_pattern.grid(row=0, column=col, sticky="NEW")
 
+        # add. parameters
         row += 1
-        Label(self.frame, text="Add. Params: ").grid(row=row, column=0, sticky="E")
+        Label(self.frame, text="Params: ").grid(row=row, column=0, sticky="E")
         self.params = StringVar(master)
         self.params.set(self.settings.get("params", ""))
-        Entry(self.frame, textvariable = self.params).grid(row=row, column=1, sticky="WE")
+        Entry(self.frame, textvariable = self.params).grid(row=row, column=1, sticky="NEW")
+        
+        # Multiprocessing 
+        self.use_multiCPU = IntVar()
+        self.cb_use_multiCPU = Checkbutton(self.frame, text="Use all CPUs", variable=self.use_multiCPU)
+        self.cb_use_multiCPU.grid(row=row, column=1, sticky=E)
+        self.use_multiCPU.set(self.settings.get("useMultiCPU", False))
 
         row += 1
         Label(self.frame, text="Output filename: ").grid(row=row, column=0, sticky="E")
@@ -502,6 +510,7 @@ class MLNLearnGUI:
             self.settings["addUnitClauses"] = int(self.add_unit_clauses.get())
             self.settings['logic'] = self.selected_logic.get()
             self.settings['grammar'] = self.selected_grammar.get()
+            self.settings['useMultiCPU'] = self.use_multiCPU.get()
             if saveGeometry:
                 self.settings["geometry"] = self.master.winfo_geometry()
             pickle.dump(self.settings, file("learnweights.config.dat", "w+"))
