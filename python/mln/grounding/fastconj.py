@@ -153,7 +153,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         log = logging.getLogger(self.__class__.__name__)
         # generate all groundings
         log.info('Grounding formulas...')
-        log.debug('Ground formulas (all should have a truth value):')
+#         log.debug('Ground formulas (all should have a truth value):')
         multiCPU = self.params.get('useMultiCPU', False)
         if multiCPU:
             for i, f in enumerate(mrf.formulas):
@@ -163,7 +163,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             log.info('Multiprocessing enabled using %d cores.' % pool._processes)
             try:
                 gndFormulas = pool.map(with_tracing(create_formula_groundings), mrf.formulas)
-                for gndFormula in itertools.chain(itertools.chain(*gndFormulas)):
+                for gndFormula in itertools.chain(*gndFormulas):
                     mrf._addGroundFormula(gndFormula, gndFormula.fIdx, None)
             except:
                 pool.terminate()
