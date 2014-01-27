@@ -236,7 +236,7 @@ class EnumerationAsk(Inference):
                 for atomIdx in self.mrf._getPredGroundingsAsIndices(pred):
                     truth = self.mrf.evidence[atomIdx]
                     if truth is None:
-                        raise Exception('Not all fuzzy ground atoms have truth values: %s' % pred)
+                        raise Exception('Not all fuzzy ground atoms have truth values: %s' % str(self.mrf.gndAtomsByIdx[atomIdx]))
     
 
     def _infer(self, verbose=True, details=False, shortOutput=False, debug=False, debugLevel=1, **args):
