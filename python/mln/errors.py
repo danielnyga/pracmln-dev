@@ -6,3 +6,4 @@ Created on Dec 9, 2013
 
 class MLNParsingError(Exception): pass
 class NoSuchPredicateError(Exception): pass
+class NoSuchDomainError(Exception): pass
