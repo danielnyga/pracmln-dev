@@ -5,4 +5,7 @@
 <pydev_pathproperty name="org.python.pydev.PROJECT_SOURCE_PATH">
 <path>/pracmln/python</path>
 </pydev_pathproperty>
+<pydev_pathproperty name="org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH">
+<path>${PROBCOG_HOME}/3rdparty/logutils-0.3.3</path>
+</pydev_pathproperty>
 </pydev_project>
