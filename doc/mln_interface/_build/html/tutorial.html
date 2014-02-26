@@ -1,0 +1,231 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Welcome to mln_interface’s documentation! &mdash; mln_interface 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="mln_interface 1.0 documentation" href="index.html" />
+    <link rel="up" title="Welcome to mln_interface’s documentation!" href="intro.html" />
+    <link rel="prev" title="Welcome to mln_interface’s documentation!" href="intro.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="intro.html" title="Welcome to mln_interface’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">mln_interface 1.0 documentation</a> &raquo;</li>
+          <li><a href="intro.html" accesskey="U">Welcome to mln_interface&#8217;s documentation!</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="welcome-to-mln-interface-s-documentation">
+<h1>Welcome to mln_interface&#8217;s documentation!<a class="headerlink" href="#welcome-to-mln-interface-s-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This is a tutorial for the ROS service that can be used
+to query an MLN. We will describe the implemantation
+of the server together with the ROS messages that are
+associated with this project. We will also present an
+example client program that can be used as a template.</p>
+</div>
+<div class="section" id="server-methods">
+<h2>Server methods<a class="headerlink" href="#server-methods" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="scripts.mln_server.handle_mln_query">
+<tt class="descclassname">scripts.mln_server.</tt><tt class="descname">handle_mln_query</tt><big>(</big><em>req</em><big>)</big><a class="headerlink" href="#scripts.mln_server.handle_mln_query" title="Permalink to this definition">¶</a></dt>
+<dd><blockquote>
+<div><p>Handles the query from the client. It expects
+<em>req</em> to have two fields, <em>req.query</em> and an optional
+<em>req.config</em>. <em>req.query</em> should be of type <em>MLNQuery</em> while
+<em>req.config</em> should be of type <em>MLNConfig</em>.</p>
+<p>It returns a list of <em>AtomProbPair</em> objects. Each element of the
+list is an atom with it&#8217;s corresponding degree of truth.</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="function">
+<dt id="scripts.mln_server.mln_interface_server">
+<tt class="descclassname">scripts.mln_server.</tt><tt class="descname">mln_interface_server</tt><big>(</big><big>)</big><a class="headerlink" href="#scripts.mln_server.mln_interface_server" title="Permalink to this definition">¶</a></dt>
+<dd><p>Keeps an infinite loop while waiting
+for clients to ask for the service.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="scripts.mln_server.Storage.getInstance">
+<tt class="descclassname">scripts.mln_server.Storage.</tt><tt class="descname">getInstance</tt><big>(</big><big>)</big><a class="headerlink" href="#scripts.mln_server.Storage.getInstance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Storage is a singleton class that keeps
+track of an MLNInfer object together with
+the settings for the inference proceedure.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="example-client">
+<h2>Example client<a class="headerlink" href="#example-client" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="scripts.mln_mln.mln_interface_client">
+<tt class="descclassname">scripts.mln_mln.</tt><tt class="descname">mln_interface_client</tt><big>(</big><em>query</em>, <em>config=None</em><big>)</big><a class="headerlink" href="#scripts.mln_mln.mln_interface_client" title="Permalink to this definition">¶</a></dt>
+<dd><blockquote>
+<div>This is an example of the client quering the service.
+The important thing to note is that you have the option
+to set the configuration parameters only once and use the
+the same settings in further calls.</div></blockquote>
+</dd></dl>
+
+</div>
+<div class="section" id="messages">
+<h2>Messages<a class="headerlink" href="#messages" title="Permalink to this headline">¶</a></h2>
+<dl class="docutils">
+<dt><strong>MLNQuery.msg</strong></dt>
+<dd><p class="first">This ROS message contains the following fields:</p>
+<dl class="last docutils">
+<dt><strong>queries</strong> - This message is an ecoding of the queries that will</dt>
+<dd>sent to the service.</dd>
+</dl>
+</dd>
+<dt><strong>MLNResponse.msg</strong></dt>
+<dd><p class="first">This ROS message contains the follwing fields:</p>
+<dl class="last docutils">
+<dt><strong>results</strong> - This is what is returned by the service. results</dt>
+<dd>is a list of <em>AtomProbPair</em> objects. Each atom is associated
+with a probability value.</dd>
+</dl>
+</dd>
+<dt><strong>MLNConfig.msg</strong></dt>
+<dd><p class="first">This is a message that is used to initialize the
+configuration parameters for quering the service.
+You have an option to pass this argument only once
+and reuse the same configurations over and over.
+It contains the following fields:</p>
+<p><strong>mlnFiles</strong> - a <a href="#id1"><span class="problematic" id="id2">*</span></a>.mln file that describes the MLN</p>
+<p><strong>db</strong> - the evidence database</p>
+<p><strong>method</strong> - the inference method to be used</p>
+<p><strong>engine</strong> - the inference engine to be used</p>
+<p><strong>output_filename</strong> - the name of the output filename</p>
+<p><strong>saveResults</strong> - this field should be set to true if you wish to save the results</p>
+<p><strong>logic</strong> - specifies the logic to be used for inference</p>
+<p class="last"><strong>grammar</strong> - specifies the grammar to be used</p>
+</dd>
+<dt><strong>AtomProbPair.msg</strong></dt>
+<dd><p class="first">This message is a pair of an Atom and a Probabality.
+It contains the following fields:</p>
+<p><strong>atom</strong> - string describing the atom</p>
+<p class="last"><strong>prob</strong> - a probability value for the atom&#8217;s degree of truth</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="services">
+<h2>Services<a class="headerlink" href="#services" title="Permalink to this headline">¶</a></h2>
+<dl class="docutils">
+<dt><strong>MLNInterface.srv</strong></dt>
+<dd><p class="first">This is the main service. It contains two fields:</p>
+<p><strong>MLNQuery</strong> - This is the query string</p>
+<dl class="last docutils">
+<dt><strong>MLNConfig</strong> - This specifies which engine, inference method</dt>
+<dd>etc is going to be used for inference. This should be
+set at least once.</dd>
+</dl>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
+<li><a class="reference internal" href="py-modindex.html"><em>Module Index</em></a></li>
+<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Welcome to mln_interface&#8217;s documentation!</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#server-methods">Server methods</a></li>
+<li><a class="reference internal" href="#example-client">Example client</a></li>
+<li><a class="reference internal" href="#messages">Messages</a></li>
+<li><a class="reference internal" href="#services">Services</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="intro.html"
+                        title="previous chapter">Welcome to mln_interface&#8217;s documentation!</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/tutorial.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="intro.html" title="Welcome to mln_interface’s documentation!"
+             >previous</a> |</li>
+        <li><a href="index.html">mln_interface 1.0 documentation</a> &raquo;</li>
+          <li><a href="intro.html" >Welcome to mln_interface&#8217;s documentation!</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Valentine Chiwome.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b3.
+    </div>
+  </body>
+</html>
