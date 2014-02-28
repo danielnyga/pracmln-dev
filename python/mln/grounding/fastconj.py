@@ -25,7 +25,35 @@ from mln.grounding.default import DefaultGroundingFactory
 import logging
 from logic.common import Logic
 import types
+from multiprocessing.pool import Pool
+from utils.multicore import with_tracing
+import itertools
 
+    
+# this readonly global is for multiprocessing to exploit copy-on-write
+# on linux systems
+global_fastConjGrounding = None
+
+# multiprocessing function
+def create_formula_groundings(formula):
+    gndFormulas = []
+#     for formula in formulas:
+    if global_fastConjGrounding.mrf.mln.logic.isConjunctionOfLiterals(formula):
+        for gndFormula in global_fastConjGrounding.iterConjunctionGroundings(formula):
+            gndFormula.isHard = formula.isHard
+            gndFormula.weight = formula.weight
+#                 groundingFactory.mrf._addGroundFormula(gndFormula, idxFormula, None)
+            gndFormula.fIdx = formula.idx
+            gndFormulas.append(gndFormula)
+    else:
+        for gndFormula, _ in formula.iterGroundings(global_fastConjGrounding.mrf, simplify=True):
+            gndFormula.isHard = formula.isHard
+            gndFormula.weight = formula.weight
+            gndFormula.fIdx = formula.idx
+            gndFormulas.append(gndFormula)
+    #                 groundingFactory.mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
+    return gndFormulas
+    
 
 class FastConjunctionGrounding(DefaultGroundingFactory):
     
@@ -117,23 +145,40 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             for gndFormula in self._iterConjunctionGroundings(formula, litIdx+1, numChildren, mrf, assignment):
                 yield gndFormula
             
-    
         
     def _createGroundFormulas(self):
+        global global_fastConjGrounding
         mrf = self.mrf
         assert len(mrf.gndAtoms) > 0
         log = logging.getLogger(self.__class__.__name__)
         # generate all groundings
         log.info('Grounding formulas...')
-        log.debug('Ground formulas (all should have a truth value):')
-        for idxFormula, formula in enumerate(mrf.formulas):
-            if mrf.mln.logic.isConjunctionOfLiterals(formula):
-                for gndFormula in self.iterConjunctionGroundings(formula):
-                    gndFormula.isHard = formula.isHard
-                    gndFormula.weight = formula.weight
-                    mrf._addGroundFormula(gndFormula, idxFormula, None)
-            else:
-                for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, simplify=True):
-                    gndFormula.isHard = formula.isHard
-                    gndFormula.weight = formula.weight
-                    mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
+#         log.debug('Ground formulas (all should have a truth value):')
+        multiCPU = self.params.get('useMultiCPU', False)
+        if multiCPU:
+            for i, f in enumerate(mrf.formulas):
+                f.idx = i
+            global_fastConjGrounding = self
+            pool = Pool()
+            log.info('Multiprocessing enabled using %d cores.' % pool._processes)
+            try:
+                gndFormulas = pool.map(with_tracing(create_formula_groundings), mrf.formulas)
+                for gndFormula in itertools.chain(*gndFormulas):
+                    mrf._addGroundFormula(gndFormula, gndFormula.fIdx, None)
+            except:
+                pool.terminate()
+                pool.join()
+        else:
+            for idxFormula, formula in enumerate(mrf.formulas):
+                if mrf.mln.logic.isConjunctionOfLiterals(formula):
+                    for gndFormula in self.iterConjunctionGroundings(formula):
+                        gndFormula.isHard = formula.isHard
+                        gndFormula.weight = formula.weight
+                        mrf._addGroundFormula(gndFormula, idxFormula, None)
+                else:
+                    for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, simplify=True):
+                        gndFormula.isHard = formula.isHard
+                        gndFormula.weight = formula.weight
+                        mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
+        log.info('created %d ground formulas.' % len(mrf.gndFormulas))
+            

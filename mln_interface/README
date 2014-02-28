@@ -1,0 +1,14 @@
+This project is basically a ROS Service that can be used
+to query a Markov Logic Network. One may train an MLN
+and store it to a *.mln file before parsing it as an
+argument to the request.
+
+/msg
+/AtomProbPair is basically a tuple that stores an
+atom-probability pair.
+
+/MLNResponse is an array of AtomProbPairs
+
+/MLNQuery is a message for representing all the arguments
+that are needed to successfully query an MLN.
+

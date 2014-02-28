@@ -26,14 +26,52 @@ from collections import defaultdict
 from utils.undo import Ref, Number, List, ListDict, Boolean
 import utils
 from mln.grounding.default import DefaultGroundingFactory
-from debug import DEBUG
 from logic.common import Logic
 import sys
 import logging
 import types
+from utils.multicore import with_tracing
+from multiprocessing.pool import Pool
 
 
+# this readonly global is for multiprocessing to exploit copy-on-write
+# on linux systems
+global_bpllGrounding = None
 
+# multiprocessing function
+def compute_formula_statistics(formula):
+    bpllStat = BPLLStatistics(global_bpllGrounding.mrf.evidence)#current_process().bpll_stats
+    if global_bpllGrounding.mrf.mln.logic.isConjunctionOfLiterals(formula): # use the fast conjunction grounding
+        for gndFormula in global_bpllGrounding.iterConjunctionGroundings(formula, formula.idx):
+            global_bpllGrounding._computeStatisticsForGndFormula(gndFormula, formula.idx, bpllStat=bpllStat)
+    else: # go through all ground formulas
+        for gndFormula, _ in formula.iterGroundings(global_bpllGrounding.mrf, simplify=False):
+            # get the set of block indices that the variables appearing in the formula correspond to
+            global_bpllGrounding._computeStatisticsForGndFormula(gndFormula, formula.idx, bpllStat=bpllStat)
+    return bpllStat
+
+
+class BPLLStatistics(object):
+    '''
+    Wrapper class for encapsulation of the sufficient statistics
+    for a BPLL learner. Mimics the behavior of an MRF wrt. temporary evidence.
+    '''
+    
+    def __init__(self, evidence):
+        self.fcounts = {}
+#         self.blockRelevantFormulas = defaultdict(set)
+        self.evidence = list(evidence)
+        
+    def _addMBCount(self, idxVar, size, idxValue, idxWeight,inc=1):
+#         self.blockRelevantFormulas[idxVar].add(idxWeight)
+        if idxWeight not in self.fcounts:
+            self.fcounts[idxWeight] = {}
+        d = self.fcounts[idxWeight]
+        if idxVar not in d:
+            d[idxVar] = [0] * size
+        d[idxVar][idxValue] += inc
+        
+       
 class BPLLGroundingFactory(DefaultGroundingFactory):
     '''
     Grounding factory for efficient grounding for pseudo-likelihood
@@ -57,6 +95,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
         Create the variables, one binary for each ground atom.
         Considers also mutually exclusive blocks of ground atoms.
         '''
+        self.evidence = list(self.mrf.evidence)
         self.evidenceIndices = []
         for (idxGA, block) in self.mrf.pllBlocks:
             if idxGA is not None:
@@ -75,10 +114,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                 if idxValueTrueone == -1: raise Exception("No true ground atom in block '%s'!" % self.mrf._strBlock(block))
                 self.evidenceIndices.append(idxValueTrueone)
         self.trueGroundingsCounter = {}
-        if DEBUG:
-            print 'variables in smart grounding:'
-            for i, var in enumerate(self.mrf.pllBlocks):
-                print i, var, self.evidenceIndices[i]
+
     
     def _addMBCount(self, idxVar, size, idxValue, idxWeight,inc=1):
         self.blockRelevantFormulas[idxVar].add(idxWeight)
@@ -90,43 +126,42 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
         d[idxVar][idxValue] += inc
         
         
-    def _computeStatisticsForGndFormula(self, gndFormula, idxFormula):
+    def _computeStatisticsForGndFormula(self, gndFormula, idxFormula, bpllStat=None):
         # get the set of block indices that the variables appearing in the formula correspond to
+        if bpllStat is None:
+            bpllStat = self
         log = logging.getLogger(self.__class__.__name__)
-#         log.info('found a ground formula: %s: %f' % (gndFormula, gndFormula.isTrue(self.mrf.evidence)))
         idxBlocks = set()
         for idxGA in gndFormula.idxGroundAtoms():
-            #if debug: print "    ", self.mrf.gndAtomsByIdx[idxGA]
             idxBlocks.add(self.mrf.atom2BlockIdx[idxGA])
-        
         for idxVar in idxBlocks:
             (idxGA, block) = self.mrf.pllBlocks[idxVar]
             if idxGA is not None: # ground atom is the variable as it's not in a block
-                
                 # check if formula is true if gnd atom maintains its truth value
-                truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
+                truth = gndFormula.isTrue(bpllStat.evidence)
                 if truth:
-                    self._addMBCount(idxVar, 2, 0, idxFormula, inc=truth)
-                
+                    bpllStat._addMBCount(idxVar, 2, 0, idxFormula, inc=truth)
                 # check if formula is true if gnd atom's truth value is inverted
-                old_tv = self.mrf._getEvidence(idxGA)
-                self.mrf._setTemporaryEvidence(idxGA, 1 - old_tv)
-                truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
+                old_tv = bpllStat.evidence[idxGA]
+                bpllStat.evidence[idxGA] =  1 - old_tv
+                truth = gndFormula.isTrue(bpllStat.evidence)
                 if truth:
-                    self._addMBCount(idxVar, 2, 1, idxFormula, inc=truth)
-                self.mrf._removeTemporaryEvidence()
+                    bpllStat._addMBCount(idxVar, 2, 1, idxFormula, inc=truth)
+                bpllStat.evidence[idxGA] = old_tv
             else: # the block is the variable (idxGA is None)
                 size = len(block)
                 idxGATrueone = block[self.evidenceIndices[idxVar]]
                 # check true groundings for each block assigment
+                evidence_backup = dict([(idx, bpllStat.evidence[idx]) for idx in block])
                 for idxValue, idxGA in enumerate(block):
                     if idxGA != idxGATrueone:
-                        self.mrf._setTemporaryEvidence(idxGATrueone, 0)
-                        self.mrf._setTemporaryEvidence(idxGA, 1)
-                    truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
+                        bpllStat.evidence[idxGATrueone] = 0
+                        bpllStat.evidence[idxGA] = 1
+                    truth = gndFormula.isTrue(bpllStat.evidence)
                     if truth:
-                        self._addMBCount(idxVar, size, idxValue, idxFormula, inc=truth)
-                    self.mrf._removeTemporaryEvidence()
+                        bpllStat._addMBCount(idxVar, size, idxValue, idxFormula, inc=truth)
+                    for idx, val in evidence_backup.iteritems():
+                        bpllStat.evidence[idx] = val
     
     
     def iterConjunctionGroundings(self, formula, idxFormula):
@@ -165,8 +200,8 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
 #         raise Exception('assert')
         conj.extend(children)
         conj = logic.conjunction(conj)
-        self._iterConjunctionGroundings(conj, 0, len(conj.children), self.mrf, {}, strict=False, idxFormula=idxFormula)
-#             yield gndFormula
+        for gndFormula in self._iterConjunctionGroundings(conj, 0, len(conj.children), self.mrf, {}, strict=False, idxFormula=idxFormula):
+            yield gndFormula
             
             
     def _iterConjunctionGroundings(self, formula, litIdx, numChildren, mrf, assignment, strict, idxFormula):
@@ -174,45 +209,60 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
         if litIdx == numChildren:
             gndFormula = formula.ground(mrf, assignment, simplify=False)
             gndFormula.fIdx = idxFormula
-            self._computeStatisticsForGndFormula(gndFormula, idxFormula)
+#             self._computeStatisticsForGndFormula(gndFormula, idxFormula)
+            yield gndFormula
             return
         lit = formula.children[litIdx]
-#         log.info('processing %s <--- %s' % (str(lit), str(assignment)))
         for varAssignment in lit.iterTrueVariableAssignments(mrf, mrf.evidence, truthThreshold=.0, strict=True if isinstance(lit, Logic.Equality) else strict, includeUnknown=True, partialAssignment=assignment):
-#             log.info(varAssignment)
             if varAssignment == {}:
-#                 log.info('checking if we can prune at %s with %s...' % (str(lit), assignment))
                 if len(set(lit.getVariables(mrf.mln).keys()).difference(set(assignment.keys()))) > 0:
-#                     log.info('pruning: %s' % str(lit))
                     return
-#                 log.info('trying to ground %s with %s' % (str(lit), varAssignment))
                 truth = lit.ground(mrf, assignment).isTrue(mrf.evidence)
                 if truth == 0:
-#                     log.info('this one is false. from now on, all literals must be strictly > 0.')
                     if strict: 
-#                         log.info('pruning search since %s is 0 with %s' % (str(formula), str(assignment)))
                         return
                     strict = True
-#                 else: log.info('we can\'t. truth still is %f' % truth)
             assignment = dict(assignment)
             assignment.update(varAssignment)
-            self._iterConjunctionGroundings(formula, litIdx+1, numChildren, mrf, assignment, strict=strict, idxFormula=idxFormula)
+            for gf in self._iterConjunctionGroundings(formula, litIdx+1, numChildren, mrf, assignment, strict=strict, idxFormula=idxFormula):
+                yield gf
                 
                 
     def _computeStatistics(self): 
+        global global_bpllGrounding
         log = logging.getLogger(self.__class__.__name__)
         self.createVariablesAndEvidence()
         mrf = self.mrf
-        for idxFormula, formula in enumerate(mrf.formulas):
-#             log.info('Grounding formula %s: %s' % (idxFormula, str(formula)))
-            sys.stdout.write('%d/%d\r' % (idxFormula, len(mrf.formulas)))
-            if self.mrf.mln.logic.isConjunctionOfLiterals(formula):
-                self.iterConjunctionGroundings(formula, idxFormula)
-            else:
-                # go through all ground formulas
-                for gndFormula, _ in formula.iterGroundings(mrf, simplify=False):
-                    # get the set of block indices that the variables appearing in the formula correspond to
-                    self._computeStatisticsForGndFormula(gndFormula, idxFormula)
+        multiCPU = self.params.get('useMultiCPU', False)
+        if multiCPU:
+            for i, f in enumerate(mrf.formulas): f.idx = i
+            global_bpllGrounding = self
+            pool = Pool()
+            log.info('Multiprocessing enabled using %d cores.' % pool._processes)
+            try:
+                bpll_statistics = pool.map(with_tracing(compute_formula_statistics), mrf.formulas)
+                for bpll_stat in bpll_statistics:
+                    # update the statistics
+                    for fIdx, var2val in bpll_stat.fcounts.iteritems():
+                        for var, values in var2val.iteritems():
+                            for valIdx, val in enumerate(values):
+                                self._addMBCount(var, len(values), valIdx, fIdx, val)
+            except Exception, e:
+                pool.terminate()
+                pool.join()
+                raise e
+        else:
+            for idxFormula, formula in enumerate(mrf.formulas):
+                sys.stdout.write('%d/%d\r' % (idxFormula, len(mrf.formulas)))
+                sys.stdout.flush()
+                if self.mrf.mln.logic.isConjunctionOfLiterals(formula):
+                    for gndFormula in self.iterConjunctionGroundings(formula, idxFormula):
+                        self._computeStatisticsForGndFormula(gndFormula, idxFormula)
+                else:
+                    # go through all ground formulas
+                    for gndFormula, _ in formula.iterGroundings(mrf, simplify=False):
+                        # get the set of block indices that the variables appearing in the formula correspond to
+                        self._computeStatisticsForGndFormula(gndFormula, idxFormula)
                     
     def _createGroundFormulas(self):
         '''
@@ -220,8 +270,8 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
         throw them away after we have collected its sufficient statistics.
         So we override the default grounding at this place.
         '''
-        log = logging.getLogger(self.__class__.__name__)
-        log.info('createGroundFormulas()')
+#         log = logging.getLogger(self.__class__.__name__)
+#         log.info('createGroundFormulas()')
         pass
 
 

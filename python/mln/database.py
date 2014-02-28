@@ -311,7 +311,7 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
             if db.evidence.get(gndAtom, None) != None:
                 raise log.exception("Duplicate soft evidence for '%s'" % gndAtom)
             positive, predName, constants =   mln.logic.parseLiteral(gndAtom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
-            if not positive: value = 1. - value
+#             if not positive: value = 1. - value
             if not predName in mln.predicates and ignoreUnknownPredicates:
                 log.debug('Predicate "%s" is undefined.' % predName)
                 continue

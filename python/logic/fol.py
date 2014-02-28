@@ -26,6 +26,7 @@ import logging
 import itertools
 from common import Logic, logic_factory
 from utils import colorize, predicate_color
+from mln.errors import NoSuchDomainError
 
 
 class FirstOrderLogic(Logic):
@@ -198,6 +199,7 @@ class FirstOrderLogic(Logic):
             # ground the first variable...
             varname, domName = variables.popitem()
             assignment = dict(assignment) # copy for avoiding side effects
+            if domName not in mrf.domains: raise NoSuchDomainError('The domain %s does not exist, but is needed to ground the formula %s' % (domName, str(self)))
             for value in mrf.domains[domName]: # replacing it with one of the constants
                 assignment[varname] = value
                 # recursive descent to ground further variables

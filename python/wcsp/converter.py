@@ -25,7 +25,7 @@ import bisect
 from wcsp import WCSP
 from wcsp import Constraint
 import utils
-import logging
+from praclog import logging
 from utils import deprecated
 from logic.common import Logic
 from mln.database import Database
@@ -78,6 +78,7 @@ class WCSPConverter(object):
         '''
         Removes variables that are already given by the evidence.
         '''
+        log = logging.getLogger(self.__class__.__name__)
         sf_varIdx2GndAtoms = {}
         sf_gndAtom2VarIdx = {}
         sf_vars = []
@@ -97,6 +98,7 @@ class WCSPConverter(object):
         self.gndAtom2VarIndex = sf_gndAtom2VarIdx
         self.varIdx2GndAtom = sf_varIdx2GndAtoms
         self.mutexVars = sf_mutexVars
+            
         
     @deprecated
     def computeDivisor(self):
@@ -389,7 +391,7 @@ class WCSPConverter(object):
         resultDB.domains = dict(self.mrf.domains)
         resultDB.evidence = dict(self.mrf.getEvidenceDatabase())
         for varIdx, valIdx in enumerate(solution):
-            if len(self.varIdx2GndAtom[varIdx]) > 1:
+            if varIdx in self.mutexVars:
                 for v in range(len(self.varIdx2GndAtom[varIdx])):
                     resultDB.evidence[str(self.varIdx2GndAtom[varIdx][v])] = 1 if (valIdx == v) else 0
             else:

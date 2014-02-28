@@ -21,6 +21,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from utils import dict_union
+import logging
 
 
 class AbstractGroundingFactory(object):
@@ -46,6 +47,7 @@ class AbstractGroundingFactory(object):
     def groundMRF(self, cwAssumption=False):
         self._createGroundAtoms()
         self.mrf.setEvidence(self.db.evidence, cwAssumption=cwAssumption)
+        logging.getLogger().info(self.mrf.evidence)
 #         self.mrf.softEvidence = self.db.softEvidence
         self._createGroundFormulas()
         return self.mrf
