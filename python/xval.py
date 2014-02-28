@@ -27,7 +27,7 @@ import sys
 import traceback
 
 from optparse import OptionParser
-from mln.MarkovLogicNetwork import readMLNFromFile
+from mln.mln import readMLNFromFile
 from mln.database import readDBFromFile, Database
 from random import shuffle, sample
 import math
