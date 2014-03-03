@@ -38,6 +38,8 @@ class FuzzyLogic(Logic):
         Custom minimum function return None if one of its arguments
         is None and min(*args) otherwise.
         '''
+        if len(filter(lambda x: x == 0, args)) > 0:
+            return 0
         return reduce(lambda x, y: None if (x is None or y is None) else min(x, y), *args)
     
     @staticmethod
@@ -46,6 +48,8 @@ class FuzzyLogic(Logic):
         Custom maximum function return None if one of its arguments
         is None and max(*args) otherwise.
         '''
+        if len(filter(lambda x: x == 1, args)) > 0:
+            return 1
         return reduce(lambda x, y: None if x is None or y is None else max(x, y), *args)
     
     

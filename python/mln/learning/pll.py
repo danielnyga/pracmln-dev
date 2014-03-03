@@ -209,12 +209,12 @@ class PLL(AbstractLearner):
             for idxGndAtom in gndFormula.idxGroundAtoms():
                 cnt1, cnt2 = 0, 0
                 # check if formula is true if gnd atom maintains its truth value
-                if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula): cnt1 = 1
+                cnt1 = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
                 # check if formula is true if gnd atom's truth value is inversed
                 cnt2 = 0
                 old_tv = self.mrf._getEvidence(idxGndAtom)
                 self.mrf._setTemporaryEvidence(idxGndAtom, 1 - old_tv)
-                if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula): cnt2 = 1
+                cnt2 = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
                 self.mrf._removeTemporaryEvidence()
                 # save difference
                 diff = cnt2 - cnt1

@@ -272,14 +272,12 @@ class EnumerationAsk(Inference):
             global_enumAsk = self
             pool = Pool()
             log.info('Using multiprocessing on %d core(s)...' % pool._processes)
-            try:
-                for r in pool.map(with_tracing(evaluateQueries), global_enumAsk._enumerateWorlds()):
-                    denominator += r[1]
-                    for i, v in enumerate(r[0]):
-                        numerators[i] += v
-            except:
-                pool.terminate()
-                pool.join()
+            for r in pool.map(with_tracing(evaluateQueries), global_enumAsk._enumerateWorlds()):
+                denominator += r[1]
+                for i, v in enumerate(r[0]):
+                    numerators[i] += v
+            pool.terminate()
+            pool.join()
         else: # do it single core
             for worldValues in self._enumerateWorlds():
                 # compute exp. sum of weights for this world
