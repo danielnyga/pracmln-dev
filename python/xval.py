@@ -34,7 +34,7 @@ import math
 from mln.methods import ParameterLearningMeasures, InferenceMethods
 from wcsp.converter import WCSPConverter
 from utils.eval import ConfusionMatrix
-from mln.util import strFormula, mergeDomains, parseLiteral
+from mln.util import strFormula, mergeDomains
 from multiprocessing import Pool
 from utils.clustering import SAHN, Cluster, computeClosestCluster
 import logging
@@ -231,7 +231,7 @@ class NoisyStringTransformer(object):
                 # replace the affected evidences
                 for ev in newDB.evidence.keys():
                     truth = newDB.evidence[ev]
-                    _, pred, params = parseLiteral(ev)
+                    _, pred, params = db.mln.logic.parseLiteral(ev)
                     if domain in self.mln.predicates[pred]: # domain is affected by the mapping  
                         newDB.retractGndAtom(ev)
                         newArgs = [v if domain != self.mln.predicates[pred][i] else valueMap[v] for i, v in enumerate(params)]
