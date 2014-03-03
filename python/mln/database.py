@@ -63,6 +63,23 @@ class Database(object):
                 try: db.addGroundAtom(atom, truth)
                 except NoSuchPredicateError: pass
         return db
+    
+    
+    def union(self, mln=None, *dbs):
+        '''
+        Returns a new database consisting of the union of all databases
+        given in the arguments. If mln is specified, the new database will
+        be attached to that one, otherwise the mln of this database will
+        be used.
+        '''
+        result_db = Database(mln if mln is not None else self.mln)
+        for db in [self] + list(dbs):
+            for atom, truth in db.evidence.iteritems():
+                try:
+                    result_db.addGroundAtom(atom, truth)
+                except NoSuchPredicateError: pass
+        return result_db
+    
 
     def iterGroundLiteralStrings(self, pred_names=None):
         '''
