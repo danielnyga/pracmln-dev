@@ -41,8 +41,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'mln_interface'
-copyright = u'2014, Valentine Chiwome'
+project = u'pracmln'
+copyright = u'2014, Daniel Nyga'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -165,7 +165,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'mln_interfacedoc'
+htmlhelp_basename = 'pracmlndoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -214,8 +214,8 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'mln_interface', u'mln_interface Documentation',
-     [u'Valentine Chiwome'], 1)
+    ('index', 'mln_interface', u'PRACMLN Documentation',
+     [u'Daniel Nyga', u'Valentine Chiwome'], 1)
 ]
 
 # If true, show URL addresses after external links.

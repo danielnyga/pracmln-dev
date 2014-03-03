@@ -3,11 +3,11 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to mln_interface's documentation!
-=========================================
+ROS Service interface
+=====================
 
 Introduction
-----------
+------------
 This is a tutorial for the ROS service that can be used
 to query an MLN. We will describe the implemantation
 of the server together with the ROS messages that are
@@ -16,7 +16,7 @@ example client program that can be used as a template.
 
 
 Server methods
-----------
+--------------
 
 .. function:: handle_mln_query(req)
    :module: scripts.mln_server
@@ -43,7 +43,7 @@ Server methods
    the settings for the inference proceedure.
 
 Example client 
-----------
+--------------
 
 .. function:: mln_interface_client(query, config=None)
    :module: scripts.mln_mln
@@ -54,7 +54,7 @@ Example client
     the same settings in further calls.
 
 Messages
-----------
+--------
 **MLNQuery.msg**
 	This ROS message contains the following fields:
 	
@@ -77,7 +77,7 @@ Messages
 	and reuse the same configurations over and over.
 	It contains the following fields:
 
-	**mlnFiles** - a *.mln file that describes the MLN
+	**mlnFiles** - a \*.mln file that describes the MLN
 
 	**db** - the evidence database
 
@@ -103,7 +103,7 @@ Messages
 
 
 Services
-----------
+--------
 
 **MLNInterface.srv**
 	This is the main service. It contains two fields:
