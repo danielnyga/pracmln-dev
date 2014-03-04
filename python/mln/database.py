@@ -26,8 +26,10 @@
 from util import stripComments, strFormula, mergeDomains
 import copy
 import logging
-from logic.common import Logic
+from logic.common import Logic, Lit
 from errors import NoSuchPredicateError
+from utils import colorize
+from logic.fol import FirstOrderLogic
 
 class Database(object):
     '''
@@ -146,7 +148,9 @@ class Database(object):
         The stream must provide a write() method as file objects do.
         '''
         for atom, truth in self.evidence.iteritems():
-            stream.write('%.2f  %s\n' % (truth, atom))
+            pred, params = self.mln.logic.parseAtom(atom)
+            strout = '%s  %s\n' % (colorize('%.2f' % truth, (None, 'magenta', False), True), FirstOrderLogic.Lit(False, pred, params).cstr(color))
+            stream.write(strout)
 
     def printEvidence(self):
         for atom, truth in sorted(self.evidence.iteritems()):
