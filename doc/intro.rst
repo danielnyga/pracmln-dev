@@ -10,4 +10,5 @@ Contents:
 
    tools
    mln_syntax
+   mlntutorial
 
