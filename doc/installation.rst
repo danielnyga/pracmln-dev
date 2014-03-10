@@ -23,6 +23,12 @@ Prerequisites
   
     sudo apt-get install python-tk python-scipy python-pyparsing
 
+* For MPE (most probable explanation) inference on MLNs, the ``toulbar2``
+  WCSP solver is required. It can be obtained from::
+  
+    https://mulcyber.toulouse.inra.fr/projects/toulbar2
+    
+  Its executable ``toulbar2`` should be included in ``$PATH``.
 
 Installation
 ------------
