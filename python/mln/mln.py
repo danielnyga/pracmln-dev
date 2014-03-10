@@ -24,7 +24,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from database import Database, readDBFromFile
+from database import readDBFromFile
 from logic import FirstOrderLogic, FuzzyLogic
 import copy
 from utils import dict_union, comment_color, predicate_color, weight_color,\
@@ -189,22 +189,60 @@ class MLN(object):
         Returns a deep copy of this MLN, which is not yet materialized.
         '''
         return copy.deepcopy(self)
+    
+    
+    def get_predicate(self, pred_name):
+        '''
+        Returns the predicate name, the domains of arguments and block information about
+        the predicate with the given name, or None if there is none.
+        '''
+        domains = self.predicates.get(pred_name, None)
+        if domains is None:
+            return None
+        blocks = self.blocks.get(pred_name, None)
+        if blocks is None:
+            blocks = [False] * len(domains)
+        return pred_name, domains, blocks
+    
+    
+    def iter_predicates(self):
+        '''
+        Yields the predicates defined by this MLN according to the ``get_predicate()`` method.
+        '''
+        for pred in self.predicates:
+            yield self.get_predicate(pred)
+    
+    
+    def update_predicates(self, mln):
+        '''
+        Merges the predicate definitions of this MLN with the definitions
+        of the given one.
+        '''
+        for pred in mln.iter_predicates():
+            self.declarePredicate(*pred)
+    
 
-    def declarePredicate(self, name, domains, functional=None):
+    def declarePredicate(self, name, domains, mutex=None):
         '''
         Adds a predicate declaration to the MLN:
         - name:        name of the predicate (string)
         - domains:     list of domain names of arguments
-        - functional:  indices of args which are functional (optional)
+        - mutex:       list of True/False values of args determining whether or not they are mutex constraints.
+                       Will be expanded to [False] * len(domains) if None.
         '''
-        if name in self.predicates:
-            msg = 'Predicate "%s" has already been declared' % name
-            logging.getLogger(self.__class__.__name__).exception(msg)
-        assert type(domains) == list
-        self.predicates[name] = domains
-        if functional is not None:
-            func = [(i in functional) for i, _ in enumerate(domains)]
-            self.blocks[name] = func
+        pred = self.get_predicate(name)
+        if mutex is None:
+            mutex = [False] * len(domains)
+        assert len(domains) == len(mutex)
+        if pred is not None:
+            _, old_domains, old_mutex = pred
+            if old_domains != domains or old_mutex != mutex:
+                raise Exception('Contradictory predicate definitions: %s <--> %s' % (predicate_declaration_string(name, domains, mutex), 
+                                                                                     predicate_declaration_string(name, old_domains, old_mutex)))
+        else:
+            self.predicates[name] = domains
+            self.blocks[name] = mutex
+
             
     def addFormula(self, formula, weight=0, hard=False, fixWeight=False):
         '''
@@ -770,3 +808,7 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
     mln.templateIdx2GroupIdx = templateIdx2GroupIdx
     mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices
     return mln
+
+
+
+    
