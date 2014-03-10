@@ -760,7 +760,7 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
                 if isPredDecl:
                     predName = pred[0]
                     if predName in mln.predicates:
-                        raise Exception("Predicate redefinition: '%s' already defined" % predName)
+                        raise MLNParsingError("Predicate redefinition: '%s' already defined" % predName)
                     mln.predicates[predName] = list(pred[1])
                     continue
                 else:
@@ -789,7 +789,7 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
                             nextFormulaUnique = None
                     except ParseException, e:
                         raise MLNParsingError("Error parsing formula '%s'\n" % formula)
-        except:
+        except MLNParsingError:
             sys.stderr.write("Error processing line '%s'\n" % line)
             cls, e, tb = sys.exc_info()
             traceback.print_tb(tb)

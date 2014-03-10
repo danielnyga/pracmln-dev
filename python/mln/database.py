@@ -23,10 +23,10 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
 
-from util import stripComments, strFormula, mergeDomains
+from util import stripComments,mergeDomains
 import copy
-import logging
-from logic.common import Logic, Lit
+from praclog import logging
+from logic.common import Logic
 from errors import NoSuchPredicateError
 from utils import colorize
 from logic.fol import FirstOrderLogic
@@ -274,36 +274,19 @@ class Database(object):
 #             evidence = self.evidence.copy()
             for assignment in formula.iterTrueVariableAssignments(self, self.evidence, truthThreshold=truthThreshold):
                 yield assignment
-                
-def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
+
+def readDBFromString(mln, dbtext, ignoreUnknownPredicates=False, filename=''):
     '''
-    Reads one or multiple database files containing literals and/or domains.
-    Returns one or multiple databases where domains is dictionary mapping 
-    domain names to lists of constants defined in the database
-    and evidence is a dictionary mapping ground atom strings to truth values
-    Arguments:
-      - dbfile:  a single one or a list of paths to database file.
-      - mln:     the MLN object which should be used to load the database.
-    Returns:
-      either one single or a list of database objects.
+    Reads one or more databases in a string representation and returns
+    the respective Database objects.
+    - mln:         the MLN object which should be used to load the database.
+    - dbtext:      the string representation of one or multiple ('---'-separated)
+                   databases
     '''
     log = logging.getLogger('db')
-    if type(dbfile) is list:
-        dbs = []
-        for dbpath in dbfile:
-            dbobj = readDBFromFile(mln, dbpath)
-            if type(dbobj) is list:
-                dbs.extend(dbobj)
-            else:
-                dbs.append(dbobj)
-        return dbs
-    dbs = []
-    # read file
-    f = file(dbfile, "r")
-    dbtext = f.read()
-    f.close()
     dbtext = stripComments(dbtext)
     db = Database(mln)
+    dbs = []
     # expand domains with dbtext constants and save evidence
     for l in dbtext.split("\n"):
         l = l.strip()
@@ -349,7 +332,7 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
                 log.debug('Predicate "%s" is undefined.' % predName)
                 continue
             elif not predName in mln.predicates:
-                log.exception('Predicate "%s" is undefined.' % predName)
+                raise Exception('Predicate "%s" is undefined.' % predName)
             domNames = mln.predicates[predName]
             # save evidence
             isTrue = 1 if isTrue else 0
@@ -358,7 +341,7 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
 
         # expand domains
         if len(domNames) != len(constants):
-            raise log.exception("Ground atom %s in database %s has wrong number of parameters" % (l, dbfile))
+            raise log.exception("Ground atom %s in database %s has wrong number of parameters" % (l, filename))
 
         if "{" in l or db.includeNonExplicitDomains:
             for i, c in enumerate(constants):
@@ -370,3 +353,33 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
     if not db.isEmpty(): dbs.append(db)
     if len(dbs) == 1: return db
     return dbs
+
+
+def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
+    '''
+    Reads one or multiple database files containing literals and/or domains.
+    Returns one or multiple databases where domains is dictionary mapping 
+    domain names to lists of constants defined in the database
+    and evidence is a dictionary mapping ground atom strings to truth values
+    Arguments:
+      - dbfile:  a single one or a list of paths to database file.
+      - mln:     the MLN object which should be used to load the database.
+    Returns:
+      either one single or a list of database objects.
+    '''
+    log = logging.getLogger('db')
+    if type(dbfile) is list:
+        dbs = []
+        for dbpath in dbfile:
+            dbobj = readDBFromFile(mln, dbpath)
+            if type(dbobj) is list:
+                dbs.extend(dbobj)
+            else:
+                dbs.append(dbobj)
+        return dbs
+    dbs = []
+    # read file
+    f = file(dbfile, "r")
+    dbtext = f.read()
+    f.close()
+    return readDBFromString(dbtext, ignoreUnknownPredicates)
