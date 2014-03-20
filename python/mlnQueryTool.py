@@ -44,8 +44,9 @@ from mln.util import balancedParentheses
 from mln import readMLNFromFile
 from mln.methods import InferenceMethods
 from widgets import FilePickEdit
-from logic.grammar import StandardGrammar, PRACGrammar
+from logic.grammar import StandardGrammar, PRACGrammar  # @UnusedImport
 import logging
+from mln.database import readDBFromFile
 
 def config_value(key, default):
     if key in dir(config):
@@ -162,11 +163,19 @@ class MLNInfer(object):
                 for pred in cwPreds:
                     mln.setClosedWorldPred(pred)
                 
+                # parse the database
+                dbs = readDBFromFile(mln, db)
+                if len(dbs) != 1:
+                    raise Exception('Only one database is supported for inference.')
+                db = dbs[0]
+                
                 # create ground MRF
                 start = time.time()
+                mln = mln.materializeFormulaTemplates([db], args.get('verbose', False))
                 mrf = mln.groundMRF(db, verbose=args.get('verbose', False), method='FastConjunctionGrounding')
                 groundingTime = time.time() - start
                 print 'Grounding took %.2f sec.' % groundingTime
+
 
                 # check for print/write requests
                 if "printGroundAtoms" in args:
@@ -181,6 +190,7 @@ class MLNInfer(object):
                         print "writing ground MRF as GraphML to %s..." % graphml_filename
                         mrf.writeGraphML(graphml_filename)
                 # invoke inference and retrieve results
+                print 'Inference parameters:', args
                 mrf.infer(queries, **args)
                 results = {}
                 for gndFormula, p in mrf.getResultsDict().iteritems():
@@ -653,6 +663,7 @@ class MLNQueryGUI(object):
             input_files.append(emln)
         # hide main window
         self.master.withdraw()
+        
         # runinference
         try:
             self.inference.run(input_files, db, method, self.settings["query"], params=params, **self.settings)

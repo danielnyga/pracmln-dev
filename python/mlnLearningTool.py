@@ -36,7 +36,7 @@ import shlex
 import tkMessageBox
 from fnmatch import fnmatch
 from pprint import pprint
-from mln.methods import ParameterLearningMeasures
+from mln.methods import LearningMethods
 import cProfile
 from cProfile import Profile
 import logging
@@ -50,7 +50,7 @@ from logic import FirstOrderLogic, FuzzyLogic
 class MLNLearn:
     
     def __init__(self):
-        self.pymlns_methods = ParameterLearningMeasures.getNames()
+        self.pymlns_methods = LearningMethods.getNames()
         self.alchemy_methods = {
             "pseudo-log-likelihood via BFGS": (["-g"], False, "pll"),
             "sampling-based log-likelihood via diagonal Newton": (["-d", "-dNewton"], True, "slldn"),
@@ -145,7 +145,7 @@ class MLNLearn:
                 prof = Profile()
                 try:
                     print 'Profiling ON...'
-                    cmd = 'mln.learnWeights(dbs, method=ParameterLearningMeasures.byName(method), **args)'
+                    cmd = 'mln.learnWeights(dbs, method=LearningMethods.byName(method), **args)'
                     prof = prof.runctx(cmd, globals(), locals())
                 except SystemExit:
                     print 'Cancelled...'
@@ -153,7 +153,7 @@ class MLNLearn:
                     print 'Profiler Statistics:'
                     prof.print_stats(-1)
             else:
-                learnedMLN = mln.learnWeights(dbs, method=ParameterLearningMeasures.byName(method), **args)
+                learnedMLN = mln.learnWeights(dbs, method=LearningMethods.byName(method), **args)
             
             # determine output filename
             fname = self.settings["output_filename"]
@@ -455,8 +455,8 @@ class MLNLearnGUI:
         if "" in (mln, db): return
         if self.internalMode:
             engine = "py"
-            method = ParameterLearningMeasures.byName(self.selected_method.get())
-            method = ParameterLearningMeasures.getShortName(method).lower()
+            method = LearningMethods.byName(self.selected_method.get())
+            method = LearningMethods.getShortName(method).lower()
         else:
             engine = "alch"
             method = self.learner.alchemy_methods[self.selected_method.get()][2]
@@ -527,9 +527,9 @@ class MLNLearnGUI:
                 subprocess.Popen(params, shell=False)
         except:
             cls, e, tb = sys.exc_info()
-            sys.stderr.write("%s: %s\n" % (str(type(e)), str(e)))
-            traceback.print_tb(tb)
-            raise
+            logging.exception("%s: %s\n" % (str(e.__class__.__name__), str(e)))
+#             traceback.print_tb(tb)
+#             raise
         finally:
             # restore gui
             self.master.deiconify()
