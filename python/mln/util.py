@@ -27,6 +27,7 @@ import re
 import sys
 
 from logic.common import Logic
+import os
 
 # math functions
 
@@ -58,6 +59,16 @@ def logx(x):
 def stripComments(text):
     comment = re.compile(r'//.*?$|/\*.*?\*/', re.DOTALL | re.MULTILINE)
     return re.sub(comment, '', text)
+
+
+def predicate_declaration_string(predName, domains, blocks):
+    '''
+    Returns a string representation of the given predicate.
+    '''
+    args_list = ['%s%s' % (arg, {True: '!', False: ''}[block]) for arg, block in zip(domains, blocks)]
+    args = ', '.join(args_list)
+    return '%s(%s)' % (predName, args)
+
 
 def getPredicateList(filename):
     ''' gets the set of predicate names from an MLN file '''
@@ -227,3 +238,5 @@ def mergeDomains(*domains):
     for key, s in fullDomain.iteritems():
         fullDomain[key] = list(s)
     return fullDomain
+
+
