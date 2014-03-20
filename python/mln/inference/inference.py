@@ -26,6 +26,7 @@ import time
 
 from mln.util import *
 from logic.common import Logic
+from praclog import logging
 
 
 class Inference(object):
@@ -34,6 +35,9 @@ class Inference(object):
     Also provides some convenience methods for collecting statistics
     about the inference process and nicely outputting results.
     '''
+    
+    groundingMethod = 'FastConjunctionGrounding'
+    
     
     def __init__(self, mrf):
         self.mrf = mrf 
@@ -53,22 +57,26 @@ class Inference(object):
         just predicate names are expanded to the corresponding list of atoms.
         '''
         equeries = []
+        log = logging.getLogger(self.__class__.__name__)
         for query in queries:
             #print "got query '%s' of type '%s'" % (str(query), str(type(query)))
             if type(query) == str:
                 prevLen = len(equeries)
+                
                 if "(" in query: # a fully or partially grounded formula
                     f = self.mln.logic.parseFormula(query)
                     for gndFormula in f.iterGroundings(self.mrf):
                         equeries.append(gndFormula[0])
                 else: # just a predicate name
-                    try:
-                        for gndPred in self.mrf._getPredGroundings(query):
-                            equeries.append(self.mln.logic.parseFormula(gndPred).ground(self.mrf, {}))
-                    except:
-                        raise #Exception("Could not expand query '%s'" % query)
+                    if query not in self.mrf.predicates:
+                        log.warning('Unsupported query: %s is not among the admissible predicates.' % (query))
+                        continue
+                    for gndPred in self.mrf._getPredGroundings(query):
+                        equeries.append(self.mln.logic.parseFormula(gndPred).ground(self.mrf, {}))
+
                 if len(equeries) - prevLen == 0:
                     raise Exception("String query '%s' could not be expanded." % query)
+                
             elif isinstance(query, Logic.Formula):
                 equeries.append(query)
             else:
