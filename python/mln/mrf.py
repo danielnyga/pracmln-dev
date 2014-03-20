@@ -110,9 +110,9 @@ class MRF(object):
         # materialize MLN formulas
 #         if self.mln.formulas is None:
 #             db = self.mln.materializeFormulaTemplates([db],verbose)[0]
-        self.formulas = list(mln.formulas) # copy the list of formulas, because we may change or extend it
+        self.formulas = list(self.mln.formulas) # copy the list of formulas, because we may change or extend it
         # get combined domain
-        self.domains = mergeDomains(mln.domains, db.domains)
+        self.domains = mergeDomains(self.mln.domains, db.domains)
         log.debug('MRF domains:')
         for d in self.domains.items():
             log.debug(d)
@@ -120,12 +120,15 @@ class MRF(object):
         # materialize formula weights
         self._materializeFormulaWeights(verbose)
 
-        self.closedWorldPreds = list(mln.closedWorldPreds)
-        self.probreqs = list(mln.probreqs)
-        self.posteriorProbReqs = list(mln.posteriorProbReqs)
-        self.predicates = copy.deepcopy(mln.predicates)
-        self.templateIdx2GroupIdx = mln.templateIdx2GroupIdx
-
+        self.closedWorldPreds = list(self.mln.closedWorldPreds)
+        self.probreqs = list(self.mln.probreqs)
+        self.posteriorProbReqs = list(self.mln.posteriorProbReqs)
+        self.predicates = copy.deepcopy(self.mln.predicates)
+        self.templateIdx2GroupIdx = self.mln.templateIdx2GroupIdx
+        log.debug('grounding the following MLN:')
+        self.mln.write(sys.stdout, color=True)
+        log.debug('grounding with the following database:')
+        db.write(sys.stdout, color=True)
         # grounding
         if verbose: print 'Loading %s...' % groundingMethod
         groundingMethod = eval('%s(self, db, **self.params)' % groundingMethod)
@@ -147,6 +150,8 @@ class MRF(object):
         Gets the names of all ground atoms of the given predicate.
         '''
         # get the string represenation of the first grounding of the predicate
+        if predName not in self.predicates:
+            raise Exception('Unknown predicate "%s" (%s)' % (predName, map(str, self.predicates)))
         domNames = self.predicates[predName]
         params = []
         for domName in domNames:
@@ -177,6 +182,7 @@ class MRF(object):
             params.append(self.domains[domName][0])
             numGroundings *= len(self.domains[domName])
         gndAtom = "%s(%s)" % (predName, ",".join(params))
+        if gndAtom not in self.gndAtoms: return []
         idxFirst = self.gndAtoms[gndAtom].idx
         return range(idxFirst, idxFirst + numGroundings)
 
@@ -434,7 +440,8 @@ class MRF(object):
         else:
             # handle closed-world predicates: Set all their instances that aren't yet known to false
             for pred in self.closedWorldPreds:
-                if not pred in self.predicates: continue
+                log.debug('handling cw assumption for pred %s' % pred)
+                if not pred in self.predicates or any(map(lambda d: len(self.domains[d]) == 0, self.mln.predicates[pred])): continue
                 cwIndices = self._getPredGroundingsAsIndices(pred)
                 for idxGA in cwIndices:
                     if self._getEvidence(idxGA, 0) == None:
