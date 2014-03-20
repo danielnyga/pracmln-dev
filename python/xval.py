@@ -31,7 +31,7 @@ from mln.mln import readMLNFromFile
 from mln.database import readDBFromFile, Database
 from random import shuffle, sample
 import math
-from mln.methods import ParameterLearningMeasures, InferenceMethods
+from mln.methods import LearningMethods, InferenceMethods
 from wcsp.converter import WCSPConverter
 from utils.eval import ConfusionMatrix
 from mln.util import strFormula, mergeDomains
@@ -67,7 +67,7 @@ class XValFoldParams(object):
         self.queryPred = None
         self.queryDom = None
         self.cwPreds = None
-        self.learningMethod = ParameterLearningMeasures.BPLL
+        self.learningMethod = LearningMethods.BPLL
         self.optimizer = 'bfgs'
         self.verbose = False
         self.noisyStringDomains = None
