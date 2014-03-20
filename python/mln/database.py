@@ -30,6 +30,7 @@ from logic.common import Logic
 from errors import NoSuchPredicateError
 from utils import colorize
 from logic.fol import FirstOrderLogic
+import os
 
 class Database(object):
     '''
@@ -105,10 +106,10 @@ class Database(object):
             isTrue, predName, params = self.mln.logic.parseLiteral(gndLit)
             atomString = "%s(%s)" % (predName, ",".join(params))
         elif isinstance(gndLit, Logic.GroundLit):
-            atomString = gndLit.gndAtom
+            atomString = str(gndLit.gndAtom)
             isTrue = not gndLit.negated
-            params = gndLit.params
-            predName = gndLit.predName
+            predName = gndLit.gndAtom.predName
+            params = gndLit.gndAtom.params
         else:
             raise Exception('gndLit has an illegal type: %s' % type(gndLit))
         truth = truth if isTrue else 1 - truth
@@ -117,6 +118,8 @@ class Database(object):
         domNames = self.mln.predicates.get(predName, None)
         if domNames is None:
             raise NoSuchPredicateError('No such predicate: %s' % predName)
+        if len(domNames) != len(params):
+            raise Exception('Invalid number of arguments: %s' % str(gndLit))
         for i, domName in enumerate(domNames):
             dom = self.domains.get(domName, None)
             if dom is None:
@@ -149,7 +152,12 @@ class Database(object):
         '''
         for atom, truth in self.evidence.iteritems():
             pred, params = self.mln.logic.parseAtom(atom)
-            strout = '%s  %s\n' % (colorize('%.2f' % truth, (None, 'magenta', False), True), FirstOrderLogic.Lit(False, pred, params).cstr(color))
+            pred = str(pred)
+            params = map(str, params)
+            if color:
+                strout = '%s  %s\n' % (colorize('%.2f' % truth, (None, 'magenta', False), True), FirstOrderLogic.Lit(False, pred, params).cstr(color))
+            else:
+                strout = '%s  %s\n' % ('%.2f' % truth, FirstOrderLogic.Lit(False, pred, params).cstr(color))
             stream.write(strout)
 
     def printEvidence(self):
@@ -351,7 +359,7 @@ def readDBFromString(mln, dbtext, ignoreUnknownPredicates=False, filename=''):
                     db.domains[domNames[i]] = dom
                 if not c in dom: dom.append(c)
     if not db.isEmpty(): dbs.append(db)
-    if len(dbs) == 1: return db
+#     if len(dbs) == 1: return db
     return dbs
 
 
@@ -382,4 +390,24 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
     f = file(dbfile, "r")
     dbtext = f.read()
     f.close()
-    return readDBFromString(dbtext, ignoreUnknownPredicates)
+    return readDBFromString(mln, dbtext, ignoreUnknownPredicates)
+
+
+def readAllDBsInDir(mln, dbPath):
+    '''
+    Loads and yields all databases (*.db files) that are located in
+    the given directory and returns the corresponding Database objects.
+    - dbPath: the directory path to look for .db files
+    '''
+    for dirname, dirnames, filenames in os.walk(dbPath): #@UnusedVariable
+        for f in filenames:
+            if not f.endswith('.db'):
+                continue
+            p = os.path.join(dirname, f)
+            print " reading database %s" % p
+            dbs = readDBFromFile(mln, p)
+            if type(dbs) == list:
+                for db in dbs:
+                    yield db
+            else:
+                yield dbs
