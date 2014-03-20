@@ -659,8 +659,14 @@ class FirstOrderLogic(Logic):
             if predNames is None:
                 predNames = []
             if self.gndAtom.predName not in predNames:
-                predNames.append(self.gndAtoms.predName)
+                predNames.append(self.gndAtom.predName)
             return predNames
+        
+        def _getTemplateVariables(self, mln, variable = None):
+            return {}
+        
+        def _groundTemplate(self, assignment):
+            return [self.logic.gnd_lit(self.gndAtom, self.negated)]
     
     class Disjunction(Logic.Disjunction, ComplexFormula):
         '''
