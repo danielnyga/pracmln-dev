@@ -4,6 +4,7 @@ import os
 import stat
 import sys
 import platform
+from utils import colorize
 
 includes = {
     "weka": {"jars": ["$SRLDB_HOME/../WEKA/bin", "$SRLDB_HOME/lib/weka_fipm.jar"]},
@@ -103,8 +104,8 @@ if __name__ == '__main__':
     
     # check if probcog binaries exist
     if not os.path.exists("bin") and not os.path.exists("lib/srldb.jar"):
-        print "ERROR: No ProbCog binaries found. If you are using the source version of ProbCog, please compile it first using 'ant compile' or an Eclipse build"
-        sys.exit(1)
+        print colorize("WARNING: No J-MLN binaries found. In order to use J-MLNs, compile the sources using 'ant compile' or an Eclipse build", (None, 'yellow', True), True)
+#         sys.exit(1)
 
     # determine architecture
     arch = None
