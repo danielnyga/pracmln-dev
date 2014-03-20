@@ -63,7 +63,7 @@ class FuzzyMCSAT(Inference):
         
         # create the transformed MLN without fuzzy evidence
         mln = self.mln.duplicate()
-        mln.domains = {}
+#         mln.domains = {}
         mln.formulas = []
         # remove fuzzy preds
         for p in self.fuzzy:
@@ -87,15 +87,23 @@ class FuzzyMCSAT(Inference):
         # perform standard MCSAT on the transformed MLN
         db = Database(mln)
         for t, e in mrf.db.iterGroundLiteralStrings(mln.predicates):
-            db.addGroundAtom(e, t)        
+            db.addGroundAtom(e, t)
+        mln = mln.materializeFormulaTemplates([db])  
         mrf_ = mln.groundMRF(db)
         # the query and evidence need to be adapted to the new MRF
         queries = map(lambda a: a.ground(mrf_, {}), self.queries)
         if self.given is not None:
             evidence = map(str, self.given)
         else: evidence = None
-        return mrf_.inferMCSAT(queries, evidence, handleSoftEvidence=False, *args, **kwargs)
-        
+        mcsat = MCSAT(mrf_)
+        log.debug(args)
+        log.debug(kwargs)
+        mcsat.queries = self.queries
+        mcsat.additionalQueryInfo = self.additionalQueryInfo
+        result = mcsat._infer(handleSoftEvidence=False, **kwargs)
+#         result = .inferMCSAT(queries, evidence, handleSoftEvidence=False, *args, **kwargs)
+        log.debug(result)
+        return result
 
 class MCSAT(MCMCInference):
     ''' MC-SAT/MC-SAT-PC '''
@@ -175,7 +183,7 @@ class MCSAT(MCMCInference):
             else: # unit clause
                 yield [c]
     
-    def _infer(self, numChains=1, maxSteps=5000, verbose=True, shortOutput=False, details=True, 
+    def _infer(self, numChains=1, maxSteps=5000, verbose=False, shortOutput=False, details=True, 
                debug=False, debugLevel=1, initAlgo="SampleSAT", randomSeed=None, infoInterval=None, 
                resultsInterval=None, p=0.5, keepResultsHistory=False, referenceResults=None, 
                saveHistoryFile=None, sampleCallback=None, softEvidence=None, maxSoftEvidenceDeviation=None, handleSoftEvidence=True, **args):
@@ -195,7 +203,7 @@ class MCSAT(MCMCInference):
         softEvidence: if None, use soft evidence from MLN, otherwise use given dictionary of soft evidence
         handleSoftEvidence: if False, ignore all soft evidence in the MCMC sampling (but still compute softe evidence statistics if soft evidence is there)
         '''
-        log = logging.getLogger('mcsat')
+        log = logging.getLogger(self.__class__.__name__)
         if verbose: log.info("starting MC-SAT with maxSteps=%d, handleSoftEvidence=%s" % (maxSteps, handleSoftEvidence))
         if softEvidence is None:
             self.softEvidence = self.mrf.getSoftEvidence()
