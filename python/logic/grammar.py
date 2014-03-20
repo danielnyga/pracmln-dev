@@ -148,10 +148,12 @@ class Grammar(object):
     def parseDomDecl(self, s):
         '''
         Parses a domain declaration and returns a tuple (domain name, list of constants)
+        Returns None if it cannot be parsed.
         '''
         m = re.match(r'(\w+)\s*=\s*{(.*?)}', s)
         if m == None:
-            raise Exception("Could not parse the domain declaration '%s'" % line)
+            return None
+#             raise Exception("Could not parse the domain declaration '%s'" % line)
         return (m.group(1), map(str.strip, m.group(2).split(',')))
     
     def parseLiteral(self, s):
