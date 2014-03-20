@@ -44,7 +44,7 @@ from learning import *
 from inference import *
 
 import platform
-from methods import InferenceMethods, ParameterLearningMeasures
+from methods import InferenceMethods, LearningMethods
 from util import mergeDomains, strFormula, stripComments
 from mrf import MRF
 import re
@@ -161,28 +161,7 @@ class MLN(object):
         self.uniqueFormulaExpansions = {}
         self.fixedWeightFormulas = []
         self.fixedWeightTemplateIndices = []
-        self.verbose = verbose
 
-#     def __getstate__(self):
-#         d = self.__dict__.copy()
-#         del d['formulas']
-#         del d['logic']
-#         d['formulas'] = [(f.weight, (False, True)[hasattr(f,'isHard') and f.isHard], str(f)) for f in self.formulas]
-#         d['logic'] = type(self.logic).__name__
-#         d['grammar'] = type(self.logic.grammar).__name__
-#         return d
-#     
-#     def __setstate__(self, d):
-#         self.__dict__ = d
-#         formulas = []
-#         logic_str = '%s("%s")' % (d['logic'], d['grammar'])
-#         self.logic = eval(logic_str)
-#         for (w, h, f) in self.formulas:
-#             f = self.logic.parseFormula(f)
-#             f.weight = w
-#             f.isHard = h
-#             formulas.append(f)
-#         self.formulas = formulas
 
     def duplicate(self):
         '''
@@ -228,7 +207,7 @@ class MLN(object):
         - name:        name of the predicate (string)
         - domains:     list of domain names of arguments
         - mutex:       list of True/False values of args determining whether or not they are mutex constraints.
-                       Will be expanded to [False] * len(domains) if None.
+                       Will be expanded to ``[False] * len(domains)`` if None.
         '''
         pred = self.get_predicate(name)
         if mutex is None:
@@ -242,6 +221,9 @@ class MLN(object):
         else:
             self.predicates[name] = domains
             self.blocks[name] = mutex
+            for dom in domains:
+                if dom not in self.domains:
+                    self.domains[dom] = []
 
             
     def addFormula(self, formula, weight=0, hard=False, fixWeight=False):
@@ -250,6 +232,7 @@ class MLN(object):
         are updated, if necessary.
         '''
         self._addFormula(formula, self.formulas, weight, hard, fixWeight)
+    
     
     def _addFormula(self, formula, formulaSet, weight=0, hard=False, fixWeight=False):
         '''
@@ -273,7 +256,35 @@ class MLN(object):
         for domain, constants in constants.iteritems():
             for c in constants: 
                 self.addConstant(domain, c)
-
+        
+                
+    def infer(self, method, queries=None, evidence_db=None, **params):
+        log = logging.getLogger(self.__class__.__name__)
+        self.defaultInferenceMethod = method
+        
+        # apply closed world assumption
+        if params.get('closedWorld', False):
+            queries = filter(lambda x: x != "", map(str.strip, queries.split(",")))
+            cwPreds = set(params.get('cwPreds', []))
+            for p in self.predicates:
+                if p not in queries:
+                    cwPreds.add(p)
+            params['cwPreds'] = cwPreds
+        self.setClosedWorldPred(*params.get('cwPreds', []))
+        if evidence_db is None:
+            evidence_db = Database(self)
+        materialized_mln = self.materializeFormulaTemplates([evidence_db])
+        mrf = materialized_mln.groundMRF(evidence_db, simplify=True, groundingMethod='FastConjunctionGrounding', **params)
+        resultDict = mrf.infer(what=queries, given=None, **params)
+        log.debug(resultDict)
+        result_db = Database(self)
+        for atom in sorted(resultDict):
+            value = resultDict[atom]
+            result_db.addGroundAtom(atom, value)
+            log.info("%.3f    %s" % (value, atom))
+        return result_db
+        
+                
     def materializeFormulaTemplates(self, dbs, verbose=False):
         '''
         Expand all formula templates.
@@ -287,6 +298,7 @@ class MLN(object):
         newMLN = self.duplicate()
         # obtain full domain with all objects 
         fullDomain = mergeDomains(self.domains, *[db.domains for db in dbs])
+        log.debug('domains: %s' % fullDomain)
         # collect the admissible formula templates. templates might be not
         # admissible since the domain of a template variable might be empty.
         for ft in list(newMLN.formulas):
@@ -373,12 +385,12 @@ class MLN(object):
             raise Exception("Unknown variable '%s'" % varName)
         return self.vars[varName]
 
-    def groundMRF(self, db, simplify=False, method='DefaultGroundingFactory', cwAssumption=False, **params):
+    def groundMRF(self, db, simplify=False, groundingMethod='DefaultGroundingFactory', cwAssumption=False, **params):
         '''
         Creates and returns a ground Markov Random Field for the given database
         - db: database filename (string) or Database object
         '''
-        mrf = MRF(self, db, method, cwAssumption=cwAssumption, **params)
+        mrf = MRF(self, db, groundingMethod, cwAssumption=cwAssumption, **params)
         return mrf
 
     def combineOverwrite(self, domain, verbose=False, groundFormulas=True):
@@ -445,7 +457,7 @@ class MLN(object):
         '''
         return [f.weight for f in self.formulas]
 
-    def learnWeights(self, databases, method=ParameterLearningMeasures.BPLL, **params):
+    def learnWeights(self, databases, method=LearningMethods.BPLL, **params):
         '''
         Triggers the learning parameter learning process for a given set of databases.
         Returns a new MLN object with the learned parameters.
@@ -468,22 +480,22 @@ class MLN(object):
                 dbs.extend(db)
             else:
                 dbs.append(db)
-        log.debug('evidence databases:')
-        if log.level == logging.DEBUG:
-            for db in dbs:
-                db.printEvidence()
+        log.info('Got %s evidence databases for learning:' % len(dbs))
+        log.debug(self.predicates)
+        log.debug(self.domains)
         newMLN = self.materializeFormulaTemplates(dbs, self.verbose)
         
-        log.debug('predicates:')
-        for p in newMLN.predicates.items():
+        log.debug('MLN predicates:')
+        for p in newMLN.predicates:
             log.debug(p)
         log.debug('MLN domains:')
-        for d in newMLN.domains.items():
+        for d in newMLN.domains.iteritems():
             log.debug(d)
-        log.debug('formulas:')
+        log.debug('MLN formulas:')
         for f in newMLN.iterFormulasPrintable():
             log.debug(f)
-
+        if len(newMLN.formulas) == 0:
+            raise Exception('No formulas in the materialized MLN.')
         # run learner
         if len(dbs) == 1:
             groundingMethod = eval('%s.groundingMethod' % method)
@@ -550,7 +562,8 @@ class MLN(object):
             if not mutexInDecls or excl is None:
                 f.write("%s(%s)\n" % (colorize(predname, predicate_color, color), ", ".join(args)))
             else:
-                f.write("%s(%s)\n" % (colorize(predname, predicate_color, color), ", ".join(map(lambda x: "%s%s" % (x[0], {True:"!", False:""}[x[1]]), zip(args, excl)))))
+                f.write("%s(%s)\n" % (colorize(predname, predicate_color, color), 
+                                      ", ".join(map(lambda x: "%s%s" % (x[0], {True:"!", False:""}[x[1]]), zip(args, excl)))))
         if not mutexInDecls:
             f.write(colorize("\n// mutual exclusiveness and exhaustiveness\n", comment_color))
             for predname, excl in self.blocks.iteritems():
@@ -600,7 +613,215 @@ class MLN(object):
         return [f.weight for f in self.formulas]
 
 
+def readMLNFromString(text, searchPath='.', logic='FirstOrderLogic', grammar='PRACGrammar', verbose=False, mln=None):
+    '''
+    Reads an MLN from a stream providing a 'read' method.
+    '''
+    log = logging.getLogger(__name__)
+    dirs = [os.path.abspath(searchPath)]
+    formulatemplates = []
+    text = str(text)
+    if text == "": 
+        raise MLNParsingError("No MLN content to construct model from was given; must specify either file/list of files or content string!")
+    # replace some meta-directives in comments
+    text = re.compile(r'//\s*<group>\s*$', re.MULTILINE).sub("#group", text)
+    text = re.compile(r'//\s*</group>\s*$', re.MULTILINE).sub("#group.", text)
+    # remove comments
+    text = stripComments(text)
+    log.info('Using %s syntax with %s semantics' % (grammar, logic))
+    if mln is None:
+        mln = MLN(logic, grammar)
+    # read lines
+    mln.hard_formulas = []
+    if verbose: print "reading MLN..."
+    templateIdx2GroupIdx = {}
+    inGroup = False
+    idxGroup = -1
+    fixWeightOfNextFormula = False
+    nextFormulaUnique = None
+    uniqueFormulaExpansions = {}
+    fixedWeightTemplateIndices = []
+    lines = text.split("\n")
+    iLine = 0
+    while iLine < len(lines):
+        line = lines[iLine]
+        iLine += 1
+        line = line.strip()
+        try:
+            if len(line) == 0: continue
+            # meta directives
+            if line == "#group":
+                idxGroup += 1
+                inGroup = True
+                continue
+            elif line == "#group.":
+                inGroup = False
+                continue
+            elif line.startswith("#fixWeightFreq"):
+                fixWeightOfNextFormula = True
+                continue
+            elif line.startswith("#include"):
+                filename = line[len("#include "):].strip(whitespace + '"')
+                # if the path is relative, look for the respective file 
+                # relatively to all paths specified. Take the first file matching.
+                if not os.path.isabs(filename):
+                    includefilename = None
+                    for d in dirs:
+                        if os.path.exists(os.path.join(d, filename)):
+                            includefilename = os.path.join(d, filename)
+                            break
+                    if includefilename is None:
+                        log.error('No such file: "%s"' % filename)
+                        raise Exception('File not found: %s' % filename)
+                else:
+                    includefilename = filename
+                log.debug('Including file: "%s"' % includefilename)
+                content = stripComments(file(includefilename, "r").read())
+                lines = content.split("\n") + lines[iLine:]
+                iLine = 0
+                continue
+            elif line.startswith('#unique'):
+                try:
+                    uniVars = re.search('#unique{(.+)}', line)
+                    uniVars = uniVars.groups()[0]
+                    log.debug(uniVars)
+                    uniVars = map(str.strip, uniVars.split(','))
+                    nextFormulaUnique = uniVars
+                except:
+                    raise MLNParsingError('Malformed #unique expression: "%s"' % line)
+                continue
+            elif line.startswith("#AdaptiveMLNDependency"): # declared as "#AdaptiveMLNDependency:pred:domain"; seems to be deprecated
+                depPredicate, domain = line.split(":")[1:3]
+                if hasattr(mln, 'AdaptiveDependencyMap'):
+                    if depPredicate in mln.AdaptiveDependencyMap:
+                        mln.AdaptiveDependencyMap[depPredicate].add(domain)
+                    else:
+                        mln.AdaptiveDependencyMap[depPredicate] = set([domain])
+                else:
+                    mln.AdaptiveDependencyMap = {depPredicate:set([domain])}
+                continue
+            # domain decl
+            if '=' in line:
+                # try normal domain definition
+                parse = mln.logic.parseDomDecl(line)
+                if parse is not None:
+                    domName, constants = parse
+                    domName = str(domName)
+                    constants = map(str, constants)
+                    log.info(domName)
+                    log.info(constants)
+                    if domName in mln.domains: 
+                        log.warning("Domain redefinition: Domain '%s' is being updated with values %s." % (domName, str(constants)))
+                    if domName not in mln.domains:
+                        mln.domains[domName] = []
+                    for value in constants:
+                        if not value in mln.domains[domName]:
+                            mln.domains[domName].append(value)
+                    mln.domDecls.append(line)
+                    continue
+            # prior probability requirement
+            if line.startswith("P("):
+                m = re.match(r"P\((.*?)\)\s*=\s*([\.\de]+)", line)
+                if m is None:
+                    raise MLNParsingError("Prior probability constraint formatted incorrectly: %s" % line)
+                mln.probreqs.append({"expr": strFormula(mln.logic.parseFormula(m.group(1))).replace(" ", ""), "p": float(m.group(2))})
+                continue
+            # posterior probability requirement/soft evidence
+            if line.startswith("R(") or line.startswith("SE("):
+                m = re.match(r"(?:R|SE)\((.*?)\)\s*=\s*([\.\de]+)", line)
+                if m is None:
+                    raise MLNParsingError("Posterior probability constraint formatted incorrectly: %s" % line)
+                mln.posteriorProbReqs.append({"expr": strFormula(mln.logic.parseFormula(m.group(1))).replace(" ", ""), "p": float(m.group(2))})
+                continue
+            # variable definition
+            if line.startswith("$"):
+                m = re.match(r'(\$\w+)\s*=(.+)', line)
+                if m is None:
+                    raise MLNParsingError("Variable assigment malformed: %s" % line)
+                mln.vars[m.group(1)] = "(%s)" % m.group(2).strip()
+                continue                        
+            # mutex constraint
+            if re.search(r"[a-z_][-_'a-zA-Z0-9]*\!", line) != None:
+                pred = mln.logic.parsePredDecl(line)
+                mutex = []
+                for param in pred[1]:
+                    if param[-1] == '!':
+                        mutex.append(True)
+                    else:
+                        mutex.append(False)
+#                 mln.blocks[pred[0]] = mutex
+                # if the corresponding predicate is not yet declared, take this to be the declaration
+#                 if not pred[0] in mln.predicates:
+                argTypes = map(lambda x: str(x).strip("!"), pred[1])
+#                     mln.predicates[pred[0]] = argTypes
+                mln.declarePredicate(str(pred[0]), argTypes, mutex)
+                continue
+            # predicate decl or formula with weight
+            else:
+                isHard = False
+                isPredDecl = False
+                if line[ -1] == '.': # hard (without explicit weight -> determine later)
+                    isHard = True
+                    formula = line[:-1]
+                else: # with weight
+                    # try predicate declaration
+                    isPredDecl = True
+                    try:
+                        pred = mln.logic.parsePredDecl(line)
+                    except Exception, e:
+                        isPredDecl = False
+                if isPredDecl:
+                    predName = str(pred[0])
+#                     if predName in mln.predicates:
+#                         raise MLNParsingError("Predicate redefinition: '%s' already defined" % predName)
+#                     mln.predicates[predName] = list(pred[1])
+                    mln.declarePredicate(predName, map(str, pred[1]))
+                    continue
+                else:
+                    # formula (template) with weight or terminated by '.'
+                    if not isHard:
+                        spacepos = line.find(' ')
+                        weight = line[:spacepos]
+                        formula = line[spacepos:].strip()
+                    try:
+                        formula = mln.logic.parseFormula(formula)
+#                         log.warning(type(formula))
+                        if not isHard:
+                            formula.weight = weight
+                        else:
+                            formula.weight = None # not set until instantiation when other weights are known
+                        formula.isHard = isHard
+                        idxTemplate = len(formulatemplates)
+                        formulatemplates.append(formula)
+                        if inGroup:
+                            templateIdx2GroupIdx[idxTemplate] = idxGroup
+                        if fixWeightOfNextFormula == True:
+                            fixWeightOfNextFormula = False
+                            fixedWeightTemplateIndices.append(idxTemplate)
+                        if nextFormulaUnique:
+                            uniqueFormulaExpansions[formula] = nextFormulaUnique
+                            nextFormulaUnique = None
+                    except ParseException, e:
+                        raise MLNParsingError("Error parsing formula '%s'\n" % formula)
+        except MLNParsingError:
+            sys.stderr.write("Error processing line '%s'\n" % line)
+            cls, e, tb = sys.exc_info()
+            traceback.print_tb(tb)
+            raise MLNParsingError(e.message)
 
+    # augment domains with constants appearing in formula templates
+    for f in formulatemplates:
+        constants = {}
+        f.getVariables(mln, None, constants)
+        for domain, constants in constants.iteritems():
+            for c in constants: mln.addConstant(domain, c)
+    
+    # save data on formula templates for materialization
+    mln.uniqueFormulaExpansions = uniqueFormulaExpansions
+    mln.formulas = formulatemplates
+    mln.templateIdx2GroupIdx = templateIdx2GroupIdx
+    mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices
+    return mln
 
 def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGrammar', verbose=False):
     '''
@@ -699,14 +920,23 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
                 continue
             # domain decl
             if '=' in line:
-                try: # try normal domain definition
-                    domName, constants = mln.logic.parseDomDecl(line)
+                # try normal domain definition
+                parse = mln.logic.parseDomDecl(line)
+                if parse is not None:
+                    domName, constants = parse
+                    domName = str(domName)
+                    constants = map(str, constants)
+                    log.info(domName)
+                    log.info(constants)
                     if domName in mln.domains: 
-                        raise Exception("Domain redefinition: '%s' already defined" % domName)
-                    mln.domains[domName] = constants
+                        log.warning("Domain redefinition: Domain '%s' is being updated with values %s." % (domName, str(constants)))
+                    if domName not in mln.domains:
+                        mln.domains[domName] = []
+                    for value in constants:
+                        if not value in mln.domains[domName]:
+                            mln.domains[domName].append(value)
                     mln.domDecls.append(line)
                     continue
-                except: pass
             # prior probability requirement
             if line.startswith("P("):
                 m = re.match(r"P\((.*?)\)\s*=\s*([\.\de]+)", line)
@@ -740,8 +970,8 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
                 mln.blocks[pred[0]] = mutex
                 # if the corresponding predicate is not yet declared, take this to be the declaration
                 if not pred[0] in mln.predicates:
-                    argTypes = map(lambda x: x.strip("!"), pred[1])
-                    mln.predicates[pred[0]] = argTypes
+                    argTypes = map(lambda x: str(x).strip("!"), pred[1])
+                    mln.predicates[str(pred[0])] = argTypes
                 continue
             # predicate decl or formula with weight
             else:
@@ -758,9 +988,10 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
                     except Exception, e:
                         isPredDecl = False
                 if isPredDecl:
-                    predName = pred[0]
+                    predName = str(pred[0])
                     if predName in mln.predicates:
                         raise MLNParsingError("Predicate redefinition: '%s' already defined" % predName)
+                    pred[1] = map(str, pred[1])
                     mln.predicates[predName] = list(pred[1])
                     continue
                 else:
