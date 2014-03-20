@@ -37,7 +37,8 @@ InferenceMethods = Enum(
      'BnB': 'Branch-&-Bound Search (exact MPE)'
     })
 
-ParameterLearningMeasures = Enum(
+
+LearningMethods = Enum(
      {"LL": "log-likelihood",
       #"SLL": "sampling-based log-likelihood via direct descent",
       "SLL_DN": "sampling-based log-likelihood via diagonal Newton",

@@ -26,7 +26,7 @@
 from mln.util import *
 import mln
 import optimize
-from mln.methods import ParameterLearningMeasures
+from mln.methods import LearningMethods
 from multiprocessing import Array, Value
 import multiprocessing
 from multiprocessing import Process
@@ -310,7 +310,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         AbstractLearner.__init__(self, mln, None, **params)
         self.mln = mln_
         self.dbs = dbs
-        self.constructor = ParameterLearningMeasures.byShortName(method)
+        self.constructor = LearningMethods.byShortName(method)
         self.params = params
         self.learners = []
         self.useMT = False
