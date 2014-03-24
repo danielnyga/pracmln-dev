@@ -565,7 +565,7 @@ class FilePickEdit(Frame):
         if self.unmodified == False:
             self.unmodified = True
             # save the file
-            f = file(filename, "w")
+            f = file(os.path.join(self.directory, filename), "w")
             f.write(self.editor.get("1.0", END).encode('utf-8'))
             f.close()
             # add it to the list of files
