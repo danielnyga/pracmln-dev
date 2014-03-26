@@ -4,6 +4,10 @@ import os
 import stat
 import sys
 import platform
+
+sys.path.append(os.path.join(os.getcwd(), 'python'))
+sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
+
 from utils import colorize
 
 includes = {
