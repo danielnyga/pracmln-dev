@@ -73,12 +73,15 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         for idxFormula, formula in enumerate(mrf.formulas):
             for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, mrf.simplify):
 #                 if gndFormula.isTrue(mrf.evidence):
-#                     log.debug('    %s\t-> %s' % (strFormula(gndFormula), str(gndFormula.isTrue(mrf.evidence))))
+#                 if gndFormula.isTrue(mrf.evidence) is None:
+#                     log.warning('    %s\t-> %s' % (strFormula(gndFormula), str(gndFormula.isTrue(mrf.evidence))))
                 gndFormula.isHard = formula.isHard
                 gndFormula.weight = formula.weight
 #                 if isinstance(gndFormula, Logic.TrueFalse):
 #                     continue
 #                 gndFormulas.append(gndFormula)
 #                 log.info(referencedGndAtoms)
+#                 if gndFormula.weight == -2000:
+#                     log.error('%f %s' % (gndFormula.weight, gndFormula))
                 mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
         self.gndTime = time.time() - self.gndTime

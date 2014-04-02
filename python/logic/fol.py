@@ -198,12 +198,12 @@ class FirstOrderLogic(Logic):
                 return
             # ground the first variable...
             varname, domName = variables.popitem()
-            assignment = dict(assignment) # copy for avoiding side effects
+            assignment_ = dict(assignment) # copy for avoiding side effects
             if domName not in mrf.domains: raise NoSuchDomainError('The domain %s does not exist, but is needed to ground the formula %s' % (domName, str(self)))
             for value in mrf.domains[domName]: # replacing it with one of the constants
-                assignment[varname] = value
+                assignment_[varname] = value
                 # recursive descent to ground further variables
-                for ass in self._iterTrueVariableAssignments(mrf, dict(variables), assignment, world, allVariables, 
+                for ass in self._iterTrueVariableAssignments(mrf, dict(variables), assignment_, world, allVariables, 
                                                              truthThreshold=truthThreshold, strict=strict, includeUnknown=includeUnknown):
                     yield ass
                     

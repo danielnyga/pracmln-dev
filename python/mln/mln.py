@@ -281,8 +281,9 @@ class MLN(object):
         for atom in sorted(resultDict):
             value = resultDict[atom]
             result_db.addGroundAtom(atom, value)
-            log.info("%.3f    %s" % (value, atom))
-        return result_db
+            if value > 0:
+                log.info("%.3f    %s" % (value, atom))
+        return result_db.union(None, evidence_db) 
         
                 
     def materializeFormulaTemplates(self, dbs, verbose=False):

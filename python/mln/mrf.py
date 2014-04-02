@@ -125,16 +125,16 @@ class MRF(object):
         self.posteriorProbReqs = list(self.mln.posteriorProbReqs)
         self.predicates = copy.deepcopy(self.mln.predicates)
         self.templateIdx2GroupIdx = self.mln.templateIdx2GroupIdx
-        log.debug('grounding the following MLN:')
-        self.mln.write(sys.stdout, color=True)
-        log.debug('grounding with the following database:')
-        db.write(sys.stdout, color=True)
+        #log.debug('grounding the following MLN:')
+        #self.mln.write(sys.stdout, color=True)
+        #log.debug('grounding with the following database:')
+        #db.write(sys.stdout, color=True)
         # grounding
         if verbose: print 'Loading %s...' % groundingMethod
         groundingMethod = eval('%s(self, db, **self.params)' % groundingMethod)
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(cwAssumption=cwAssumption)
-        log.debug('ground atoms  vs. evidence' + (' (all should be known):' if cwAssumption else ':'))
+        #og.debug('ground atoms  vs. evidence' + (' (all should be known):' if cwAssumption else ':'))
 #         for a in self.gndAtoms.values():
 #             log.debug('%s%s -> %2.2f' % (('%d' % a.idx).ljust(5), a, self.evidence[a.idx]))
         assert len(self.gndAtoms) == len(self.evidence)

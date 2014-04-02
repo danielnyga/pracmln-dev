@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
         try:
             raise RuntimeError("Opa!")
-        except Exception as e:
+        except Exception, e:
             logger.exception(e)
 
     test_func()

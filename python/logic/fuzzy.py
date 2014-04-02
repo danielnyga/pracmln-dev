@@ -40,7 +40,7 @@ class FuzzyLogic(Logic):
         '''
         if len(filter(lambda x: x == 0, args)) > 0:
             return 0
-        return reduce(lambda x, y: None if (x is None or y is None) else min(x, y), *args)
+        return reduce(lambda x, y: None if (x is None or y is None) else min(x, y), args)
     
     @staticmethod
     def max_undef(*args):
@@ -50,7 +50,7 @@ class FuzzyLogic(Logic):
         '''
         if len(filter(lambda x: x == 1, args)) > 0:
             return 1
-        return reduce(lambda x, y: None if x is None or y is None else max(x, y), *args)
+        return reduce(lambda x, y: None if x is None or y is None else max(x, y), args)
     
     
     class Constraint(FirstOrderLogic.Constraint): pass
@@ -81,6 +81,8 @@ class FuzzyLogic(Logic):
     
         def simplify(self, mrf):
             f = self.gndAtom.simplify(mrf)
+#             if self.gndAtom.predName == 'action_core':
+#             print self, 'is', f
             if isinstance(f, Logic.TrueFalse):
                 if self.negated:
                     return f.invert()
@@ -119,7 +121,10 @@ class FuzzyLogic(Logic):
     class Conjunction(FirstOrderLogic.Conjunction):
         
         def isTrue(self, world_values):
-            return FuzzyLogic.min_undef(map(lambda a: a.isTrue(world_values), self.children))
+            truthChildren = map(lambda a: a.isTrue(world_values), self.children)
+            print truthChildren, FuzzyLogic.min_undef(*truthChildren)
+            
+            return FuzzyLogic.min_undef(*truthChildren)
         
         def simplify(self, mrf):
             sf_children = []
@@ -149,7 +154,7 @@ class FuzzyLogic(Logic):
     class Disjunction(FirstOrderLogic.Disjunction):
         
         def isTrue(self, world_values):
-            return FuzzyLogic.max_undef(map(lambda a: a.isTrue(world_values), self.children))
+            return FuzzyLogic.max_undef(*map(lambda a: a.isTrue(world_values), self.children))
     
         def simplify(self, mrf):
             sf_children = []
@@ -293,4 +298,6 @@ NonLogicalConstraint = FuzzyLogic.NonLogicalConstraint
 CountConstraint = FuzzyLogic.CountConstraint
 GroundCountConstraint = FuzzyLogic.GroundCountConstraint
 
+if __name__ == '__main__':
     
+    print FuzzyLogic.min_undef(0.2,0.3, None)

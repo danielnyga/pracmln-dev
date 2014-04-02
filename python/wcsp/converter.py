@@ -208,7 +208,9 @@ class WCSPConverter(object):
                 f.isHard = gf.isHard
             else: f = gf
             f_ = f.simplify(self.mrf)
-#             log.info('%s ===> %s' % (str(gf), str(f_)))
+#             print gf.weight
+#             if gf.weight == 5000:
+#                 log.error('%s ===> %s' % (str(gf), str(f_)))
             if isinstance(f_, Logic.TrueFalse) or gf.weight == 0 and not gf.isHard:
                 continue
             f_ = f_.toNNF()

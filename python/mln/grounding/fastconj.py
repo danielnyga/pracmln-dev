@@ -95,7 +95,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         logic = self.mrf.mln.logic
         # make a copy of the formula to avoid side effects
         formula = formula.ground(self.mrf, {}, allowPartialGroundings=True)
-        conjunction_ = logic.conjunction([formula, logic.truefalse(1)]) if not hasattr(formula, 'children') else formula
+        conjunction_ = logic.conjunction([formula, logic.true_false(1)]) if not hasattr(formula, 'children') else formula
         # make equality constraints access their variable domains
         # this is a _really_ dirty hack but it does the job ;-)
         variables = conjunction_.getVariables(self.mrf.mln)
@@ -125,6 +125,28 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             yield gndFormula
             
             
+#     def _iterConjunctionGroundings(self, formula, litIdx, numChildren, mrf, assignment):
+#         
+#         log = logging.getLogger(self.__class__.__name__)
+#         if litIdx == numChildren:
+#             gndFormula = formula.ground(mrf, assignment, simplify=True)#.simplify(mrf)
+#             if isinstance(gndFormula, Logic.TrueFalse): return
+#             else: yield gndFormula
+#             return
+#         lit = formula.children[litIdx]
+#         for varAssignment in lit.iterTrueVariableAssignments(mrf, mrf.evidence, truthThreshold=.0, strict=True, includeUnknown=True, partialAssignment=assignment):
+#             log.warning(assignment)
+#             log.warning(varAssignment)
+#             if varAssignment == {}:
+#                 if len(set(lit.getVariables(mrf.mln).keys()).difference(assignment.keys())) > 0 or \
+#                     lit.ground(mrf, assignment).isTrue(mrf.evidence) == 0: 
+#                     return
+#             assignment_ = dict(assignment)
+#             assignment_.update(varAssignment)
+#             for gndFormula in self._iterConjunctionGroundings(formula, litIdx+1, numChildren, mrf, assignment_):
+#                 yield gndFormula
+                
+                
     def _iterConjunctionGroundings(self, formula, litIdx, numChildren, mrf, assignment):
         log = logging.getLogger(self.__class__.__name__)
         if litIdx == numChildren:
@@ -136,13 +158,15 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             return
         lit = formula.children[litIdx]
         for varAssignment in lit.iterTrueVariableAssignments(mrf, mrf.evidence, truthThreshold=.0, strict=True, includeUnknown=True, partialAssignment=assignment):
+#             log.warning(assignment)
+#             log.warning(varAssignment)
             if varAssignment == {}:
                 if len(set(lit.getVariables(mrf.mln).keys()).difference(assignment.keys())) > 0 or \
                     lit.ground(mrf, assignment).isTrue(mrf.evidence) == 0: 
                     return
-            assignment = dict(assignment)
-            assignment.update(varAssignment)
-            for gndFormula in self._iterConjunctionGroundings(formula, litIdx+1, numChildren, mrf, assignment):
+            assignment_ = dict(assignment)
+            assignment_.update(varAssignment)
+            for gndFormula in self._iterConjunctionGroundings(formula, litIdx+1, numChildren, mrf, assignment_):
                 yield gndFormula
             
         
