@@ -122,7 +122,7 @@ class FuzzyLogic(Logic):
         
         def isTrue(self, world_values):
             truthChildren = map(lambda a: a.isTrue(world_values), self.children)
-            print truthChildren, FuzzyLogic.min_undef(*truthChildren)
+#             print truthChildren, FuzzyLogic.min_undef(*truthChildren)
             
             return FuzzyLogic.min_undef(*truthChildren)
         
