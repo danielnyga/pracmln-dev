@@ -289,13 +289,13 @@ class MLN(object):
     def materializeFormulaTemplates(self, dbs, verbose=False):
         '''
         Expand all formula templates.
-        - dbs: list of Database objects
+        - dbs: list of `Database` objects
         '''
         log = logging.getLogger(self.__class__.__name__)
         log.info("materializing formula templates...")
         
-        for f in self.formulas:
-            log.info(f.cstr(True) + ' ' + str(type(f)))
+#         for f in self.formulas:
+#             log.info(f.cstr(True) + ' ' + str(type(f)))
         newMLN = self.duplicate()
         # obtain full domain with all objects 
         fullDomain = mergeDomains(self.domains, *[db.domains for db in dbs])
@@ -391,7 +391,7 @@ class MLN(object):
         Creates and returns a ground Markov Random Field for the given database
         - db: database filename (string) or Database object
         '''
-        mrf = MRF(self, db, groundingMethod, cwAssumption=cwAssumption, **params)
+        mrf = MRF(self, db, groundingMethod=groundingMethod, cwAssumption=cwAssumption, **params)
         return mrf
 
     def combineOverwrite(self, domain, verbose=False, groundFormulas=True):
@@ -501,7 +501,7 @@ class MLN(object):
         if len(dbs) == 1:
             groundingMethod = eval('%s.groundingMethod' % method)
             log.info("grounding MRF using %s..." % groundingMethod) 
-            mrf = newMLN.groundMRF(dbs[0], False, groundingMethod, True, **params)  # @UnusedVariable
+            mrf = newMLN.groundMRF(dbs[0], simplify=False, groundingMethod=groundingMethod, cwAssumption=True, **params)  # @UnusedVariable
             learner = eval("%s(newMLN, mrf, **params)" % method)
         else:
             learner = MultipleDatabaseLearner(newMLN, method, dbs, **params)

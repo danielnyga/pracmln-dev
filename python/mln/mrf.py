@@ -130,7 +130,7 @@ class MRF(object):
         #log.debug('grounding with the following database:')
         #db.write(sys.stdout, color=True)
         # grounding
-        if verbose: print 'Loading %s...' % groundingMethod
+        log.info('Loading %s...' % groundingMethod)
         groundingMethod = eval('%s(self, db, **self.params)' % groundingMethod)
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(cwAssumption=cwAssumption)
