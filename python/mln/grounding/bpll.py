@@ -26,7 +26,7 @@ from collections import defaultdict
 from utils.undo import Ref, Number, List, ListDict, Boolean
 import utils
 from mln.grounding.default import DefaultGroundingFactory
-from logic.common import Logic
+from logic.common import Logic, Lit, GroundLit
 import sys
 import logging
 import types
@@ -194,7 +194,12 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                 # by our customized one from above
                 setattr(child, 'getVariables', types.MethodType(getEqualityVariables, child))
         for child in list(children):
-            if child.predName in self.mrf.mln.blocks: 
+            predName = None
+            if isinstance(child, Lit):
+                predName = child.predName
+            elif isinstance(child, GroundLit):
+                predName = child.gndAtom.predName
+            if predName in self.mrf.mln.blocks: 
                 conj.append(child)
                 children.remove(child)
 #         raise Exception('assert')
@@ -253,7 +258,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                 raise e
         else:
             for idxFormula, formula in enumerate(mrf.formulas):
-                sys.stdout.write('%d/%d\r' % (idxFormula, len(mrf.formulas)))
+                sys.stdout.write('%d/%d    \r' % (idxFormula, len(mrf.formulas)))
                 sys.stdout.flush()
                 if self.mrf.mln.logic.isConjunctionOfLiterals(formula):
                     for gndFormula in self.iterConjunctionGroundings(formula, idxFormula):
