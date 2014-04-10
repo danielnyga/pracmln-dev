@@ -36,14 +36,21 @@ class Database(object):
     '''
     Represents an MLN Database, which is a set of ground literals (i.e. ground
     atoms or negated ground atoms)
-    Members:
-    - mln:        the respective MLN object that this Database is associated to
-    - domains:    the variable domain specific to this data base (i.e. without
-                  values from the MLN domains which are not present in the DB.
-    - evidence    dictionary mapping ground atom strings to truth values
+    
+    Attributes:
+        mln (`MLN`):        the respective MLN object that this Database is associated to
+        domains (`dict`):    the variable domain specific to this data base (i.e. without
+                          values from the MLN domains which are not present in the DB.
+        evidence (`dict`):    dictionary mapping ground atom strings to truth values
     '''
     
     def __init__(self, mln):
+        '''
+        Creates a new, empty `Database` object.
+        
+        Args:
+            mln (`MLN`):    The Markov Logic Network this `Database` should be attached to.
+        '''
         self.mln = mln
         self.domains = {}
         self.evidence = {}
@@ -190,9 +197,11 @@ class Database(object):
         '''
         Makes to the database a 'prolog-like' query given by the specified formula.
         Returns a dictionary with variable-value assignments for which the formula has
-        a truth value of at least truthThreshold.
-        Note: this is _very_ inefficient, since all groundings are gonna be
-            instantiated; so keep the queries short ;)
+        a truth value of at least `truthThreshold`.
+        
+        ..  warning:: 
+            This is _very_ inefficient, since all groundings are gonna be instantiated; so keep the queries short ;)
+        
         ''' 
         pseudoMRF = Database.PseudoMRF(self)
         formula = self.mln.logic.parseFormula(formula)
@@ -374,6 +383,12 @@ def readDBFromFile(mln, dbfile, ignoreUnknownPredicates=False):
       - mln:     the MLN object which should be used to load the database.
     Returns:
       either one single or a list of database objects.
+      
+    Examples:
+      Read an MLN `Database` file:
+
+      >>> mln = MLN()
+      >>> db = readDBFromFile(mln, './example.db')
     '''
     log = logging.getLogger('db')
     if type(dbfile) is list:

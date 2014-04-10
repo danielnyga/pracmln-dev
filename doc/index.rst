@@ -50,6 +50,8 @@ Contents:
    installation
    intro
    tutorial
+   apidoc
+   
 
 Contributors:
 ^^^^^^^^^^^^^
