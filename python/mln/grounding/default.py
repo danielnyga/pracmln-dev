@@ -36,11 +36,13 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
     def __init__(self, mrf, db, **params):
         AbstractGroundingFactory.__init__(self, mrf, db, **params)
         self.formula2GndFormulas = {}
+        
     
     def _createGroundAtoms(self):
         # create ground atoms
         for predName, domNames in self.mln.predicates.iteritems():
             self._groundAtoms([], predName, domNames)
+
 
     def _groundAtoms(self, cur, predName, domNames):
         # if there are no more parameters to ground, we're done
@@ -61,6 +63,7 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         for value in dom:
             if not self._groundAtoms(cur + [value], predName, domNames[1:]): return False
         return True
+
         
     def _createGroundFormulas(self):
         mrf = self.mrf
@@ -71,17 +74,9 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         log.debug('Ground formulas (all should have a truth value):')
         self.gndTime = time.time()
         for idxFormula, formula in enumerate(mrf.formulas):
-            for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, mrf.simplify):
-#                 if gndFormula.isTrue(mrf.evidence):
-#                 if gndFormula.isTrue(mrf.evidence) is None:
-#                     log.warning('    %s\t-> %s' % (strFormula(gndFormula), str(gndFormula.isTrue(mrf.evidence))))
+            for gndFormula, _ in formula.iterGroundings(mrf, mrf.simplify):
                 gndFormula.isHard = formula.isHard
                 gndFormula.weight = formula.weight
-#                 if isinstance(gndFormula, Logic.TrueFalse):
-#                     continue
-#                 gndFormulas.append(gndFormula)
-#                 log.info(referencedGndAtoms)
-#                 if gndFormula.weight == -2000:
-#                     log.error('%f %s' % (gndFormula.weight, gndFormula))
-                mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
+                gndFormula.fIdx = idxFormula
+                mrf._addGroundFormula(gndFormula, idxFormula, None)
         self.gndTime = time.time() - self.gndTime
