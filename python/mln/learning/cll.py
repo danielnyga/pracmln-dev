@@ -116,6 +116,7 @@ class CLL(AbstractLearner):
 
     def _computeStatistics(self):
         log = logging.getLogger(self.__class__.__name__)
+        log.info('Computing statistics...')
         self.statistics = {} # maps formula index to a dict of variables
         # collect for each partition the set of relevant ground formulas
         self.var2GFs = {}
@@ -135,7 +136,7 @@ class CLL(AbstractLearner):
             for valIdx, val in enumerate(values):
                 if val == self.mrf.evidence:
                     self.evidenceIndices[partIdx] = valIdx
-                for gf in self.var2GFs[i]:
+                for gf in self.var2GFs[partIdx]:
                     truth = gf.isTrue(val)
                     self.addStatistics(gf.fIdx, partIdx, valIdx, len(values), truth)
                     self.partRelevantFormulas[partIdx].add(gf.fIdx)
@@ -152,7 +153,7 @@ class CLL(AbstractLearner):
                     sums[i] += val
                     total += val
             if total == 0:
-                probs[partIdx] = [1. / self.partValueCount[partIdx]] * self.partValueCount[partIdx]
+                probs[partIdx] = numpy.array([1. / self.partValueCount[partIdx]] * self.partValueCount[partIdx])
                 continue
             sum_min = numpy.min(sums)
             sums -= sum_min
@@ -161,6 +162,7 @@ class CLL(AbstractLearner):
             expsums = numpy.sum(numpy.exp(sums))
             s = numpy.log(expsums)
             probs[partIdx] = numpy.exp(sums - s)
+#         print probs
         return probs
         
 
@@ -170,21 +172,22 @@ class CLL(AbstractLearner):
         for partIdx in range(len(self.partitions)):
             p = probs[partIdx][self.evidenceIndices[partIdx]]
             if p == 0: p = 1e-10
-            likelihood += p
+            likelihood[partIdx] += p
         return fsum(map(log, likelihood))
         
     
     def _grad(self, w):    
         log = logging.getLogger(self.__class__.__name__)
         probs = self._computeProbabilities(w)
-        grad = numpy.zeros(len(self.mrf.formulas), numpy.float64)
+        grad = numpy.zeros(len(w), numpy.float64)
         for fIdx, partitions in self.statistics.iteritems():
             for part, values in partitions.iteritems():
-                grad[fIdx] = values[self.evidenceIndices[part]]
+                v = values[self.evidenceIndices[part]]
                 for i, val in enumerate(values):
-                    grad[fIdx] -= probs[part][i] * val
+                    v -= probs[part][i] * val
+                grad[fIdx] += v
 #         log.info(grad)
-#         self.grad_opt_norm = float(sqrt(fsum(map(lambda x: x * x, grad))))
+        self.grad_opt_norm = float(sqrt(fsum(map(lambda x: x * x, grad))))
         return numpy.array(grad)
     
     
