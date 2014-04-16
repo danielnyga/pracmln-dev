@@ -28,3 +28,4 @@ or a new file, which you can choose to name as desired.
 Furthermore, the tool will save all the settings you made whenever 
 the learning method is invoked, so that you can easily resume a 
 session.
+

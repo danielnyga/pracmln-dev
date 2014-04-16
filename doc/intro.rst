@@ -11,4 +11,6 @@ Contents:
    tools
    mln_syntax
    mlntutorial
-
+   mlnlearningtool
+   learningmethods
+   inferencemethods
