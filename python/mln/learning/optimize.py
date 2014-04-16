@@ -147,6 +147,7 @@ class SciPyOpt(object):
         self.optimizer = optimizer
     
     def run(self):
+
         optimizer = self.optimizer
         p = self.problem
         f = p.f
@@ -204,7 +205,7 @@ class SciPyOpt(object):
         
         return wt
 
-from playdoh import Fitness, maximize, MAXCPU, PSO, print_table
+from playdoh import Fitness, maximize, MAXCPU, GA, PSO, print_table
 from numpy import exp, tile, array
 
 class FitnessTest(Fitness):
@@ -222,21 +223,29 @@ class FitnessTest(Fitness):
 	
 class PlaydohOpt(object):
 	# Maximize the fitness function in parallel
-	def __init__(self, problem, wt, machines=["localhost"]):
-		self.problem = problem
+	def __init__(self,  optimizer, wt, problem, **params):
+		self.optimizer = optimizer
 		self.wt = wt
-		self.machines = machines
+		self.problem = problem
+		self.optParams = params
 
-	def run(self, popSize=10, algorithm=PSO, initRange=[-10,10], maxIter=10):
+	def run(self, initRange=[-10,10], maxIter=10):
+		popSize = self.optParams['popSize'] if ('popSize' in self.optParams) else 10
+		initRange = self.optParams['initRange'] if ('initRange' in self.optParams) else [-10, 10]
+		maxIter = self.optParams['maxIter'] if ('maxIter' in self.optParams) else 10
+		machines = self.optParams['machines'] if ('machines' in self.optParams) else ['localhost']
+
+		algorithm = GA if (self.optimizer == 'ga') else PSO
 		initrange = numpy.tile(initRange, (len(self.wt), 1))
+
 		results = maximize(FitnessTest,
 			       popsize=popSize,  # size of the population
 			       maxiter=maxIter,  # maximum number of iterations
 			       cpu=MAXCPU,  # number of CPUs to use on the local machine
 			       args=(self.problem,),  # parameters for the "initialize" method
 			       initrange=initrange, # initial range for the x parameter
-			       machines=self.machines, #list of machines to use
-			       algorithm=algorithm) #algorithm to use
+			       machines=machines, #list of machines to use
+			       algorithm=algorithm) #algorithm to use, PSO/GA/CMAES
 
 		# Display the final result in a table
 		print_table(results)
