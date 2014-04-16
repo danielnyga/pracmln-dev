@@ -1,6 +1,10 @@
 
 import sys
 import logging
+
+from playdoh import *
+from numpy import exp, tile, array
+
 try:
     import numpy
     from scipy.optimize import fmin_bfgs, fmin_cg, fmin_ncg, fmin_tnc, fmin_l_bfgs_b, fsolve, fmin_slsqp, fmin, fmin_powell
@@ -130,7 +134,42 @@ class DiagonalNewton(object):
             step += 1
         
         return numpy.asarray(wt.transpose())[0]
-    
+
+class FitnessTest(Fitness):
+    # This method allows to initialize some data.
+    def initialize(self, problem):
+        self.problem = problem
+
+    # This method is called at every iteration.
+    def evaluate(self, x):
+	xt = x.T
+	result = []
+	for i in range(xt.shape[0]):
+        	result.append(self.problem._f(xt[i]))
+	return array(result)
+	
+class PlaydohOpt(object):
+	# Maximize the fitness function in parallel
+	def __init__(self, problem, wt, machines=["localhost"]):
+		self.problem = problem
+		self.wt = wt
+		self.machines = machines
+
+	def run(self, popSize=10, algorithm=PSO, initRange=[-10,10], maxIter=10):
+		initrange = numpy.tile(initRange, (len(self.wt), 1))
+		results = maximize(FitnessTest,
+			       popsize=popSize,  # size of the population
+			       maxiter=maxIter,  # maximum number of iterations
+			       cpu=MAXCPU,  # number of CPUs to use on the local machine
+			       args=(self.problem,),  # parameters for the "initialize" method
+			       initrange=initrange, # initial range for the x parameter
+			       machines=self.machines, #list of machines to use
+			       algorithm=algorithm) #algorithm to use
+
+		# Display the final result in a table
+		print_table(results)
+		#print results.best_pos
+		return results.best_pos 
 
 class SciPyOpt(object):
     '''
