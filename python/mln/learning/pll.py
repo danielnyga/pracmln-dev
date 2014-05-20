@@ -26,7 +26,7 @@
 from mln.util import *
 
 import re
-from mln.learning.common import SoftEvidenceLearner
+from mln.learning.common import SoftEvidenceLearner, DiscriminativeLearner
 from mln.learning.common import AbstractLearner
 import numpy
 
@@ -342,17 +342,16 @@ class PLL_ISE(SoftEvidenceLearner, PLL):
         return grad
 
 
-class DPLL(PLL):
-    ''' discriminative pseudo-log-likelihood '''    
+class DPLL(PLL, DiscriminativeLearner):
+    ''' 
+    Discriminative pseudo-log-likelihood learning.
+    '''    
 
     def __init__(self, mln, **params):
         super(DPLL, self).__init__(mln, **params)
-        if "queryPreds" not in self.params or type(self.params["queryPreds"]) != list:
-            raise Exception("For discriminative Learning, must provide query predicates by setting keyword argument queryPreds to a list of query predicate names, e.g. queryPreds=[\"classLabel\", \"propertyLabel\"].")        
+        self.queryPreds = self._getQueryPreds(params)
         
-    def _isQueryPredicate(self, predName):
-        return predName in self.params["queryPreds"]
-
+                
     def _f(self, wt):
         self._calculateAtomProbsMB(wt)
         probs = map(lambda x: x if x > 0 else 1e-10, self.atomProbsMB) # prevent 0 probs
@@ -362,6 +361,7 @@ class DPLL(PLL):
                 pll += log(prob)            
         print "discriminative pseudo-log-likelihood:", pll
         return pll
+
     
     def _grad(self, wt):        
         grad = numpy.zeros(len(self.mln.formulas), numpy.float64)

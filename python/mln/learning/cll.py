@@ -21,7 +21,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from mln.learning.common import AbstractLearner
+from mln.learning.common import AbstractLearner, DiscriminativeLearner
 import random
 import logging
 from mln.learning.bpll import BPLL
@@ -46,22 +46,41 @@ class CLL(AbstractLearner):
         self.evidenceIndices = {} # maps partition idx to index of value given by evidence
         self.partValueCount = {}
                 
+                
+    def _getPredNameForPllBlock(self, block):
+        '''
+        block being a (gaIdx, [gaIdx, ...]) tuple. 
+        '''
+        (idxGA, block) = block
+        if idxGA is None:
+            if len(block) == 0:
+                raise Exception('Encountered empty block.')
+            else:
+                return self.mrf.gndAtomsByIdx[block[0]].predName
+        else:
+            return self.mrf.gndAtomsByIdx[idxGA].predName
+    
+    
+    def _createVariables(self):
+        self.atomicVariables = list(self.mrf.pllBlocks)
+        
         
     def _prepareOpt(self):
         log = logging.getLogger(self.__class__.__name__)
         # create random partition of the ground atoms
-        variables = list(self.mrf.pllBlocks)
+        self._createVariables()
+        variables = self.atomicVariables
         random.shuffle(variables)
         self.partitions = []
         size = self.partSize
-        log.info(variables)
+        log.info('variables: %s' % variables)
         while len(variables) > 0:
             vars = variables[:size if len(variables) > size else len(variables)]
             part = map(lambda v: v[0] if v[0] is not None else v[1], vars)
-            log.info('created partition: %s' % str(part))
+            log.debug('created partition: %s' % str(part))
             self.partitions.append(part)
             variables = variables[len(part):]
-        log.info('composite likelihood learning established %d partitions' % len(self.partitions))
+        log.debug('composite likelihood learning established %d partitions' % len(self.partitions))
         self._computeStatistics()
         
         
@@ -204,4 +223,21 @@ class CLL(AbstractLearner):
                     else:
                         log.info('  %s = %.1f' % (str(self.mrf.gndAtomsByIdx[a]), evidence[a]))
         
-            
+
+class DCLL(CLL, DiscriminativeLearner):
+    '''
+    Discriminative Composite-Likelihood Learner.
+    '''
+    
+    def __init__(self, mln, mrf=None, **params):
+        log = logging.getLogger(self.__class__.__name__)
+        CLL.__init__(self, mln, mrf, **params)
+        self.queryPreds = self._getQueryPreds(**params)
+        log.info('query preds: %s' % self.queryPreds)
+        
+    
+    def _createVariables(self):
+        self.atomicVariables = filter(lambda block: self._getPredNameForPllBlock(block) in self.queryPreds, self.mrf.pllBlocks)
+    
+    
+    

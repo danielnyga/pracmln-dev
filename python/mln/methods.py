@@ -41,6 +41,7 @@ InferenceMethods = Enum(
 LearningMethods = Enum(
      {
       'CLL': "composite-log-likelihood",
+      'DCLL': '[discriminative] composite-log-likelohood',
       "LL": "log-likelihood",
       #"SLL": "sampling-based log-likelihood via direct descent",
       "SLL_DN": "sampling-based log-likelihood via diagonal Newton",

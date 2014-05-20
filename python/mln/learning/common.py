@@ -214,8 +214,8 @@ class AbstractLearner(object):
             opt = optimize.DirectDescent(self.wt, self, **params)        
         elif optimizer == "diagonalNewton":
             opt = optimize.DiagonalNewton(self.wt, self, **params)  
-	elif optimizer in ['ga', 'pso']:
-	    opt = optimize.PlaydohOpt(optimizer, self.wt, self, **params)      
+        elif optimizer in ['ga', 'pso']:
+            opt = optimize.PlaydohOpt(optimizer, self.wt, self, **params)      
         else:
             opt = optimize.SciPyOpt(optimizer, self.wt, self, **params)        
         
@@ -269,8 +269,39 @@ class AbstractLearner(object):
         else:
             sigma = "sigma=%f" % self.gaussianPriorSigma
         return "%s[%s]" % (self.__class__.__name__, sigma)
+    
+
+class DiscriminativeLearner(AbstractLearner):
+    '''
+    Abstract superclass of all discriminative learning algorithms.
+    Provides some convenience methods for determining the set of 
+    query predicates from the common parameters.
+    '''
+    
+    def _getQueryPreds(self, **params):
+        '''
+        Computes from the set parameters the list of query predicates
+        for the discriminative learner. Eitehr the 'queryPreds' or 'evidencePreds'
+        parameters must be given, both are lists of predicate names.
+        '''
+        queryPreds = params.get('queryPreds', [])
+        if 'evidencePreds' in params:
+            evidencePreds = params['evidencePreds']
+            queryPreds.extend([p for p in self.mln.predicates if p not in evidencePreds])
+            if not set(queryPreds).isdisjoint(evidencePreds):
+                raise Exception('Query predicates and evidence predicates must be disjoint.')
+        if len(queryPreds) == 0:
+            raise Exception("For discriminative Learning, must provide query predicates by setting keyword argument queryPreds to a list of query predicate names, e.g. queryPreds=[\"classLabel\", \"propertyLabel\"].")        
+        return queryPreds
+    
+    
+    def _isQueryPredicate(self, predName):
+        return predName in self.queryPreds
+
+    
 
 from softeval import truthDegreeGivenSoftEvidence
+
 
 class SoftEvidenceLearner(AbstractLearner):
 

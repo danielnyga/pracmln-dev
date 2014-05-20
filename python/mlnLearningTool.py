@@ -117,26 +117,46 @@ class MLNLearn:
         params = self.settings["params"]
         method = self.settings["method"]
         discriminative = "discriminative" in method
+        
+        #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  
+        #  PRACMLN internal engine
+        #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
+        
         if self.settings["engine"] in ("PRACMLNs", "internal"): # PyMLNs internal engine
+        
             # arguments
             args = {}
             if type(params) == str:
                 params = eval("dict(%s)" % params)
+            
             elif type(params) != dict:
                 raise("Argument 'params' must be string or a dictionary")
+            
+            # multiprocessing settings
             args['useMultiCPU'] = self.settings.get('useMultiCPU', False)
             args.update(params) # add additional parameters
+            
+            # settings for discriminative learning
             if discriminative:
-                args["queryPreds"] = map(str.strip, self.settings["nePreds"].split(","))
+                if settings.get('discrPredicates', MLNLearnGUI.USE_QUERY_PREDS) == MLNLearnGUI.USE_QUERY_PREDS:
+                    args["queryPreds"] = map(str.strip, self.settings["queryPreds"].split(","))
+                else:
+                    args['evidencePreds'] = map(str.strip, self.settings['evidencePreds'].split(','))
+
+            # gaussian prior settings            
             if self.settings["usePrior"]:
                 args["gaussianPriorSigma"] = float(self.settings["priorStdDev"])
+            
             # learn weights
             if type(self.settings["mln"]) == str:
                 mln = readMLNFromFile(self.settings["mln"], logic=self.settings['logic'], grammar=self.settings['grammar'])
+                
             elif type(self.settings["mln"] == mln.MLN):
                 mln = self.settings["mln"]
             else:
                 raise Exception("Argument 'mln' must be either string or MLN object")
+            
+            print args
             
             # set the debug level
             logging.getLogger().setLevel(eval('logging.%s' % args.get('debug', 'WARNING').upper()))
@@ -160,7 +180,13 @@ class MLNLearn:
             learnedMLN.write(file(fname, "w"))
             print "\nWROTE %s\n\n" % fname
             #mln.write(sys.stdout)
-        else: # Alchemy
+            
+            
+        #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  
+        #  Alchemy engine
+        #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
+        
+        else: 
             if self.settings["engine"] not in self.alchemy_versions:
                 raise Exception("Invalid alchemy version '%s'. Known versions: %s" % (self.settings["engine"], ", ".join(lambda x: '"%s"' % x, self.alchemy_versions.keys())))
             alchemy_version = self.alchemy_versions[self.settings["engine"]]
@@ -180,7 +206,7 @@ class MLNLearn:
             method_switches, discriminativeAsGenerative, shortname = self.alchemy_methods[method]
             params = [alchemyLearn] + method_switches + ["-i", self.settings["mln"], "-o", self.settings["output_filename"], "-t", ",".join(dbs)] + shlex.split(params)
             if discriminative:
-                params += ["-ne", self.settings["nePreds"]]
+                params += ["-ne", self.settings["queryPreds"]]
             elif discriminativeAsGenerative:                    
                 preds = mln.getPredicateList(self.settings["mln"])
                 params += ["-ne", ",".join(preds)]
@@ -249,6 +275,9 @@ class MLNLearn:
 # --- gui class ---
 
 class MLNLearnGUI:
+
+    USE_QUERY_PREDS = 0
+    USE_EVIDENCE_PREDS = 1
 
     def file_pick(self, label, mask, row, default, change_hook = None):
         # create label
@@ -347,23 +376,37 @@ class MLNLearnGUI:
         self.priorStdDev = StringVar(master)
         self.priorStdDev.set(self.settings.get("priorStdDev", "100"))
         Entry(frame, textvariable = self.priorStdDev, width=5).pack(side=LEFT)
-        Label(frame, text="(e.g. 100 for generative, 2 for discriminative)").pack(side=LEFT)
+#         Label(frame, text="").pack(side=LEFT)
         # add unit clauses
         self.add_unit_clauses = IntVar()
         self.cb_add_unit_clauses = Checkbutton(frame, text="add unit clauses", variable=self.add_unit_clauses)
         self.cb_add_unit_clauses.pack(side=LEFT)
         self.add_unit_clauses.set(self.settings.get("addUnitClauses", 0))
-        # non-evidence predicates
+        
+        # discriminative learning settings
         row += 1
+        self.discrPredicates = IntVar()
+        
         frame = Frame(self.frame)        
         frame.grid(row=row, column=1, sticky="NEWS")
-        self.l_nePreds = Label(frame, text="Non-evidence predicates:")
-        self.l_nePreds.grid(row=0, column=0, sticky="NE")        
-        self.nePreds = StringVar(master)
-        self.nePreds.set(self.settings.get("nePreds", ""))
+        self.rbQueryPreds = Radiobutton(frame, text="Query preds:", variable=self.discrPredicates, value=MLNLearnGUI.USE_QUERY_PREDS)
+        self.rbQueryPreds.grid(row=0, column=0, sticky="NE")
+                
+        self.queryPreds = StringVar(master)
+        self.queryPreds.set(self.settings.get("queryPreds", ""))
         frame.columnconfigure(1, weight=1)
-        self.entry_nePreds = Entry(frame, textvariable = self.nePreds)
+        self.entry_nePreds = Entry(frame, textvariable = self.queryPreds)
         self.entry_nePreds.grid(row=0, column=1, sticky="NEW")        
+
+        self.rbEvidencePreds = Radiobutton(frame, text='Evidence preds', variable=self.discrPredicates, value=MLNLearnGUI.USE_EVIDENCE_PREDS)
+        self.rbEvidencePreds.grid(row=0, column=2, sticky='NEWS')
+        
+        self.evidencePreds = StringVar(master)
+        self.evidencePreds.set(self.settings.get("evidencePreds", ""))
+        self.entryEvidencePreds = Entry(frame, textvariable=self.evidencePreds)
+        self.entryEvidencePreds.grid(row=0, column=3, sticky='NEWS')
+
+        self.discrPredicates.set(MLNLearnGUI.USE_QUERY_PREDS)
 
         # evidence database selection
         row += 1
@@ -462,6 +505,7 @@ class MLNLearnGUI:
             method = self.learner.alchemy_methods[self.selected_method.get()][2]
         filename = config.learnwts_output_filename(mln, engine, method, db)
         self.output_filename.set(filename)
+        
 
     def changedMLN(self, name):
         self.mln_filename = name
@@ -482,7 +526,9 @@ class MLNLearnGUI:
         method = self.selected_method.get()
         state = NORMAL if "[discriminative]" in method else DISABLED
         self.entry_nePreds.configure(state=state)
-        self.l_nePreds.configure(state=state)        
+        self.entryEvidencePreds.configure(state=state)
+        self.rbQueryPreds.configure(state=state)        
+        self.rbEvidencePreds.configure(state=state)
 
     def changedMethod(self, name, index, mode):
         self.onChangeMethod()
@@ -506,11 +552,14 @@ class MLNLearnGUI:
             self.settings["pattern"] = self.entry_pattern.get()
             self.settings["usePrior"] = int(self.use_prior.get())
             self.settings["priorStdDev"] = self.priorStdDev.get()
-            self.settings["nePreds"] = self.nePreds.get()
+            self.settings["queryPreds"] = self.queryPreds.get()
+            self.settings["evidencePreds"] = self.evidencePreds.get()
+            self.settings["discrPredicates"] = self.discrPredicates.get()
             self.settings["addUnitClauses"] = int(self.add_unit_clauses.get())
             self.settings['logic'] = self.selected_logic.get()
             self.settings['grammar'] = self.selected_grammar.get()
             self.settings['useMultiCPU'] = self.use_multiCPU.get()
+            
             if saveGeometry:
                 self.settings["geometry"] = self.master.winfo_geometry()
             pickle.dump(self.settings, file("learnweights.config.dat", "w+"))
