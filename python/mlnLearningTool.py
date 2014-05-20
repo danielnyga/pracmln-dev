@@ -406,7 +406,7 @@ class MLNLearnGUI:
         self.entryEvidencePreds = Entry(frame, textvariable=self.evidencePreds)
         self.entryEvidencePreds.grid(row=0, column=3, sticky='NEWS')
 
-        self.discrPredicates.set(MLNLearnGUI.USE_QUERY_PREDS)
+        self.discrPredicates.set(self.settings.get('discrPredicates', MLNLearnGUI.USE_QUERY_PREDS))
 
         # evidence database selection
         row += 1
