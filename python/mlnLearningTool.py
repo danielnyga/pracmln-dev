@@ -179,7 +179,8 @@ class MLNLearn:
             fname = self.settings["output_filename"]
             learnedMLN.write(file(fname, "w"))
             print "\nWROTE %s\n\n" % fname
-            #mln.write(sys.stdout)
+            if args.get('output', False):
+                learnedMLN.write(sys.stdout, color=True)
             
             
         #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  
@@ -478,8 +479,8 @@ class MLNLearnGUI:
         # change supported inference methods
         selected_method = self.settings.get("method%d" % int(self.internalMode))
         if selected_method not in methods:
-            if selected_method == "discriminative learning": selected_method = "[discriminative] sampling-based log-likelihood via rescaled conjugate gradient"
-            else: selected_method = "pseudo-log-likelihood via BFGS"
+#             if selected_method == "discriminative learning": selected_method = "[discriminative] sampling-based log-likelihood via rescaled conjugate gradient"
+            selected_method = LearningMethods.getName("BPLL_CG")
             
         self.selected_method.set(selected_method) # default value
         if "list_methods" in dir(self): self.list_methods.grid_forget()
