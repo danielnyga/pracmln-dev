@@ -162,7 +162,6 @@ class MLN(object):
         self.fixedWeightFormulas = []
         self.fixedWeightTemplateIndices = []
 
-
     def duplicate(self):
         '''
         Returns a deep copy of this MLN, which is not yet materialized.
@@ -502,6 +501,7 @@ class MLN(object):
             groundingMethod = eval('%s.groundingMethod' % method)
             log.info("grounding MRF using %s..." % groundingMethod) 
             mrf = newMLN.groundMRF(dbs[0], simplify=False, groundingMethod=groundingMethod, cwAssumption=True, **params)  # @UnusedVariable
+            log.debug('Loading %s-Learner' % method)
             learner = eval("%s(newMLN, mrf, **params)" % method)
         else:
             learner = MultipleDatabaseLearner(newMLN, method, dbs, **params)
@@ -927,8 +927,6 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
                     domName, constants = parse
                     domName = str(domName)
                     constants = map(str, constants)
-                    log.info(domName)
-                    log.info(constants)
                     if domName in mln.domains: 
                         log.warning("Domain redefinition: Domain '%s' is being updated with values %s." % (domName, str(constants)))
                     if domName not in mln.domains:

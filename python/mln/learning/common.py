@@ -278,7 +278,7 @@ class DiscriminativeLearner(AbstractLearner):
     query predicates from the common parameters.
     '''
     
-    def _getQueryPreds(self, **params):
+    def _getQueryPreds(self, params):
         '''
         Computes from the set parameters the list of query predicates
         for the discriminative learner. Eitehr the 'queryPreds' or 'evidencePreds'
@@ -298,6 +298,8 @@ class DiscriminativeLearner(AbstractLearner):
     def _isQueryPredicate(self, predName):
         return predName in self.queryPreds
 
+    def getName(self):
+        return self.__class__.__name__ + "[queryPreds:%s]" % ",".join(self.queryPreds)
     
 
 from softeval import truthDegreeGivenSoftEvidence

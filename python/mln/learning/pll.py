@@ -187,6 +187,7 @@ class PLL(AbstractLearner):
         if ('wtsLastAtomProbMBComputation' not in dir(self)) or self.wtsLastAtomProbMBComputation != list(wt):
             print "recomputing atom probabilities...",
             self.atomProbsMB = [self._getAtomProbMB(i, wt) for i in range(len(self.mrf.gndAtomsByIdx))]
+            self.atomProbsMB = map(lambda x: x if x > 0 else 1e-10, self.atomProbsMB)
             self.wtsLastAtomProbMBComputation = list(wt)
             print "done."
 
@@ -211,7 +212,6 @@ class PLL(AbstractLearner):
                 # check if formula is true if gnd atom maintains its truth value
                 cnt1 = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
                 # check if formula is true if gnd atom's truth value is inversed
-                cnt2 = 0
                 old_tv = self.mrf._getEvidence(idxGndAtom)
                 self.mrf._setTemporaryEvidence(idxGndAtom, 1 - old_tv)
                 cnt2 = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
@@ -235,6 +235,7 @@ class PLL(AbstractLearner):
                                         self._addToDiff(gndFormula.idxFormula, i, diff)
                                     else:
                                         self._addToDiff(gndFormula.idxFormula, i, diff / (len(block) - 1))
+                                        
 
     def _grad(self, wt):        
         grad = numpy.zeros(len(self.mln.formulas), numpy.float64)
@@ -258,6 +259,42 @@ class PLL(AbstractLearner):
         print "determining relevant formulas for each ground atom..."
         self._getAtomRelevantGroundFormulas()
         
+        
+        
+class DPLL(PLL, DiscriminativeLearner):
+    ''' 
+    Discriminative pseudo-log-likelihood learning.
+    '''    
+
+    def __init__(self, mln, mrf, **params):
+        PLL.__init__(self, mln, mrf, **params)
+        self.queryPreds = self._getQueryPreds(params)
+        
+                
+    def _f(self, wt):
+        self._calculateAtomProbsMB(wt)
+#         probs = map(lambda x: x if x > 0 else 1e-10, self.atomProbsMB) # prevent 0 probs
+        probs = self.atomProbsMB
+        pll = 0
+        for i, prob in enumerate(probs):
+            if self._isQueryPredicate(self.mrf.gndAtomsByIdx[i].predName):
+                pll += log(prob)            
+        print "discriminative pseudo-log-likelihood:", pll
+        return pll
+
+    
+    def _grad(self, wt):        
+        grad = numpy.zeros(len(self.mln.formulas), numpy.float64)
+        fullWt = wt
+        self._calculateAtomProbsMB(fullWt)
+        for (idxFormula, idxGndAtom), diff in self.diffs.iteritems():
+            print 'queryPred ', self.mrf.gndAtomsByIdx[idxGndAtom].predName,':', self._isQueryPredicate(self.mrf.gndAtomsByIdx[idxGndAtom].predName) 
+            if self._isQueryPredicate(self.mrf.gndAtomsByIdx[idxGndAtom].predName):
+                v = diff * (self.atomProbsMB[idxGndAtom] - 1)
+                grad[idxFormula] += v
+        print grad 
+        return grad
+
 
 class PLL_ISE(SoftEvidenceLearner, PLL):
     
@@ -342,39 +379,6 @@ class PLL_ISE(SoftEvidenceLearner, PLL):
         return grad
 
 
-class DPLL(PLL, DiscriminativeLearner):
-    ''' 
-    Discriminative pseudo-log-likelihood learning.
-    '''    
-
-    def __init__(self, mln, **params):
-        super(DPLL, self).__init__(mln, **params)
-        self.queryPreds = self._getQueryPreds(params)
-        
-                
-    def _f(self, wt):
-        self._calculateAtomProbsMB(wt)
-        probs = map(lambda x: x if x > 0 else 1e-10, self.atomProbsMB) # prevent 0 probs
-        pll = 0
-        for i, prob in enumerate(probs):
-            if self._isQueryPredicate(self.mrf.gndAtomsByIdx[i].predName):
-                pll += log(prob)            
-        print "discriminative pseudo-log-likelihood:", pll
-        return pll
-
-    
-    def _grad(self, wt):        
-        grad = numpy.zeros(len(self.mln.formulas), numpy.float64)
-        fullWt = wt
-        self._calculateAtomProbsMB(fullWt)
-        for (idxFormula, idxGndAtom), diff in self.diffs.iteritems():
-            if self._isQueryPredicate(self.mrf.gndAtomsByIdx[idxGndAtom].predName):
-                v = diff * (self.atomProbsMB[idxGndAtom] - 1)
-                grad[idxFormula] += v 
-        return grad
-
-    def getName(self):
-        return PLL.getName(self) + "[queryPreds:%s]" % ",".join(self.params["queryPreds"])
 
 
 class DPLL_ISE(PLL_ISE):

@@ -73,7 +73,7 @@ class CLL(AbstractLearner):
         random.shuffle(variables)
         self.partitions = []
         size = self.partSize
-        log.info('variables: %s' % variables)
+        log.debug('variables: %s' % variables)
         while len(variables) > 0:
             vars = variables[:size if len(variables) > size else len(variables)]
             part = map(lambda v: v[0] if v[0] is not None else v[1], vars)
@@ -232,7 +232,7 @@ class DCLL(CLL, DiscriminativeLearner):
     def __init__(self, mln, mrf=None, **params):
         log = logging.getLogger(self.__class__.__name__)
         CLL.__init__(self, mln, mrf, **params)
-        self.queryPreds = self._getQueryPreds(**params)
+        self.queryPreds = self._getQueryPreds(params)
         log.info('query preds: %s' % self.queryPreds)
         
     
