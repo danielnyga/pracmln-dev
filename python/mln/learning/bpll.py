@@ -30,6 +30,7 @@ import numpy
 import logging
 import praclog
 import time
+from mln.learning.common import DiscriminativeLearner
 
 class BPLL(AbstractLearner):
     '''
@@ -94,6 +95,7 @@ class BPLL(AbstractLearner):
         if ('wtsLastBlockProbMBComputation' not in dir(self)) or self.wtsLastBlockProbMBComputation != list(wt):
             #print "recomputing block probabilities...",
             self.blockProbsMB = [self._getBlockProbMB(i, wt) for i in xrange(len(self.mrf.pllBlocks))]
+#             print self.blockProbsMB
             self.wtsLastBlockProbMBComputation = list(wt)
     
     def _f(self, wt):
@@ -215,3 +217,61 @@ class BPLL_CG(BPLL):
         self.fcounts = self.mrf.groundingMethod.fcounts
         self.blockRelevantFormulas = self.mrf.groundingMethod.blockRelevantFormulas
         self.evidenceIndices = self.mrf.groundingMethod.evidenceIndices
+
+
+class DBPLL_CG(BPLL_CG, DiscriminativeLearner):
+    '''
+    Discriminative Pseudo-likelihood with custom grounding.
+    '''
+    
+    def __init__(self, mln, mrf, **params):
+        BPLL_CG.__init__(self, mln, mrf, **params)
+        self.queryPreds = self._getQueryPreds(params)
+        
+
+    def _f(self, wt):
+        self._calculateBlockProbsMB(wt)
+        probs = []
+        for idxVar, block in enumerate(self.mrf.pllBlocks):
+            predName = self._getPredNameForPllBlock(block)
+            if not self._isQueryPredicate(predName):
+                continue
+            p = self.blockProbsMB[idxVar][self.evidenceIndices[idxVar]]
+            if p == 0: p = 1e-10 # prevent 0 probabilities
+            probs.append(p)
+        return fsum(map(log, probs))
+   
+    def _grad(self, wt):
+        self._calculateBlockProbsMB(wt)
+        grad = numpy.zeros(len(self.mrf.formulas), numpy.float64)        
+        #print "gradient calculation"
+        for idxFormula, d in self.fcounts.iteritems():
+            for idxVar, counts in d.iteritems():
+                block = self.mrf.pllBlocks[idxVar]
+                predName = self._getPredNameForPllBlock(block)
+                if not self._isQueryPredicate(predName):
+                    continue
+                val = self.evidenceIndices[idxVar]
+                v = counts[val]
+                for i in xrange(len(counts)):
+                    v -= counts[i] * self.blockProbsMB[idxVar][i]
+                grad[idxFormula] += v
+        #print "wts =", wt
+        #print "grad =", grad
+        self.grad_opt_norm = float(sqrt(fsum(map(lambda x: x * x, grad))))
+        return numpy.array(grad)
+    
+    
+    
+    def _getPredNameForPllBlock(self, block):
+        '''
+        block being a (gaIdx, [gaIdx, ...]) tuple. 
+        '''
+        (idxGA, block) = block
+        if idxGA is None:
+            if len(block) == 0:
+                raise Exception('Encountered empty block.')
+            else:
+                return self.mrf.gndAtomsByIdx[block[0]].predName
+        else:
+            return self.mrf.gndAtomsByIdx[idxGA].predName

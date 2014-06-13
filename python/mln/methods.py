@@ -41,7 +41,7 @@ InferenceMethods = Enum(
 LearningMethods = Enum(
      {
       'CLL': "composite-log-likelihood",
-      'DCLL': '[discriminative] composite-log-likelohood',
+      'DCLL': '[discriminative] composite-log-likelihood',
       "LL": "log-likelihood",
       #"SLL": "sampling-based log-likelihood via direct descent",
       "SLL_DN": "sampling-based log-likelihood via diagonal Newton",
@@ -50,6 +50,7 @@ LearningMethods = Enum(
       "VP": "[discriminative] Voted Perceptron",
       "CD": "[discriminative] Contrastive Divergence",
       "BPLL": "pseudo-log-likelihood with blocking",
+      "DBPLL_CG": "[discriminative] pseudo-log-likelihood with blocking (custom grounding)",
       "BPLL_CG": "pseudo-log-likelihood with blocking (custom grounding)",
       #"BPLLMemoryEfficient": "pseudo-log-likelihood with blocking, memory-efficient", # NOTE: this method has now been merged into BPLL
 #      "PLL_fixed": "pseudo-log-likelihood with fixed unitary clauses [deprecated]",
