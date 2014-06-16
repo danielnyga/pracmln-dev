@@ -7,6 +7,7 @@ import platform
 
 sys.path.append(os.path.join(os.getcwd(), 'python'))
 sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
+sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'pyparsing'))
 
 from utils import colorize
 
@@ -171,6 +172,7 @@ if __name__ == '__main__':
     # write shell script for environment setup
     appsDir = adapt("$SRLDB_HOME/apps", arch)
     pythonDir = adapt("$SRLDB_HOME/python", arch)
+    pyparsingDir = adapt("$SRLDB_HOME/3rdparty/pyparsing", arch)
     jythonDir = adapt("$SRLDB_HOME/jython", arch)
     logutilsDir = adapt("$SRLDB_HOME/3rdparty/logutils-0.3.3", arch)
      
@@ -179,6 +181,7 @@ if __name__ == '__main__':
         f.write("export PATH=$PATH:%s\n" % appsDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % pythonDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % logutilsDir)
+        f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % pyparsingDir)
         f.write("export JYTHONPATH=$JYTHONPATH:%s:%s\n" % (jythonDir, pythonDir))
         f.write("export PROBCOG_HOME=%s\n" % adapt("$SRLDB_HOME", arch))
         f.close()
