@@ -47,6 +47,7 @@ class AbstractLearner(object):
                       'gaussianPriorSigma': None}
     
     def __init__(self, mln, mrf=None, **params):
+        # params overrides __init__params
         self.params = dict_union(AbstractLearner.__init__params, params)
         for key, value in self.params.iteritems():
             setattr(self, key, value)
@@ -95,6 +96,7 @@ class AbstractLearner(object):
             w = formula.weight
             self._fixedWeightFormulas[formula.idxFormula] = w
             
+    # TODO warum einfach f? wo aufgerufen?
     def f(self, wt):
         # compute prior
         prior = 0
@@ -170,7 +172,8 @@ class AbstractLearner(object):
     def run(self, **params):
         '''
         Learn the weights of the MLN given the training data previously 
-        loaded with combineDB 
+        loaded 
+        
         initialWts: whether to use the MLN's current weights as the starting point for the optimization
         '''
         
@@ -178,7 +181,9 @@ class AbstractLearner(object):
         if not 'scipy' in sys.modules:
             raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
         # initial parameter vector: all zeros or weights from formulas
-        wt = numpy.zeros(len(self.mln.formulas), numpy.float64)# + numpy.random.ranf(len(self.mln.formulas)) * 100
+        wt = numpy.zeros(len(self.mln.formulas), numpy.float64)
+        # TODO aus mln einlesen (mlnLearningTool.py und mln.py modifizieren), initialWts kommt dort nur im docstring vor 
+        # TODO assert gleiche länge ? 
         if self.initialWts:
             for i in range(len(self.mln.formulas)):
                 wt[i] = self.mln.formulas[i].weight
@@ -427,4 +432,104 @@ class MultipleDatabaseLearner(AbstractLearner):
                     self._fixedWeightFormulas[i] = 0.0
                 self._fixedWeightFormulas[i] += w / len(self.learners)
 
+
+class IncrementalLearner(AbstractLearner):
+    '''
+    learns incrementally from multiple databases without looking forward or preloading all existing domains 
+    '''
+    
+    def __init__(self, mln_, method, dbs, **params):
+
+        #(TODO wirklich domain pro db??)
+        '''
+        dbs: list of tuples (domain, evidence) as returned by the database reading method 
+        '''
+        AbstractLearner.__init__(self, mln_, None, **params)
+        self.mln = mln_
+        self.dbs = dbs
+        self.constructor = LearningMethods.byShortName(method)
+        #self.params = params
+        self.learners = []
+        self.useMT = False
+        self.closedWorldAssumption = True
+        log = logging.getLogger(self.__class__.__name__)
+
+        # TODO  cwAssumption=False 
+        for i, db in enumerate(self.dbs):
+            groundingMethod = eval('mln.learning.%s.groundingMethod' % self.constructor)
+            log.info("grounding MRF for database %d/%d using %s..." % (i+1, len(self.dbs), groundingMethod))
+            mrf = mln_.groundMRF(db, groundingMethod=groundingMethod, cwAssumption=True, **params)
+            learner = eval("mln.learning.%s(mln_, mrf, **params)" % self.constructor)
+            self.learners.append(learner)
+            learner._prepareOpt()
+        if self.useMT:
+            numCores = multiprocessing.cpu_count()
+            if self.verbose:
+                log.info('Setting up multi-core processing for %d cores' % numCores)
+            self.multiCoreLearners = []
+            learnersPerCore = int(ceil(len(self.learners) / float(numCores)))
+            for i in range(numCores):
+                self.multiCoreLearners.append(self.learners[i*learnersPerCore:(i+1)*learnersPerCore])
+            print self.multiCoreLearners
+    
+    def getName(self):
+        return "IncrementalLearner[%d*%s]" % (len(self.learners), self.learners[0].getName())
+        
+    def _f(self, wt):
+        if self.useMT:
+            f = Value('d', 0.0)
+            processes = []
+            for l in self.multiCoreLearners:
+                processes.append(Process(target=_mt_f, args=(f, l, wt)))
+            for p in processes:
+                p.start()
+            for p in processes:
+                p.join()
+            return float(str(f.value))
+        else:
+            likelihood = 0
+            for learner in self.learners:
+                likelihood += learner._f(wt)
+            return likelihood
+        
+    def _grad(self, wt):
+        if self.useMT:
+            grad = Array('d', len(self.mln.formulas))
+            processes = []
+            for l in self.multiCoreLearners:
+                processes.append(Process(target=_mt_grad, args=(grad, l, wt)))
+            for p in processes:
+                p.start()
+            for p in processes:
+                p.join()
+            grad2 = []
+            for c in grad[:]:
+                grad2.append(float(str(c)))
+            return grad2
+        grad2 = numpy.zeros(len(self.mln.formulas), numpy.float64)
+        for i, learner in enumerate(self.learners):
+            grad_i = learner._grad(wt)
+            #print "  grad %d: %s" % (i, str(grad_i))
+            grad2 += grad_i
+        return grad2
+
+    def _hessian(self, wt):
+        N = len(self.mln.formulas)
+        hessian = numpy.matrix(numpy.zeros((N,N)))
+        for learner in self.learners:
+            hessian += learner._hessian(wt)
+        return hessian
+
+    def _prepareOpt(self):
+        pass # _prepareOpt is called for individual learners during construction
+    
+    # TODO ???
+    def _fixFormulaWeights(self):
+        self._fixedWeightFormulas = {}
+        for learner in self.learners:
+            learner._fixFormulaWeights()
+            for i, w in learner._fixedWeightFormulas.iteritems():
+                if i not in self._fixedWeightFormulas:
+                    self._fixedWeightFormulas[i] = 0.0
+                self._fixedWeightFormulas[i] += w / len(self.learners)
     

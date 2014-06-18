@@ -297,6 +297,7 @@ class MLN(object):
 #             log.info(f.cstr(True) + ' ' + str(type(f)))
         newMLN = self.duplicate()
         # obtain full domain with all objects 
+        # TODO muss geändert werden für incremental learner 
         fullDomain = mergeDomains(self.domains, *[db.domains for db in dbs])
         log.debug('domains: %s' % fullDomain)
         # collect the admissible formula templates. templates might be not
@@ -469,6 +470,8 @@ class MLN(object):
         if len(databases) == 0:
             log.exception('At least one database is needed for learning.')
         dbs = []
+        # hier wird --- schon berücksichtigt! 
+
         for db in databases:
             if type(db) == str:
                 db = readDBFromFile(self, db)
@@ -483,6 +486,7 @@ class MLN(object):
         log.info('Got %s evidence databases for learning:' % len(dbs))
         log.debug(self.predicates)
         log.debug(self.domains)
+        # TODO: merge domains anpassen 
         newMLN = self.materializeFormulaTemplates(dbs, self.verbose)
         
         log.debug('MLN predicates:')
@@ -503,6 +507,8 @@ class MLN(object):
             mrf = newMLN.groundMRF(dbs[0], simplify=False, groundingMethod=groundingMethod, cwAssumption=True, **params)  # @UnusedVariable
             log.debug('Loading %s-Learner' % method)
             learner = eval("%s(newMLN, mrf, **params)" % method)
+        elif params.get('incremental', False): 
+            learner = IncrementalLearner(newMLN, method, dbs, **params)
         else:
             learner = MultipleDatabaseLearner(newMLN, method, dbs, **params)
         log.info("learner: %s" % learner.getName())
