@@ -389,13 +389,13 @@ class MLNLearnGUI:
         Label(frame, text=" and std dev of ").pack(side=LEFT)
         # std. dev.
         self.priorStdDev = StringVar(master)
-        self.priorStdDev.set(self.settings.get("priorStdDev", "100"))
+        self.priorStdDev.set(self.settings.get("priorStdDev", "2"))
         Entry(frame, textvariable = self.priorStdDev, width=5).pack(side=LEFT)
         # use initial weights in MLN 
-        self.initial_weights = IntVar()
-        self.cb_initial_weights = Checkbutton(frame, text="use initial weights", variable=self.initial_weights)
-        self.cb_initial_weights.pack(side=LEFT)
-        self.initial_weights.set(self.settings.get("initial_weights", "0"))
+        self.use_initial_weights = IntVar()
+        self.cb_use_initial_weights = Checkbutton(frame, text="use initial weights", variable=self.use_initial_weights)
+        self.cb_use_initial_weights.pack(side=LEFT)
+        self.use_initial_weights.set(self.settings.get("use_initial_weights", "0"))
         # use incremental learning
         self.incremental = IntVar()
         self.cb_incremental = Checkbutton(frame, text=" learn incrementally ", variable=self.incremental, command=self.check_incremental)
@@ -594,7 +594,7 @@ class MLNLearnGUI:
             self.settings["priorStdDev"] = self.priorStdDev.get()
             self.settings["incremental"] = int(self.incremental.get())
             self.settings["shuffle"] = int(self.shuffle.get())
-            self.settings["initial_weights"] = int(self.initial_weights.get())
+            self.settings["use_initial_weights"] = int(self.use_initial_weights.get())
 
             self.settings["queryPreds"] = self.queryPreds.get()
             self.settings["evidencePreds"] = self.evidencePreds.get()
