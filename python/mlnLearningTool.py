@@ -366,7 +366,7 @@ class MLNLearnGUI:
         self.frame.rowconfigure(row, weight=1)
         #self.selected_mln = self.file_pick("MLN: ", "*.mln", row, self.settings.get("mln"), self.changedMLN)
 
-        # method selection #TODO Scrolling 
+        # method selection
         row += 1
         self.list_methods_row = row
         Label(self.frame, text="Method: ").grid(row=row, column=0, sticky=E)
@@ -391,21 +391,21 @@ class MLNLearnGUI:
         self.priorStdDev = StringVar(master)
         self.priorStdDev.set(self.settings.get("priorStdDev", "100"))
         Entry(frame, textvariable = self.priorStdDev, width=5).pack(side=LEFT)
-        # use incremental learning
-        self.incremental = IntVar()
-        self.cb_incremental = Checkbutton(frame, text=" learn incrementally ", variable=self.incremental)
-        self.cb_incremental.pack(side=LEFT)
-        self.incremental.set(self.settings.get("incremental", "0"))
-        # shuffle databases
-        self.shuffle = IntVar()
-        self.cb_shuffle = Checkbutton(frame, text="shuffle databases", variable=self.shuffle)
-        self.cb_shuffle.pack(side=LEFT)
-        self.shuffle.set(self.settings.get("shuffle", "0"))
         # use initial weights in MLN 
         self.initial_weights = IntVar()
         self.cb_initial_weights = Checkbutton(frame, text="use initial weights", variable=self.initial_weights)
         self.cb_initial_weights.pack(side=LEFT)
         self.initial_weights.set(self.settings.get("initial_weights", "0"))
+        # use incremental learning
+        self.incremental = IntVar()
+        self.cb_incremental = Checkbutton(frame, text=" learn incrementally ", variable=self.incremental, command=self.check_incremental)
+        self.cb_incremental.pack(side=LEFT)
+        self.incremental.set(self.settings.get("incremental", "0"))
+        # shuffle databases
+        self.shuffle = IntVar()
+        self.cb_shuffle = Checkbutton(frame, text="shuffle databases", variable=self.shuffle, state='disabled')
+        self.cb_shuffle.pack(side=LEFT)
+        self.shuffle.set(self.settings.get("shuffle", "0"))
         # add unit clauses
         self.add_unit_clauses = IntVar()
         self.cb_add_unit_clauses = Checkbutton(frame, text="add unit clauses", variable=self.add_unit_clauses)
@@ -499,7 +499,7 @@ class MLNLearnGUI:
             state = NORMAL
             self.internalMode = False
             methods = sorted(self.learner.alchemy_methods.keys())
-        self.cb_add_unit_clauses.configure(state=state)
+        self.cb_add_unit_clauses.configure(state=state)  
 
         # change additional parameters
         self.params.set(self.settings.get("params%d" % int(self.internalMode), ""))
@@ -515,6 +515,15 @@ class MLNLearnGUI:
         self.list_methods = apply(OptionMenu, (self.frame, self.selected_method) + tuple(methods))
         self.list_methods.grid(row=self.list_methods_row, column=1, sticky="NWE")
         self.selected_method.trace("w", self.changedMethod)
+
+    def check_incremental(self):
+
+        if self.incremental.get()==1:
+            self.cb_shuffle.configure(state="normal")  
+        else:
+            self.cb_shuffle.configure(state="disabled")
+            self.cb_shuffle.deselect()
+                
 
     def isFile(self, f):
         return os.path.exists(os.path.join(self.dir, f))
