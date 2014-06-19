@@ -122,7 +122,11 @@ class Grammar(object):
     
     def parseFormula(self, s):
         self.tree.reset()
-        self.formula.parseString(s)
+        print s
+        try:
+            self.formula.parseString(s)
+        except:
+            print "error in formula"
         constr = self.tree.getConstraint()
         return constr
     
