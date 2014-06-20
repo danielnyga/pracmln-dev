@@ -390,7 +390,7 @@ class MLN(object):
         Creates and returns a ground Markov Random Field for the given database
         - db: database filename (string) or Database object
         '''
-        mrf = MRF(self, db, groundingMethod=groundingMethod, cwAssumption=cwAssumption, **params)
+        mrf = MRF(self, db, groundingMethod=groundingMethod, cwAssumption=cwAssumption, simplify=simplify, **params)
         return mrf
 
     def combineOverwrite(self, domain, verbose=False, groundFormulas=True):
