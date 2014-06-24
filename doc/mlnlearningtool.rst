@@ -29,3 +29,23 @@ Furthermore, the tool will save all the settings you made whenever
 the learning method is invoked, so that you can easily resume a 
 session.
 
+Parameters
+----------
+
+In the text field 'Params', you have the opportunity to pass additional
+parameters to the tool and the learning algorithms, respectively.
+The parameters need to be specified in the Python dictionary syntax
+as they will be transformed into and passed to the algorithms as
+python dictionaries.
+
+Currently, the following parameters are supported:
+
+*  ``debug='<level>'`` This will temporarily set the debug level to the 
+   one specified. Admissible values are (with decreasing level of verbosity): 
+   ``DEBUG``, ``INFO``, ``WARNING``, ``ERROR``, ``CRITICAL``.
+   
+*  ``output=True/False`` Specifies whether or not the learned MLN will be 
+   printed to the console after the algorithm has terminated.
+   
+*  ``optimizer='<name>'`` Specifies which optimization routine to be used. See also
+   :doc:`learningmethods` for more information.
