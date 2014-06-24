@@ -269,7 +269,7 @@ class BPLLGroundingFactory(DefaultGroundingFactory):
                         # get the set of block indices that the variables appearing in the formula correspond to
                         self._computeStatisticsForGndFormula(gndFormula, idxFormula)
                     
-    def _createGroundFormulas(self):
+    def _createGroundFormulas(self, simplify):
         '''
         We will not create ground formula and keep them in memory but
         throw them away after we have collected its sufficient statistics.

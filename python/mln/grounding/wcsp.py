@@ -52,7 +52,7 @@ class WCSPGroundingFactory(BPLLGroundingFactory):
                     except: pass
         return assignments
     
-    def _createGroundFormulas(self, verbose):
+    def _createGroundFormulas(self, simplify):
         # filter out conjunctions
         mrf = self.mrf 
         mln = mrf.mln    
@@ -68,14 +68,14 @@ class WCSPGroundingFactory(BPLLGroundingFactory):
                     vars = f.getVariables(mln)
                     for tup in assignment:
                         del vars[tup[0]]
-                    for gf, atoms in f._iterGroundings(mrf, vars, dict(assignment), simplify=True):
+                    for gf, atoms in f._iterGroundings(mrf, vars, dict(assignment), simplify=simplify):
                         gf.isHard = f.isHard
                         gf.weight = f.weight
                         if isinstance(gf, Logic.TrueFalse):
                             continue
                         mrf._addGroundFormula(gf, i, atoms)
             else:
-                for gndFormula, referencedGndAtoms in f.iterGroundings(mrf, simplify=True):
+                for gndFormula, referencedGndAtoms in f.iterGroundings(mrf, simplify=simplify):
                     gndFormula.isHard = f.isHard
                     gndFormula.weight = f.weight
                     if isinstance(gndFormula, Logic.TrueFalse):
