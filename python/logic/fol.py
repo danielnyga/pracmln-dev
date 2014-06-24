@@ -1164,7 +1164,8 @@ class FirstOrderLogic(Logic):
                     return self.logic.equality(params, self.negated)
                 else: raise Exception("At least one variable was not grounded in '%s'!" % str(self))
             if simplify:
-                return self.logic.true_false(1 if self.negated != (params[0] == params[1]) else 0)
+                equal = (params[0] == params[1])
+                return self.logic.true_false(1 if {True: not equal, False: equal}[self.negated] else 0)
             else:
                 return self.logic.equality(params, self.negated)
     
