@@ -44,5 +44,7 @@ class AbstractGroundingFactory(object):
     def groundMRF(self, cwAssumption=False, simplify=False):
         self._createGroundAtoms()
         self.mrf.setEvidence(self.db.evidence, cwAssumption=cwAssumption)
+        self.mln.watch.tag('Grounding formulas', self.mln.verbose)
         self._createGroundFormulas(simplify=simplify)
+        self.mln.watch.finish()
         return self.mrf

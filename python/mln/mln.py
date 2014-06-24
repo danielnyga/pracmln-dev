@@ -28,7 +28,7 @@ from database import readDBFromFile
 from logic import FirstOrderLogic, FuzzyLogic
 import copy
 from utils import dict_union, comment_color, predicate_color, weight_color,\
-    colorize
+    colorize, StopWatch
 
 from debug import DEBUG
 import praclog
@@ -142,7 +142,7 @@ class MLN(object):
         self.predicates = {}
         self.domains = {}
         self.formulas = []
-        
+        self.verbose = verbose
         self.blocks = {}
         self.domDecls = []
         self.probreqs = []
@@ -161,6 +161,7 @@ class MLN(object):
         self.uniqueFormulaExpansions = {}
         self.fixedWeightFormulas = []
         self.fixedWeightTemplateIndices = []
+        self.watch = StopWatch()
 
     def duplicate(self):
         '''
@@ -272,7 +273,7 @@ class MLN(object):
         self.setClosedWorldPred(*params.get('cwPreds', []))
         if evidence_db is None:
             evidence_db = Database(self)
-        materialized_mln = self.materializeFormulaTemplates([evidence_db])
+        materialized_mln = self.materializeFormulaTemplates([evidence_db], verbose=self.verbose)
         mrf = materialized_mln.groundMRF(evidence_db, simplify=True, groundingMethod='FastConjunctionGrounding', **params)
         resultDict = mrf.infer(what=queries, given=None, **params)
         log.debug(resultDict)
@@ -296,6 +297,7 @@ class MLN(object):
 #         for f in self.formulas:
 #             log.info(f.cstr(True) + ' ' + str(type(f)))
         newMLN = self.duplicate()
+        newMLN.watch.tag('formula materialization', verbose)
         # obtain full domain with all objects 
         # TODO muss geändert werden für incremental learner 
         fullDomain = mergeDomains(self.domains, *[db.domains for db in dbs])
@@ -330,7 +332,6 @@ class MLN(object):
             domNames = ft._getTemplateVariables(self).values()
             for domName in domNames:
                 newMLN.domains[domName] = fullDomain[domName]
-                
         newMLN._materializeFormulaTemplates()
         return newMLN
 

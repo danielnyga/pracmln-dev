@@ -1,6 +1,7 @@
 import logging
 from praclog.logformat import RainbowLoggingHandler
 import sys
+import time
 
 
 # this defines the formats in (bg, fg, bold)
@@ -33,6 +34,47 @@ def colorize(message, format, color=False):
         message = ''.join((colorize.colorHandler.csi, ';'.join(params),
                            'm', message, colorize.colorHandler.reset))
     return message
+
+
+class StopWatchTag:
+    
+    def __init__(self, label, starttime, stoptime=None):
+        self.label = label
+        self.starttime = starttime
+        self.stoptime = stoptime
+
+class StopWatch(object):
+    '''
+    Simple tagging of time spans.
+    '''
+    
+    def __init__(self):
+        self.start = 0
+        self.tags = []
+        
+    def tag(self, label, verbose=True):
+        if verbose:
+            print '%s...' % label
+        now = time.time()
+        self.start = now
+        if len(self.tags) > 0 and self.tags[-1].stoptime is None:
+                self.tags[-1].stoptime = now
+        self.tags.append(StopWatchTag(label, now))
+    
+    def finish(self):
+        now = time.time()
+        if len(self.tags) > 0 and self.tags[-1].stoptime is None:
+            self.tags[-1].stoptime = now
+    
+    def reset(self):
+        self.tags = []
+        self.start = 0
+        
+    def printSteps(self):
+        for t in self.tags:
+            self.finish()
+            print '%s took %.3f sec.' % (colorize(t.label, (None, None, True), True), t.stoptime-t.starttime)
+
 
 def combinations(domains):
     if len(domains) == 0:
