@@ -66,7 +66,7 @@ class FuzzyLogic(Logic):
             s = "%s(%s)" % (self.predName, ",".join(self.params))
             truth = mrf.gndAtoms[s].isTrue(mrf.evidence)
             if truth is None:
-                return self
+                return self.logic.lit(self.negated, self.predName, self.params)
             else:
                 if self.negated: truth = 1 - truth
                 return self.logic.true_false(truth)
