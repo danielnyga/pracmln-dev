@@ -49,3 +49,5 @@ Currently, the following parameters are supported:
    
 *  ``optimizer='<name>'`` Specifies which optimization routine to be used. See also
    :doc:`learningmethods` for more information.
+   
+* ``profile=True/False`` Launches the learner via the python profiler.
