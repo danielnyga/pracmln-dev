@@ -80,3 +80,17 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
                 gndFormula.fIdx = idxFormula
                 mrf._addGroundFormula(gndFormula, idxFormula, None)
         self.gndTime = time.time() - self.gndTime
+
+
+class NoGroundingFactory(DefaultGroundingFactory):
+    '''
+    Subclass of the default grounding factory, which only creates ground atoms,
+    but no ground formulas. Can be used for customized groundings in the learning
+    or inference algorithms, if necessary.
+    '''
+    
+    def _createGroundFormulas(self, simplify=False):
+        pass
+    
+    
+    
