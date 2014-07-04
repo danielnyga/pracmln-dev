@@ -229,7 +229,7 @@ class MRF(object):
         
         # check if atom is in block and update the lookup
         mutex = self.mln.blocks.get(gndLit.predName)
-        if mutex != None:
+        if mutex != None and any(mutex):
             blockName = "%s_" % gndLit.predName
             for i, v in enumerate(mutex):
                 if v == False:
