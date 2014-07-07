@@ -183,7 +183,7 @@ class FuzzyLogic(Logic):
         
         def isTrue(self, world_values):
             ant = self.children[0].isTrue(world_values)
-            return FuzzyLogic.max_undef([None if ant is None else 1. - ant, self.children[1].isTrue(world_values)])
+            return FuzzyLogic.max_undef(None if ant is None else 1. - ant, self.children[1].isTrue(world_values))
     
         def simplify(self, mrf):
             return self.logic.disjunction([self.logic.negation([self.children[0]]), self.children[1]]).simplify(mrf)
@@ -192,7 +192,7 @@ class FuzzyLogic(Logic):
     class Biimplication(FirstOrderLogic.Biimplication):
         
         def isTrue(self, world_values):
-            return FuzzyLogic.min_undef([self.children[0].isTrue(world_values), self.children[1].isTrue(world_values)])
+            return FuzzyLogic.min_undef(self.children[0].isTrue(world_values), self.children[1].isTrue(world_values))
     
         def simplify(self, mrf):
             c1 = self.logic.disjunction([self.logic.negation([self.children[0]]), self.children[1]])
