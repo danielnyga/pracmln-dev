@@ -177,8 +177,11 @@ class CLL(AbstractLearner):
             atomIndices = CLL.chain(p)
             for atomIdx in atomIndices:
                 self.mrf._setTemporaryEvidence(atomIdx, None)
+            print self.mrf.evidence
             self.partRelevantFormulas[partIdx] = set()
             for gf in self._iterFormulaGroundingsForVariable(p): # generates all relevant (and only the relevant!) ground formulas for the current partition
+                if set(atomIndices).isdisjoint(gf.idxGroundAtoms()):
+                    continue
                 for valIdx, val in enumerate(values):
                     if val == evidenceBackup:
                         self.evidenceIndices[partIdx] = valIdx
@@ -244,25 +247,22 @@ class CLL(AbstractLearner):
         return atomIndices
 
     def _computeProbabilities(self, w):
-        probs = {}
+        probs = {}#numpy.zeros(len(self.partitions))
         for partIdx in range(len(self.partitions)):
             sums = numpy.zeros(self.partValueCount[partIdx])
-            total = 0.
             for f in self.partRelevantFormulas[partIdx]:
                 for i, v in enumerate(self.statistics[f][partIdx]):
                     val = v * w[f]
                     sums[i] += val
-                    total += val
-            if total == 0:
-                probs[partIdx] = numpy.array([1. / self.partValueCount[partIdx]] * self.partValueCount[partIdx])
-                continue
-            sum_min = numpy.min(sums)
-            sums -= sum_min
-            sum_max = numpy.max(sums)
-            sums -= sum_max
-            expsums = numpy.sum(numpy.exp(sums))
-            s = numpy.log(expsums)
-            probs[partIdx] = numpy.exp(sums - s)
+#             sum_min = numpy.min(sums)
+#             sums -= sum_min
+#             sum_max = numpy.max(sums)
+#             sums -= sum_max
+#             expsums = numpy.sum(numpy.exp(sums))
+#             s = numpy.log(expsums)
+#             probs[partIdx] = numpy.exp(sums - s)
+            expsum = numpy.exp(sums)
+            probs[partIdx] = expsum / fsum(expsum)
         return probs
         
 
@@ -279,7 +279,7 @@ class CLL(AbstractLearner):
     def _grad(self, w):    
         log = logging.getLogger(self.__class__.__name__)
         probs = self._computeProbabilities(w)
-        grad = numpy.zeros(len(w), numpy.float64)
+        grad = numpy.zeros(len(w))
         for fIdx, partitions in self.statistics.iteritems():
             for part, values in partitions.iteritems():
                 v = values[self.evidenceIndices[part]]
