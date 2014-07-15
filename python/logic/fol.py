@@ -1132,7 +1132,7 @@ class FirstOrderLogic(Logic):
                 variables[var] = domName
             # ground
             gndings = []
-            self._ground(self.children[0], variables, assignment, gndings, mrf, referencedGroundAtoms)
+            self._ground(self.children[0], variables, assignment, gndings, mrf, referencedGroundAtoms, allowPartialGroundings=allowPartialGroundings)
             if len(gndings) == 1:
                 return gndings[0]
             disj = self.logic.disjunction(gndings)
@@ -1141,10 +1141,10 @@ class FirstOrderLogic(Logic):
             else:
                 return disj
                  
-        def _ground(self, formula, variables, assignment, gndings, mrf, referencedGroundAtoms = None):
+        def _ground(self, formula, variables, assignment, gndings, mrf, referencedGroundAtoms=None, allowPartialGroundings=False):
             # if all variables have been grounded...
             if variables == {}:
-                gndFormula = formula.ground(mrf, assignment, referencedGroundAtoms)
+                gndFormula = formula.ground(mrf, assignment, referencedGroundAtoms, allowPartialGroundings=allowPartialGroundings)
                 gndings.append(gndFormula)
                 return
             # ground the first variable...
@@ -1152,7 +1152,7 @@ class FirstOrderLogic(Logic):
             for value in mrf.domains[domName]: # replacing it with one of the constants
                 assignment[varname] = value
                 # recursive descent to ground further variables
-                self._ground(formula, dict(variables), assignment, gndings, mrf)
+                self._ground(formula, dict(variables), assignment, gndings, mrf, allowPartialGroundings=allowPartialGroundings)
          
         def toCNF(self,l=0):
             raise Exception("'%s' cannot be converted to CNF. Ground this formula first!" % str(self))

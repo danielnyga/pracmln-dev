@@ -177,7 +177,7 @@ class CLL(AbstractLearner):
             atomIndices = CLL.chain(p)
             for atomIdx in atomIndices:
                 self.mrf._setTemporaryEvidence(atomIdx, None)
-            print self.mrf.evidence
+#             print self.mrf.evidence
             self.partRelevantFormulas[partIdx] = set()
             for gf in self._iterFormulaGroundingsForVariable(p): # generates all relevant (and only the relevant!) ground formulas for the current partition
                 if set(atomIndices).isdisjoint(gf.idxGroundAtoms()):
