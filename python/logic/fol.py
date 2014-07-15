@@ -40,20 +40,33 @@ class FirstOrderLogic(Logic):
         '''
         
         def getTemplateVariants(self):
-            '''gets all the template variants of the constraint for the given mln/ground markov random field'''
+            '''
+            Gets all the template variants of the constraint for the given mln/ground markov random field.
+            '''
             raise Exception("%s does not implement getTemplateVariants" % str(type(self)))
         
         def isTrue(self, world_values):
-            '''returns True if the constraint is satisfied given a complete possible world
-                    world_values: a possible world as a list of truth values'''
+            '''
+            Returns True if the constraint is satisfied given a complete possible world
+                    world_values: a possible world as a list of truth values
+            '''
             raise Exception("%s does not implement isTrue" % str(type(self)))
     
         def isLogical(self):
-            '''returns whether this is a logical constraint, i.e. a logical formula'''
+            '''
+            Returns whether this is a logical constraint, i.e. a logical formula
+            '''
             raise Exception("%s does not implement isLogical" % str(type(self)))
     
-        def iterGroundings(self, mrf, simplify=False):
-            '''iteratively yields the groundings of the formula for the given ground MRF'''
+        def iterGroundings(self, mrf, simplify=False, domains=None):
+            '''
+            Iteratively yields the groundings of the formula for the given ground MRF
+            - simplify:     If set to True, the grounded formulas will be simplified
+                            according to the evidence set in the MRF.
+            - domains:      If None, the default domains will be used for grounding.
+                            If its a dict mapping the variable names to a list of values,
+                            these values will be used instead.
+            '''
             raise Exception("%s does not implement iterGroundings" % str(type(self)))
         
         def idxGroundAtoms(self, l = None):
@@ -135,31 +148,39 @@ class FirstOrderLogic(Logic):
                 
         def _getTemplateVariables(self, mln, variable = None):
             '''
-            gets all variables of this formula that are required to be expanded 
+            Gets all variables of this formula that are required to be expanded 
             (i.e. variables to which a '+' was appended) and returns a 
             mapping (dict) from variable name to domain name.
             '''
             raise Exception("%s does not implement _getTemplateVariables" % str(type(self)))
         
         def _groundTemplate(self, assignment):
-            '''grounds this formula for the given assignment of template variables 
+            '''
+            Grounds this formula for the given assignment of template variables 
             and returns a list of formulas, the list of template variants
-            - assignment: a mapping from variable names to constants'''
+            - assignment: a mapping from variable names to constants
+            '''
             raise Exception("%s does not implement _groundTemplate" % str(type(self)))
     
-        def iterGroundings(self, mrf, simplify=False):
+        def iterGroundings(self, mrf, simplify=False, domains=None):
             '''
-            iteratively yields the groundings of the formula for the given grounder
-            mrf: an object, such as an MRF instance, which
-                - has an "mln" member (MarkovLogicNetwork instance)
-                - has a "domains" member (like an MLN/MRF)
-                - has a "gndAtoms" member that can be indexed, i.e. gndAtoms[string] should return a ground atom instance
+            Iteratively yields the groundings of the formula for the given grounder
+            - mrf:           an object, such as an MRF instance, which
+                                 - has an "mln" member (MarkovLogicNetwork instance)
+                                 - has a "domains" member (like an MLN/MRF)
+                                 - has a "gndAtoms" member that can be indexed, i.e. gndAtoms[string] should 
+                                   return a ground atom instance
+            - simplify:     If set to True, the grounded formulas will be simplified
+                            according to the evidence set in the MRF.
+            - domains:      If None, the default domains will be used for grounding.
+                            If its a dict mapping the variable names to a list of values,
+                            these values will be used instead.
             '''
             try:
                 variables = self.getVariables(mrf.mln)
             except Exception, e:
                 raise Exception("Error grounding '%s': %s" % (str(self), str(e)))
-            for grounding, referencedGndAtoms in self._iterGroundings(mrf, variables, {}, simplify):
+            for grounding, referencedGndAtoms in self._iterGroundings(mrf, variables, {}, simplify, domains):
                 yield grounding, referencedGndAtoms
             
         def iterTrueVariableAssignments(self, mrf, world, truthThreshold=1.0, strict=False, includeUnknown=False, partialAssignment=None):
@@ -207,19 +228,20 @@ class FirstOrderLogic(Logic):
                                                              truthThreshold=truthThreshold, strict=strict, includeUnknown=includeUnknown):
                     yield ass
                     
-        def _iterGroundings(self, mrf, variables, assignment, simplify=False):
+        def _iterGroundings(self, mrf, variables, assignment, simplify=False, domains=None):
             # if all variables have been grounded...
             if variables == {}:
                 referencedGndAtoms = []
-                gndFormula = self.ground(mrf, assignment, referencedGndAtoms, simplify)
+                gndFormula = self.ground(mrf, assignment, referencedGndAtoms, simplify, domains)
                 yield gndFormula, referencedGndAtoms
                 return
             # ground the first variable...
             varname, domName = variables.popitem()
-            for value in mrf.domains[domName]: # replacing it with one of the constants
+            domain = domains[varname] if domains is not None else mrf.domains[domName]
+            for value in domain: # replacing it with one of the constants
                 assignment[varname] = value
                 # recursive descent to ground further variables
-                for g, r in self._iterGroundings(mrf, dict(variables), assignment, simplify):
+                for g, r in self._iterGroundings(mrf, dict(variables), assignment, simplify, domains):
                     yield g, r
         
         def getVariables(self, mln, variables = None, constants=None):
@@ -255,12 +277,12 @@ class FirstOrderLogic(Logic):
             '''
             return self
             
-        def printStructure(self, level=0):
-            print "%*c" % (level*2,' '),
-            print "%s: %s" % (str(type(self)), str(self))
+        def printStructure(self, mrf=None, level=0):
+            print "%*c" % (level * 4,' '),
+            print "%s: %s = %s" % (str(type(self)), str(self), self.isTrue(mrf.evidence) if mrf is not None else None)
             if hasattr(self, 'children'):
                 for child in self.children:
-                    child.printStructure(level+1)
+                    child.printStructure(mrf, level+1)
         
         def isLogical(self):
             return True
@@ -1164,7 +1186,8 @@ class FirstOrderLogic(Logic):
                     return self.logic.equality(params, self.negated)
                 else: raise Exception("At least one variable was not grounded in '%s'!" % str(self))
             if simplify:
-                return self.logic.true_false(1 if self.negated != (params[0] == params[1]) else 0)
+                equal = (params[0] == params[1])
+                return self.logic.true_false(1 if {True: not equal, False: equal}[self.negated] else 0)
             else:
                 return self.logic.equality(params, self.negated)
     

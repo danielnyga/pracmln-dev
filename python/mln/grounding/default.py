@@ -65,7 +65,7 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         return True
 
         
-    def _createGroundFormulas(self):
+    def _createGroundFormulas(self, simplify=False):
         mrf = self.mrf
         assert len(mrf.gndAtoms) > 0
         log = logging.getLogger(self.__class__.__name__)
@@ -74,9 +74,23 @@ class DefaultGroundingFactory(AbstractGroundingFactory):
         log.debug('Ground formulas (all should have a truth value):')
         self.gndTime = time.time()
         for idxFormula, formula in enumerate(mrf.formulas):
-            for gndFormula, _ in formula.iterGroundings(mrf, mrf.simplify):
+            for gndFormula, _ in formula.iterGroundings(mrf, simplify=simplify):
                 gndFormula.isHard = formula.isHard
                 gndFormula.weight = formula.weight
                 gndFormula.fIdx = idxFormula
                 mrf._addGroundFormula(gndFormula, idxFormula, None)
         self.gndTime = time.time() - self.gndTime
+
+
+class NoGroundingFactory(DefaultGroundingFactory):
+    '''
+    Subclass of the default grounding factory, which only creates ground atoms,
+    but no ground formulas. Can be used for customized groundings in the learning
+    or inference algorithms, if necessary.
+    '''
+    
+    def _createGroundFormulas(self, simplify=False):
+        pass
+    
+    
+    

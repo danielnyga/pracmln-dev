@@ -45,14 +45,14 @@ class LL(AbstractLearner):
         # for each possible world, count how many true groundings there are for each formula
         for i, world in enumerate(self.mrf.worlds):
             for gf in self.mrf.gndFormulas:
-                if gf.isTrue(world['values']):
-                    key = (i, gf.idxFormula)
-                    self.counts[key] = self.counts.get(key, 0) + 1
+                key = (i, gf.idxFormula)
+                self.counts[key] = self.counts.get(key, 0) + gf.isTrue(world['values'])
+    
     
     def _calculateWorldValues(self, wts):
         if hasattr(self, 'wtsLastWorldValueComputation') and self.wtsLastWorldValueComputation == list(wts): # avoid computing the values we already have
             return
-        self.expsums = [0 for i in range(len(self.mrf.worlds))]
+        self.expsums = [0] * len(self.mrf.worlds)
         for ((idxWorld, idxFormula), count) in self.counts.iteritems():
             self.expsums[idxWorld] += wts[idxFormula] * count
         #for worldIndex, world in enumerate(self.worlds):

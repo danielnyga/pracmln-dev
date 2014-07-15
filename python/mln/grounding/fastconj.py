@@ -170,7 +170,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                 yield gndFormula
             
         
-    def _createGroundFormulas(self):
+    def _createGroundFormulas(self, simplify=True):
         global global_fastConjGrounding
         mrf = self.mrf
         assert len(mrf.gndAtoms) > 0
@@ -200,7 +200,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                         gndFormula.weight = formula.weight
                         mrf._addGroundFormula(gndFormula, idxFormula, None)
                 else:
-                    for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, simplify=True):
+                    for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, simplify=simplify):
                         gndFormula.isHard = formula.isHard
                         gndFormula.weight = formula.weight
                         mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)

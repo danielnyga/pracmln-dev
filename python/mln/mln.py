@@ -28,7 +28,7 @@ from database import readDBFromFile
 from logic import FirstOrderLogic, FuzzyLogic
 import copy
 from utils import dict_union, comment_color, predicate_color, weight_color,\
-    colorize
+    colorize, StopWatch
 
 from debug import DEBUG
 import praclog
@@ -142,7 +142,7 @@ class MLN(object):
         self.predicates = {}
         self.domains = {}
         self.formulas = []
-        
+        self.verbose = verbose
         self.blocks = {}
         self.domDecls = []
         self.probreqs = []
@@ -161,6 +161,7 @@ class MLN(object):
         self.uniqueFormulaExpansions = {}
         self.fixedWeightFormulas = []
         self.fixedWeightTemplateIndices = []
+        self.watch = StopWatch()
 
     def duplicate(self):
         '''
@@ -272,7 +273,7 @@ class MLN(object):
         self.setClosedWorldPred(*params.get('cwPreds', []))
         if evidence_db is None:
             evidence_db = Database(self)
-        materialized_mln = self.materializeFormulaTemplates([evidence_db])
+        materialized_mln = self.materializeFormulaTemplates([evidence_db], verbose=self.verbose)
         mrf = materialized_mln.groundMRF(evidence_db, simplify=True, groundingMethod='FastConjunctionGrounding', **params)
         resultDict = mrf.infer(what=queries, given=None, **params)
         log.debug(resultDict)
@@ -296,7 +297,9 @@ class MLN(object):
 #         for f in self.formulas:
 #             log.info(f.cstr(True) + ' ' + str(type(f)))
         newMLN = self.duplicate()
+        newMLN.watch.tag('formula materialization', verbose)
         # obtain full domain with all objects 
+        # TODO muss geändert werden für incremental learner 
         fullDomain = mergeDomains(self.domains, *[db.domains for db in dbs])
         log.debug('domains: %s' % fullDomain)
         # collect the admissible formula templates. templates might be not
@@ -329,7 +332,6 @@ class MLN(object):
             domNames = ft._getTemplateVariables(self).values()
             for domName in domNames:
                 newMLN.domains[domName] = fullDomain[domName]
-                
         newMLN._materializeFormulaTemplates()
         return newMLN
 
@@ -390,7 +392,7 @@ class MLN(object):
         Creates and returns a ground Markov Random Field for the given database
         - db: database filename (string) or Database object
         '''
-        mrf = MRF(self, db, groundingMethod=groundingMethod, cwAssumption=cwAssumption, **params)
+        mrf = MRF(self, db, groundingMethod=groundingMethod, cwAssumption=cwAssumption, simplify=simplify, **params)
         return mrf
 
     def combineOverwrite(self, domain, verbose=False, groundFormulas=True):
@@ -469,6 +471,8 @@ class MLN(object):
         if len(databases) == 0:
             log.exception('At least one database is needed for learning.')
         dbs = []
+        # hier wird --- schon berücksichtigt! 
+
         for db in databases:
             if type(db) == str:
                 db = readDBFromFile(self, db)
@@ -483,6 +487,7 @@ class MLN(object):
         log.info('Got %s evidence databases for learning:' % len(dbs))
         log.debug(self.predicates)
         log.debug(self.domains)
+        # TODO: merge domains anpassen 
         newMLN = self.materializeFormulaTemplates(dbs, self.verbose)
         
         log.debug('MLN predicates:')
@@ -503,6 +508,8 @@ class MLN(object):
             mrf = newMLN.groundMRF(dbs[0], simplify=False, groundingMethod=groundingMethod, cwAssumption=True, **params)  # @UnusedVariable
             log.debug('Loading %s-Learner' % method)
             learner = eval("%s(newMLN, mrf, **params)" % method)
+        elif params.get('incremental', False): 
+            learner = IncrementalLearner(newMLN, method, dbs, **params)
         else:
             learner = MultipleDatabaseLearner(newMLN, method, dbs, **params)
         log.info("learner: %s" % learner.getName())

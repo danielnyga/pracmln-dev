@@ -28,12 +28,9 @@ class AbstractGroundingFactory(object):
     '''
     Abstract super class for all grounding factories.
     '''
-    __init__params = {'initWeights': True}
     
     def __init__(self, mrf, db, **params):
-        self.params = dict_union(AbstractGroundingFactory.__init__params, params)
-        for key, value in self.params.iteritems():
-            setattr(self, key, value)
+        self.params = params
         self.mrf = mrf
         self.mln = mrf.mln
         self.db = db
@@ -41,13 +38,13 @@ class AbstractGroundingFactory(object):
     def _createGroundAtoms(self):
         raise Exception('Not implemented')
     
-    def _createGroundFormulas(self):
+    def _createGroundFormulas(self, simplify=False):
         raise Exception('Not implemented')
 
-    def groundMRF(self, cwAssumption=False):
+    def groundMRF(self, cwAssumption=False, simplify=False):
         self._createGroundAtoms()
         self.mrf.setEvidence(self.db.evidence, cwAssumption=cwAssumption)
-#         logging.getLogger().info(self.mrf.evidence)
-#         self.mrf.softEvidence = self.db.softEvidence
-        self._createGroundFormulas()
+        self.mln.watch.tag('Grounding formulas', self.mln.verbose)
+        self._createGroundFormulas(simplify=simplify)
+        self.mln.watch.finish()
         return self.mrf

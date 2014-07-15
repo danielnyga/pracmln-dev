@@ -170,12 +170,8 @@ class MLNInfer(object):
                 db = dbs[0]
                 
                 # create ground MRF
-                start = time.time()
                 mln = mln.materializeFormulaTemplates([db], args.get('verbose', False))
                 mrf = mln.groundMRF(db, verbose=args.get('verbose', False), method='FastConjunctionGrounding')
-                groundingTime = time.time() - start
-                print 'Grounding took %.2f sec.' % groundingTime
-
 
                 # check for print/write requests
                 if "printGroundAtoms" in args:
@@ -191,10 +187,13 @@ class MLNInfer(object):
                         mrf.writeGraphML(graphml_filename)
                 # invoke inference and retrieve results
                 print 'Inference parameters:', args
+                mrf.mln.watch.tag('Inference')
                 mrf.infer(queries, **args)
                 results = {}
                 for gndFormula, p in mrf.getResultsDict().iteritems():
                     results[str(gndFormula)] = p
+                
+                mrf.mln.watch.printSteps()
                 
                 # close output file and open if requested
                 if outFile != None:

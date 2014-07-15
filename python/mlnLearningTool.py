@@ -146,6 +146,15 @@ class MLNLearn:
             # gaussian prior settings            
             if self.settings["usePrior"]:
                 args["gaussianPriorSigma"] = float(self.settings["priorStdDev"])
+                args["gaussianPriorMean"] = float(self.settings["priorMean"])
+
+            # incremental learning
+            if self.settings["incremental"]:
+                args["incremental"] = True 
+
+            # shuffle databases
+            if self.settings["shuffle"]:
+                args["shuffle"] = True 
             
             # learn weights
             if type(self.settings["mln"]) == str:
@@ -370,14 +379,33 @@ class MLNLearnGUI:
         frame.grid(row=row, column=1, sticky="NEW")
         # option: use prior
         self.use_prior = IntVar()
-        self.cb_use_prior = Checkbutton(frame, text="use prior with std. dev. ", variable=self.use_prior)
+        self.cb_use_prior = Checkbutton(frame, text="use prior with mean of ", variable=self.use_prior)
         self.cb_use_prior.pack(side=LEFT)
         self.use_prior.set(self.settings.get("usePrior", 0))
+        # set prior 
+        self.priorMean = StringVar(master)        
+        self.priorMean.set(self.settings.get("priorMean", "0"))       
+        Entry(frame, textvariable = self.priorMean, width=5).pack(side=LEFT)
+        Label(frame, text=" and std dev of ").pack(side=LEFT)
         # std. dev.
         self.priorStdDev = StringVar(master)
-        self.priorStdDev.set(self.settings.get("priorStdDev", "100"))
+        self.priorStdDev.set(self.settings.get("priorStdDev", "2"))
         Entry(frame, textvariable = self.priorStdDev, width=5).pack(side=LEFT)
-#         Label(frame, text="").pack(side=LEFT)
+        # use initial weights in MLN 
+        self.use_initial_weights = IntVar()
+        self.cb_use_initial_weights = Checkbutton(frame, text="use initial weights", variable=self.use_initial_weights)
+        self.cb_use_initial_weights.pack(side=LEFT)
+        self.use_initial_weights.set(self.settings.get("use_initial_weights", "0"))
+        # use incremental learning
+        self.incremental = IntVar()
+        self.cb_incremental = Checkbutton(frame, text=" learn incrementally ", variable=self.incremental, command=self.check_incremental)
+        self.cb_incremental.pack(side=LEFT)
+        self.incremental.set(self.settings.get("incremental", "0"))
+        # shuffle databases
+        self.shuffle = IntVar()
+        self.cb_shuffle = Checkbutton(frame, text="shuffle databases", variable=self.shuffle, state='disabled')
+        self.cb_shuffle.pack(side=LEFT)
+        self.shuffle.set(self.settings.get("shuffle", "0"))
         # add unit clauses
         self.add_unit_clauses = IntVar()
         self.cb_add_unit_clauses = Checkbutton(frame, text="add unit clauses", variable=self.add_unit_clauses)
@@ -471,7 +499,7 @@ class MLNLearnGUI:
             state = NORMAL
             self.internalMode = False
             methods = sorted(self.learner.alchemy_methods.keys())
-        self.cb_add_unit_clauses.configure(state=state)
+        self.cb_add_unit_clauses.configure(state=state)  
 
         # change additional parameters
         self.params.set(self.settings.get("params%d" % int(self.internalMode), ""))
@@ -487,6 +515,15 @@ class MLNLearnGUI:
         self.list_methods = apply(OptionMenu, (self.frame, self.selected_method) + tuple(methods))
         self.list_methods.grid(row=self.list_methods_row, column=1, sticky="NWE")
         self.selected_method.trace("w", self.changedMethod)
+
+    def check_incremental(self):
+
+        if self.incremental.get()==1:
+            self.cb_shuffle.configure(state="normal")  
+        else:
+            self.cb_shuffle.configure(state="disabled")
+            self.cb_shuffle.deselect()
+                
 
     def isFile(self, f):
         return os.path.exists(os.path.join(self.dir, f))
@@ -552,7 +589,13 @@ class MLNLearnGUI:
             self.settings["method%d" % int(self.internalMode)] = method
             self.settings["pattern"] = self.entry_pattern.get()
             self.settings["usePrior"] = int(self.use_prior.get())
+            # for incremental learning
+            self.settings["priorMean"] = self.priorMean.get()
             self.settings["priorStdDev"] = self.priorStdDev.get()
+            self.settings["incremental"] = int(self.incremental.get())
+            self.settings["shuffle"] = int(self.shuffle.get())
+            self.settings["use_initial_weights"] = int(self.use_initial_weights.get())
+
             self.settings["queryPreds"] = self.queryPreds.get()
             self.settings["evidencePreds"] = self.evidencePreds.get()
             self.settings["discrPredicates"] = self.discrPredicates.get()

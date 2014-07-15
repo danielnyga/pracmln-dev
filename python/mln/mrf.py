@@ -68,11 +68,7 @@ class MRF(object):
     '''
 
 
-    __init__params = {'verbose': False, 
-                  'simplify': False, 
-                  'initWeights': False}
-    
-    def __init__(self, mln, db, groundingMethod='DefaultGroundingFactory', cwAssumption=False, **params):
+    def __init__(self, mln, db, groundingMethod='DefaultGroundingFactory', cwAssumption=False, verbose=False, simplify=False, initWeights=False, **params):
         '''
         - db:        database filename (.db) or a Database object
         - params:    dict of keyword parameters. Valid values are:
@@ -82,16 +78,15 @@ class MRF(object):
             - groundingMethod: (string) name of the grounding factory to be used (default: DefaultGroundingFactory)
             - initWeights: (True/False) Switch on/off heuristics for initial weight determination (only for learning!)
         '''
-        self.params = dict_union(MRF.__init__params, params)
-        verbose = self.params['verbose']
+        log = logging.getLogger(self.__class__.__name__)
         self.mln = mln
         self.evidence = None
         self.evidenceBackup = {}
 #         self.softEvidence = list(mln.posteriorProbReqs) # constraints on posterior 
                                                         # probabilities are nothing but 
                                                         #soft evidence and can be handled in exactly the same way
-        self.simplify = self.params['simplify']
-        log = logging.getLogger(self.__class__.__name__)
+        print 'simplify:', simplify
+        log.debug('Formula simplification switched %s.' % {True: 'on', False: 'off'}[simplify])
         # ground members
         self.gndAtoms = {}
         self.gndBlockLookup = {}
@@ -131,9 +126,9 @@ class MRF(object):
         #db.write(sys.stdout, color=True)
         # grounding
         log.info('Loading %s...' % groundingMethod)
-        groundingMethod = eval('%s(self, db, **self.params)' % groundingMethod)
+        groundingMethod = eval('%s(self, db, **params)' % groundingMethod)
         self.groundingMethod = groundingMethod
-        groundingMethod.groundMRF(cwAssumption=cwAssumption)
+        groundingMethod.groundMRF(cwAssumption=cwAssumption, simplify=simplify)
         #og.debug('ground atoms  vs. evidence' + (' (all should be known):' if cwAssumption else ':'))
 #         for a in self.gndAtoms.values():
 #             log.debug('%s%s -> %2.2f' % (('%d' % a.idx).ljust(5), a, self.evidence[a.idx]))
@@ -234,7 +229,7 @@ class MRF(object):
         
         # check if atom is in block and update the lookup
         mutex = self.mln.blocks.get(gndLit.predName)
-        if mutex != None:
+        if mutex != None and any(mutex):
             blockName = "%s_" % gndLit.predName
             for i, v in enumerate(mutex):
                 if v == False:
