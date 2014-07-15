@@ -209,7 +209,7 @@ class WCSPConverter(object):
             else: f = gf
             f_ = f.simplify(self.mrf)
 #             print gf.weight
-#             if gf.weight == 5000:
+#             if gf.weight == 100:
 #                 log.error('%s ===> %s' % (str(gf), str(f_)))
             if isinstance(f_, Logic.TrueFalse) or gf.weight == 0 and not gf.isHard:
                 continue
@@ -342,10 +342,9 @@ class WCSPConverter(object):
                 return {cost: (assignment,), defcost: 'else'}
         if defaultProcedure: 
             # fallback: go through all combinations of truth assignments
-            domains = [range(d) for i,d in enumerate(wcsp.domSizes) if i in varIndices]
-#             log.warning(varIndices)
-#             log.warning(domains)
+            domains = [range(len(self.varIdx2GndAtom[i])) for i,_ in enumerate(self.vars) if i in varIndices]
             cost2assignments = {}
+            log.debug(formula)
             for c in utils.combinations(domains):
                 world = [0] * len(self.mrf.gndAtoms)
                 for var, assignment in zip(varIndices, c):
@@ -357,7 +356,6 @@ class WCSPConverter(object):
                 truth = formula.isTrue(world)
                 assert truth is not None
                 assert not (truth > 0 and truth < 1 and formula.isHard)
-#                 log.info(str(formula) + str(' %f' % truth))
                 cost = WCSP.TOP if truth < 1 and formula.isHard else (1 - truth) * formula.weight
                 assignments = cost2assignments.get(cost, [])
                 cost2assignments[cost] = assignments
