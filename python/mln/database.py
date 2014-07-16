@@ -157,7 +157,8 @@ class Database(object):
         Writes this database into the stream in the MLN Database format.
         The stream must provide a write() method as file objects do.
         '''
-        for atom, truth in self.evidence.iteritems():
+        for atom in sorted(self.evidence):
+            truth = self.evidence[atom]
             pred, params = self.mln.logic.parseAtom(atom)
             pred = str(pred)
             params = map(str, params)
