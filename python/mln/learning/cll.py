@@ -63,6 +63,12 @@ class CLL(AbstractLearner):
     
     
     def _createVariables(self):
+        '''
+        In the this (generative) variant of the learner, atomic variables
+        are given by the PLL blocks.
+        A discriminative variant can be obtained by filtering out those
+        atomic vars that correspond to evidence predicates.
+        '''
         self.atomicVariables = list(self.mrf.pllBlocks)
         
         
@@ -77,50 +83,14 @@ class CLL(AbstractLearner):
         log.debug('variables: %s' % variables)
         while len(variables) > 0:
             vars = variables[:size if len(variables) > size else len(variables)]
-            part = map(lambda v: v[0] if v[0] is not None else v[1], vars)
-            log.debug('created partition: %s' % str(part))
-            self.partitions.append(part)
-            variables = variables[len(part):]
-        log.debug('composite likelihood learning established %d partitions' % len(self.partitions))
+            partVariables = map(lambda v: v[0] if v[0] is not None else v[1], vars)
+            partition = CLL.GndAtomPartition(self.mrf, partVariables)
+            log.debug('created partition: %s' % str(partition))
+            self.partitions.append(partition)
+            variables = variables[len(partition.variables):]
+        log.debug('composite likelihood learning created %d partitions' % len(self.partitions))
         self._computeStatistics()
-        
-        
-    def _setEvidence(self, evidence, gndAtomIdx, truth=None):
-        if gndAtomIdx in self.mrf.gndBlockLookup:
-            if truth is not None and truth != 1.:
-                raise Exception('Cannot set a mutex variable to truth value %s' % str(truth))
-            blockName = self.mrf.gndBlockLookup[gndAtomIdx]
-            atomIdxInBlock = self.mrf.gndBlocks[blockName]
-            for idx in atomIdxInBlock:
-                evidence[idx] = .0 if idx != gndAtomIdx else 1.
-        else:
-            evidence[gndAtomIdx] = truth
-        
-        
-    def _iterPartitionValues(self, partIdx):
-        for value in self._iterPartitionValuesRec(self.partitions[partIdx], self.mrf.evidence):
-            yield value
-        
     
-    def _iterPartitionValuesRec(self, variables, evidence):
-        '''
-        variables (list):    list of remaining variables
-        '''
-        evidence = list(evidence)
-        if len(variables) == 0:
-            yield evidence
-            return
-        variable = variables[0]
-        if type(variable) is list: # this is a block var
-            for atom in variable:
-                self._setEvidence(evidence, atom)
-                for ev in self._iterPartitionValuesRec(variables[1:], evidence):
-                    yield ev
-        else:
-            for truth in (self.mrf.evidence[variable], 1. - self.mrf.evidence[variable]):
-                self._setEvidence(evidence, variable, truth)
-                for ev in self._iterPartitionValuesRec(variables[1:], evidence):
-                    yield ev
             
     def addStatistics(self, fIdx, partIdx, valIdx, size, inc=1.):
         part2values = self.statistics.get(fIdx, None)
@@ -192,6 +162,8 @@ class CLL(AbstractLearner):
                 for valIdx, val in enumerate(values):
                     if val == evidenceBackup:
                         self.evidenceIndices[partIdx] = valIdx
+                if not partIdx in self.evidenceIndices:
+                    raise Exception('No admissible partition value found specified in evidence. Missing a functional constraint?')
             # re-assert the evidence
             self.mrf._removeTemporaryEvidence()
 
@@ -288,6 +260,105 @@ class CLL(AbstractLearner):
                 grad[fIdx] += v
         self.grad_opt_norm = float(sqrt(fsum(map(lambda x: x * x, grad))))
         return numpy.array(grad)
+    
+    
+    class GndAtomPartition(object):
+        
+        def __init__(self, mrf, variables):
+            self.variables = variables
+            self.mrf = mrf
+            
+        def _setEvidence(self, evidence, gndAtomIdx, truth):
+            '''
+            Sets the truth value of the given gndAtomIdx in evidence to truth.
+            Takes into account mutex constraints, i.e. sets all other gndAtoms
+            in the respective block to truth=0. For such atoms, the truth value 
+            can only be set to 1.0.
+            '''
+            if truth is None:
+                raise Exception('Truth must not be None in _setEvidence(). In order to set evidence to None, use _eraseEvidence()')
+            if gndAtomIdx in self.mrf.gndBlockLookup:
+                if truth != 1.:
+                    raise Exception('Cannot set a mutex variable to truth value %s' % str(truth))
+                blockName = self.mrf.gndBlockLookup[gndAtomIdx]
+                atomIdxInBlock = self.mrf.gndBlocks[blockName]
+                for idx in atomIdxInBlock:
+                    evidence[idx] = .0 if idx != gndAtomIdx else 1.
+            else:
+                evidence[gndAtomIdx] = truth
+                
+        def _eraseEvidence(self, evidence, gndAtomIdx):
+            '''
+            Deletes the evidence of the given gndAtom, i.e. set its truth in evidence to None.
+            if the given gndAtom is part of a mutex constraint, the whole block is set to None.
+            '''
+            if gndAtomIdx in self.mrf.gndBlockLookup:
+                blockName = self.mrf.gndBlockLookup[gndAtomIdx]
+                atomIdxInBlock = self.mrf.gndBlocks[blockName]
+                for idx in atomIdxInBlock:
+                    evidence[idx] = None
+            else:
+                evidence[gndAtomIdx] = None
+            
+        
+        def iterPartitionValues(self):
+            '''
+            Yields thruth values for all ground atoms in the MRF, where the gndAtoms values
+            of this partition are set accordingly to their possible values.
+            '''
+            for value in self._iterPartitionValuesRec(self.variables, self.mrf.evidence):
+                yield value
+            
+        
+        def _iterPartitionValuesRec(self, variables, evidence):
+            '''
+            variables (list):    list of remaining variables
+            '''
+            evidence = list(evidence)
+            if len(variables) == 0:
+                yield evidence
+                return
+            variable = variables[0]
+            if type(variable) is list: # this is a block var
+                for atom in variable:
+                    self._setEvidence(evidence, atom, 1.0)
+                    for ev in self._iterPartitionValuesRec(variables[1:], evidence):
+                        yield ev
+            else:
+                for truth in (self.mrf.evidence[variable], 1. - self.mrf.evidence[variable]):
+                    self._setEvidence(evidence, variable, truth)
+                    for ev in self._iterPartitionValuesRec(variables[1:], evidence):
+                        yield ev
+                        
+                        
+        def getGndAtomsPlain(self):
+            '''
+            Returns a plain list of all ground atom indices in this partition.
+            '''
+            atomIndices = []
+            for v in self.variables:
+                if type(v) is list:
+                    for a in v: atomIndices.append(a)
+                else: atomIndices.append(v)
+            return atomIndices
+        
+        
+        def getNumberOfPossibleWorlds(self):
+            '''
+            Returns the number of possible (partial) worlds of this partition
+            '''
+            count = 1
+            for v in self.variables:
+                if type(v) is list: count *= len(v)
+                else: count *= 2
+            return count
+        
+        def __str__(self):
+            s = []
+            for v in self.variables:
+                if type(v) is list: s.append('[%s]' % (','.join(map(str, map(lambda a: self.mrf.gndAtomByIdx[a], v)))))
+                else: s.append(self.mrf.gndAtomByIdx[v])
+            return s
     
     
     def __printPartitions(self):
