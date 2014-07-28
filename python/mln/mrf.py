@@ -85,7 +85,6 @@ class MRF(object):
 #         self.softEvidence = list(mln.posteriorProbReqs) # constraints on posterior 
                                                         # probabilities are nothing but 
                                                         #soft evidence and can be handled in exactly the same way
-        print 'simplify:', simplify
         log.debug('Formula simplification switched %s.' % {True: 'on', False: 'off'}[simplify])
         # ground members
         self.gndAtoms = {}
