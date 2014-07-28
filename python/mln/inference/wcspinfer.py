@@ -21,9 +21,10 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from wcsp.converter import WCSPConverter
 from mln.util import strFormula
-from mln.inference.Inference import Inference
+from mln.inference.inference import Inference
+from wcsp.converter import WCSPConverter
+from praclog import logging
 
 class WCSPInference(Inference):
     
@@ -31,9 +32,10 @@ class WCSPInference(Inference):
         Inference.__init__(self, mln)
         
     def _infer(self, verbose, details, **args):
+        log = logging.getLogger(self.__class__.__name__)
         converter = WCSPConverter(self.mrf)
-        result = converter.getMostProbableWorldDB(verbose).evidence
+        resultDB = converter.getMostProbableWorldDB(verbose).evidence
         strQueries = map(strFormula, self.queries)
-        result = dict([(i, 1. if result[q] == True else 0.) for i, q in enumerate(strQueries)])
+        result = [resultDB[q] for q in strQueries]
         return result
         

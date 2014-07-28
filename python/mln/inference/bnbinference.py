@@ -21,7 +21,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from mln.inference.Inference import Inference
+from mln.inference.inference import Inference
 from wcsp.branchandbound import BranchAndBound
 from mln.util import strFormula
 from wcsp.russiandoll import RussianDoll

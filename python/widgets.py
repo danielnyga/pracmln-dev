@@ -21,14 +21,14 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from Tkinter import *
+from Tkinter import _setit, Menu, TclError, Frame, StringVar, Button, Text,\
+    IntVar, Checkbutton, Entry, OptionMenu
 from ScrolledText import ScrolledText
 from string import ascii_letters, digits, punctuation
 import re
-from logic.fol import isVar
-from logic.grammar import identifierCharacter
+from Tkconstants import NONE, INSERT, LEFT, W, END, DISABLED, NORMAL
 try:
-    import Pmw
+    import Pmw  # @UnresolvedImport
     havePMW = True
 except:
     havePMW = False
@@ -44,6 +44,7 @@ class ScrolledText2(ScrolledText):
         ScrolledText.__init__(self,root,wrap=NONE,bd=0,width=80,height=25,undo=1,maxundo=50,padx=0,pady=0,background="white",foreground="black")
 
 class Highlighter(object):
+    
     def __init__(self):
         # syntax highlighting definitions
         self.tags = {
@@ -72,7 +73,7 @@ class BLNHighlighter(Highlighter):
 class SyntaxHighlightingText(ScrolledText2):
 
     # constructor
-    def __init__(self, root, change_hook = None, highlighter = None):
+    def __init__(self, root, change_hook = None, highlighter = None, grammar=None):
         ScrolledText2.__init__(self,root,change_hook)
         # Non-wrapping, no border, undo turned on, max undo 50
         self.text = self # For the methods taken from IDLE
@@ -101,7 +102,9 @@ class SyntaxHighlightingText(ScrolledText2):
         self.bind('<Button-3>', self.popup) # right mouse button opens popup
         self.bind('<Button-1>', self.recolorCurrentLine) # left mouse can reposition cursor, so recolor (e.g. bracket highlighting necessary)
         self.bind('<Control-Any-KeyPress>', self.ctrl)
-
+        
+        self.grammar = grammar
+        
         self.setHighlighter(highlighter)
 
     def setHighlighter(self, highlighter):
@@ -323,7 +326,7 @@ class SyntaxHighlightingText(ScrolledText2):
         # variable and predicate highlighting
         for match in re.finditer('(\\?[a-zA-Z0-9]+|[\w]*[a-zA-Z]\\()', buffer):
             token = match.group(0)
-            if isVar(token):
+            if self.grammar is not None and self.grammar.isVar(token):
                 self.tag_add('var', '%s.%d' % (cline, match.start()), '%s.%d' % (cline, match.end()))
             elif token[-1] == '(':
                 self.tag_add('pred', '%s.%d' % (cline, match.start()), '%s.%d' % (cline, match.end()-1))
@@ -357,79 +360,14 @@ class SyntaxHighlightingText(ScrolledText2):
             self.colorize(str(line+i))
 
 class FilePickEdit(Frame):
-    def reloadFile(self):
-        self.editor.delete("1.0", END)
-        filename = self.picked_name.get()
-        if os.path.exists(filename):
-            new_text = file(filename).read()
-            if new_text.strip() == "":
-                new_text = "// %s is empty\n" % filename;
-            new_text = new_text.replace("\r", "")
-        else:
-            new_text = ""
-        self.editor.insert(INSERT, new_text)
-
-    def onSelChange(self, name, index=0, mode=0):
-        self.reloadFile()
-        filename = self.picked_name.get()
-        self.save_name.set(filename)
-        self.save_edit.configure(state=DISABLED)
-        self.unmodified = True
-        if self.user_onChange != None:
-            self.user_onChange(filename)
-
-    def onSaveChange(self, name, index, mode):
-        if self.user_onChange != None:
-            self.user_onChange(self.save_name.get())
-
-    def autoRename(self):
-        # modify "save as" name
-        filename = self.picked_name.get()
-        if filename == "": filename = "new" + self.file_extension # if no file selected, create new filename
-        ext = ""
-        extpos = filename.rfind(".")
-        if extpos != -1: ext = filename[extpos:]
-        base = filename[:extpos]
-        hpos = base.rfind("-")
-        num = 0
-        if hpos != -1:
-            try:
-                num = int(base[hpos+1:])
-                base = base[:hpos]
-            except:
-                pass
-        while True:
-            num += 1
-            filename = "%s-%d%s" % (base, num, ext)
-            if not os.path.exists(filename):
-                break
-        self.save_name.set(filename)
-        # user callback
-        if self.user_onChange != None:
-            self.user_onChange(filename)
-
-    def onEdit(self):
-        if self.unmodified == True:
-            self.unmodified = False
-            # do auto rename if it's enabled or there is no file selected (editing new file)
-            if self.rename_on_edit.get() == 1 or self.picked_name.get() == "":
-                self.autoRename()
-            # enable editing of save as name
-            self.save_edit.configure(state=NORMAL)
-
-    def onChangeRename(self):
-        # called when clicking on "rename on edit" checkbox
-        if self.rename_on_edit.get() == 1:
-            if (not self.unmodified) and self.save_name.get() == self.picked_name.get():
-                self.autoRename()
-        else:
-            self.save_name.set(self.picked_name.get())
-
-    def __init__(self, master, file_mask, default_file, edit_height = None, user_onChange = None, rename_on_edit=0, font = None, coloring=True, allowNone=False, highlighter=None):
+    
+    def __init__(self, master, file_mask, default_file, edit_height = None, user_onChange = None, 
+                 rename_on_edit=0, font = None, coloring=True, allowNone=False, highlighter=None, directory='.'):
         '''
             file_mask: file mask (e.g. "*.foo") or list of file masks (e.g. ["*.foo", "*.abl"])
         '''
         self.master = master
+        self.directory = directory
         self.user_onChange = user_onChange
         Frame.__init__(self, master)
         row = 0
@@ -488,17 +426,109 @@ class FilePickEdit(Frame):
         # pick default if applicable
         self.select(default_file)
         self.row = row
+        
+    def setDirectory(self, directory):
+        self.directory = directory
+        self.updateList()
+        menu = self.list["menu"] 
+        menu.delete(0, 'end')
+        # add the new ones
+        for filename in self.files:
+            menu.add_command(label=filename, command=_setit(self.picked_name, filename, None))
+        self.select("")
+    
+    def reloadFile(self):
+        self.editor.delete("1.0", END)
+        filename = self.picked_name.get()
+        if os.path.exists(os.path.join(self.directory, filename)):
+            new_text = file(os.path.join(self.directory, filename)).read()
+            if new_text.strip() == "":
+                new_text = "// %s is empty\n" % filename;
+            new_text = new_text.replace("\r", "")
+        else:
+            new_text = ""
+        self.editor.insert(INSERT, new_text)
+        
+    def setText(self, txt):
+        '''
+        Replaces the text in the edit field as by typing
+        into it.
+        '''
+        self.editor.delete('1.0', END)
+        if txt.strip() == "":
+            txt = "// empty database\n";
+        self.editor.insert(INSERT, txt)
+        self.select("")
+        self.onEdit()
+        
+
+    def onSelChange(self, name, index=0, mode=0):
+        self.reloadFile()
+        filename = self.picked_name.get()
+        self.save_name.set(filename)
+        self.save_edit.configure(state=DISABLED)
+        self.unmodified = True
+        if self.user_onChange != None:
+            self.user_onChange(filename)
+
+    def onSaveChange(self, name, index, mode):
+        if self.user_onChange != None:
+            self.user_onChange(self.save_name.get())
+
+    def autoRename(self):
+        # modify "save as" name
+        filename = self.picked_name.get()
+        if filename == "": filename = "new" + self.file_extension # if no file selected, create new filename
+        ext = ""
+        extpos = filename.rfind(".")
+        if extpos != -1: ext = filename[extpos:]
+        base = filename[:extpos]
+        hpos = base.rfind("-")
+        num = 0
+        if hpos != -1:
+            try:
+                num = int(base[hpos+1:])
+                base = base[:hpos]
+            except:
+                pass
+        while True:
+            num += 1
+            filename = "%s-%d%s" % (base, num, ext)
+            if not os.path.exists(filename):
+                break
+        self.save_name.set(filename)
+        # user callback
+        if self.user_onChange != None:
+            self.user_onChange(filename)
+
+    def onEdit(self):
+        if self.unmodified == True:
+            self.unmodified = False
+            # do auto rename if it's enabled or there is no file selected (editing new file)
+            if self.rename_on_edit.get() == 1 or self.picked_name.get() == "":
+                self.autoRename()
+            # enable editing of save as name
+            self.save_edit.configure(state=NORMAL)
+
+    def onChangeRename(self):
+        # called when clicking on "rename on edit" checkbox
+        if self.rename_on_edit.get() == 1:
+            if (not self.unmodified) and self.save_name.get() == self.picked_name.get():
+                self.autoRename()
+        else:
+            self.save_name.set(self.picked_name.get())
 
     def updateList(self):
         self.files = []
         if self.allowNone:
             self.files.append("")
-        for filename in os.listdir("."):
+        for filename in os.listdir(self.directory):
             for fm in self.file_mask:
                 if fnmatch(filename, fm):
                     self.files.append(filename)
         self.files.sort()
         if len(self.files) == 0 and not self.allowNone: self.files.append("(no %s files found)" % str(self.file_mask    ))
+        
 
     def select(self, filename):
         ''' selects the item given by filename '''
@@ -535,8 +565,8 @@ class FilePickEdit(Frame):
         if self.unmodified == False:
             self.unmodified = True
             # save the file
-            f = file(filename, "w")
-            f.write(self.editor.get("1.0", END))
+            f = file(os.path.join(self.directory, filename), "w")
+            f.write(self.editor.get("1.0", END).encode('utf-8'))
             f.close()
             # add it to the list of files
             if not filename in self.files:

@@ -1,7 +1,7 @@
 
-import math
 import sys
 import logging
+
 try:
     import numpy
     from scipy.optimize import fmin_bfgs, fmin_cg, fmin_ncg, fmin_tnc, fmin_l_bfgs_b, fsolve, fmin_slsqp, fmin, fmin_powell
@@ -10,24 +10,29 @@ except:
 
 
 class DirectDescent(object):
-    ''' naive gradient descent '''    
+    '''
+    Naive gradient descent optimization.
+    '''    
     
-    def __init__(self, wt, problem, gtol=1e-3, maxSteps=100, **params):
+    def __init__(self, wt, problem, gtol=1e-3, maxSteps=100, learningRate=0.1, **params):
         self.problem = problem
         self.wt = wt
         self.gtol = gtol
         self.maxSteps = maxSteps
+        self.learningRate = learningRate
     
     def run(self):
+        log = logging.getLogger(self.__class__.__name__)
         norm = 1
-        alpha = 0.1
+        alpha = self.learningRate
         step = 1
+        log.info('starting optimization with %s... (alpha=%f)' % (self.__class__.__name__, alpha))
         while True:
             grad = self.problem.grad(self.wt)
             norm = numpy.linalg.norm(grad)
-            print "step %d, norm: %f" % (step, norm)
-            print grad
-            print self.wt
+            log.info("step %d, norm: %f" % (step, norm))
+            log.info('grad = %s' % str(grad))
+            log.info('wt = %s' % str(self.wt))
             if norm < self.gtol or step > self.maxSteps:
                 break
             step += 1
@@ -126,9 +131,15 @@ class DiagonalNewton(object):
             step += 1
         
         return numpy.asarray(wt.transpose())[0]
-    
+
+
 
 class SciPyOpt(object):
+    '''
+    Wrapper around the optimization techniques implemented by SciPy.
+    '''
+    
+    
     def __init__(self, optimizer, wt, problem, **optParams):
         self.wt = wt
         self.problem = problem        
@@ -136,6 +147,7 @@ class SciPyOpt(object):
         self.optimizer = optimizer
     
     def run(self):
+
         optimizer = self.optimizer
         p = self.problem
         f = p.f
@@ -149,7 +161,8 @@ class SciPyOpt(object):
         neg_f = lambda wt: -f(wt)
         neg_grad = lambda wt: -grad(wt)
         #if not useGrad or not p.useGrad(): neg_grad = None
-        #if not useF or not p.useF(): neg_f = lambda wt: -p.__fDummy(wt)
+        if not p.useF(): 
+            neg_f = lambda wt: -p._fDummy(wt)
         log = logging.getLogger(self.__class__.__name__)
         if optimizer == "bfgs":
             params = dict(filter(lambda (k,v): k in ["gtol", "epsilon", "maxiter"], self.optParams.iteritems()))
@@ -191,3 +204,56 @@ class SciPyOpt(object):
             raise Exception("Unknown optimizer '%s'" % optimizer)
         
         return wt
+
+try:
+    from playdoh import Fitness, maximize, MAXCPU, GA, PSO, print_table
+    from numpy import exp, tile, array
+
+
+    class FitnessTest(Fitness):
+        # This method allows to initialize some data.
+        def initialize(self, problem):
+            self.problem = problem
+    
+        # This method is called at every iteration.
+        def evaluate(self, x):
+            xt = x.T
+            result = []
+            for i in range(xt.shape[0]):
+                    result.append(self.problem._f(xt[i]))
+            return array(result)
+        
+    class PlaydohOpt(object):
+        # Maximize the fitness function in parallel
+        def __init__(self,  optimizer, wt, problem, **params):
+            self.optimizer = optimizer
+            self.wt = wt
+            self.problem = problem
+            self.optParams = params
+    
+        def run(self, initRange=[-10,10], maxIter=10):
+            popSize = self.optParams['popSize'] if ('popSize' in self.optParams) else 10
+            initRange = self.optParams['initRange'] if ('initRange' in self.optParams) else [-10, 10]
+            maxIter = self.optParams['maxIter'] if ('maxIter' in self.optParams) else 10
+            machines = self.optParams['machines'] if ('machines' in self.optParams) else ['localhost']
+    
+            algorithm = GA if (self.optimizer == 'ga') else PSO
+            initrange = numpy.tile(initRange, (len(self.wt), 1))
+    
+            results = maximize(FitnessTest,
+                       popsize=popSize,  # size of the population
+                       maxiter=maxIter,  # maximum number of iterations
+    #                    cpu=MAXCPU,  # number of CPUs to use on the local machine
+                       args=(self.problem,),  # parameters for the "initialize" method
+                       initrange=initrange, # initial range for the x parameter
+                       machines=machines, #list of machines to use
+                       algorithm=algorithm) #algorithm to use, PSO/GA/CMAES
+    
+            # Display the final result in a table
+            print_table(results)
+            #print results.best_pos
+            return results.best_pos
+
+except ImportError, e:
+    logging.getLogger(__name__).error('Playdoh has not been found. Distributed optimization will not be applicable. Download and install playdoh from https://github.com/danielnyga/playdoh')
+    

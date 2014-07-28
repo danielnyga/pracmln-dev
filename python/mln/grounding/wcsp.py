@@ -24,19 +24,18 @@
 from bpll import BPLLGroundingFactory
 from collections import defaultdict
 from sys import stdout
-from logic.fol import Conjunction, GroundAtom, GroundLit, Lit
-from logic import fol
+from logic.common import Logic
 
 
 class WCSPGroundingFactory(BPLLGroundingFactory):
     
     def getAdmissibleVarAssignments(self, f, trueGndAtoms):
-        if not type(f) is Conjunction:
+        if not type(f) is Logic.Conjunction:
             return None
         cwPred = False
         assignments = []
         for child in f.children:
-            if not isinstance(child, Lit) and not isinstance(child, GroundLit) and not isinstance(child, GroundAtom):
+            if not isinstance(child, Logic.Lit) and not isinstance(child, Logic.GroundLit) and not isinstance(child, Logic.GroundAtom):
                 return None
             if child.predName in self.mrf.mln.closedWorldPreds and not cwPred:
                 cwPred = True
@@ -46,14 +45,14 @@ class WCSPGroundingFactory(BPLLGroundingFactory):
                     assignment = []
                     try:
                         for (p1, p2) in zip(child.params, gndAtom.params):
-                            if fol.isVar(p1):
+                            if self.mrf.mln.logic.isVar(p1):
                                 assignment.append((p1, p2))
                             elif p1 != p2: raise
                         assignments.append(tuple(assignment))
                     except: pass
         return assignments
     
-    def _createGroundFormulas(self, verbose):
+    def _createGroundFormulas(self, simplify):
         # filter out conjunctions
         mrf = self.mrf 
         mln = mrf.mln    
@@ -69,17 +68,17 @@ class WCSPGroundingFactory(BPLLGroundingFactory):
                     vars = f.getVariables(mln)
                     for tup in assignment:
                         del vars[tup[0]]
-                    for gf, atoms in f._iterGroundings(mrf, vars, dict(assignment), simplify=True):
+                    for gf, atoms in f._iterGroundings(mrf, vars, dict(assignment), simplify=simplify):
                         gf.isHard = f.isHard
                         gf.weight = f.weight
-                        if isinstance(gf, fol.TrueFalse):
+                        if isinstance(gf, Logic.TrueFalse):
                             continue
                         mrf._addGroundFormula(gf, i, atoms)
             else:
-                for gndFormula, referencedGndAtoms in f.iterGroundings(mrf, simplify=True):
+                for gndFormula, referencedGndAtoms in f.iterGroundings(mrf, simplify=simplify):
                     gndFormula.isHard = f.isHard
                     gndFormula.weight = f.weight
-                    if isinstance(gndFormula, fol.TrueFalse):
+                    if isinstance(gndFormula, Logic.TrueFalse):
                         continue
                     mrf._addGroundFormula(gndFormula, i, referencedGndAtoms)
       

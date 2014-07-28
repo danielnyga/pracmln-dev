@@ -34,15 +34,19 @@ import pickle
 from fnmatch import fnmatch
 import traceback
 import widgets
-from widgets import *
+# from widgets import *
 import configMLN as config
 import mln
 import tkMessageBox
 import subprocess
 import shlex
 from mln.util import balancedParentheses
-from mln.MarkovLogicNetwork import readMLNFromFile
+from mln import readMLNFromFile
 from mln.methods import InferenceMethods
+from widgets import FilePickEdit
+from logic.grammar import StandardGrammar, PRACGrammar  # @UnusedImport
+import logging
+from mln.database import readDBFromFile
 
 def config_value(key, default):
     if key in dir(config):
@@ -73,13 +77,13 @@ def readAlchemyResults(output):
 
 class MLNInfer(object):
     def __init__(self):
-        self.pymlns_methods = mln.InferenceMethods.getNames()
+        self.pymlns_methods = InferenceMethods.getNames()
         self.alchemy_methods = {"MC-SAT":"-ms", "Gibbs sampling":"-p", "simulated tempering":"-simtp", "MaxWalkSAT (MPE)":"-a", "belief propagation":"-bp"}
         self.jmlns_methods = {"MaxWalkSAT (MPE)":"-mws", "MC-SAT":"-mcsat", "Toulbar2 B&B (MPE)":"-t2"}
         self.alchemy_versions = config.alchemy_versions
         self.default_settings = {"numChains":"1", "maxSteps":"", "saveResults":False, "convertAlchemy":False, "openWorld":True} # a minimal set of settings required to run inference
     
-    def run(self, mlnFiles, evidenceDB, method, queries, engine="PyMLNs", output_filename=None, params="", **settings):
+    def run(self, mlnFiles, evidenceDB, method, queries, engine="PRACMLNs", output_filename=None, params="", **settings):
         '''
             runs an MLN inference method with the given parameters
         
@@ -116,6 +120,25 @@ class MLNInfer(object):
         haveOutFile = False
         results = None
         
+        # collect inference arguments
+        args = {"details":True, "shortOutput":True, "debugLevel":1}
+        args.update(eval("dict(%s)" % params)) # add additional parameters
+        # set the debug level
+        logging.getLogger().setLevel(eval('logging.%s' % args.get('debug', 'WARNING').upper()))
+
+        if self.settings["numChains"] != "":
+            args["numChains"] = int(self.settings["numChains"])
+        if self.settings["maxSteps"] != "":
+            args["maxSteps"] = int(self.settings["maxSteps"])
+        outFile = None
+        if self.settings["saveResults"]:
+            haveOutFile = True
+            outFile = file(output_filename, "w")
+            args["outFile"] = outFile
+        args['useMultiCPU'] = self.settings.get('useMultiCPU', False)
+        args["probabilityFittingResultFileName"] = output_base_filename + "_fitted.mln"
+
+        print args
         # engine-specific handling
         if engine in ("internal", "PRACMLNs"): 
             try:
@@ -133,35 +156,22 @@ class MLNInfer(object):
                 if q != "": raise Exception("Unbalanced parentheses in queries!")
                 
                 # create MLN
-                verbose = True
                 # mln = MLN.MLN(input_files, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
-                mln = readMLNFromFile(input_files)#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
+                mln = readMLNFromFile(input_files, logic=self.settings['logic'], grammar=self.settings['grammar'])#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
                 mln.defaultInferenceMethod = InferenceMethods.byName(method)
-                mln.verbose = verbose
                 # set closed-world predicates
                 for pred in cwPreds:
                     mln.setClosedWorldPred(pred)
                 
-                # create ground MRF
-                mrf = mln.groundMRF(db, verbose=verbose)
+                # parse the database
+                dbs = readDBFromFile(mln, db)
+                if len(dbs) != 1:
+                    raise Exception('Only one database is supported for inference.')
+                db = dbs[0]
                 
-                # collect inference arguments
-                args = {"details":True, "verbose":verbose, "shortOutput":True, "debugLevel":1}
-                args.update(eval("dict(%s)" % params)) # add additional parameters
-                if args.get("debug", False) and args["debugLevel"] > 1:
-                    print "\nground formulas:"
-                    mrf.printGroundFormulas()
-                    print
-                if self.settings["numChains"] != "":
-                    args["numChains"] = int(self.settings["numChains"])
-                if self.settings["maxSteps"] != "":
-                    args["maxSteps"] = int(self.settings["maxSteps"])
-                outFile = None
-                if self.settings["saveResults"]:
-                    haveOutFile = True
-                    outFile = file(output_filename, "w")
-                    args["outFile"] = outFile
-                args["probabilityFittingResultFileName"] = output_base_filename + "_fitted.mln"
+                # create ground MRF
+                mln = mln.materializeFormulaTemplates([db], args.get('verbose', False))
+                mrf = mln.groundMRF(db, verbose=args.get('verbose', False), method='FastConjunctionGrounding')
 
                 # check for print/write requests
                 if "printGroundAtoms" in args:
@@ -175,12 +185,15 @@ class MLNInfer(object):
                         graphml_filename = output_base_filename + ".graphml"
                         print "writing ground MRF as GraphML to %s..." % graphml_filename
                         mrf.writeGraphML(graphml_filename)
-                    
                 # invoke inference and retrieve results
+                print 'Inference parameters:', args
+                mrf.mln.watch.tag('Inference')
                 mrf.infer(queries, **args)
                 results = {}
                 for gndFormula, p in mrf.getResultsDict().iteritems():
                     results[str(gndFormula)] = p
+                
+                mrf.mln.watch.printSteps()
                 
                 # close output file and open if requested
                 if outFile != None:
@@ -329,7 +342,8 @@ class MLNQueryGUI(object):
         self.settings = settings
         if not "queryByDB" in self.settings: self.settings["queryByDB"] = {}
         if not "emlnByDB" in self.settings: self.settings["emlnByDB"] = {}
-
+        if not "use_multiCPU" in self.settings: self.settings['use_multiCPU'] = False 
+        
         self.frame = Frame(master)
         self.frame.pack(fill=BOTH, expand=1)
         self.frame.columnconfigure(1, weight=1)
@@ -349,6 +363,30 @@ class MLNQueryGUI(object):
         list = apply(OptionMenu, (self.frame, self.selected_engine) + tuple(engines))
         list.grid(row=row, column=1, sticky="NWE")
 
+        # grammar selection
+        row += 1
+        Label(self.frame, text='Grammar: ').grid(row=row, column=0, sticky='E')
+        grammars = ['StandardGrammar', 'PRACGrammar']
+        self.selected_grammar = StringVar(master)
+        grammar = self.settings.get('grammar')
+        if not grammar in grammars: grammar = grammars[0]
+        self.selected_grammar.set(grammar)
+        self.selected_grammar.trace('w', self.onChangeGrammar)
+        l = apply(OptionMenu, (self.frame, self.selected_grammar) + tuple(grammars))
+        l.grid(row=row, column=1, sticky='NWE')
+        
+        # logic selection
+        row += 1
+        Label(self.frame, text='Logic: ').grid(row=row, column=0, sticky='E')
+        logics = ['FirstOrderLogic', 'FuzzyLogic']
+        self.selected_logic = StringVar(master)
+        logic = self.settings.get('logic')
+        if not logic in logics: logic = logics[0]
+        self.selected_logic.set(logic)
+        self.selected_logic.trace('w', self.onChangeLogic)
+        l = apply(OptionMenu, (self.frame, self.selected_logic) + tuple(logics))
+        l.grid(row=row, column=1, sticky='NWE')
+        
         # mln selection
         row += 1
         Label(self.frame, text="MLN: ").grid(row=row, column=0, sticky=NE)
@@ -430,11 +468,19 @@ class MLNQueryGUI(object):
         self.entry_cw.grid(row=row, column=1, sticky="NEW")
 
         # all preds open-world
+        option_container = Frame(self.frame)
+        option_container.grid(row=row, column=1, sticky="NES")
         row += 1
         self.open_world = IntVar()
-        self.cb_open_world = Checkbutton(self.frame, text="Apply open-world assumption to all predicates", variable=self.open_world)
+        self.cb_open_world = Checkbutton(option_container, text="Apply open-world assumption to all predicates", variable=self.open_world)
         self.cb_open_world.grid(row=row, column=1, sticky=W)
         self.open_world.set(self.settings.get("openWorld", True))
+        
+        # Multiprocessing 
+        self.use_multiCPU = IntVar()
+        self.cb_use_multiCPU = Checkbutton(option_container, text="Use all CPUs", variable=self.use_multiCPU)
+        self.cb_use_multiCPU.grid(row=row, column=2, sticky=W)
+        self.use_multiCPU.set(self.settings.get("useMultiCPU", False))
 
         # output filename
         row += 1
@@ -500,12 +546,22 @@ class MLNQueryGUI(object):
         emln = self.settings["emlnByDB"].get(name)
         if not emln is None:
             self.selected_emln.set(emln)
+            
+    def onChangeUseMultiCPU(self, *args):
+        pass
 
     def onChangeUseEMLN(self, *args):
         if self.use_emln.get() == 0:
             self.selected_emln.grid_forget()
         else:
             self.selected_emln.grid(row=self.selected_mln.row+1, column=0, sticky="NWES")
+
+    def onChangeLogic(self, name = None, index = None, mode = None):
+        pass
+    
+    def onChangeGrammar(self, name=None, index=None, mode=None):
+        grammar = eval(self.selected_grammar.get())(None)
+        self.selected_mln.editor.grammar = grammar        
 
     def onChangeEngine(self, name = None, index = None, mode = None):
         # enable/disable controls
@@ -578,6 +634,11 @@ class MLNQueryGUI(object):
         self.settings["useEMLN"] = self.use_emln.get()
         self.settings["maxSteps"] = self.maxSteps.get()
         self.settings["numChains"] = self.numChains.get()
+        self.settings['logic'] = self.selected_logic.get()
+        self.settings['grammar'] = self.selected_grammar.get()
+        self.settings['useMultiCPU'] = self.use_multiCPU.get()
+        
+        
         if "params" in self.settings: del self.settings["params"]
         if saveGeometry:
             self.settings["geometry"] = self.master.winfo_geometry()
@@ -591,6 +652,7 @@ class MLNQueryGUI(object):
             f.close()
         # write settings
         pickle.dump(self.settings, file(configname, "w+"))
+        
         # some information
         print "\n--- query ---\n%s" % self.settings["query"]        
         print "\n--- evidence (%s) ---\n%s" % (db, db_text.strip())
@@ -600,6 +662,7 @@ class MLNQueryGUI(object):
             input_files.append(emln)
         # hide main window
         self.master.withdraw()
+        
         # runinference
         try:
             self.inference.run(input_files, db, method, self.settings["query"], params=params, **self.settings)

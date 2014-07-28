@@ -4,12 +4,16 @@ import os
 import sys
 from mln.methods import *
 from pprint import pprint
-from mln.MarkovLogicNetwork import readMLNFromFile
+from mln import *
+from wcsp.converter import WCSPConverter
+from wcsp.wcsp import WCSP
+import logging
 
 class MLNTestCase(unittest.TestCase):
     
     def setUp(self):
         join = os.path.join
+        logging.getLogger().setLevel(logging.INFO)
         self.modelsDir = join("..", "models")
         self.simpleLearnDir = join(self.modelsDir, "simpleLearning")
         self.simpleLearnDB = join(self.simpleLearnDir, "train.db")
@@ -20,6 +24,7 @@ class MLNTestCase(unittest.TestCase):
         self.probConstrDir = join(self.modelsDir, "probConstraints")
         self.posteriorCDir = join(self.probConstrDir, "posterior")
         self.priorCDir = join(self.probConstrDir, "prior")
+        self.wcspDir = join(self.modelsDir, 'wcsp_conversion')
     
     def assertApproxEqual(self, a, b, delta = 1e-5):
         self.assertTrue(abs(a-b) <= delta, "%f !~ %f [max. dev. %f]" % (a, b, delta))
@@ -86,6 +91,7 @@ class MLNTestCase(unittest.TestCase):
     
     def test_groundWithVars(self):
         mln = readMLNFromFile(os.path.join(self.studentDir, "student_course2_simLearned.mln"))
+        mln.write(sys.stdout)
         mrf = mln.groundMRF(self.studentDB)
         weights = map(lambda p: float(p[0]), mrf.getGroundFormulas())
         correctWeights = [-0.40546510810816444, -1.0986122886681098, -0.22314355131420957, -1.6094379124341012, -7.3508372506616082, -0.0006422607799453446, -1.0986122886681098, -0.40546510810816427, -6.1468644463356723, -0.0021424753776469402, 27.350837250661606, 27.350837250661606]
@@ -104,6 +110,19 @@ class MLNTestCase(unittest.TestCase):
         results = map(float, (mrf.inferMCSAT("attr")))
         correctResults = [0.6666666666666666, 0.10]
         self.assertApproxListEqual(results, correctResults, 0.04)
+        
+    def test_wcspConversion(self):
+        mln = readMLNFromFile(os.path.join(self.wcspDir, 'conv.mln'))
+#         mln.write(sys.stdout)
+        mrf = mln.groundMRF(os.path.join(self.wcspDir, 'evidence.db'))
+        resultWCSP = WCSP()
+        resultWCSP.read(open(os.path.join(self.wcspDir, 'result.wcsp')))
+        resultWCSP.write(sys.stdout)
+        converter = WCSPConverter(mrf)
+        wcsp = converter.convert()
+        wcsp = wcsp.makeIntegerCostWCSP()
+        wcsp.write(sys.stdout)
+        self.assertTrue(wcsp == resultWCSP, 'WCSP conversion test failed.')
     
     # TODO:
     #  - multiple database learning
@@ -114,7 +133,8 @@ class MLNTestCase(unittest.TestCase):
         
 if __name__ == '__main__':
     runAll = True
-    test = "test_learnBPLLCG_Smoking"
+    test = "test_wcspConversion"
+#     test = 'test_learnBPLL'
     if runAll:
         unittest.main()
     else:

@@ -1,0 +1,16 @@
+
+PRACMLNS
+========
+
+
+Contents:
+
+.. toctree::
+   :maxdepth: 2
+
+   tools
+   mln_syntax
+   mlntutorial
+   mlnlearningtool
+   learningmethods
+   inferencemethods

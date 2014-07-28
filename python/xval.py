@@ -27,14 +27,14 @@ import sys
 import traceback
 
 from optparse import OptionParser
-from mln.MarkovLogicNetwork import readMLNFromFile
+from mln.mln import readMLNFromFile
 from mln.database import readDBFromFile, Database
 from random import shuffle, sample
 import math
-from mln.methods import ParameterLearningMeasures, InferenceMethods
+from mln.methods import LearningMethods, InferenceMethods
 from wcsp.converter import WCSPConverter
 from utils.eval import ConfusionMatrix
-from mln.util import strFormula, mergeDomains, parseLiteral
+from mln.util import strFormula, mergeDomains
 from multiprocessing import Pool
 from utils.clustering import SAHN, Cluster, computeClosestCluster
 import logging
@@ -67,7 +67,7 @@ class XValFoldParams(object):
         self.queryPred = None
         self.queryDom = None
         self.cwPreds = None
-        self.learningMethod = ParameterLearningMeasures.BPLL
+        self.learningMethod = LearningMethods.BPLL
         self.optimizer = 'bfgs'
         self.verbose = False
         self.noisyStringDomains = None
@@ -231,7 +231,7 @@ class NoisyStringTransformer(object):
                 # replace the affected evidences
                 for ev in newDB.evidence.keys():
                     truth = newDB.evidence[ev]
-                    _, pred, params = parseLiteral(ev)
+                    _, pred, params = db.mln.logic.parseLiteral(ev)
                     if domain in self.mln.predicates[pred]: # domain is affected by the mapping  
                         newDB.retractGndAtom(ev)
                         newArgs = [v if domain != self.mln.predicates[pred][i] else valueMap[v] for i, v in enumerate(params)]

@@ -1,3 +1,5 @@
-from DefaultGrounding import DefaultGroundingFactory
+from default import DefaultGroundingFactory
+from default import NoGroundingFactory
 from bpll import BPLLGroundingFactory
 from wcsp import WCSPGroundingFactory
+from fastconj import FastConjunctionGrounding
