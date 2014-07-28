@@ -217,8 +217,8 @@ class NoisyStringTransformer(object):
     def transformDBs(self, dbs):
         newDBs = []
         for db in dbs:
-            if len(db.softEvidence) > 0:
-                raise Exception('This is not yet implemented for soft evidence.')
+#             if len(db.softEvidence) > 0:
+#                 raise Exception('This is not yet implemented for soft evidence.')
             commonDoms = set(db.domains.keys()).intersection(set(self.noisyStringDomains))
             if len(commonDoms) == 0:
                 newDBs.append(db)
