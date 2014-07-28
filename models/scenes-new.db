@@ -1,57 +1,4 @@
-scene(breakfast)
-size(c0,big)
-size(c1,big)
-size(c2,big)
-size(c3,small)
 
-
-shape(c5,flat)
-shape(c6,flat)
-
-
-size(c5,small)
-size(c6,small)
-
-
-shape(c0,box)
-shape(c1,round)
-shape(c2,round)
-shape(c3,round)
-shape(c5,flat)
-shape(c5,round)
-shape(c6,flat)
-shape(c6,round)
-
-
-color(c0,white)
-color(c1,yellow)
-color(c2,black)
-color(c3,red)
-color(c5,red)
-color(c6,red)
-
-
-linemod(c0,Popcorn)
-linemod(c1,Vitalis)
-
-
-goggles_Logo(c0,Kellogg's)
-goggles_Text(c0,Special_CLASSIC_)
-
-
-shape(c2,cylinder)
-
-
-object(c0,Cereal)
-object(c1,Milk)
-object(c2,Bowl)
-object(c3,Cup)
-object(c5,Spoon)
-object(c6,Knife)
-
-
-//2013-09-11T22:36:45.109775
----
 scene(breakfast)
 size(c0,big)
 size(c1,big)
@@ -1245,7 +1192,7 @@ object(c3,Spatula)
 
 //2013-09-11T23:14:15.047150
 ---
-scene(cookin)
+scene(cooking)
 size(c0,big)
 size(c1,big)
 size(c2,big)
@@ -1999,7 +1946,7 @@ object(c4,Knife)
 
 //2013-09-11T23:32:24.362556
 ---
-
+scene(breakfast)
 
 size(c0,big)
 size(c1,big)
@@ -2155,7 +2102,7 @@ object(c6,Knife)
 ---
 
 
-scene(cookin)
+scene(cooking)
 size(c0,big)
 size(c1,big)
 size(c3,small)
