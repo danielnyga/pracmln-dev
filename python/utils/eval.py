@@ -124,6 +124,18 @@ class ConfusionMatrix(object):
 			
 		return acc, pre, rec, f1
 
+	def getTotalAccuracy(self):
+		'''
+		Returns the fraction of correct predictions and
+		total predictions.
+		'''
+		true = 0
+		total = 0
+		for label in self.labels:
+			tp, _, _, _ = self.countClassifications(label)
+			true += tp
+		return true / float(self.instanceCount)
+
 	def getLatexTable(self):		
 		grid = "|l|"
 		for cl in sorted(self.labels):
