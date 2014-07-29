@@ -547,6 +547,17 @@ class FirstOrderLogic(Logic):
         
         def maxTruth(self, world_values):
             return 1
+
+        def getConstants(self, mln, constants=None):
+            if constants is None: constants = {}
+            for i, c in enumerate(self.params):
+                domName = mln.predicates[self.predName][i]
+                values = constants.get(domName, None)
+                if values is None: 
+                    values = []
+                    constants[domName] = values
+                if not self.logic.isVar(c) and not c in values: values.append(c)
+            return constants
     
     class GroundAtom(Logic.GroundAtom, Formula):
         '''
