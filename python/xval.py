@@ -67,8 +67,9 @@ class XValFoldParams(object):
         self.queryPred = None
         self.queryDom = None
         self.cwPreds = None
-        self.learningMethod = LearningMethods.BPLL
+        self.learningMethod = LearningMethods.BPLL_CG
         self.optimizer = 'bfgs'
+        self.maxiter = 5
         self.verbose = False
         self.noisyStringDomains = None
         self.directory = None
@@ -100,6 +101,8 @@ class XValFold(object):
         sig = ['?arg%d' % i for i, _ in enumerate(mln.predicates[queryPred])]
         querytempl = '%s(%s)' % (queryPred, ','.join(sig))
         
+        dbs = map(lambda db: db.duplicate(mln), dbs)
+        
         for db in dbs:
             # save and remove the query predicates from the evidence
             trueDB = Database(mln)
@@ -111,10 +114,11 @@ class XValFold(object):
                 db.retractGndAtom(atom)
             
             try:
-                mrf = mln.groundMRF(db)
-                conv = WCSPConverter(mrf)
-            
-                resultDB = conv.getMostProbableWorldDB()
+#                 mrf = mln.groundMRF(db)
+#                 conv = WCSPConverter(mrf)
+#                 resultDB = conv.getMostProbableWorldDB()
+
+                resultDB = mln.infer(InferenceMethods.WCSP, queryPred, db)
                 
                 sig2 = list(sig)
                 entityIdx = mln.predicates[queryPred].index(queryDom)
@@ -156,7 +160,8 @@ class XValFold(object):
             learnedMLN = mln.learnWeights(learnDBs_, method=self.params.learningMethod, 
                                           optimizer=self.params.optimizer, 
                                           gaussianPriorSigma=10.,
-                                          verbose=verbose)
+                                          verbose=verbose,
+                                          maxiter=self.params.maxiter)
             # store the learned MLN in a file
             learnedMLN.writeToFile(os.path.join(directory, 'run_%d.mln' % self.params.foldIdx))
             log.debug('Finished learning.')
@@ -310,7 +315,7 @@ if __name__ == '__main__':
         params = XValFoldParams()
         params.mln = mln_.duplicate()
         params.learnDBs = []
-        for dbs in [dbs for i,dbs in enumerate(partition) if i != foldIdx]:
+        for dbs in [d for i, d in enumerate(partition) if i != foldIdx]:
             params.learnDBs.extend(dbs)
         params.testDBs = partition[foldIdx]
         params.foldIdx = foldIdx
