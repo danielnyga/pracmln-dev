@@ -1245,7 +1245,7 @@ object(c3,Spatula)
 
 //2013-09-11T23:14:15.047150
 ---
-scene(cookin)
+scene(cooking)
 size(c0,big)
 size(c1,big)
 size(c2,big)
@@ -1383,7 +1383,7 @@ object(c3,Oil)
 
 //2013-09-11T23:17:26.889155
 ---
-scene(firdge)
+scene(fridge)
 size(c0,big)
 size(c1,big)
 size(c2,big)
@@ -2155,7 +2155,7 @@ object(c6,Knife)
 ---
 
 
-scene(cookin)
+scene(cooking)
 size(c0,big)
 size(c1,big)
 size(c3,small)
