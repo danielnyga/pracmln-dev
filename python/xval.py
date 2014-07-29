@@ -69,13 +69,17 @@ class XValFoldParams(object):
         self.cwPreds = None
         self.learningMethod = LearningMethods.BPLL_CG
         self.optimizer = 'bfgs'
-        self.maxiter = 5
+        self.maxiter = None
         self.verbose = False
         self.noisyStringDomains = None
         self.directory = None
         self.mln = None
         for p, val in params.iteritems():
             setattr(self, str(p), val)
+            
+    def __str__(self):
+        return '\n'.join(['%s: %s' % (k, v) for k, v in self.__dict__.iteritems()])
+        
             
 class XValFold(object):
     '''
@@ -89,6 +93,14 @@ class XValFold(object):
         self.params = params
         self.fold_id = 'Fold-%d' % params.foldIdx
         self.confMatrix = ConfusionMatrix()
+        # write the training and testing databases into a file
+        dbfile = open(os.path.join(params.directory, 'train_dbs_%d.db' % params.foldIdx), 'w+')
+        Database.writeDBs(params.learnDBs, dbfile)
+        dbfile.close()
+        dbfile = open(os.path.join(params.directory, 'test_dbs_%d.db' % params.foldIdx), 'w+')
+        Database.writeDBs(params.testDBs, dbfile)
+        dbfile.close()
+        
             
     def evalMLN(self, mln, dbs):
         '''
@@ -270,7 +282,7 @@ if __name__ == '__main__':
     # set up the directory    
     directory = time.strftime("%a_%d_%b_%Y_%H:%M:%S", time.localtime())
     os.mkdir(directory)
-    
+    logging.getLogger().setLevel(logging.INFO)
     # set up the logger
     log = logging.getLogger('xval')
     fileLogger = FileHandler(os.path.join(directory, 'xval.log'))
@@ -343,6 +355,7 @@ if __name__ == '__main__':
             # this is a dirty hack since pdflatex apparently
             # does not support arbitrary output paths
             pdfname = 'conf_matrix'
+            log.info('creating pdf if confusion matrix...')
             cm.toPDF(pdfname)
             os.rename('%s.pdf' % pdfname, os.path.join(directory, '%s.pdf' % pdfname))
         except (KeyboardInterrupt, SystemExit, SystemError):
@@ -360,6 +373,10 @@ if __name__ == '__main__':
         for fold in foldRunnables:
             cm.combine(runFold(fold).confMatrix)
         cm.toFile(os.path.join(directory, 'conf_matrix.cm'))
+        pdfname = 'conf_matrix'
+        log.info('creating pdf if confusion matrix...')
+        cm.toPDF(pdfname)
+        os.rename('%s.pdf' % pdfname, os.path.join(directory, '%s.pdf' % pdfname))
         elapsedTimeSP = time.time() - startTime
     
     if multicore:
