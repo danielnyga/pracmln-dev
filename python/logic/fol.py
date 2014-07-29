@@ -1288,6 +1288,9 @@ class FirstOrderLogic(Logic):
             if variables is None:
                 return {}
             return variables
+        
+        def ground(self, mln, assignment, referencedAtoms = None, simplify=False, allowPartialGroundings=False):
+            return self.logic.true_false(self.value)
     
     
     class NonLogicalConstraint(Logic.NonLogicalConstraint, Constraint):
