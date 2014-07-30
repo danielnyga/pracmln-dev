@@ -67,14 +67,19 @@ class XValFoldParams(object):
         self.queryPred = None
         self.queryDom = None
         self.cwPreds = None
-        self.learningMethod = LearningMethods.BPLL
+        self.learningMethod = LearningMethods.BPLL_CG
         self.optimizer = 'bfgs'
+        self.maxiter = None
         self.verbose = False
         self.noisyStringDomains = None
         self.directory = None
         self.mln = None
         for p, val in params.iteritems():
             setattr(self, str(p), val)
+            
+    def __str__(self):
+        return '\n'.join(['%s: %s' % (k, v) for k, v in self.__dict__.iteritems()])
+        
             
 class XValFold(object):
     '''
@@ -88,6 +93,14 @@ class XValFold(object):
         self.params = params
         self.fold_id = 'Fold-%d' % params.foldIdx
         self.confMatrix = ConfusionMatrix()
+        # write the training and testing databases into a file
+        dbfile = open(os.path.join(params.directory, 'train_dbs_%d.db' % params.foldIdx), 'w+')
+        Database.writeDBs(params.learnDBs, dbfile)
+        dbfile.close()
+        dbfile = open(os.path.join(params.directory, 'test_dbs_%d.db' % params.foldIdx), 'w+')
+        Database.writeDBs(params.testDBs, dbfile)
+        dbfile.close()
+        
             
     def evalMLN(self, mln, dbs):
         '''
@@ -100,6 +113,8 @@ class XValFold(object):
         sig = ['?arg%d' % i for i, _ in enumerate(mln.predicates[queryPred])]
         querytempl = '%s(%s)' % (queryPred, ','.join(sig))
         
+        dbs = map(lambda db: db.duplicate(mln), dbs)
+        
         for db in dbs:
             # save and remove the query predicates from the evidence
             trueDB = Database(mln)
@@ -111,10 +126,11 @@ class XValFold(object):
                 db.retractGndAtom(atom)
             
             try:
-                mrf = mln.groundMRF(db)
-                conv = WCSPConverter(mrf)
-            
-                resultDB = conv.getMostProbableWorldDB()
+#                 mrf = mln.groundMRF(db)
+#                 conv = WCSPConverter(mrf)
+#                 resultDB = conv.getMostProbableWorldDB()
+
+                resultDB = mln.infer(InferenceMethods.WCSP, queryPred, db)
                 
                 sig2 = list(sig)
                 entityIdx = mln.predicates[queryPred].index(queryDom)
@@ -156,7 +172,8 @@ class XValFold(object):
             learnedMLN = mln.learnWeights(learnDBs_, method=self.params.learningMethod, 
                                           optimizer=self.params.optimizer, 
                                           gaussianPriorSigma=10.,
-                                          verbose=verbose)
+                                          verbose=verbose,
+                                          maxiter=self.params.maxiter)
             # store the learned MLN in a file
             learnedMLN.writeToFile(os.path.join(directory, 'run_%d.mln' % self.params.foldIdx))
             log.debug('Finished learning.')
@@ -262,17 +279,29 @@ if __name__ == '__main__':
     
     startTime = time.time()
 
+    #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  
     # set up the directory    
-    directory = time.strftime("%a_%d_%b_%Y_%H:%M:%S", time.localtime())
-    os.mkdir(directory)
-    
+    #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  
+    mlnname = mlnfile[:-4]
+    idx = 1
+    while True:
+        dirname = '%s-%d' % (mlnname, idx)
+        idx += 1
+        if not os.path.exists(dirname): break
+    timestamp = time.strftime("%a_%d_%b_%Y_%H:%M:%S", time.localtime())
+    expdir = os.getenv('PRACMLN_EXPERIMENTS', '.')
+    expdir = os.path.join(expdir, dirname)
+    os.mkdir(expdir)
     # set up the logger
-    log = logging.getLogger('xval')
-    fileLogger = FileHandler(os.path.join(directory, 'xval.log'))
+    logging.getLogger().setLevel(logging.INFO)
+    log = logging.getLogger()
+    fileLogger = FileHandler(os.path.join(expdir, 'xval.log'))
     fileLogger.setFormatter(praclog.formatter)
     log.addHandler(fileLogger)
 
-    log.info('Results will be written into %s' % directory)
+    log.info('Log for %d-fold cross-validation of %s using %s' % (folds, mlnfile, dbfiles))
+    log.info('Date: %s' % timestamp)
+    log.info('Results will be written into %s' % expdir)
 
     # preparations: Read the MLN and the databases 
     mln_ = readMLNFromFile(mlnfile, verbose=verbose)
@@ -310,13 +339,13 @@ if __name__ == '__main__':
         params = XValFoldParams()
         params.mln = mln_.duplicate()
         params.learnDBs = []
-        for dbs in [dbs for i,dbs in enumerate(partition) if i != foldIdx]:
+        for dbs in [d for i, d in enumerate(partition) if i != foldIdx]:
             params.learnDBs.extend(dbs)
         params.testDBs = partition[foldIdx]
         params.foldIdx = foldIdx
         params.foldCount = folds
         params.noisyStringDomains = noisy
-        params.directory = directory
+        params.directory = expdir
         params.queryPred = predName
         params.queryDom = domain
         foldRunnables.append(XValFold(params))
@@ -333,13 +362,14 @@ if __name__ == '__main__':
             for r in result:
                 cm.combine(r.confMatrix)
             elapsedTimeMP = time.time() - startTime
-            cm.toFile(os.path.join(directory, 'conf_matrix.cm'))
+            cm.toFile(os.path.join(expdir, 'conf_matrix.cm'))
             # create the pdf table and move it into the log directory
             # this is a dirty hack since pdflatex apparently
             # does not support arbitrary output paths
             pdfname = 'conf_matrix'
+            log.info('creating pdf if confusion matrix...')
             cm.toPDF(pdfname)
-            os.rename('%s.pdf' % pdfname, os.path.join(directory, '%s.pdf' % pdfname))
+            os.rename('%s.pdf' % pdfname, os.path.join(expdir, '%s.pdf' % pdfname))
         except (KeyboardInterrupt, SystemExit, SystemError):
             log.critical("Caught KeyboardInterrupt, terminating workers")
             workerPool.terminate()
@@ -354,7 +384,11 @@ if __name__ == '__main__':
         cm = ConfusionMatrix()
         for fold in foldRunnables:
             cm.combine(runFold(fold).confMatrix)
-        cm.toFile(os.path.join(directory, 'conf_matrix.cm'))
+        cm.toFile(os.path.join(expdir, 'conf_matrix.cm'))
+        pdfname = 'conf_matrix'
+        log.info('creating pdf if confusion matrix...')
+        cm.toPDF(pdfname)
+        os.rename('%s.pdf' % pdfname, os.path.join(expdir, '%s.pdf' % pdfname))
         elapsedTimeSP = time.time() - startTime
     
     if multicore:

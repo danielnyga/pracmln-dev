@@ -1,6 +1,9 @@
 bin
 apps
+experiments
 env.bat
 env.sh
 *.class
 *.pyc
+*.pyo
+*.log

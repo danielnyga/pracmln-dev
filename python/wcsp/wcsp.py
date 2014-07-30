@@ -24,7 +24,7 @@
 import sys
 import os
 from subprocess import Popen, PIPE
-import logging
+from praclog import logging
 import bisect
 import copy
 
@@ -32,20 +32,24 @@ class MaxCostExceeded(Exception): pass
 
 temp_wcsp_file = os.path.join('/', 'tmp', 'temp%d.wcsp')
 
-# Check if the toulbar2 executable can be found. Raise an exception, if not.
 def is_executable(path):
     return os.path.exists(path) and os.access(path, os.X_OK)
 
 def isToulbar2Installed():
+    '''
+    Checks if the 'toulbar2' executable can be located and is executable.
+    '''
     toulbar2cmd = 'toulbar2'
-    for path in os.environ['PATH'].split(os.pathsep):
+    for path in os.getenv('PATH').split(os.pathsep):
         cmd_file = os.path.join(path, toulbar2cmd)
-        for candidate in cmd_file:
-            if is_executable(candidate):
-                return
-    logging.getLogger(__name__).exception('toulbar2 executable cannot be found.')
+        if is_executable(cmd_file):
+		return True
+    return False
 
-isToulbar2Installed()
+# Globally check if the toulbar2 executable can be found when
+# this module is loaded. Print a warning if not.
+if not isToulbar2Installed():
+    logging.getLogger(__name__).warning('toulbar2 executable cannot be found. WCSP inference will not be possible. Make sure you have included the "toulbar2" executable in your PATH variable.')
 
 class Constraint(object):
     '''
@@ -285,14 +289,13 @@ class WCSP(object):
         of variable assignments.
         '''
         log = logging.getLogger(self.__class__.__name__)
+        if not isToulbar2Installed():
+            raise Exception('toulbar2 cannot be found. Make sure it is in your PATH')
         wcsp_ = self.makeIntegerCostWCSP()
-        
         # append the process id to the filename to make it "process safe"
         wcspfilename = temp_wcsp_file % os.getpid()
         f = open(wcspfilename, 'w+')
         wcsp_.write(f)
-#         wcsp_.write(sys.stdout)
-#         cmd = 'toulbar2 -s -v=1 -e=0 -nopre -k=0 %s' % temp_wcsp_file
         f.close()
         cmd = 'toulbar2 -s %s' % wcspfilename
         log.debug('solving WCSP...')
@@ -316,10 +319,12 @@ class WCSP(object):
         retCode = p.returncode
         log.debug('toulbar2 process returned %s' % str(retCode))
         return solution, cost
-    
+
+# main function for debugging only
 if __name__ == '__main__':
-    wcsp = WCSP()
-    wcsp.read(open('test.wcsp'))
-    wcsp.write(sys.stdout)
-    print 'best solution:', wcsp.solve()
+    print isToulbar2Installed()
+    #wcsp = WCSP()
+    #wcsp.read(open('test.wcsp'))
+    #wcsp.write(sys.stdout)
+    #print 'best solution:', wcsp.solve()
             

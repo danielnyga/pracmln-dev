@@ -31,6 +31,7 @@ from errors import NoSuchPredicateError
 from utils import colorize
 from logic.fol import FirstOrderLogic
 import os
+from StringIO import StringIO
 
 class Database(object):
     '''
@@ -209,6 +210,16 @@ class Database(object):
         for varAssignment in pseudoMRF.iterTrueVariableAssignments(formula, truthThreshold=truthThreshold):
             yield varAssignment
 
+
+    @staticmethod
+    def writeDBs(dbs, stream, color=False):
+        strdbs = []
+        for db in dbs:
+            s = StringIO()
+            db.write(s, color=color)
+            strdbs.append(s.getvalue())
+            s.close()
+        stream.write('---\n'.join(strdbs))
                         
 #     def getSoftEvidence(self, gndAtom):
 #         '''
@@ -292,6 +303,7 @@ class Database(object):
 #             evidence = self.evidence.copy()
             for assignment in formula.iterTrueVariableAssignments(self, self.evidence, truthThreshold=truthThreshold):
                 yield assignment
+                
 
 def readDBFromString(mln, dbtext, ignoreUnknownPredicates=False, filename=''):
     '''
