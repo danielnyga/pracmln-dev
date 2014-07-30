@@ -29,6 +29,7 @@ from mln.util import fsum
 from numpy.ma.core import log, sqrt
 import numpy
 from logic.common import Logic
+import sys
 
 class CLL(AbstractLearner):
     '''
@@ -89,6 +90,38 @@ class CLL(AbstractLearner):
             variables = variables[len(partition.variables):]
         log.debug('CLL created %d partitions' % len(self.partitions))
         self._computeStatistics()
+        
+        
+    def run(self, **params):
+        '''
+        This is a modification of the run method of the AbstractLearner, which
+        runs the optimization only for a specified number of iterations and
+        then reconfigures the CLL partitions.
+        initialWts: whether to use the MLN's current weights as the starting point for the optimization
+        '''
+        
+        log = logging.getLogger(self.__class__.__name__)
+        if not 'scipy' in sys.modules:
+            raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
+        # initial parameter vector: all zeros or weights from formulas
+        wt = numpy.zeros(len(self.mln.formulas), numpy.float64)
+        if self.initialWts:
+            for i in range(len(self.mln.formulas)):
+                wt[i] = self.mln.formulas[i].weight
+            log.debug('Using initial weight vector: %s' % str(wt))
+                
+        # precompute fixed formula weights
+        self._fixFormulaWeights()
+        self.wt = self._projectVectorToNonFixedWeightIndices(wt)
+        
+        self.params.update(params)
+        repart = self.params.get('maxrepart', 5)
+        for i in range(repart):
+            self._prepareOpt()
+            self._optimize(**params)
+            self._postProcess()
+            
+        return self.wt
     
             
     def addStatistics(self, fIdx, partIdx, valIdx, size, inc=1.):
