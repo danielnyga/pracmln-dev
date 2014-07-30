@@ -175,6 +175,9 @@ if __name__ == '__main__':
     pyparsingDir = adapt("$SRLDB_HOME/3rdparty/pyparsing", arch)
     jythonDir = adapt("$SRLDB_HOME/jython", arch)
     logutilsDir = adapt("$SRLDB_HOME/3rdparty/logutils-0.3.3", arch)
+    
+    # make the experiments dir
+    os.mkdir('experiments')
      
     if not "win" in arch:
         f = file("env.sh", "w")
@@ -184,6 +187,7 @@ if __name__ == '__main__':
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % pyparsingDir)
         f.write("export JYTHONPATH=$JYTHONPATH:%s:%s\n" % (jythonDir, pythonDir))
         f.write("export PROBCOG_HOME=%s\n" % adapt("$SRLDB_HOME", arch))
+        f.write("export PRACMLN_EXPERIMENTS=%s\n" % adapt(os.path.join("$SRLDB_HOME", 'experiments'), arch))
         f.close()
         print 'Now, to set up your environment type:'
         print '    source env.sh'
