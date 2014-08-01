@@ -162,6 +162,36 @@ class FirstOrderLogic(Logic):
             '''
             raise Exception("%s does not implement _groundTemplate" % str(type(self)))
     
+    
+        def iterVariableAssignments(self, mrf):
+            '''
+            Yields dictionaries mapping variable names to values
+            this formula may be grounded with without grounding it. If there are not free
+            variables in the formula, returns an empty dict.
+            '''
+            try:
+                variables = self.getVariables(mrf.mln)
+            except Exception, e:
+                raise Exception("Error finding variable assignments '%s': %s" % (str(self), str(e)))
+            for assignment in self._iterVariableAssignments(mrf, variables, {}):
+                yield assignment
+                
+    
+        def _iterVariableAssignments(self, mrf, variables, assignment):
+            # if all variables have been assigned a value...
+            if variables == {}:
+                yield assignment
+                return
+            # ground the first variable...
+            varname, domName = variables.popitem()
+            domain = mrf.domains[domName]
+            for value in domain: # replacing it with one of the constants
+                assignment[varname] = value
+                # recursive descent to ground further variables
+                for assignment in self._iterGroundings(mrf, dict(variables), assignment):
+                    yield assignment
+                    
+    
         def iterGroundings(self, mrf, simplify=False, domains=None):
             '''
             Iteratively yields the groundings of the formula for the given grounder
@@ -594,6 +624,12 @@ class FirstOrderLogic(Logic):
                 predNames.append(self.predName)
             return predNames
             
+        def __eq__(self, other):
+            return str(self) == str(other)
+        
+        def __neq__(self, other):
+            return not self == other
+        
             
     class GroundLit(Logic.GroundLit, Formula):
         '''
@@ -689,6 +725,13 @@ class FirstOrderLogic(Logic):
         
         def _groundTemplate(self, assignment):
             return [self.logic.gnd_lit(self.gndAtom, self.negated)]
+        
+        def __eq__(self, other):
+            return self.negated == other.negated and self.gndAtom == other.gndAtom
+        
+        def __neq__(self, other):
+            return not self == other
+        
     
     class Disjunction(Logic.Disjunction, ComplexFormula):
         '''
