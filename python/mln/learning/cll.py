@@ -30,6 +30,7 @@ from numpy.ma.core import log, sqrt
 import numpy
 from logic.common import Logic
 import sys
+from utils import dict_union
 
 class CLL(AbstractLearner):
     '''
@@ -47,6 +48,7 @@ class CLL(AbstractLearner):
         self.partRelevantFormulas = defaultdict(set)
         self.evidenceIndices = {} # maps partition idx to index of value given by evidence
         self.partValueCount = {}
+        self.atomIdx2partition = {} # maps a gnd atom index to its comprising partition
         
                 
     def _getPredNameForPllBlock(self, block):
@@ -80,11 +82,15 @@ class CLL(AbstractLearner):
         variables = self.atomicVariables
         random.shuffle(variables)
         self.partitions = []
+        self.atomIdx2partition = {}
         size = self.partSize
         while len(variables) > 0:
             vars = variables[:size if len(variables) > size else len(variables)]
             partVariables = map(lambda v: v[0] if v[0] is not None else v[1], vars)
             partition = CLL.GndAtomPartition(self.mrf, partVariables)
+            # create the mapping from atoms to their partitions
+            for atomIdx in partition.getGndAtomsPlain():
+                self.atomIdx2partition[atomIdx] = partition
             log.debug('created partition: %s' % str(partition))
             self.partitions.append(partition)
             variables = variables[len(partition.variables):]
@@ -135,38 +141,94 @@ class CLL(AbstractLearner):
             part2values[partIdx] = valuesCounts
         valuesCounts[valIdx] += inc
         
-
+    
     def _computeStatistics(self):
-        log = logging.getLogger(self.__class__.__name__)
-        log.info('Computing statistics...')
-        self.statistics = {} # maps formula index to a dict of variables
-        # collect for each partition the set of relevant ground formulas
-        evidenceBackup = list(self.mrf.evidence)
-        for partIdx, partition in enumerate(self.partitions):
-            # remove the evidence of the partition variables temporarily
-            self.partValueCount[partIdx] = partition.getNumberOfPossibleWorlds()
-            atomIndices = partition.getGndAtomsPlain()
-            for atomIdx in atomIndices:
-                self.mrf._setTemporaryEvidence(atomIdx, None)
-            self.partRelevantFormulas[partIdx] = set()
-            for gf in self._iterFormulaGroundingsForVariable(): # generates all relevant ground formulas for the current partition
-                if set(atomIndices).isdisjoint(gf.idxGroundAtoms()):
-                    continue
-                for valIdx, val in enumerate(partition.iterPossibleWorlds(evidenceBackup)):
-                    if val == evidenceBackup:
-                        self.evidenceIndices[partIdx] = valIdx
-                    truth = gf.isTrue(val)
-                    self.addStatistics(gf.fIdx, partIdx, valIdx, self.partValueCount[partIdx], truth)
-                self.partRelevantFormulas[partIdx].add(gf.fIdx)
-            # collect the evidence value index of the partition (the value that holds in the evidence)
-            if partIdx not in self.evidenceIndices:
-                for valIdx, val in enumerate(partition.iterPossibleWorlds(evidenceBackup)):
-                    if val == evidenceBackup:
-                        self.evidenceIndices[partIdx] = valIdx
-            if not partIdx in self.evidenceIndices:
-                raise Exception('No admissible partition value found specified in evidence. Missing a functional constraint?')
-            # re-assert the evidence
-            self.mrf._removeTemporaryEvidence()
+        pass
+    
+    
+    def _comp_conj_stat(self, conj, gndconj, var_assign, f_gndlit_parts=None, processed=None):
+        '''
+        TODO: make sure that there are no equality constraints in the conjunction!
+        '''
+        if len(conj) == 0:
+            # at this point, we have fully grounded conjunction in gndconj
+            # create a mapping from a partition to the ground literals in this conjunction
+            # (criterion no. 1)
+            part2gndlits = defaultdict(list)
+            part_with_f_lit = None
+            for gndlit in gndconj:
+                part = self.atomIdx2partition[gndlit.gndAtom.idx]
+                part2gndlits[part].append(gndlit)
+                if gndlit.isTrue(self.mrf.evidence) == 0:
+                    part_with_f_lit = part  
+            # if there is a false ground literal we only need to take into account
+            # the partition comprising this literal (criterion no. 2)
+            # there is maximally one such partition with false literals in the conjunction
+            # because of criterion no. 5
+            if part_with_f_lit is not None:
+                gndlits = part2gndlits[part_with_f_lit]
+                part2gndlits = {}
+                part2gndlits[part] = gndlits 
+            
+            for partition, gndlits in part2gndlits.iteritems():
+                pass
+                
+            
+        lit = conj[0]
+        if f_gndlit_parts is None: f_gndlit_parts = []
+        if processed is None: processed = []
+        # ground the literal with the existing assignments
+        gndlit = lit.ground(self.mrf, var_assign)
+        for assign in gndlit.iterVariableAssignments(self.mrf):
+            # ground with the remaining free variables
+            gnd_lit_ = lit.ground(self.mrf, assign)
+            truth = gndlit.isTrue(self.mrf.evidence)
+            atomidx = gndlit.gndAtom.idx
+            if atomidx in processed: continue
+            
+            # if we encounter a gnd literal that is false by the evidence
+            # and there is already a false one in this grounding from a different
+            # partition, we can stop the grounding process here. The gnd conjunction
+            # will never ever be rendered true by any of the partitions (criterion no. 5)
+            if truth == 0:
+                if len(f_gndlit_parts) > 0 and not any(map(lambda p: p.contains(atomidx), f_gndlit_parts)): continue
+                else: f_gndlit_parts.append(self.atomIdx2partition[atomidx])
+                 
+            self._comp_conj_stat(conj[1:], gndconj + [gnd_lit_], dict_union(var_assign, assign), f_gndlit_parts) 
+        
+        
+
+#     def _computeStatistics(self):
+#         log = logging.getLogger(self.__class__.__name__)
+#         log.info('Computing statistics...')
+#         self.statistics = {} # maps formula index to a dict of variables
+#         # collect for each partition the set of relevant ground formulas
+#         evidenceBackup = list(self.mrf.evidence)
+#         for partIdx, partition in enumerate(self.partitions):
+#             # remove the evidence of the partition variables temporarily
+#             self.partValueCount[partIdx] = partition.getNumberOfPossibleWorlds()
+#             atomIndices = partition.getGndAtomsPlain()
+#             for atomIdx in atomIndices:
+#                 self.mrf._setTemporaryEvidence(atomIdx, None)
+#             self.partRelevantFormulas[partIdx] = set()
+#             for gf in self._iterFormulaGroundingsForVariable(): # generates all relevant ground formulas for the current partition
+#                 if set(atomIndices).isdisjoint(gf.idxGroundAtoms()):
+#                     continue
+#                 for valIdx, val in enumerate(partition.iterPossibleWorlds(evidenceBackup)):
+#                     if val == evidenceBackup:
+#                         self.evidenceIndices[partIdx] = valIdx
+#                     truth = gf.isTrue(val)
+#                     self.addStatistics(gf.fIdx, partIdx, valIdx, self.partValueCount[partIdx], truth)
+#                 self.partRelevantFormulas[partIdx].add(gf.fIdx)
+#             # collect the evidence value index of the partition (the value that holds in the evidence)
+#             if partIdx not in self.evidenceIndices:
+#                 for valIdx, val in enumerate(partition.iterPossibleWorlds(evidenceBackup)):
+#                     if val == evidenceBackup:
+#                         self.evidenceIndices[partIdx] = valIdx
+#             if not partIdx in self.evidenceIndices:
+#                 raise Exception('No admissible partition value found specified in evidence. Missing a functional constraint?')
+#             # re-assert the evidence
+#             self.mrf._removeTemporaryEvidence()
 
     
     def _iterFormulaGroundingsForVariable(self):
@@ -293,6 +355,56 @@ class CLL(AbstractLearner):
             else:
                 evidence[gndAtomIdx] = truth
                 
+                
+        def contains(self, atom):
+            '''
+            Returns True iff the given ground atom or ground atom index is part of
+            this partition.
+            '''
+            if isinstance(atom, Logic.GroundAtom):
+                return self.contains(atom.idx)
+            elif type(atom) is int:
+                return atom in self.getGndAtomsPlain()
+            else:
+                raise Exception('Invalid type of atom: %s' % type(atom))
+            
+            
+        def getMutexBlock(self, atomidx):
+            '''
+            Returns the list of ground atom indices that are with
+            atomidx in the same mutex var, or None if atomidx is not a mutex var.
+            Raises an exception if atomidx is not at contained in this partition.
+            '''
+            for v in self.variables:
+                if type(v) is list:
+                    for a in v:
+                        if a == atomidx: return v
+                else:
+                    None
+            raise Exception('Ground atom %s is not in the partition %s' % (str(self.mrf.gndAtomsByIdx[atomidx]), str(self)))
+        
+        
+        def getPossibleWorldIndex(self, possible_world):
+            '''
+            Computes the index of the given possible world that would be assigned
+            to it by recursively generating all worlds by iterPossibleWorlds().
+            possible_world needs to by (nested) tuple of truth values.
+            Exp: (0,0,(1,0,0),0) --> 0
+                 (0,0,(1,0,0),1) --> 1
+                 (0,0,(0,1,0),0) --> 2
+                 (0,0,(0,1,0),1) --> 3
+                 ...
+                 nested tuples represent mutex variables. 
+            '''
+            idx = 0
+            for i, (_, val) in enumerate(zip(self.variables, possible_world)):
+                exponential = 2 ** (len(self.variables) - i - 1)
+                if type(val) is list:
+                    idx += val.index(1.) * exponential 
+                else:
+                    idx += val * exponential
+            return idx
+                    
                 
         def _eraseEvidence(self, evidence, gndAtomIdx):
             '''
