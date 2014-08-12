@@ -167,12 +167,16 @@ class CLL(AbstractLearner):
             # because of criterion no. 5
             if part_with_f_lit is not None:
                 gndlits = part2gndlits[part_with_f_lit]
-                part2gndlits = {}
-                part2gndlits[part] = gndlits 
+                part2gndlits = {part: gndlits}
             
             for partition, gndlits in part2gndlits.iteritems():
-                pass
+                for gndlit in gndlits:
+                    # if there is a false mutex variable and no other ground literal
+                    # of this mutex variable is in the gnd formula, we can stop.
+                    # the conjuntion can never be rendered true in this case.
+                    pass
                 
+            return
             
         lit = conj[0]
         if f_gndlit_parts is None: f_gndlit_parts = []
@@ -418,6 +422,50 @@ class CLL(AbstractLearner):
                     evidence[idx] = None
             else:
                 evidence[gndAtomIdx] = None
+            
+            
+        def generatePossibleWorldTuples(self, fixedatoms=[]):
+            '''
+            Yields possible world values of this partition in the form
+            (0,0,(1,0,0),0), for instance. Nested tuples represent mutex variables. 
+            '''
+            pass
+        
+        
+        def generatePossibleWorldTuples(self, variables, assignment, evidence):
+            if len(variables) == 0:
+                yield tuple(assignment)
+                return
+            variable = variables[0]
+            
+            if type(variable) is list: # a mutex variable
+                valpattern = [None] * len(variable)
+                for gndlit in fixedliterals:
+                    mutexblock = self.getMutexBlock(gndlit.gndAtom.idx) 
+                    if variable in mutexblock:
+                        gndlit = self.gndAtomsByIdx[var]
+            else: # a regular ground atom
+                values = [0, 1]
+                for evidenceatom in evidence:
+                    if evidenceatom == variable:
+                        values = [evidence[variable]]
+                for value in values:
+                    for world in self.generatePossibleWorldTuples(variables[1:], assignment + [value], fixedliterals):
+                        yield world
+            
+            if var in map(lambda a: a.gndAtom.idx, fixedatoms):
+                val = None
+                mutexblock = self.getMutexBlock(var) 
+                if var in mutexblock:
+                    gndlit = self.gndAtomsByIdx[var]
+                    val = [0] * len(mutexblock)
+                    val[mutexblock.index(var)] = 1
+                    val = tuple(val)
+                else:
+                    val = 
+                    
+            
+            
             
         
         def iterPossibleWorlds(self, evidence):
