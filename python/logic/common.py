@@ -23,6 +23,7 @@
 
 from grammar import StandardGrammar, PRACGrammar
 import re
+from utils import unifyDicts, dict_union
 
 # ======================================================================================
 # decorator for storing the factory object in each created instance
@@ -213,6 +214,12 @@ class Logic(object):
         '''
         return isinstance(f, Logic.GroundLit) or isinstance(f, Logic.Lit) or isinstance(f, Logic.GroundAtom)
     
+    def isEquality(self, f):
+        '''
+        Determines wheter or not a formula is an equality consttaint.
+        '''
+        return isinstance(f, Logic.Equality)
+    
     def isConjunctionOfLiterals(self, f):
         '''
         Returns true if the given formula is a conjunction of literals.
@@ -244,6 +251,33 @@ class Logic(object):
                 not isinstance(child, Logic.TrueFalse):
                 return False
         return True
+    
+    
+    @staticmethod
+    def iterEqVariableAssignments(eq, f, mln):
+        fVars = f.getVariables(mln)
+        eqVars_ = eq.getVariables(mln)
+        if not set(eqVars_).issubset(fVars):
+            raise Exception('Variable in (in)equality constraint not bound to a domain: %s' % eq)
+        eqVars = {}
+        for v in eqVars_:
+            eqVars[v] = fVars[v]
+        for assignment in Logic._iterEqVariableAssignments(mln, eqVars, {}):
+            yield assignment
+        
+    
+    @staticmethod
+    def _iterEqVariableAssignments(mrf, variables, assignment):
+        if len(variables) == 0:
+            yield assignment
+            return
+        variables = dict(variables)
+        variable, domName = variables.popitem()
+        domain = mrf.domains[domName]
+        for value in domain:
+            for assignment in Logic._iterEqVariableAssignments(mrf, variables, dict_union(assignment, {variable: value})):
+                yield assignment
+        
     
 # this is a little hack to make nested classes pickleable
 Constraint = Logic.Constraint

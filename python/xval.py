@@ -288,7 +288,8 @@ if __name__ == '__main__':
         dirname = '%s-%d' % (mlnname, idx)
         idx += 1
         if not os.path.exists(dirname): break
-    timestamp = time.strftime("%a_%d_%b_%Y_%H:%M:%S", time.localtime())
+    timestamp = time.strftime("%Y-%b-%d-%H-%M-%S", time.localtime())
+    dirname += '-' + timestamp
     expdir = os.getenv('PRACMLN_EXPERIMENTS', '.')
     expdir = os.path.join(expdir, dirname)
     os.mkdir(expdir)
@@ -349,6 +350,7 @@ if __name__ == '__main__':
         params.queryPred = predName
         params.queryDom = domain
         foldRunnables.append(XValFold(params))
+        log.info('Params for fold %d:\n%s' % (foldIdx, str(params)))
     
     if multicore:
         # set up a pool of worker processes

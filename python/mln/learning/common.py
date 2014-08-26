@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Markov Logic Networks
 #
@@ -96,7 +96,6 @@ class AbstractLearner(object):
             w = formula.weight
             self._fixedWeightFormulas[formula.idxFormula] = w
             
-    # TODO warum einfach f? wo aufgerufen?
     def f(self, wt):
         # compute prior
         prior = 0
@@ -107,8 +106,8 @@ class AbstractLearner(object):
         # reconstruct full weight vector
         wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
         wt = self._convertToFloatVector(wt)
-        #print "_f: wt = ", wt
-        #sys.stdout.flush()
+#         print "_f: wt = ", wt
+#         sys.stdout.flush()
         
         # compute likelihood
         likelihood = self._f(wt)
@@ -151,8 +150,8 @@ class AbstractLearner(object):
         wt = self._convertToFloatVector(wt)
         
         grad = self._grad(wt)
-        #print "_grad: wt = %s\ngrad = %s" % (wt, grad)
-        #sys.stdout.flush()
+#         print "_grad: wt = %s\ngrad = %s" % (wt, grad)
+#         sys.stdout.flush()
 
         self.lastFullGradient = grad
         
@@ -182,8 +181,6 @@ class AbstractLearner(object):
             raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
         # initial parameter vector: all zeros or weights from formulas
         wt = numpy.zeros(len(self.mln.formulas), numpy.float64)
-        # TODO aus mln einlesen (mlnLearningTool.py und mln.py modifizieren), initialWts kommt dort nur im docstring vor 
-        # TODO assert gleiche länge ? 
         if self.initialWts:
             for i in range(len(self.mln.formulas)):
                 wt[i] = self.mln.formulas[i].weight

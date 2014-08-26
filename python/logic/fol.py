@@ -162,6 +162,38 @@ class FirstOrderLogic(Logic):
             '''
             raise Exception("%s does not implement _groundTemplate" % str(type(self)))
     
+    
+        def iterVariableAssignments(self, mrf):
+            '''
+            Yields dictionaries mapping variable names to values
+            this formula may be grounded with without grounding it. If there are not free
+            variables in the formula, returns an empty dict.
+            '''
+            try:
+                variables = self.getVariables(mrf.mln)
+            except Exception, e:
+                raise Exception("Error finding variable assignments '%s': %s" % (str(self), str(e)))
+            for assignment in self._iterVariableAssignments(mrf, variables, {}):
+                yield assignment
+                
+    
+        def _iterVariableAssignments(self, mrf, variables, assignment):
+            # if all variables have been assigned a value...
+            if variables == {}:
+                yield assignment
+                return
+            # ground the first variable...
+            variables = dict(variables)
+            varname, domName = variables.popitem()
+            domain = mrf.domains[domName]
+            assignment = dict(assignment)
+            for value in domain: # replacing it with one of the constants
+                assignment[varname] = value
+                # recursive descent to ground further variables
+                for assign in self._iterVariableAssignments(mrf, dict(variables), assignment):
+                    yield assign
+                    
+    
         def iterGroundings(self, mrf, simplify=False, domains=None):
             '''
             Iteratively yields the groundings of the formula for the given grounder
@@ -449,7 +481,7 @@ class FirstOrderLogic(Logic):
                 if self.logic.isVar(param):
                     varname = param
                     domain = paramDomains[i]
-                    if varname in variables and variables[varname] != domain:
+                    if varname in variables and variables[varname] != domain and variables[varname] is not None:
                         raise Exception("Variable '%s' bound to more than one domain" % varname)
                     variables[varname] = domain
                 elif constants is not None:
@@ -605,6 +637,12 @@ class FirstOrderLogic(Logic):
                 predNames.append(self.predName)
             return predNames
             
+        def __eq__(self, other):
+            return str(self) == str(other)
+        
+        def __neq__(self, other):
+            return not self == other
+        
             
     class GroundLit(Logic.GroundLit, Formula):
         '''
@@ -700,6 +738,13 @@ class FirstOrderLogic(Logic):
         
         def _groundTemplate(self, assignment):
             return [self.logic.gnd_lit(self.gndAtom, self.negated)]
+        
+        def __eq__(self, other):
+            return self.negated == other.negated and self.gndAtom == other.gndAtom
+        
+        def __neq__(self, other):
+            return not self == other
+        
     
     class Disjunction(Logic.Disjunction, ComplexFormula):
         '''
@@ -1211,16 +1256,8 @@ class FirstOrderLogic(Logic):
         def getVariables(self, mln, variables = None, constants = None):        
             if variables is None:
                 variables = {}
-#             if constants is not None:
-#                 # determine type of constant appearing in expression such as "x=Foo"
-#                 for i, p in enumerate(self.params):
-#                     other = self.params[(i + 1) % 2]
-#                     if self.logic.isConstant(p) and self.logic.isVar(other):
-#                         domain = variables.get(other)
-#                         if domain is None:
-#                             raise Exception("Type of constant '%s' could not be determined" % p)
-#                         if domain not in constants: constants[domain] = []
-#                         constants[domain].append(p)
+            if self.logic.isVar(self.params[0]) and self.params[0] not in variables: variables[self.params[0]] = None
+            if self.logic.isVar(self.params[1]) and self.params[1] not in variables: variables[self.params[1]] = None
             return variables
         
         def getVarDomain(self, varname, mln):

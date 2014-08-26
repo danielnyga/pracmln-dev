@@ -14,3 +14,4 @@ Contents:
    mlnlearningtool
    learningmethods
    inferencemethods
+   evaluation
