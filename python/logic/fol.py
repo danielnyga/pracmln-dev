@@ -183,13 +183,15 @@ class FirstOrderLogic(Logic):
                 yield assignment
                 return
             # ground the first variable...
+            variables = dict(variables)
             varname, domName = variables.popitem()
             domain = mrf.domains[domName]
+            assignment = dict(assignment)
             for value in domain: # replacing it with one of the constants
                 assignment[varname] = value
                 # recursive descent to ground further variables
-                for assignment in self._iterGroundings(mrf, dict(variables), assignment):
-                    yield assignment
+                for assign in self._iterVariableAssignments(mrf, dict(variables), assignment):
+                    yield assign
                     
     
         def iterGroundings(self, mrf, simplify=False, domains=None):
@@ -479,7 +481,7 @@ class FirstOrderLogic(Logic):
                 if self.logic.isVar(param):
                     varname = param
                     domain = paramDomains[i]
-                    if varname in variables and variables[varname] != domain:
+                    if varname in variables and variables[varname] != domain and variables[varname] is not None:
                         raise Exception("Variable '%s' bound to more than one domain" % varname)
                     variables[varname] = domain
                 elif constants is not None:
@@ -1243,16 +1245,8 @@ class FirstOrderLogic(Logic):
         def getVariables(self, mln, variables = None, constants = None):        
             if variables is None:
                 variables = {}
-#             if constants is not None:
-#                 # determine type of constant appearing in expression such as "x=Foo"
-#                 for i, p in enumerate(self.params):
-#                     other = self.params[(i + 1) % 2]
-#                     if self.logic.isConstant(p) and self.logic.isVar(other):
-#                         domain = variables.get(other)
-#                         if domain is None:
-#                             raise Exception("Type of constant '%s' could not be determined" % p)
-#                         if domain not in constants: constants[domain] = []
-#                         constants[domain].append(p)
+            if self.logic.isVar(self.params[0]) and self.params[0] not in variables: variables[self.params[0]] = None
+            if self.logic.isVar(self.params[1]) and self.params[1] not in variables: variables[self.params[1]] = None
             return variables
         
         def getVarDomain(self, varname, mln):

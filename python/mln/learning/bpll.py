@@ -217,6 +217,8 @@ class BPLL_CG(BPLL):
         self.fcounts = self.mrf.groundingMethod.fcounts
         self.blockRelevantFormulas = self.mrf.groundingMethod.blockRelevantFormulas
         self.evidenceIndices = self.mrf.groundingMethod.evidenceIndices
+        for f, parts in self.fcounts.iteritems():
+            print f, parts
 
 
 class DBPLL_CG(BPLL_CG, DiscriminativeLearner):
