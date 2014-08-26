@@ -39,6 +39,7 @@ class ConfusionMatrix(object):
 	def addClassificationResult(self, prediction, groundTruth, inc=1):
 		'''
 		Add a new classification result to the confusion matrix.
+		
 		- gndTruth:	the correct label of an example
 		- prediction:	the predicted class label of an example
 		- inc:		the increment (default: 1)
@@ -124,7 +125,10 @@ class ConfusionMatrix(object):
 			
 		return acc, pre, rec, f1
 
-	def getLatexTable(self):		
+	def getLatexTable(self):
+		'''
+		Returns LaTex code for the confusion matrix.
+		'''
 		grid = "|l|"
 		for cl in sorted(self.labels):
 			grid += "l|"
@@ -159,7 +163,9 @@ class ConfusionMatrix(object):
 		return result
 
 	def printPrecisions(self):
-		
+		'''
+		Prints to the standard out a table of the class-specific error measures accurracy, precision, recall, F score.
+		'''
 		classes = []
 		for classification in self.matrix:
 			for truth in self.matrix.get(classification,{}):
@@ -222,9 +228,15 @@ class ConfusionMatrix(object):
 		return table
 
 	def printTable(self):
+		'''
+		Prints the confusion matrix nicely formatted onto the standard out.
+		'''
 		print self
 		
 	def toFile(self, filename):
+		'''
+		Pickles the confusion matrix to a file with the given name.
+		'''
 		pickle.dump(self, open(filename, 'w+'))
 		
 	def toPDF(self, filename):
@@ -271,8 +283,6 @@ if __name__ == '__main__':
 	cm.addClassificationResult("AAA","C")
 	cm.addClassificationResult("B","AAA")
 	cm.addClassificationResult("B","AAA")
-	cm.addClassificationResult("ffff=====B","AAA")
-	cm.addClassificationResult("B","C")
 	cm.addClassificationResult("B","C")
 	cm.addClassificationResult("B","B")
 	#cm.addClassificationResult("C","A")
