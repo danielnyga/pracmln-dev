@@ -185,6 +185,7 @@ class CLL(AbstractLearner):
             part2gndlits = defaultdict(list)
             part_with_f_lit = None
             for gndlit in gndliterals:
+                if isinstance(gndlit, Logic.Equality) or hasattr(self, 'queryPreds') and gndlit.gndAtom.predName not in self.queryPreds: continue
                 part = self.atomIdx2partition[gndlit.gndAtom.idx]
                 part2gndlits[part].append(gndlit)
                 if gndlit.isTrue(self.mrf.evidence) == 0:
@@ -196,7 +197,7 @@ class CLL(AbstractLearner):
             if isconj and part_with_f_lit is not None:
                 gndlits = part2gndlits[part_with_f_lit]
                 part2gndlits = {part_with_f_lit: gndlits}
-            if not isconj: # if we don't have a conjunction, ground the formula with the given variable assignment
+            if True:#not isconj: # if we don't have a conjunction, ground the formula with the given variable assignment
                 gndformula = formula.ground(self.mrf, var_assign)
             for partition, gndlits in part2gndlits.iteritems():
                 # for each partition, select the ground atom truth assignments
@@ -209,7 +210,7 @@ class CLL(AbstractLearner):
                 for world in partition.generatePossibleWorldTuples(evidence):
                     # update the sufficient statistics for the given formula, partition and world value
                     worldidx = partition.getPossibleWorldIndex(world)
-                    if isconj: 
+                    if isconj:
                         truth = 1
                     else:
                         # temporarily set the evidence in the MRF, compute the truth value of the 
@@ -225,11 +226,11 @@ class CLL(AbstractLearner):
             
         lit = literals[0]
         # ground the literal with the existing assignments
-        gndlit = lit.ground(self.mrf, var_assign, allowPartialGroundings=len(gndliterals) == 0)
+        gndlit = lit.ground(self.mrf, var_assign, allowPartialGroundings=True)
         for assign in Logic.iterEqVariableAssignments(gndlit, formula, self.mrf) if self.mrf.mln.logic.isEquality(gndlit) else gndlit.iterVariableAssignments(self.mrf):
             # copy the arguments to avoid side effects
-            if f_gndlit_parts is None: f_gndlit_parts = []
-            else: f_gndlit_parts = list(f_gndlit_parts)
+            # if f_gndlit_parts is None: f_gndlit_parts = set()
+            # else: f_gndlit_parts = set(f_gndlit_parts)
             if processed is None: processed = []
             else: processed = list(processed)
             # ground with the remaining free variables
@@ -237,19 +238,34 @@ class CLL(AbstractLearner):
             truth = gnd_lit_.isTrue(self.mrf.evidence)
             # treatment of equality constraints
             if isinstance(gnd_lit_, Logic.Equality):
-                if truth == 1 or not isconj:
-                    self._computeStatisticsRecursive(literals[1:], gndliterals, dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj)
+                if isconj:
+                    if truth == 1:
+                        self._computeStatisticsRecursive(literals[1:], gndliterals, dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj)
+                    else: continue
+                else:
+                    self._computeStatisticsRecursive(literals[1:], gndliterals + [gnd_lit_], dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj) 
                 continue
-            atomidx = gndlit.gndAtom.idx
+            atomidx = gnd_lit_.gndAtom.idx
+
             if atomidx in processed: continue
             
             # if we encounter a gnd literal that is false by the evidence
             # and there is already a false one in this grounding from a different
             # partition, we can stop the grounding process here. The gnd conjunction
             # will never ever be rendered true by any of this partitions values (criterion no. 5)
+            isEvidence = hasattr(self, 'queryPreds') and gnd_lit_.gndAtom.predName not in self.queryPreds
+            assert isEvidence == False
             if isconj and truth == 0:
-                if len(f_gndlit_parts) > 0 and not any(map(lambda p: p.contains(atomidx), f_gndlit_parts)): continue
-                else: f_gndlit_parts.append(self.atomIdx2partition[atomidx])
+                falseLitInPart = False
+                if f_gndlit_parts is not None and not f_gndlit_parts.contains(atomidx):
+                    continue
+                elif isEvidence: continue
+                else:
+                    self._computeStatisticsRecursive(literals[1:], gndliterals + [gnd_lit_], dict_union(var_assign, assign), formula, self.atomIdx2partition[atomidx], processed, isconj) 
+                    continue
+            elif isconj and isEvidence:
+                self._computeStatisticsRecursive(literals[1:], gndliterals, dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj) 
+                continue
                  
             self._computeStatisticsRecursive(literals[1:], gndliterals + [gnd_lit_], dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj) 
     
@@ -567,6 +583,7 @@ class CLL(AbstractLearner):
                 if trues == 1: # if the true value of the mutex var is in the evidence, we have only one possibility
                     for world in self._generatePossibleWorldTuplesRecursive(variables[1:], assignment + [tuple(map(lambda x: 1 if x == 1 else 0, valpattern))], evidence):
                         yield world
+                    return
                 for i, val in enumerate(valpattern): # generate a value tuple with a true value for each atom which is not set to false by evidence
                     if val == 0: continue
                     elif val is None:
