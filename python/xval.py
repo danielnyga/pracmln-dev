@@ -67,7 +67,7 @@ class XValFoldParams(object):
         self.queryPred = None
         self.queryDom = None
         self.cwPreds = None
-        self.learningMethod = LearningMethods.BPLL_CG
+        self.learningMethod = LearningMethods.CLL
         self.optimizer = 'bfgs'
         self.maxiter = None
         self.verbose = False
