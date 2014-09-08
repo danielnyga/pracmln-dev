@@ -413,6 +413,12 @@ class MRF(object):
         log.debug(self.evidence)
         if clear is True:
             self._clearEvidence()
+        if cwAssumption:
+            # apply closed world assumption
+            log.info('Applying CW assumption...')
+            self.evidence = [0] * len(self.gndAtoms)#map(lambda x: 0 if x is None else x, self.evidence)
+            log.info('done.')
+        log.info('Asserting evidence...')
         for gndAtom, value in evidence.iteritems():
             if not gndAtom in self.gndAtoms:
                 log.debug('Evidence "%s=%s" is not among the ground atoms.' % (gndAtom, str(value)))
@@ -427,10 +433,10 @@ class MRF(object):
                     for i in block:
                         if i != idx:
                             self._setEvidence(i, 0)
-        if cwAssumption:
-            # apply closed world assumption
-            log.info('Applying CW assumption')
-            self.evidence = map(lambda x: 0 if x is None else x, self.evidence)
+#         if cwAssumption:
+#             # apply closed world assumption
+#             log.info('Applying CW assumption')
+#             self.evidence = map(lambda x: 0 if x is None else x, self.evidence)
         else:
             # handle closed-world predicates: Set all their instances that aren't yet known to false
             for pred in self.closedWorldPreds:
