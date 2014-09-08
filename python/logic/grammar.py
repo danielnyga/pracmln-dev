@@ -166,7 +166,7 @@ class Grammar(object):
         m = re.match(r'(!?)(\w+)\((.*?)\)$', s)
         if m is not None:
             return (m.group(1) != "!", m.group(2), map(str.strip, m.group(3).split(",")))
-        raise Exception("Could not parse literal '%s'" % line)
+        raise Exception("Could not parse literal '%s'" % s)
 
     
 class StandardGrammar(Grammar):
@@ -242,7 +242,7 @@ class PRACGrammar(Grammar):
     def __init__(self, logic):
         # grammar
         
-        identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$'
+        identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$' + '~' + '/' 
         lcCharacter = alphas.lower()
         ucCharacter = alphas.upper()
         lcName = Word(lcCharacter, alphanums + '_')
@@ -255,7 +255,7 @@ class PRACGrammar(Grammar):
         
         domName = Combine(lcName + Optional('!'))
         
-        constant = Word(identifierCharacter) | Word(nums)
+        constant = Word(identifierCharacter) | Word(nums) | QuotedString(quoteChar = '"', escChar = '\\')
         variable = Word(qMark, identifierCharacter)
         
         atomArgs = Group(delimitedList(constant | Combine(Optional("+") + variable)))

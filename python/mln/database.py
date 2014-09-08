@@ -318,7 +318,7 @@ def readDBFromString(mln, dbtext, ignoreUnknownPredicates=False, filename=''):
     db = Database(mln)
     dbs = []
     # expand domains with dbtext constants and save evidence
-    for l in dbtext.split("\n"):
+    for line, l in enumerate(dbtext.split("\n")):
         l = l.strip()
         if l == '':
             continue
@@ -357,7 +357,10 @@ def readDBFromString(mln, dbtext, ignoreUnknownPredicates=False, filename=''):
         else:
             if l[0] == "?":
                 raise log.exception("Unknown literals not supported (%s)" % l) # this is an Alchemy feature
-            isTrue, predName, constants = mln.logic.parseLiteral(l)
+            try:
+                isTrue, predName, constants = mln.logic.parseLiteral(l)
+            except Exception, e:
+                raise Exception('Error parsing line %d: %s (%s)' % (line, l, e.message))
             if not predName in mln.predicates and ignoreUnknownPredicates:
                 log.debug('Predicate "%s" is undefined.' % predName)
                 continue
