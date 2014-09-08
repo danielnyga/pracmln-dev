@@ -147,7 +147,7 @@ class Inference(object):
         msecs = int((elapsed - secs) * 1000)
         return (elapsed, "%d:%02d:%02d.%03d" % (hours, minutes, secs, msecs))
 
-    def infer(self, queries, given=None, verbose=True, details=False, shortOutput=False, outFile=None, saveResultsProlog=False, **args):
+    def infer(self, queries, given=None, verbose=True, details=False, shortOutput=True, outFile=None, saveResultsProlog=False, **args):
         '''
         Starts the inference process.
         queries: a list of queries - either strings 
