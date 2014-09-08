@@ -527,7 +527,10 @@ class CLL(AbstractLearner):
             for i, (_, val) in enumerate(zip(self.variables, possible_world)):
                 exponential = 2 ** (len(self.variables) - i - 1)
                 if type(val) is tuple:
-                    idx += val.index(1.) * exponential 
+                    try:
+                        idx += val.index(1.) * exponential
+                    except ValueError:
+                        raise Exception("No true ground atom in partition: %s, variable %s (truth values: %s)" % (str(self), self.var2String(i), val)) 
                 else:
                     idx += int(val) * exponential
             return idx
@@ -654,6 +657,14 @@ class CLL(AbstractLearner):
             return count
         
         
+        def var2String(self, varIdx):
+            s = []
+            v = self.variables[varIdx]
+            if type(v) is list: s.append('[%s]' % (','.join(map(str, map(lambda a: self.mrf.gndAtomsByIdx[a], v)))))
+            else: s.append(str(self.mrf.gndAtomsByIdx[v]))
+            return ','.join(s)
+        
+                
         def __str__(self):
             s = []
             for v in self.variables:
