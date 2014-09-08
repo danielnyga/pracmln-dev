@@ -48,6 +48,15 @@ class TreeBuilder(object):
             else:
                 toks = toks[0]
             self.stack.append(self.logic.lit(negated, toks[0], toks[1]))
+        elif op == 'gndlit':
+            negated = False
+            if toks[0] == '!':
+                negated = True
+                toks = toks[1]
+            else:
+                toks = toks[0]
+            # return a normal lit since we do not have gnd atoms when parsing
+            self.stack.append(self.logic.lit(negated, toks[0], toks[1])) 
         elif op == '!':
             if len(toks) == 1:
                 formula = self.logic.negation(self.stack[-1:])
@@ -163,10 +172,14 @@ class Grammar(object):
         predicate name and the third is a list of parameters, e.g. (False, "p", ["A", "B"])
         '''
         # try regular MLN syntax
-        m = re.match(r'(!?)(\w+)\((.*?)\)$', s)
-        if m is not None:
-            return (m.group(1) != "!", m.group(2), map(str.strip, m.group(3).split(",")))
-        raise Exception("Could not parse literal '%s'" % s)
+        self.tree.reset()
+        lit = self.literal.parseString(s)
+        lit = self.tree.getConstraint()
+        return (not lit.negated, lit.predName, lit.params)
+#         m = re.match(r'(!?)(\w+)\((.*?)\)$', s)
+#         if m is not None:
+#             return (m.group(1) != "!", m.group(2), map(str.strip, m.group(3).split(",")))
+#         raise Exception("Could not parse literal '%s'" % s)
 
     
 class StandardGrammar(Grammar):
@@ -258,6 +271,7 @@ class PRACGrammar(Grammar):
         constant = Word(identifierCharacter) | Word(nums) | QuotedString(quoteChar = '"', escChar = '\\')
         variable = Word(qMark, identifierCharacter)
         
+        gndAtomArgs = Group(delimitedList(constant))
         atomArgs = Group(delimitedList(constant | Combine(Optional("+") + variable)))
         predDeclArgs = Group(delimitedList(domName))
         
@@ -265,6 +279,7 @@ class PRACGrammar(Grammar):
         
         atom = Group(predName + openRB + atomArgs + closeRB)
         literal = Optional(Literal("!") | Literal("*")) + atom
+        gndLiteral = Optional(Literal("!")) + Group(predName + openRB + gndAtomArgs + closeRB)
         
         predDecl = Group(predName + openRB + predDeclArgs + closeRB) + StringEnd()
         
@@ -285,6 +300,7 @@ class PRACGrammar(Grammar):
         formula << constraint
 
         def lit_parse_action(a, b, c): tree.trigger(a,b,c,'lit')
+        def gndlit_parse_action(a, b, c): tree.trigger(a,b,c,'gndlit')
         def neg_parse_action(a, b, c): tree.trigger(a,b,c,'!')
         def disjunction_parse_action(a, b, c): tree.trigger(a,b,c,'v')
         def conjunction_parse_action(a, b, c): tree.trigger(a,b,c,'^')
@@ -298,6 +314,7 @@ class PRACGrammar(Grammar):
 
         tree = TreeBuilder(logic)
         literal.setParseAction(lit_parse_action)
+        gndLiteral.setParseAction(gndlit_parse_action)
         negation.setParseAction(neg_parse_action)
         disjunction.setParseAction(disjunction_parse_action)
         conjunction.setParseAction(conjunction_parse_action)
@@ -312,6 +329,7 @@ class PRACGrammar(Grammar):
         self.formula = formula + StringEnd()
         self.predDecl = predDecl
         self.literal = literal
+        self.gndlit = gndLiteral
         
     def isVar(self, identifier):
         '''
