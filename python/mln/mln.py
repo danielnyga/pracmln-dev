@@ -37,7 +37,7 @@ from string import whitespace
 import sys
 import os
 import traceback
-from pyparsing import ParseException
+from pyparsing_ import ParseException
 
 from grounding import * 
 from learning import *
@@ -1025,7 +1025,7 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
                             uniqueFormulaExpansions[formula] = nextFormulaUnique
                             nextFormulaUnique = None
                     except ParseException, e:
-                        raise MLNParsingError("Error parsing formula '%s'\n" % formula)
+                        raise MLNParsingError("Error parsing formula '%s' (%s)" % (formula, e.message))
         except MLNParsingError:
             sys.stderr.write("Error processing line '%s'\n" % line)
             cls, e, tb = sys.exc_info()
