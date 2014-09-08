@@ -740,7 +740,7 @@ class FirstOrderLogic(Logic):
             return [self.logic.gnd_lit(self.gndAtom, self.negated)]
         
         def __eq__(self, other):
-            return self.negated == other.negated and self.gndAtom == other.gndAtom
+            return str(self) == str(other)#self.negated == other.negated and self.gndAtom == other.gndAtom
         
         def __neq__(self, other):
             return not self == other
