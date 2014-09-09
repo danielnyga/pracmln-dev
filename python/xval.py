@@ -129,8 +129,7 @@ class XValFold(object):
 #                 mrf = mln.groundMRF(db)
 #                 conv = WCSPConverter(mrf)
 #                 resultDB = conv.getMostProbableWorldDB()
-
-                resultDB = mln.infer(InferenceMethods.WCSP, queryPred, db)
+                resultDB = mln.infer(InferenceMethods.WCSP, queryPred, db, cwPreds=[p for p in mln.predicates if p != self.params.queryPred])
                 
                 sig2 = list(sig)
                 entityIdx = mln.predicates[queryPred].index(queryDom)
@@ -180,11 +179,11 @@ class XValFold(object):
             
             # evaluate the MLN
             log.debug('Evaluating.')
-            learnedMLN.setClosedWorldPred(None)
-            if self.params.cwPreds is None:
-                self.params.cwPreds = [p for p in mln.predicates if p != self.params.queryPred]
-            for pred in [pred for pred in self.params.cwPreds if pred in learnedMLN.predicates]:
-                learnedMLN.setClosedWorldPred(pred)
+#             learnedMLN.setClosedWorldPred(None)
+#             if self.params.cwPreds is None:
+#                 self.params.cwPreds = [p for p in mln.predicates if p != self.params.queryPred]
+#             for pred in [pred for pred in self.params.cwPreds if pred in learnedMLN.predicates]:
+#                 learnedMLN.setClosedWorldPred(pred)
             self.evalMLN(learnedMLN, testDBs_)
             self.confMatrix.toFile(os.path.join(directory, 'conf_matrix_%d.cm' % self.params.foldIdx))
             log.debug('Evaluation finished.')
