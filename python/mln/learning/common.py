@@ -192,11 +192,17 @@ class AbstractLearner(object):
         
         self.params.update(params)
     
-        self._prepareOpt()
-        self._optimize(**params)
-        self._postProcess()
+        repetitions = 0
+        while self._repeatLearning(repetitions): 
+            self._prepareOpt()
+            self._optimize(**params)
+            self._postProcess()
+            repetitions += 1
             
         return self.wt
+    
+    def _repeatLearning(self, repetitions):
+        return repetitions < self.params.get('maxrepeat', 1)
     
     def _prepareOpt(self):
         pass
@@ -369,8 +375,14 @@ class MultipleDatabaseLearner(AbstractLearner):
                 self.multiCoreLearners.append(self.learners[i*learnersPerCore:(i+1)*learnersPerCore])
             print self.multiCoreLearners
     
+    
     def getName(self):
         return "MultipleDatabaseLearner[%d*%s]" % (len(self.learners), self.learners[0].getName())
+        
+        
+    def _repeatLearning(self, repetitions):
+        return AbstractLearner._repeatLearning(self, repetitions) and any([l._repeatLearning(repetitions) for l in self.learners])
+        
         
     def _f(self, wt):
         if self.useMT:

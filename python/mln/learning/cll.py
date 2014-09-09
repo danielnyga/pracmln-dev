@@ -50,7 +50,9 @@ class CLL(AbstractLearner):
         self.evidenceIndices = {} # maps partition idx to index of value given by evidence
         self.partValueCount = {}
         self.atomIdx2partition = {} # maps a gnd atom index to its comprising partition
-        
+        self.maxiter = params.get('maxiter', None)
+        self.maxrepart = params.get('maxrepart', 0)
+        self.repart = 0
                 
     def _getPredNameForPllBlock(self, block):
         '''
@@ -86,6 +88,9 @@ class CLL(AbstractLearner):
         self.atomIdx2partition = {}
         self.evidenceIndices = {}
         self.partValueCount = {}
+        self.current_wts = None
+        self.iter = 0
+        self.probs = None
         size = self.partSize
         while len(variables) > 0:
             vars = variables[:size if len(variables) > size else len(variables)]
@@ -104,35 +109,35 @@ class CLL(AbstractLearner):
         self._computeStatistics()
         
         
-    def run(self, **params):
-        '''
-        This is a modification of the run method of the AbstractLearner, which
-        runs the optimization only for a specified number of iterations and
-        then reconfigures the CLL partitions.
-        initialWts: whether to use the MLN's current weights as the starting point for the optimization
-        '''
-         
-        log = logging.getLogger(self.__class__.__name__)
-        if not 'scipy' in sys.modules:
-            raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
-        # initial parameter vector: all zeros or weights from formulas
-        wt = numpy.zeros(len(self.mln.formulas), numpy.float64)
-        if self.initialWts:
-            for i in range(len(self.mln.formulas)):
-                wt[i] = self.mln.formulas[i].weight
-            log.debug('Using initial weight vector: %s' % str(wt))
-                 
-        # precompute fixed formula weights
-        self._fixFormulaWeights()
-        self.wt = self._projectVectorToNonFixedWeightIndices(wt)
-         
-        self.params.update(params)
-        repart = self.params.get('maxrepart', 5)
-        for i in range(repart):
-            self._prepareOpt()
-            self._optimize(**params)
-            self._postProcess()
-        return self.wt
+#     def run(self, **params):
+#         '''
+#         This is a modification of the run method of the AbstractLearner, which
+#         runs the optimization only for a specified number of iterations and
+#         then reconfigures the CLL partitions.
+#         initialWts: whether to use the MLN's current weights as the starting point for the optimization
+#         '''
+#          
+#         log = logging.getLogger(self.__class__.__name__)
+#         if not 'scipy' in sys.modules:
+#             raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
+#         # initial parameter vector: all zeros or weights from formulas
+#         wt = numpy.zeros(len(self.mln.formulas), numpy.float64)
+#         if self.initialWts:
+#             for i in range(len(self.mln.formulas)):
+#                 wt[i] = self.mln.formulas[i].weight
+#             log.debug('Using initial weight vector: %s' % str(wt))
+#                  
+#         # precompute fixed formula weights
+#         self._fixFormulaWeights()
+#         self.wt = self._projectVectorToNonFixedWeightIndices(wt)
+#          
+#         self.params.update(params)
+#         repart = self.params.get('maxrepart', 5)
+#         for i in range(repart):
+#             self._prepareOpt()
+#             self._optimize(**params)
+#             self._postProcess()
+#         return self.wt
     
     
     def printStatistics(self):
@@ -397,24 +402,36 @@ class CLL(AbstractLearner):
         
 
     def _f(self, w):
-        probs = self._computeProbabilities(w)
+        logger = logging.getLogger(self.__class__.__name__)
+        # check if we need to repartition
+#         if (not self.maxiter is None or (self.maxiter < self.iter)) and self.repart < self.maxrepart:
+#             logger.info('repartitioning #%d...' % self.repart)
+#             self._prepareOpt()
+#             self.repart += 1
+#             self.probs = self._computeProbabilities(w)
+        if self.current_wts is None or not numpy.array_equal(self.current_wts, w):
+            self.current_wts = w
+            self.probs = self._computeProbabilities(w)
+#         self.probs = self._computeProbabilities(w)
         likelihood = numpy.zeros(len(self.partitions))
         for partIdx in range(len(self.partitions)):
-            p = probs[partIdx][self.evidenceIndices[partIdx]]
+            p = self.probs[partIdx][self.evidenceIndices[partIdx]]
             if p == 0: p = 1e-10
             likelihood[partIdx] += p
+        self.iter += 1
         return fsum(map(log, likelihood))
-        
-    
+            
     def _grad(self, w):    
         log = logging.getLogger(self.__class__.__name__)
-        probs = self._computeProbabilities(w)
+        if self.current_wts is None or not numpy.array_equal(self.current_wts, w):
+            self.current_wts = w
+            self.probs = self._computeProbabilities(w)
         grad = numpy.zeros(len(w))
         for fIdx, partitions in self.statistics.iteritems():
             for part, values in partitions.iteritems():
                 v = values[self.evidenceIndices[part]]
                 for i, val in enumerate(values):
-                    v -= probs[part][i] * val
+                    v -= self.probs[part][i] * val
                 grad[fIdx] += v
         self.grad_opt_norm = float(sqrt(fsum(map(lambda x: x * x, grad))))
         return numpy.array(grad)
