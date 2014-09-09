@@ -255,7 +255,7 @@ class PRACGrammar(Grammar):
     def __init__(self, logic):
         # grammar
         
-        identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$' + '~' + '/' 
+        identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$' + '~'
         lcCharacter = alphas.lower()
         ucCharacter = alphas.upper()
         lcName = Word(lcCharacter, alphanums + '_')
@@ -268,7 +268,7 @@ class PRACGrammar(Grammar):
         
         domName = Combine(lcName + Optional('!'))
         
-        constant = Word(identifierCharacter) | Word(nums) | QuotedString(quoteChar = '"', escChar = '\\')
+        constant = Word(identifierCharacter) | Word(nums) | Combine(Literal('"') + Word(printables.replace('"', '')) + Literal('"')) #QuotedString(quoteChar = '"', escChar = '\\')
         variable = Word(qMark, identifierCharacter)
         
         gndAtomArgs = Group(delimitedList(constant))
@@ -352,13 +352,15 @@ if __name__=='__main__':
         tests = [#"numberEats(o,2) <=> EXIST p, p2 (eats(o,p) ^ eats(o,p2) ^ !(o=p) ^ !(o=p2) ^ !(p=p2) ^ !(EXIST q (eats(o,q) ^ !(p=q) ^ !(p2=q))))",
                  #"EXIST y (rel(x,y) ^ EXIST y2 (!(y2=y) ^ rel(x,y2)) ^ !(EXIST y3 (!(y3=y) ^ !(y3=y2) ^ rel(x,y3))))",
 #                  '(EXIST ?w (action_role(?w, +?r)))',
-                  'EXIST ?w (action_role(?w, +?r) ^ is_a(?w, +?c))'
+                    'class(?s1, ?c1) ^ class(?s2, ?c2) ^ ?s1=/=?s2'
+#                   'EXIST ?w (action_role(?w, +?r) ^ is_a(?w, +?c))'
 #                  "((a(x) ^ b(x)) v (c(x) ^ !(d(x) ^ e(x) ^ g(x)))) => f(x)"
                  ]#,"foo(x) <=> !(EXIST p (foo(p)))", "numberEats(o,1) <=> !(EXIST p (eats(o,p) ^ !(o=p)))", "!a(c,d) => c=d", "c(b) v !(a(b) ^ b(c))"]
 #         tests = ["((!a(x) => b(x)) ^ (b(x) => a(x))) v !(b(x)=>c(x))"]
 #         tests = ["(EXIST y1 (rel(x,y1) ^ EXIST y2 (rel(x,y2) ^ !(y1=y2) ^ !(EXIST y3 (rel(?x,y3) ^ !(y1=y3) ^ !(y2=y3))))))"]
 #         tests = ["EXIST ?x (a(?x))"]
 #         tests = ['!foo(?x, ?y) ^ ?x =/= ?y']
+        print logic.grammar.parseLiteral('foo("bla",c)')
         print logic.grammar.parsePredDecl('foo(ar, bar2!)')
         for test in tests:
             print "trying to parse %s..." % test
