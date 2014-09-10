@@ -29,6 +29,7 @@ from logic.fol import FirstOrderLogic
 import logging
 from multiprocessing import Pool
 from utils.multicore import with_tracing
+import pickle
 
 POSSWORLDS_BLOCKING = True
 
@@ -239,7 +240,7 @@ class EnumerationAsk(Inference):
                         raise Exception('Not all fuzzy ground atoms have truth values: %s' % str(self.mrf.gndAtomsByIdx[atomIdx]))
     
 
-    def _infer(self, verbose=True, details=False, shortOutput=False, debug=False, debugLevel=1, **args):
+    def _infer(self, verbose=False, details=False, shortOutput=False, debug=False, debugLevel=1, **args):
         '''
         verbose: whether to print results (or anything at all, in fact)
         details: (given that verbose is true) whether to output additional status information
@@ -261,10 +262,18 @@ class EnumerationAsk(Inference):
                 if block in self.evidenceBlocks: continue
                 elif i in self.blockExclusions: worlds *= len(block) - len(self.blockExclusions[i])
                 else: worlds *= len(block)
+        # if we have a param "fullDist", then we compute the full distribution
+        # over all possible worlds
+        fullDist = args.get('fullDist', False)
+        if fullDist:
+            log.warning('Computing the full distribution over %d possible worlds' % worlds)
+            numerators = []
+        else:
+            numerators = [0.0 for i in range(len(self.queries))]
+        denominator = 0.
+            
         # start summing
         log.info("Summing over %d possible worlds..." % worlds)
-        numerators = [0.0 for i in range(len(self.queries))]
-        denominator = 0.
         k = 0
         multicore = args.get('useMultiCPU', False) 
         if multicore: 
@@ -281,7 +290,6 @@ class EnumerationAsk(Inference):
         else: # do it single core
             for worldValues in self._enumerateWorlds():
                 # compute exp. sum of weights for this world
-                sys.stdout.write('  %d/%d\r' % ((k+1), worlds))
                 expsum = 0
                 if self.haveSoftEvidence:
                     for gf in self.mrf.gndFormulas:                
@@ -291,18 +299,24 @@ class EnumerationAsk(Inference):
                         expsum +=  self.mrf.formulas[gf.idxFormula].weight * gf.isTrue(worldValues)
                 expsum = exp(expsum)
                 # update numerators
-                for i, query in enumerate(self.queries):
-                    if query.isTrue(worldValues):
-                        numerators[i] += expsum
+                if fullDist:
+                    numerators.append(expsum)
+                else:
+                    for i, query in enumerate(self.queries):
+                        if query.isTrue(worldValues):
+                            numerators[i] += expsum
                 denominator += expsum
                 k += 1
-                if verbose and k % 500 == 0:
-                    print "%d of %f worlds enumerated\r" % (k, self.totalWorlds),
-                    sys.stdout.flush()
+#                 if verbose and k % 500 == 0:
+#                     print "%d of %f worlds enumerated\r" % (k, self.totalWorlds),
+#                     sys.stdout.flush()
         log.info("%d worlds enumerated" % k)
         # normalize answers
         log.debug('%s / %f' % (numerators, denominator))
-        return map(lambda x: float(x) / denominator, numerators)
+        dist = map(lambda x: float(x) / denominator, numerators)
+        if fullDist:
+            log.warning('Full distribution has been computed') 
+        return dist
     
     def _enumerateWorlds(self):
         self.summedGndAtoms = set()
