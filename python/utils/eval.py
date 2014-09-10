@@ -23,6 +23,22 @@
 
 import pickle
 from subprocess import Popen, PIPE
+from mln.util import logx
+
+def KLDivergence(p, q):
+	'''
+	Computes the Kullback-Leibler Divergence of two distributions p and q.
+	'''
+	if type(p) is str:
+		p = pickle.load(open(p))
+	if type(q) is str:
+		q = pickle.load(open(q))
+	kl_div = 0
+	for p_, q_ in zip(p, q):
+		p_ = max(1E-10, p_)
+		q_ = max(1E-10, q_) 
+		kl_div += p_ * logx(float(p_)/q_)
+	return kl_div
 
 class ConfusionMatrix(object):
 	'''
@@ -192,7 +208,6 @@ class ConfusionMatrix(object):
 			acc,pre,rec,f1 = self.getMetrics(cf)
 			
 			print '%s: - Acc=%.2f, Pre=%.2f, Rec=%.2f F1=%.2f' % (cf, acc, pre, rec, f1)
-			print ""
 			
 		print ""
 
@@ -250,6 +265,27 @@ class ConfusionMatrix(object):
 		Pickles the confusion matrix to a file with the given name.
 		'''
 		pickle.dump(self, open(filename, 'w+'))
+		
+	def writeLatexFile(self, filename):
+		texFileName = filename + '.tex'
+		texFile = open(texFileName, 'w+')
+		texFile.write(r'''
+		\documentclass[10pt]{article}
+		\usepackage{color}
+		\usepackage{rotating}
+		\usepackage[table]{xcolor}
+		\definecolor{cfmcolor}{rgb}{0.2,0.4,0.6}
+		\begin{document}
+		\pagenumbering{gobble}
+		\resizebox{\columnwidth}{!}{
+		%s}
+		\end{document}
+		''' % self.getLatexTable())
+		texFile.close()
+
+	@staticmethod
+	def load(filename):
+		return pickle.load(open(filename))
 		
 	def toPDF(self, filename):
 		'''
