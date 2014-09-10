@@ -172,7 +172,9 @@ class XValFold(object):
                                           optimizer=self.params.optimizer, 
                                           gaussianPriorSigma=10.,
                                           verbose=verbose,
-                                          maxiter=self.params.maxiter)
+                                          maxiter=None,
+                                          partSize=1,
+                                          maxrepeat=1)#200
             # store the learned MLN in a file
             learnedMLN.writeToFile(os.path.join(directory, 'run_%d.mln' % self.params.foldIdx))
             log.debug('Finished learning.')
