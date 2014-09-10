@@ -210,6 +210,37 @@ class ConfusionMatrix(object):
 			print '%s: - Acc=%.2f, Pre=%.2f, Rec=%.2f F1=%.2f' % (cf, acc, pre, rec, f1)
 			
 		print ""
+	def printAveragePrecision(self):
+		classes = []
+		for classification in self.matrix:
+			for truth in self.matrix.get(classification,{}):
+				try:
+					classes.index(truth)
+				except ValueError:
+					classes.append(truth)
+		
+		classes = sorted(classes)
+		aAcc = 0.0
+		aPre = 0.0
+		aRec = 0.0
+		aF1 = 0.0
+		
+		for cf in classes:
+			acc,pre,rec,f1 = self.getMetrics(cf)
+			aAcc += acc
+			aPre += pre
+			aRec += rec
+			aF1 += f1
+			
+		print '%s: - Acc=%.2f, Pre=%.2f, Rec=%.2f F1=%.2f' % ('Average: ', aAcc/len(classes), aPre/len(classes), aRec/len(classes), aF1/len(classes))	
+		print ""
+	@staticmethod	
+	def compareConfusionMatrices(*matricesPath):
+		for path in matricesPath:
+			cm = ConfusionMatrix.load(path)
+			print path
+			cm.printAveragePrecision()
+	
 
 	def iteritems(self):
 		'''
