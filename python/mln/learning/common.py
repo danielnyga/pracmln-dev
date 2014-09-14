@@ -364,7 +364,7 @@ class MultipleDatabaseLearner(AbstractLearner):
             mrf = mln_.groundMRF(db, groundingMethod=groundingMethod, cwAssumption=True, **params)
             learner = eval("mln.learning.%s(mln_, mrf, **params)" % self.constructor)
             self.learners.append(learner)
-            learner._prepareOpt()
+#             learner._prepareOpt()
         if self.useMT:
             numCores = multiprocessing.cpu_count()
             if self.verbose:
@@ -430,6 +430,8 @@ class MultipleDatabaseLearner(AbstractLearner):
         return hessian
 
     def _prepareOpt(self):
+        for learner in self.learners:
+            learner._prepareOpt()
         pass # _prepareOpt is called for individual learners during construction
     
     def _fixFormulaWeights(self):
