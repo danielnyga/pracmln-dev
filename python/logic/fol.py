@@ -998,7 +998,7 @@ class FirstOrderLogic(Logic):
         def isTrue(self, world_values):
             ant = self.children[0].isTrue(world_values)
             cons = self.children[1].isTrue(world_values)
-            if ant is 0 or cons is 1:
+            if ant == 0 or cons == 1:
                 return 1
             if ant is None or cons is None:
                 return None
