@@ -579,6 +579,17 @@ class FirstOrderLogic(Logic):
         
         def maxTruth(self, world_values):
             return 1
+
+        def getConstants(self, mln, constants=None):
+            if constants is None: constants = {}
+            for i, c in enumerate(self.params):
+                domName = mln.predicates[self.predName][i]
+                values = constants.get(domName, None)
+                if values is None: 
+                    values = []
+                    constants[domName] = values
+                if not self.logic.isVar(c) and not c in values: values.append(c)
+            return constants
     
     class GroundAtom(Logic.GroundAtom, Formula):
         '''
@@ -729,7 +740,7 @@ class FirstOrderLogic(Logic):
             return [self.logic.gnd_lit(self.gndAtom, self.negated)]
         
         def __eq__(self, other):
-            return self.negated == other.negated and self.gndAtom == other.gndAtom
+            return str(self) == str(other)#self.negated == other.negated and self.gndAtom == other.gndAtom
         
         def __neq__(self, other):
             return not self == other
@@ -987,7 +998,7 @@ class FirstOrderLogic(Logic):
         def isTrue(self, world_values):
             ant = self.children[0].isTrue(world_values)
             cons = self.children[1].isTrue(world_values)
-            if ant is 0 or cons is 1:
+            if ant == 0 or cons == 1:
                 return 1
             if ant is None or cons is None:
                 return None
@@ -1314,6 +1325,9 @@ class FirstOrderLogic(Logic):
             if variables is None:
                 return {}
             return variables
+        
+        def ground(self, mln, assignment, referencedAtoms = None, simplify=False, allowPartialGroundings=False):
+            return self.logic.true_false(self.value)
     
     
     class NonLogicalConstraint(Logic.NonLogicalConstraint, Constraint):

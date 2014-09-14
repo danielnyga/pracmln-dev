@@ -48,6 +48,15 @@ class TreeBuilder(object):
             else:
                 toks = toks[0]
             self.stack.append(self.logic.lit(negated, toks[0], toks[1]))
+        elif op == 'gndlit':
+            negated = False
+            if toks[0] == '!':
+                negated = True
+                toks = toks[1]
+            else:
+                toks = toks[0]
+            # return a normal lit since we do not have gnd atoms when parsing
+            self.stack.append(self.logic.lit(negated, toks[0], toks[1])) 
         elif op == '!':
             if len(toks) == 1:
                 formula = self.logic.negation(self.stack[-1:])
@@ -163,10 +172,14 @@ class Grammar(object):
         predicate name and the third is a list of parameters, e.g. (False, "p", ["A", "B"])
         '''
         # try regular MLN syntax
-        m = re.match(r'(!?)(\w+)\((.*?)\)$', s)
-        if m is not None:
-            return (m.group(1) != "!", m.group(2), map(str.strip, m.group(3).split(",")))
-        raise Exception("Could not parse literal '%s'" % line)
+        self.tree.reset()
+        lit = self.literal.parseString(s)
+        lit = self.tree.getConstraint()
+        return (not lit.negated, lit.predName, lit.params)
+#         m = re.match(r'(!?)(\w+)\((.*?)\)$', s)
+#         if m is not None:
+#             return (m.group(1) != "!", m.group(2), map(str.strip, m.group(3).split(",")))
+#         raise Exception("Could not parse literal '%s'" % s)
 
     
 class StandardGrammar(Grammar):
@@ -242,7 +255,7 @@ class PRACGrammar(Grammar):
     def __init__(self, logic):
         # grammar
         
-        identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$'
+        identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$' + '~' + '!'
         lcCharacter = alphas.lower()
         ucCharacter = alphas.upper()
         lcName = Word(lcCharacter, alphanums + '_')
@@ -255,9 +268,10 @@ class PRACGrammar(Grammar):
         
         domName = Combine(lcName + Optional('!'))
         
-        constant = Word(identifierCharacter) | Word(nums)
+        constant = Word(identifierCharacter) | Word(nums) | Combine(Literal('"') + Word(printables.replace('"', '')) + Literal('"')) #QuotedString(quoteChar = '"', escChar = '\\')
         variable = Word(qMark, identifierCharacter)
         
+        gndAtomArgs = Group(delimitedList(constant))
         atomArgs = Group(delimitedList(constant | Combine(Optional("+") + variable)))
         predDeclArgs = Group(delimitedList(domName))
         
@@ -265,6 +279,7 @@ class PRACGrammar(Grammar):
         
         atom = Group(predName + openRB + atomArgs + closeRB)
         literal = Optional(Literal("!") | Literal("*")) + atom
+        gndLiteral = Optional(Literal("!")) + Group(predName + openRB + gndAtomArgs + closeRB)
         
         predDecl = Group(predName + openRB + predDeclArgs + closeRB) + StringEnd()
         
@@ -285,6 +300,7 @@ class PRACGrammar(Grammar):
         formula << constraint
 
         def lit_parse_action(a, b, c): tree.trigger(a,b,c,'lit')
+        def gndlit_parse_action(a, b, c): tree.trigger(a,b,c,'gndlit')
         def neg_parse_action(a, b, c): tree.trigger(a,b,c,'!')
         def disjunction_parse_action(a, b, c): tree.trigger(a,b,c,'v')
         def conjunction_parse_action(a, b, c): tree.trigger(a,b,c,'^')
@@ -298,6 +314,7 @@ class PRACGrammar(Grammar):
 
         tree = TreeBuilder(logic)
         literal.setParseAction(lit_parse_action)
+        gndLiteral.setParseAction(gndlit_parse_action)
         negation.setParseAction(neg_parse_action)
         disjunction.setParseAction(disjunction_parse_action)
         conjunction.setParseAction(conjunction_parse_action)
@@ -312,6 +329,7 @@ class PRACGrammar(Grammar):
         self.formula = formula + StringEnd()
         self.predDecl = predDecl
         self.literal = literal
+        self.gndlit = gndLiteral
         
     def isVar(self, identifier):
         '''
@@ -334,13 +352,15 @@ if __name__=='__main__':
         tests = [#"numberEats(o,2) <=> EXIST p, p2 (eats(o,p) ^ eats(o,p2) ^ !(o=p) ^ !(o=p2) ^ !(p=p2) ^ !(EXIST q (eats(o,q) ^ !(p=q) ^ !(p2=q))))",
                  #"EXIST y (rel(x,y) ^ EXIST y2 (!(y2=y) ^ rel(x,y2)) ^ !(EXIST y3 (!(y3=y) ^ !(y3=y2) ^ rel(x,y3))))",
 #                  '(EXIST ?w (action_role(?w, +?r)))',
-                  'EXIST ?w (action_role(?w, +?r) ^ is_a(?w, +?c))'
+                    'class(?s1, ?c1) ^ class(?s2, ?c2) ^ ?s1=/=?s2'
+#                   'EXIST ?w (action_role(?w, +?r) ^ is_a(?w, +?c))'
 #                  "((a(x) ^ b(x)) v (c(x) ^ !(d(x) ^ e(x) ^ g(x)))) => f(x)"
                  ]#,"foo(x) <=> !(EXIST p (foo(p)))", "numberEats(o,1) <=> !(EXIST p (eats(o,p) ^ !(o=p)))", "!a(c,d) => c=d", "c(b) v !(a(b) ^ b(c))"]
 #         tests = ["((!a(x) => b(x)) ^ (b(x) => a(x))) v !(b(x)=>c(x))"]
 #         tests = ["(EXIST y1 (rel(x,y1) ^ EXIST y2 (rel(x,y2) ^ !(y1=y2) ^ !(EXIST y3 (rel(?x,y3) ^ !(y1=y3) ^ !(y2=y3))))))"]
 #         tests = ["EXIST ?x (a(?x))"]
 #         tests = ['!foo(?x, ?y) ^ ?x =/= ?y']
+        print logic.grammar.parseLiteral('foo("bla",c)')
         print logic.grammar.parsePredDecl('foo(ar, bar2!)')
         for test in tests:
             print "trying to parse %s..." % test
