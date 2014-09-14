@@ -55,6 +55,8 @@ parser.add_option("-m", "--multicore", dest="multicore", action='store_true', de
                   help="Verbose mode.")
 parser.add_option('-n', '--noisy', dest='noisy', type='str', default=None,
                   help='-nDOMAIN defines DOMAIN as a noisy string.')
+parser.add_option('-f', '--folder', dest='folder', type='str', default=None,
+                  help='-f <folder> the folder in which the results shall be saved.')
 
 class XValFoldParams(object):
     
@@ -69,6 +71,8 @@ class XValFoldParams(object):
         self.cwPreds = None
         self.learningMethod = LearningMethods.CLL
         self.optimizer = 'bfgs'
+        self.maxrepeat = 1
+        self.partSize = 1
         self.maxiter = None
         self.verbose = False
         self.noisyStringDomains = None
@@ -172,9 +176,9 @@ class XValFold(object):
                                           optimizer=self.params.optimizer, 
                                           gaussianPriorSigma=10.,
                                           verbose=verbose,
-                                          maxiter=None,
-                                          partSize=1,
-                                          maxrepeat=1)#200
+                                          maxiter=self.params.maxiter,
+                                          partSize=self.params.partSize,
+                                          maxrepeat=self.params.maxrepeat)#200
             # store the learned MLN in a file
             learnedMLN.writeToFile(os.path.join(directory, 'run_%d.mln' % self.params.foldIdx))
             log.debug('Finished learning.')
@@ -272,6 +276,7 @@ if __name__ == '__main__':
     percent = options.percent
     verbose = options.verbose
     multicore = options.multicore
+    dirname = options.folder
     noisy = ['text']
     predName = args[0]
     domain = args[1]
@@ -282,15 +287,17 @@ if __name__ == '__main__':
 
     #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  
     # set up the directory    
-    #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  
-    mlnname = mlnfile[:-4]
-    idx = 1
-    while True:
-        dirname = '%s-%d' % (mlnname, idx)
-        idx += 1
-        if not os.path.exists(dirname): break
+    #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
     timestamp = time.strftime("%Y-%b-%d-%H-%M-%S", time.localtime())
-    dirname += '-' + timestamp
+    if dirname is None:  
+        mlnname = mlnfile[:-4]
+        idx = 1
+        while True:
+            dirname = '%s-%d' % (mlnname, idx)
+            idx += 1
+            if not os.path.exists(dirname): break
+        dirname += '-' + timestamp
+        
     expdir = os.getenv('PRACMLN_EXPERIMENTS', '.')
     expdir = os.path.join(expdir, dirname)
     os.mkdir(expdir)
