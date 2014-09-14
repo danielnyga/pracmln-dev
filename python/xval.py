@@ -25,6 +25,7 @@ import time
 import os
 import sys
 import traceback
+import shutil
 
 from optparse import OptionParser
 from mln.mln import readMLNFromFile
@@ -70,10 +71,10 @@ class XValFoldParams(object):
         self.queryDom = None
         self.cwPreds = None
         self.learningMethod = LearningMethods.CLL
-        self.optimizer = 'bfgs'
-        self.maxrepeat = 1
-        self.partSize = 1
-        self.maxiter = None
+        self.optimizer = 'cg'
+        self.maxrepeat = 10
+        self.partSize = 2
+        self.maxiter = 5
         self.verbose = False
         self.noisyStringDomains = None
         self.directory = None
@@ -297,9 +298,16 @@ if __name__ == '__main__':
             idx += 1
             if not os.path.exists(dirname): break
         dirname += '-' + timestamp
-        
+    
     expdir = os.getenv('PRACMLN_EXPERIMENTS', '.')
     expdir = os.path.join(expdir, dirname)
+    if os.path.exists(expdir):
+        print 'Directory "%s" exists. Overwrite? ([y]/n)' % expdir,
+        answer = sys.stdin.read(1)
+        if answer not in ('y','\n'):
+            exit(0)
+        else:
+            shutil.rmtree(expdir)
     os.mkdir(expdir)
     # set up the logger
     logging.getLogger().setLevel(logging.INFO)
