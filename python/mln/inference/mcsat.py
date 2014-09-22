@@ -81,6 +81,7 @@ class FuzzyMCSAT(Inference):
             for c in list(cnf.children):
                 if isinstance(c, Logic.TrueFalse):
                     cnf.children.remove(c)
+            cnf = cnf.simplify(mrf)
             wt = maxtruth * gndFormula.weight
             mln.addFormula(cnf, wt)
         mrf.evidence = evidenceBackup
