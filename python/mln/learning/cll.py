@@ -203,7 +203,7 @@ class CLL(AbstractLearner):
             if isconj and part_with_f_lit is not None:
                 gndlits = part2gndlits[part_with_f_lit]
                 part2gndlits = {part_with_f_lit: gndlits}
-            if True:#not isconj: # if we don't have a conjunction, ground the formula with the given variable assignment
+            if not isconj: # if we don't have a conjunction, ground the formula with the given variable assignment
                 gndformula = formula.ground(self.mrf, var_assign)
             for partition, gndlits in part2gndlits.iteritems():
                 # for each partition, select the ground atom truth assignments
@@ -589,7 +589,6 @@ class CLL(AbstractLearner):
             if len(variables) == 0:
                 yield tuple(assignment)
                 return
-            
             variable = variables[0]
             if type(variable) is list: # a mutex variable
                 valpattern = []
@@ -600,7 +599,9 @@ class CLL(AbstractLearner):
                 # for all others
                 trues = sum(filter(lambda x: x == 1, valpattern))
                 if trues > 1: # sanity check
-                    raise Exception("More than one ground atom in mutex variable is true: %s" % str(self))
+                    # either a bug has happend here, or the formula is indeed unsatisfiable
+                    return
+#                     raise Exception("More than one ground atom in mutex variable is true: %s" % str(self))
                 if trues == 1: # if the true value of the mutex var is in the evidence, we have only one possibility
                     for world in self._generatePossibleWorldTuplesRecursive(variables[1:], assignment + [tuple(map(lambda x: 1 if x == 1 else 0, valpattern))], evidence):
                         yield world
