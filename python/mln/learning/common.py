@@ -33,6 +33,8 @@ from multiprocessing import Process
 from multiprocessing.synchronize import Lock
 from utils import dict_union
 import logging
+from optimization.ga import GeneticAlgorithm
+from pyevolve import GenomeBase
 try:
     import numpy
 except:
@@ -92,11 +94,18 @@ class AbstractLearner(object):
     
     def _fixFormulaWeights(self):
         self._fixedWeightFormulas = {}
-        for formula in self.mln.fixedWeightFormulas:
-            w = formula.weight
-            self._fixedWeightFormulas[formula.idxFormula] = w
+        # this is a small but effective hack that can speed up optimization in
+        # pseudo-likelihood learning tremedously: fix all weights of formulas
+        # whose gradient is zero from the very beginning. It will never become
+        # non-zero during learning due to independence assumptions in PLL. 
+        gradient = self._grad([f.weight for f in self.mln.formulas if not f.isHard])
+        for formula in self.mln.formulas:
+            if formula in self.mln.fixedWeightFormulas or gradient[formula.idxFormula] == 0:
+                self._fixedWeightFormulas[formula.idxFormula] = formula.weight
             
     def f(self, wt):
+        if isinstance(wt, GenomeBase.GenomeBase):
+            wt = wt.genomeList
         # compute prior
         prior = 0
         if self.gaussianPriorSigma is not None:
@@ -108,7 +117,6 @@ class AbstractLearner(object):
         wt = self._convertToFloatVector(wt)
 #         print "_f: wt = ", wt
 #         sys.stdout.flush()
-        
         # compute likelihood
         likelihood = self._f(wt)
         sys.stdout.write('  likelihood = %f\r' % likelihood)
@@ -116,6 +124,14 @@ class AbstractLearner(object):
         
         return likelihood + prior
         
+        
+    def __call__(self, wt):
+        return self.likelihood(wt)
+        
+    def likelihood(self, wt):
+        l = self.f(wt)
+        l = math.exp(l)
+        return l
     
     def _fDummy(self, wt):
         ''' a dummy target function that is used when f is disabled '''
@@ -186,15 +202,16 @@ class AbstractLearner(object):
                 wt[i] = self.mln.formulas[i].weight
             log.debug('Using initial weight vector: %s' % str(wt))
                 
-        # precompute fixed formula weights
-        self._fixFormulaWeights()
-        self.wt = self._projectVectorToNonFixedWeightIndices(wt)
         
         self.params.update(params)
     
         repetitions = 0
         while self._repeatLearning(repetitions): 
             self._prepareOpt()
+            # precompute fixed formula weights
+            self._fixFormulaWeights()
+            self.wt = self._projectVectorToNonFixedWeightIndices(wt)
+            print self.wt
             self._optimize(**params)
             self._postProcess()
             repetitions += 1
@@ -223,11 +240,12 @@ class AbstractLearner(object):
         elif optimizer == "diagonalNewton":
             opt = optimize.DiagonalNewton(self.wt, self, **params)  
         elif optimizer in ['ga', 'pso']:
-            opt = optimize.PlaydohOpt(optimizer, self.wt, self, **params)      
+#             opt = optimize.PlaydohOpt(optimizer, self.wt, self, **params)
+            opt = GeneticAlgorithm(self.wt, self, **params)
         else:
             opt = optimize.SciPyOpt(optimizer, self.wt, self, **params)        
         
-        wt = opt.run()        
+        wt = opt.run()
         self.wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
         
         
@@ -434,14 +452,14 @@ class MultipleDatabaseLearner(AbstractLearner):
             learner._prepareOpt()
         pass # _prepareOpt is called for individual learners during construction
     
-    def _fixFormulaWeights(self):
-        self._fixedWeightFormulas = {}
-        for learner in self.learners:
-            learner._fixFormulaWeights()
-            for i, w in learner._fixedWeightFormulas.iteritems():
-                if i not in self._fixedWeightFormulas:
-                    self._fixedWeightFormulas[i] = 0.0
-                self._fixedWeightFormulas[i] += w / len(self.learners)
+#     def _fixFormulaWeights(self):
+#         self._fixedWeightFormulas = {}
+#         for learner in self.learners:
+#             learner._fixFormulaWeights()
+#             for i, w in learner._fixedWeightFormulas.iteritems():
+#                 if i not in self._fixedWeightFormulas:
+#                     self._fixedWeightFormulas[i] = 0.0
+#                 self._fixedWeightFormulas[i] += w / len(self.learners)
 
 
 class IncrementalLearner(AbstractLearner):
