@@ -49,7 +49,7 @@ from util import mergeDomains, strFormula, stripComments
 from mrf import MRF
 import re
 from errors import MLNParsingError
-from logic.common import Predicate
+# from logic.common import Predicate
 
 
 if platform.architecture()[0] == '32bit':
@@ -232,7 +232,7 @@ class MLN(object):
             for dom in domains:
                 if dom not in self.domains:
                     self.domains[dom] = []
-        self.pred_decls[name] = Predicate(name, domains, mutex, softMutex)                    
+#         self.pred_decls[name] = Predicate(name, domains, mutex, softMutex)                    
 
             
     def addFormula(self, formula, weight=0, hard=False, fixWeight=False):
