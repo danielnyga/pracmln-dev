@@ -104,8 +104,8 @@ class AbstractLearner(object):
                 self._fixedWeightFormulas[formula.idxFormula] = formula.weight
             
     def f(self, wt):
-        if isinstance(wt, GenomeBase.GenomeBase):
-            wt = wt.genomeList
+#         if isinstance(wt, GenomeBase.GenomeBase):
+#             wt = wt.genomeList
         # compute prior
         prior = 0
         if self.gaussianPriorSigma is not None:
