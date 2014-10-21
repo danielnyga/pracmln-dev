@@ -49,6 +49,7 @@ from util import mergeDomains, strFormula, stripComments
 from mrf import MRF
 import re
 from errors import MLNParsingError
+from logic.common import Predicate
 
 
 if platform.architecture()[0] == '32bit':
@@ -141,6 +142,7 @@ class MLN(object):
         
         self.predicates = {}
         self.domains = {}
+        self.pred_decls = {}
         self.formulas = []
         self.verbose = verbose
         self.blocks = {}
@@ -229,7 +231,8 @@ class MLN(object):
             if softMutex: self.softMutex.append(name)
             for dom in domains:
                 if dom not in self.domains:
-                    self.domains[dom] = []                    
+                    self.domains[dom] = []
+        self.pred_decls[name] = Predicate(name, domains, mutex, softMutex)                    
 
             
     def addFormula(self, formula, weight=0, hard=False, fixWeight=False):
@@ -862,8 +865,7 @@ def readMLNFromFile(filename_or_list, logic='FirstOrderLogic', grammar='PRACGram
             text += f.read()
             f.close()
     dirs = [os.path.dirname(fn) for fn in filename_or_list]
-    formulatemplates = []
-    return readMLNFromString(text, logic=logic, grammar=grammar, verbose=verbose)
+    return readMLNFromString(text, searchPath=dirs[0], logic=logic, grammar=grammar, verbose=verbose)
     
 #     if text == "": 
 #         raise MLNParsingError("No MLN content to construct model from was given; must specify either file/list of files or content string!")
