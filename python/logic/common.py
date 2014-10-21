@@ -36,6 +36,199 @@ def logic_factory(method):
     return wrapper
 
 
+PRED_ATOM = 1
+PRED_FUNCTIONAL = 2
+PRED_SOFTFUNC = 3
+
+
+class Predicate(object):
+    '''
+    Represents a logical predicate and its properties.
+    Fields:
+    - predname:        the predicate name
+    - argdoms:         the domain names of the arguments
+    - mutex:           a boolean vector (same length as params) specifying
+                       which argument is to be treated as functional.
+    
+    - predtype:        type of the predicate. May be one of the following:
+                       - PRED_ATOM:        normal (binary) predicate
+                       - PRED_FUNCTIONAL:  hard functional constraint (i.e. exactly one atom must be true)
+                       - PRED_SOFTFUNC:    soft functional constraint (i.e. maximally one atom must be true)
+    '''
+    
+    
+    def __init__(self, predname, argdoms, mutex=None, softmutex=False):
+        assert not softmutex or mutex is not None
+        self.argdoms = argdoms
+        self.predname = predname
+        if mutex is None:
+            self.mutex = [False] * len(argdoms)
+        else:
+            self.mutex = mutex
+        if mutex is not None and any(mutex):
+            if softmutex:
+                self.predtype = PRED_SOFTFUNC
+            else:
+                self.predtype = PRED_FUNCTIONAL
+        else:
+            self.predtype = PRED_ATOM
+            
+            
+    def getblockname(self, gndatom):
+        '''
+        Takes an instance of a ground atom and generates the name
+        of the corresponding atomic block.
+        '''
+        nonfuncargs = [p if m is False else '_' for (m, p) in zip(self.mutex, gndatom.params)]
+        return '%s(%s)' % (gndatom.predName, ','.join(nonfuncargs))
+    
+    
+    def create_gndblock(self, blockname):
+        '''
+        Creates a new instance of an atomic ground block instance
+        depending on the type of the predicate
+        '''
+        if self.predtype == PRED_FUNCTIONAL:
+            return MutexBlock(blockname)
+        elif self.predtype == PRED_SOFTFUNC:
+            return SoftMutexBlock(blockname)
+        elif self.predtype == PRED_ATOM:
+            return AtomicBlock(blockname)
+        else:
+            raise Exception('Unkown predicate type.')
+
+
+class AtomicBlock(object):
+    '''
+    Represents a (mutually exclusive) block of ground atoms.
+    '''
+    
+    def __init__(self, blockname, *gndatoms):
+        self.gndatoms = list(gndatoms)
+        self.name = blockname
+    
+    
+    def iteratoms(self):
+        '''
+        Yields all ground atoms in this block, sorted by atom index ascending
+        '''
+        for atom in sorted(self.gndatoms, key=lambda a: a.idx):
+            yield atom
+    
+    
+    def getNumberOfPossibleWorlds(self):
+        raise Exception('%s does not implement getNumberOfPossibleWorlds()' % self.__class__.__name__)
+    
+    
+    def generatePossibleWorldTuples(self, evidence=None):
+        '''
+        evidence mapping gnd atom indices to truth values
+        '''
+        raise Exception('%s does not implement generatePossibleWorldTuples()' % self.__class__.__name__)
+    
+    
+    def __str__(self):
+        return '%s: %s' % (self.name, ','.join(map(str, self.gndatoms)))
+
+
+class BinaryBlock(AtomicBlock):
+    '''
+    Represents a binary ("normal") ground atom with the two states 1 and 0
+    '''
+
+    def getNumberOfPossibleWorlds(self):
+        return 2
+
+
+    def generatePossibleWorldTuples(self, evidence=None):
+        '''
+        Yields possible world values of this atom block.
+        '''
+        gndatom = self.gndatoms[0]
+        if gndatom.idx in evidence:
+            yield evidence[gndatom.idx]
+            return
+        for t in (0, 1):
+            yield (t,)
+
+
+class MutexBlock(AtomicBlock):
+    '''
+    Represents a mutually exclusive block of ground atoms.
+    '''
+    
+    def getNumberOfPossibleWorlds(self):
+        return len(self.gndatoms)
+    
+    
+    def generatePossibleWorldTuples(self, evidence=None):
+        if evidence is None:
+            evidence = []
+        for world in self._generatePossibleWorldTuplesRecursive(self.gndatoms, [], evidence):
+            yield world
+    
+    
+    def _generatePossibleWorldTuplesRecursive(self, gndatoms, assignment, evidence):
+        atomindices = map(lambda a: a.idx, gndatoms)
+        valpattern = []
+        for mutexatom in atomindices:
+            valpattern.append(evidence.get(mutexatom, None))
+        # at this point, we have generated a value pattern with
+        # all values that are fixed by the evidence argument and None
+        # for all others
+        trues = sum(filter(lambda x: x == 1, valpattern))
+        if trues > 1: # sanity check
+            raise Exception("More than one ground atom in mutex variable is true: %s" % str(self))
+        if trues == 1: # if the true value of the mutex var is in the evidence, we have only one possibility
+            yield tuple([tuple(map(lambda x: 1 if x == 1 else 0, valpattern))])
+            return
+        for i, val in enumerate(valpattern): # generate a value tuple with a true value for each atom which is not set to false by evidence
+            if val == 0: continue
+            elif val is None:
+                values = [0] * len(valpattern)
+                values[i] = 1
+                yield tuple(values)
+
+
+class SoftMutexBlock(AtomicBlock):
+    '''
+    Represents a soft mutex block of ground atoms.
+    '''
+    
+    def getNumberOfPossibleWorlds(self):
+        return len(self.gndatoms) + 1
+
+
+    def generatePossibleWorldTuples(self, evidence=None):
+        if evidence is None:
+            evidence = []
+        for world in self._generatePossibleWorldTuplesRecursive(self.gndatoms, [], evidence):
+            yield world
+    
+    
+    def _generatePossibleWorldTuplesRecursive(self, gndatoms, assignment, evidence):
+        atomindices = map(lambda a: a.idx, gndatoms)
+        valpattern = []
+        for mutexatom in atomindices:
+            valpattern.append(evidence.get(mutexatom, None))
+        # at this point, we have generated a value pattern with
+        # all values that are fixed by the evidence argument and None
+        # for all others
+        trues = sum(filter(lambda x: x == 1, valpattern))
+        if trues > 1: # sanity check
+            raise Exception("More than one ground atom in mutex variable is true: %s" % str(self))
+        if trues == 1: # if the true value of the mutex var is in the evidence, we have only one possibility
+            yield tuple([tuple(map(lambda x: 1 if x == 1 else 0, valpattern))])
+            return
+        yield tuple([0] * len(atomindices))
+        for i, val in enumerate(valpattern): # generate a value tuple with a true value for each atom which is not set to false by evidence
+            if val == 0: continue
+            elif val is None:
+                values = [0] * len(valpattern)
+                values[i] = 1
+                yield tuple(values)
+                            
+                            
 class Logic(object):
     '''
     Abstract factory class for instantiating logical constructs like conjunctions, 
