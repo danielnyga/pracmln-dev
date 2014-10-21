@@ -33,8 +33,8 @@ from multiprocessing import Process
 from multiprocessing.synchronize import Lock
 from utils import dict_union
 import logging
-from optimization.ga import GeneticAlgorithm
-from pyevolve import GenomeBase
+# from optimization.ga import GeneticAlgorithm
+# from pyevolve import GenomeBase
 try:
     import numpy
 except:
