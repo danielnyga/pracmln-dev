@@ -81,6 +81,7 @@ class FuzzyMCSAT(Inference):
             for c in list(cnf.children):
                 if isinstance(c, Logic.TrueFalse):
                     cnf.children.remove(c)
+            cnf = cnf.simplify(mrf)
             wt = maxtruth * gndFormula.weight
             mln.addFormula(cnf, wt)
         mrf.evidence = evidenceBackup
@@ -91,7 +92,7 @@ class FuzzyMCSAT(Inference):
         mln = mln.materializeFormulaTemplates([db])  
         mrf_ = mln.groundMRF(db)
         # the query and evidence need to be adapted to the new MRF
-        queries = map(lambda a: a.ground(mrf_, {}), self.queries)
+        self.queries = map(lambda a: a.ground(mrf_, {}), self.queries)
         if self.given is not None:
             evidence = map(str, self.given)
         else: evidence = None
