@@ -239,9 +239,9 @@ class AbstractLearner(object):
             opt = optimize.DirectDescent(self.wt, self, **params)        
         elif optimizer == "diagonalNewton":
             opt = optimize.DiagonalNewton(self.wt, self, **params)  
-        elif optimizer in ['ga', 'pso']:
-#             opt = optimize.PlaydohOpt(optimizer, self.wt, self, **params)
-            opt = GeneticAlgorithm(self.wt, self, **params)
+#         elif optimizer in ['ga', 'pso']:
+# #             opt = optimize.PlaydohOpt(optimizer, self.wt, self, **params)
+#             opt = GeneticAlgorithm(self.wt, self, **params)
         else:
             opt = optimize.SciPyOpt(optimizer, self.wt, self, **params)        
         

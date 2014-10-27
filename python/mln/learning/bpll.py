@@ -219,6 +219,103 @@ class BPLL_CG(BPLL):
         self.evidenceIndices = self.mrf.groundingMethod.evidenceIndices
         for f, parts in self.fcounts.iteritems():
             print f, parts
+            
+            
+            
+class BPLL_SF(BPLL):
+    '''
+    BPLL learner variant that uses the new representation of 
+    ground atoms and block variables supporting soft functional constraints.
+    '''
+    
+    groundingMethod = 'DefaultGroundingFactory'
+    
+    def __init__(self, mln, mrf, **params):
+        BPLL.__init__(self, mln, mrf, **params)
+    
+    def _prepareOpt(self):
+        log = logging.getLogger(self.__class__.__name__)
+        log.info("constructing blocks...") 
+        self.mrf._getPllBlocks()
+        self.mrf._getAtom2BlockIdx()        
+        self._computeStatistics()
+        # remove data that is now obsolete
+        self.mrf.removeGroundFormulaData()
+        self.mrf.atom2BlockIdx = None
+        log.info('Total time: %.2f' % (self.mrf.groundingMethod.gndTime + self.statTime))
+        
+        
+    def _computeStatistics(self):
+        '''
+        computes the statistics upon which the optimization is based
+        '''
+        debug = False
+        log = logging.getLogger(self.__class__.__name__)
+        log.info("computing statistics...")
+        self.statTime = time.time()
+        # get evidence indices
+        self.evidenceIndices = []
+        for (idxGA, block) in self.mrf.pllBlocks:
+            if idxGA is not None:
+                self.evidenceIndices.append(0)
+            else:
+                # find out which ga is true in the block
+                idxValueTrueone = -1
+                for idxValue, idxGA in enumerate(block):
+                    truth = self.mrf._getEvidence(idxGA)
+                    if truth > 0 and truth < 1:
+                        raise Exception('Block variables must not have fuzzy truth values: %s in block "%s".' % (str(self.mrf.gndAtomsByIdx[idxGA]), str(block)))
+                    if truth:
+                        if idxValueTrueone != -1: 
+                            raise Exception("More than one true ground atom in block '%s'!" % self.mrf._strBlock(block))
+                        idxValueTrueone = idxValue
+                if idxValueTrueone == -1: raise Exception("No true ground atom in block '%s'!" % self.mrf._strBlock(block))
+                self.evidenceIndices.append(idxValueTrueone)
+        
+        # compute actual statistics
+        self.fcounts = {}        
+        self.blockRelevantFormulas = defaultdict(set) # maps from variable/pllBlock index to a list of relevant formula indices
+
+        for idxGndFormula, gndFormula in enumerate(self.mrf.gndFormulas):
+            if debug:
+                print "  ground formula %d/%d: %s\r" % (idxGndFormula, len(self.mrf.gndFormulas), str(gndFormula))
+            
+            # get the set of block indices that the variables appearing in the formula correspond to
+            idxBlocks = set()
+            for idxGA in gndFormula.idxGroundAtoms():
+                #if debug: print "    ", self.mrf.gndAtomsByIdx[idxGA]
+                idxBlocks.add(self.mrf.atom2BlockIdx[idxGA])
+            
+            for idxVar in idxBlocks:
+                (idxGA, block) = self.mrf.pllBlocks[idxVar]
+                if idxGA is not None: # ground atom is the variable as it's not in a block
+                    if debug: print "    ", self.mrf.gndAtomsByIdx[idxGA]
+                    
+                    # check if formula is true if gnd atom maintains its truth value
+                    truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
+                    if truth:
+                        self._addMBCount(idxVar, 2, 0, gndFormula.idxFormula, increment=truth)
+                    
+                    # check if formula is true if gnd atom's truth value is inverted
+                    old_tv = self.mrf._getEvidence(idxGA)
+                    self.mrf._setTemporaryEvidence(idxGA, 1 - old_tv)
+                    truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
+                    if truth:
+                        self._addMBCount(idxVar, 2, 1, gndFormula.idxFormula, increment=truth)
+                    self.mrf._removeTemporaryEvidence()
+                else: # the block is the variable (idxGA is None)
+                    size = len(block)
+                    idxGATrueone = block[self.evidenceIndices[idxVar]]
+                    # check true groundings for each block assigment
+                    for idxValue, idxGA in enumerate(block):
+                        if idxGA != idxGATrueone:
+                            self.mrf._setTemporaryEvidence(idxGATrueone, 0)
+                            self.mrf._setTemporaryEvidence(idxGA, 1)
+                        truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
+                        if truth:
+                            self._addMBCount(idxVar, size, idxValue, gndFormula.idxFormula, increment=truth)
+                        self.mrf._removeTemporaryEvidence()
+        self.statTime = time.time() - self.statTime
 
 
 class DBPLL_CG(BPLL_CG, DiscriminativeLearner):

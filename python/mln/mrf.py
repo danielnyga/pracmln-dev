@@ -43,6 +43,141 @@ from grounding import *
 
 POSSWORLDS_BLOCKING = True
 
+
+class AtomicBlock(object):
+    '''
+    Represents a (mutually exclusive) block of ground atoms.
+    '''
+    
+    def __init__(self, blockname, *gndatoms):
+        self.gndatoms = list(gndatoms)
+        self.name = blockname
+    
+    
+    def iteratoms(self):
+        '''
+        Yields all ground atoms in this block, sorted by atom index ascending
+        '''
+        for atom in sorted(self.gndatoms, key=lambda a: a.idx):
+            yield atom
+    
+    
+    def getNumberOfPossibleWorlds(self):
+        raise Exception('%s does not implement getNumberOfPossibleWorlds()' % self.__class__.__name__)
+    
+    
+    def generatePossibleWorldTuples(self, evidence=None):
+        '''
+        evidence mapping gnd atom indices to truth values
+        '''
+        raise Exception('%s does not implement generatePossibleWorldTuples()' % self.__class__.__name__)
+    
+    
+    def __str__(self):
+        return '%s: %s' % (self.name, ','.join(map(str, self.gndatoms)))
+
+
+class BinaryBlock(AtomicBlock):
+    '''
+    Represents a binary ("normal") ground atom with the two states 1 and 0
+    '''
+
+    def getNumberOfPossibleWorlds(self):
+        return 2
+
+
+    def generatePossibleWorldTuples(self, evidence=None):
+        '''
+        Yields possible world values of this atom block.
+        '''
+        if evidence is None:
+            evidence = {}
+        gndatom = self.gndatoms[0]
+        if gndatom.idx in evidence:
+            yield evidence[gndatom.idx]
+            return
+        for t in (0, 1):
+            yield (t,)
+
+
+class MutexBlock(AtomicBlock):
+    '''
+    Represents a mutually exclusive block of ground atoms.
+    '''
+    
+    def getNumberOfPossibleWorlds(self):
+        return len(self.gndatoms)
+    
+    
+    def generatePossibleWorldTuples(self, evidence=None):
+        if evidence is None:
+            evidence = {}
+        for world in self._generatePossibleWorldTuplesRecursive(self.gndatoms, [], evidence):
+            yield world
+    
+    
+    def _generatePossibleWorldTuplesRecursive(self, gndatoms, assignment, evidence):
+        atomindices = map(lambda a: a.idx, gndatoms)
+        valpattern = []
+        for mutexatom in atomindices:
+            valpattern.append(evidence.get(mutexatom, None))
+        # at this point, we have generated a value pattern with
+        # all values that are fixed by the evidence argument and None
+        # for all others
+        trues = sum(filter(lambda x: x == 1, valpattern))
+        if trues > 1: # sanity check
+            raise Exception("More than one ground atom in mutex variable is true: %s" % str(self))
+        if trues == 1: # if the true value of the mutex var is in the evidence, we have only one possibility
+            yield tuple([tuple(map(lambda x: 1 if x == 1 else 0, valpattern))])
+            return
+        for i, val in enumerate(valpattern): # generate a value tuple with a true value for each atom which is not set to false by evidence
+            if val == 0: continue
+            elif val is None:
+                values = [0] * len(valpattern)
+                values[i] = 1
+                yield tuple(values)
+
+
+class SoftMutexBlock(AtomicBlock):
+    '''
+    Represents a soft mutex block of ground atoms.
+    '''
+    
+    def getNumberOfPossibleWorlds(self):
+        return len(self.gndatoms) + 1
+
+
+    def generatePossibleWorldTuples(self, evidence=None):
+        if evidence is None:
+            evidence = {}
+        for world in self._generatePossibleWorldTuplesRecursive(self.gndatoms, [], evidence):
+            yield world
+    
+    
+    def _generatePossibleWorldTuplesRecursive(self, gndatoms, assignment, evidence):
+        atomindices = map(lambda a: a.idx, gndatoms)
+        valpattern = []
+        for mutexatom in atomindices:
+            valpattern.append(evidence.get(mutexatom, None))
+        # at this point, we have generated a value pattern with
+        # all values that are fixed by the evidence argument and None
+        # for all others
+        trues = sum(filter(lambda x: x == 1, valpattern))
+        if trues > 1: # sanity check
+            raise Exception("More than one ground atom in mutex variable is true: %s" % str(self))
+        if trues == 1: # if the true value of the mutex var is in the evidence, we have only one possibility
+            yield tuple([tuple(map(lambda x: 1 if x == 1 else 0, valpattern))])
+            return
+        for i, val in enumerate(valpattern): # generate a value tuple with a true value for each atom which is not set to false by evidence
+            if val == 0: continue
+            elif val is None:
+                values = [0] * len(valpattern)
+                values[i] = 1
+                yield tuple(values)
+        yield tuple([0] * len(atomindices))
+                            
+
+
 class MRF(object):
     '''
     Represents a ground Markov Random Field
@@ -94,6 +229,7 @@ class MRF(object):
         self.gndFormulas = []
         self.gndAtomOccurrencesInGFs = []
         self.gndAtomicBlocks = {}
+        self.gndAtom2AtomicBlock = {}
         
         if type(db) == str:
             db = readDBFromFile(self.mln, db)
@@ -133,7 +269,10 @@ class MRF(object):
 #         for a in self.gndAtoms.values():
 #             log.debug('%s%s -> %2.2f' % (('%d' % a.idx).ljust(5), a, self.evidence[a.idx]))
         assert len(self.gndAtoms) == len(self.evidence)
-        
+        for gndblock in self.gndAtomicBlocks.values():
+            print gndblock
+            for world in gndblock.generatePossibleWorldTuples():
+                print world
 
     def getHardFormulas(self):
         '''
@@ -248,6 +387,7 @@ class MRF(object):
             gndblock = predicate.create_gndblock(blockname)
             self.gndAtomicBlocks[blockname] = gndblock
         gndblock.gndatoms.append(gndatom)
+        self.gndAtom2AtomicBlock
         
 
     def _addGroundFormula(self, gndFormula, idxFormula, idxGndAtoms = None):

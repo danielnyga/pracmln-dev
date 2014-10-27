@@ -49,7 +49,8 @@ from util import mergeDomains, strFormula, stripComments
 from mrf import MRF
 import re
 from errors import MLNParsingError
-from logic.common import Predicate
+from mrf import MutexBlock, SoftMutexBlock
+from mrf import BinaryBlock
 
 
 if platform.architecture()[0] == '32bit':
@@ -100,6 +101,91 @@ To use this representation, make use of infer2 rather than infer to compute prob
 To learn factors rather than regular weights, use "LL_fac" rather than "LL" as the method you supply to learnwts.
 (pseudolikelihood is currently unsupported for learning such representations)
 '''
+
+
+class Predicate(object):
+    '''
+    Represents a logical predicate and its properties.
+        Fields:
+        - predname:        the predicate name
+        - argdoms:         the domain names of the arguments
+    '''
+    
+    
+    def __init__(self, predname, argdoms):
+        self.argdoms = argdoms
+        self.predname = predname
+            
+            
+    def getblockname(self, gndatom):
+        '''
+        Takes an instance of a ground atom and generates the name
+        of the corresponding atomic block.
+        '''
+        return str(gndatom)
+    
+    
+    def create_gndblock(self, blockname):
+        '''
+        Creates a new instance of an atomic ground block instance
+        depending on the type of the predicate
+        '''
+        return BinaryBlock(blockname)
+    
+    
+    def __eq__(self, other):
+        return other.predname == self.predname and other.argdoms == self.argdoms
+    
+    
+    def __neq__(self, other):
+        return not self == other
+    
+    
+    def __str__(self):
+        return '%s(%s)' % (self.predname, ','.join(map(str, self.domargs)))
+
+
+class MutexBlockPredicate(Predicate):
+    '''
+    Represents a predicate declaration for a functional constraint.
+    '''
+    
+    
+    def __init__(self, predname, argdoms, mutex):
+        Predicate.__init__(self, predname, argdoms)
+        assert len(argdoms) == len(mutex)
+        self.mutex = mutex
+
+
+    def getblockname(self, gndatom):
+        nonfuncargs = [p if m is False else '_' for (m, p) in zip(self.mutex, gndatom.params)]
+        return '%s(%s)' % (gndatom.predName, ','.join(nonfuncargs))
+    
+
+    def create_gndblock(self, blockname):
+        return MutexBlock(blockname)
+    
+    
+    def __eq__(self, other):
+        return Predicate.__eq__(self, other) and self.mutex == other.mutex and type(other) == type(self)
+        
+        
+    def __str__(self):
+        return '%s(%s)' % (self.predname, ','.join([arg if mutex is False else '%s!' % arg for (mutex, arg) in zip(self.mutex, self.argdoms)]))
+
+class SoftMutexBlockPredicate(MutexBlockPredicate):
+    '''
+    Represents a predicate declaration for soft function constraint.
+    '''
+    
+    
+    def create_gndblock(self, blockname):
+        return SoftMutexBlock(blockname)
+
+
+    def __str__(self):
+        return '%s(%s)' % (self.predname, ','.join([arg if mutex is False else '%s?' % arg for (mutex, arg) in zip(self.mutex, self.argdoms)]))
+
 
 # -- Markov logic network
 
@@ -204,35 +290,22 @@ class MLN(object):
             self.declarePredicate(*pred)
     
 
-    def declarePredicate(self, name, domains, mutex=None, softMutex=False):
+    def declarePredicate(self, pred):
         '''
         Adds a predicate declaration to the MLN:
-        - name:        name of the predicate (string)
-        - domains:     list of domain names of arguments
-        - mutex:       list of True/False values of args determining whether or not they are mutex constraints.
-                       Will be expanded to ``[False] * len(domains)`` if None.
-        - softMutex:   Specifies whether this constraint is functional (i.e. must have _exactly_ one true
-                       ground atom in its block), or soft functional (i.e. it must have maximally one true
-                       ground atom).
+        - pred:        an instance of Predicate or one of its subclasses specifying a predicate declaration.
         '''
-        pred = self.get_predicate(name)
-        if mutex is None:
-            mutex = [False] * len(domains)
-        assert len(domains) == len(mutex)
-        assert not softMutex or any(mutex)
-        if pred is not None:
-            _, old_domains, old_mutex = pred
-            if old_domains != domains or old_mutex != mutex:
-                raise Exception('Contradictory predicate definitions: %s <--> %s' % (predicate_declaration_string(name, domains, mutex), 
-                                                                                     predicate_declaration_string(name, old_domains, old_mutex)))
+        pred_ = self.pred_decls.get(pred.predname)
+        if pred_ is not None and pred_ != pred:
+            raise Exception('Contradictory predicate definitions: %s <--> %s' % (pred, pred_))
         else:
-            self.predicates[name] = domains
-            self.blocks[name] = mutex
-            if softMutex: self.softMutex.append(name)
-            for dom in domains:
+            self.predicates[pred.predname] = pred.argdoms
+            if isinstance(pred, MutexBlockPredicate):
+                self.blocks[pred.predname] = pred.mutex
+            for dom in pred.argdoms:
                 if dom not in self.domains:
                     self.domains[dom] = []
-        self.pred_decls[name] = Predicate(name, domains, mutex, softMutex)                    
+        self.pred_decls[pred.predname] = pred
 
             
     def addFormula(self, formula, weight=0, hard=False, fixWeight=False):
@@ -798,10 +871,15 @@ def readMLNFromString(text, searchPath='.', logic='FirstOrderLogic', grammar='PR
                         else: mutex.append(False)
                         if dom[-1] == '?': softMutex = True
                     domDecls = map(lambda x: x.strip('!'), domDecls)
-#                     if predName in mln.predicates:
-#                         raise MLNParsingError("Predicate redefinition: '%s' already defined" % predName)
-#                     mln.predicates[predName] = list(pred[1])
-                    mln.declarePredicate(predName, domDecls, mutex=mutex, softMutex=softMutex)
+                    pred = None
+                    if any(mutex):
+                        if softMutex:
+                            pred = SoftMutexBlockPredicate(predName, domDecls, mutex)
+                        else:
+                            pred = MutexBlockPredicate(predName, domDecls, mutex)
+                    else:
+                        pred = Predicate(predName, domDecls)
+                    mln.declarePredicate(pred)
                     continue
                 else:
                     # formula (template) with weight or terminated by '.'

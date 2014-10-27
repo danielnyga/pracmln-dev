@@ -307,43 +307,43 @@ class CLL(AbstractLearner):
 #                 raise Exception('No admissible partition value found specified in evidence. Missing a functional constraint?')
 #             # re-assert the evidence
 #             self.mrf._removeTemporaryEvidence()
-
-    
-    def _iterFormulaGroundingsForVariable(self):
-        '''
-        Make sure that you have set temporary evidence for the 
-        ground atoms in the variable to None before calling this method
-        and to remove it afterwards
-        '''
-        formulas = []
-        for i, f in enumerate(self.mrf.formulas):
-            f_ = f.ground(self.mrf, {}, allowPartialGroundings=True, simplify=True)
-            if isinstance(f_, Logic.TrueFalse):
-                continue
-            f_.weight = f.weight
-            f_.isHard = f.isHard
-            f_.fIdx = i
-            formulas.append(f_)
-        for formula in formulas:
-            for groundFormula in self._groundAndSimplifyFormula(formula, formula.getVariables(self.mrf.mln)):
-                yield groundFormula
-        
-    def _groundAndSimplifyFormula(self, formula, domains):
-        if len(domains) == 0:
-            yield formula
-            return
-        domains = dict(domains)
-        for variable, domain_name in domains.iteritems(): break
-        del domains[variable]
-        domain = self.mrf.domains[domain_name]
-        for value in domain:
-            partialGrounding = formula.ground(self.mrf, {variable: value}, allowPartialGroundings=True, simplify=True)
-            if isinstance(partialGrounding, Logic.TrueFalse):
-                continue
-            partialGrounding.fIdx = formula.fIdx
-            partialGrounding.weight = formula.weight
-            for fg in self._groundAndSimplifyFormula(partialGrounding, domains):
-                yield fg
+# 
+#     
+#     def _iterFormulaGroundingsForVariable(self):
+#         '''
+#         Make sure that you have set temporary evidence for the 
+#         ground atoms in the variable to None before calling this method
+#         and to remove it afterwards
+#         '''
+#         formulas = []
+#         for i, f in enumerate(self.mrf.formulas):
+#             f_ = f.ground(self.mrf, {}, allowPartialGroundings=True, simplify=True)
+#             if isinstance(f_, Logic.TrueFalse):
+#                 continue
+#             f_.weight = f.weight
+#             f_.isHard = f.isHard
+#             f_.fIdx = i
+#             formulas.append(f_)
+#         for formula in formulas:
+#             for groundFormula in self._groundAndSimplifyFormula(formula, formula.getVariables(self.mrf.mln)):
+#                 yield groundFormula
+#         
+#     def _groundAndSimplifyFormula(self, formula, domains):
+#         if len(domains) == 0:
+#             yield formula
+#             return
+#         domains = dict(domains)
+#         for variable, domain_name in domains.iteritems(): break
+#         del domains[variable]
+#         domain = self.mrf.domains[domain_name]
+#         for value in domain:
+#             partialGrounding = formula.ground(self.mrf, {variable: value}, allowPartialGroundings=True, simplify=True)
+#             if isinstance(partialGrounding, Logic.TrueFalse):
+#                 continue
+#             partialGrounding.fIdx = formula.fIdx
+#             partialGrounding.weight = formula.weight
+#             for fg in self._groundAndSimplifyFormula(partialGrounding, domains):
+#                 yield fg
         
     @staticmethod
     def chain(variable):
