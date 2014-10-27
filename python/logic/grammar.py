@@ -241,6 +241,7 @@ class StandardGrammar(Grammar):
         self.tree = tree
         self.formula = formula + StringEnd()
         self.predDecl = predDecl
+        self.literal = literal
         
     def isVar(self, identifier):
         return identifier[0].islower() or identifier[0] == '+'
