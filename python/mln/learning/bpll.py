@@ -236,14 +236,52 @@ class BPLL_SF(BPLL):
     def _prepareOpt(self):
         log = logging.getLogger(self.__class__.__name__)
         log.info("constructing blocks...") 
-        self.mrf._getPllBlocks()
-        self.mrf._getAtom2BlockIdx()        
         self._computeStatistics()
         # remove data that is now obsolete
         self.mrf.removeGroundFormulaData()
-        self.mrf.atom2BlockIdx = None
         log.info('Total time: %.2f' % (self.mrf.groundingMethod.gndTime + self.statTime))
+    
+    
+    def _f(self, wt):
+        self._calculateBlockProbsMB(wt)
+        probs = []
+        for idxVar in xrange(len(self.mrf.gndAtomicBlocks)):
+            p = self.blockProbsMB[idxVar][self.evidenceIndices[idxVar]]
+            if p == 0: p = 1e-10 # prevent 0 probabilities
+            probs.append(p)
+        return fsum(map(log, probs))
         
+    
+    def _calculateBlockProbsMB(self, wt):
+        if ('wtsLastBlockProbMBComputation' not in dir(self)) or self.wtsLastBlockProbMBComputation != list(wt):
+            #print "recomputing block probabilities...",
+            self.blockProbsMB = [self._getBlockProbMB(i, wt) for i in xrange(len(self.mrf.gndAtomicBlocks))]
+#             print self.blockProbsMB
+            self.wtsLastBlockProbMBComputation = list(wt)    
+    
+        
+    def _getBlockProbMB(self, blockidx, wt):        
+        atomicBlock = self.mrf.gndAtomicBlockByIdx[blockidx]
+        numValues = atomicBlock.getNumberOfValues()
+        
+        relevantFormulas = self.blockRelevantFormulas.get(blockidx, None)
+        if relevantFormulas is None: # no list was saved, so the truth of all formulas is unaffected by the variable's value
+            # uniform distribution applies
+            p = 1.0 / numValues
+            return [p] * numValues
+        
+        sums = numpy.zeros(numValues)
+        for idxFormula in relevantFormulas:
+            for idxValue, n in enumerate(self.fcounts[idxFormula][blockidx]):
+                sums[idxValue] += n * wt[idxFormula]
+        sum_min = numpy.min(sums)
+        sums -= sum_min
+        sum_max = numpy.max(sums)
+        sums -= sum_max
+        expsums = numpy.sum(numpy.exp(sums))
+        s = numpy.log(expsums)
+        return numpy.exp(sums - s)
+    
         
     def _computeStatistics(self):
         '''
@@ -254,67 +292,28 @@ class BPLL_SF(BPLL):
         log.info("computing statistics...")
         self.statTime = time.time()
         # get evidence indices
-        self.evidenceIndices = []
-        for (idxGA, block) in self.mrf.pllBlocks:
-            if idxGA is not None:
-                self.evidenceIndices.append(0)
-            else:
-                # find out which ga is true in the block
-                idxValueTrueone = -1
-                for idxValue, idxGA in enumerate(block):
-                    truth = self.mrf._getEvidence(idxGA)
-                    if truth > 0 and truth < 1:
-                        raise Exception('Block variables must not have fuzzy truth values: %s in block "%s".' % (str(self.mrf.gndAtomsByIdx[idxGA]), str(block)))
-                    if truth:
-                        if idxValueTrueone != -1: 
-                            raise Exception("More than one true ground atom in block '%s'!" % self.mrf._strBlock(block))
-                        idxValueTrueone = idxValue
-                if idxValueTrueone == -1: raise Exception("No true ground atom in block '%s'!" % self.mrf._strBlock(block))
-                self.evidenceIndices.append(idxValueTrueone)
+        self.evidenceIndices = [None] * len(self.mrf.gndAtomicBlocks)
+        for atomicBlock in self.mrf.gndAtomicBlocks.values():
+            self.evidenceIndices[atomicBlock.blockidx] = atomicBlock.getEvidenceIndex(self.mrf.evidence)
         
         # compute actual statistics
-        self.fcounts = {}        
+        self.fcounts = {}
         self.blockRelevantFormulas = defaultdict(set) # maps from variable/pllBlock index to a list of relevant formula indices
-
-        for idxGndFormula, gndFormula in enumerate(self.mrf.gndFormulas):
-            if debug:
-                print "  ground formula %d/%d: %s\r" % (idxGndFormula, len(self.mrf.gndFormulas), str(gndFormula))
-            
+        for gndFormula in self.mrf.gndFormulas:
             # get the set of block indices that the variables appearing in the formula correspond to
-            idxBlocks = set()
+            atomicBlocks = set()
             for idxGA in gndFormula.idxGroundAtoms():
-                #if debug: print "    ", self.mrf.gndAtomsByIdx[idxGA]
-                idxBlocks.add(self.mrf.atom2BlockIdx[idxGA])
+                atomicBlocks.add(self.mrf.gndAtom2AtomicBlock[idxGA])
             
-            for idxVar in idxBlocks:
-                (idxGA, block) = self.mrf.pllBlocks[idxVar]
-                if idxGA is not None: # ground atom is the variable as it's not in a block
-                    if debug: print "    ", self.mrf.gndAtomsByIdx[idxGA]
-                    
-                    # check if formula is true if gnd atom maintains its truth value
+            for atomicBlock in atomicBlocks:
+                blocksize = atomicBlock.getNumberOfValues()
+                for valueIdx, value in enumerate(atomicBlock.generateValueTuples()):
+                    print atomicBlock, value
+                    self.mrf.setTemporaryEvidence(atomicBlock.valueTuple2EvidenceDict(value))
                     truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
-                    if truth:
-                        self._addMBCount(idxVar, 2, 0, gndFormula.idxFormula, increment=truth)
-                    
-                    # check if formula is true if gnd atom's truth value is inverted
-                    old_tv = self.mrf._getEvidence(idxGA)
-                    self.mrf._setTemporaryEvidence(idxGA, 1 - old_tv)
-                    truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
-                    if truth:
-                        self._addMBCount(idxVar, 2, 1, gndFormula.idxFormula, increment=truth)
+                    self._addMBCount(atomicBlock.blockidx, blocksize, valueIdx, gndFormula.idxFormula, truth)
                     self.mrf._removeTemporaryEvidence()
-                else: # the block is the variable (idxGA is None)
-                    size = len(block)
-                    idxGATrueone = block[self.evidenceIndices[idxVar]]
-                    # check true groundings for each block assigment
-                    for idxValue, idxGA in enumerate(block):
-                        if idxGA != idxGATrueone:
-                            self.mrf._setTemporaryEvidence(idxGATrueone, 0)
-                            self.mrf._setTemporaryEvidence(idxGA, 1)
-                        truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
-                        if truth:
-                            self._addMBCount(idxVar, size, idxValue, gndFormula.idxFormula, increment=truth)
-                        self.mrf._removeTemporaryEvidence()
+                    
         self.statTime = time.time() - self.statTime
 
 

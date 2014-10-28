@@ -49,8 +49,9 @@ class AtomicBlock(object):
     Represents a (mutually exclusive) block of ground atoms.
     '''
     
-    def __init__(self, blockname, *gndatoms):
+    def __init__(self, blockname, blockidx, *gndatoms):
         self.gndatoms = list(gndatoms)
+        self.blockidx = blockidx
         self.name = blockname
     
     
@@ -62,16 +63,47 @@ class AtomicBlock(object):
             yield atom
     
     
-    def getNumberOfPossibleWorlds(self):
-        raise Exception('%s does not implement getNumberOfPossibleWorlds()' % self.__class__.__name__)
+    def getNumberOfValues(self):
+        raise Exception('%s does not implement getNumberOfValues()' % self.__class__.__name__)
     
     
-    def generatePossibleWorldTuples(self, evidence=None):
+    def generateValueTuples(self, evidence=None):
         '''
         evidence mapping gnd atom indices to truth values
         '''
-        raise Exception('%s does not implement generatePossibleWorldTuples()' % self.__class__.__name__)
+        raise Exception('%s does not implement generateValueTuples()' % self.__class__.__name__)
     
+    
+    def getValueIndex(self, value):
+        '''
+        Computes the index of the given value (for this atomic block, so only wrt
+        the ground atoms contained in this block). Values are given as tuples. For
+        a binary atomic bock (a 'normal' ground atom), the two values are represented
+        by (0,) and (1,).
+        '''
+        raise Exception('%s does not implement getValueIndex()' % self.__class__.__name__)
+    
+    
+    def getEvidenceIndex(self, evidence):
+        '''
+        Returns the index of this atomic block value for the given possible world.
+        '''
+        value = []
+        for gndatom in self.gndatoms:
+            value.append(evidence[gndatom.idx])
+        return self.getValueIndex(tuple(value))
+    
+    
+    def valueTuple2EvidenceDict(self, worldtuple):
+        '''
+        Takes a value tuple and transforms
+        it into a dict mapping the respective atom indices to their truth values
+        '''
+        evidence = {}
+        for atom, value in zip(self.gndatoms, worldtuple):
+            evidence[atom.idx] = value
+        return evidence
+            
     
     def __str__(self):
         return '%s: %s' % (self.name, ','.join(map(str, self.gndatoms)))
@@ -82,41 +114,46 @@ class BinaryBlock(AtomicBlock):
     Represents a binary ("normal") ground atom with the two states 1 and 0
     '''
 
-    def getNumberOfPossibleWorlds(self):
+    def getNumberOfValues(self):
         return 2
 
 
-    def generatePossibleWorldTuples(self, evidence=None):
-        '''
-        Yields possible world values of this atom block.
-        '''
+    def generateValueTuples(self, evidence=None):
         if evidence is None:
             evidence = {}
         gndatom = self.gndatoms[0]
         if gndatom.idx in evidence:
             yield evidence[gndatom.idx]
             return
-        for t in (0, 1):
-            yield (t,)
+        for t in (0, 1): yield (t,)
 
+
+    def getValueIndex(self, value):
+        if value == (0,):
+            return 0
+        elif value == (1,):
+            return 1
+        else:
+            raise Exception('Invalid world value for binary block %s: %s' % (str(self), str(value)))
+        
 
 class MutexBlock(AtomicBlock):
     '''
     Represents a mutually exclusive block of ground atoms.
     '''
     
-    def getNumberOfPossibleWorlds(self):
+    def getNumberOfValues(self):
         return len(self.gndatoms)
     
     
-    def generatePossibleWorldTuples(self, evidence=None):
+    def generateValueTuples(self, evidence=None):
         if evidence is None:
             evidence = {}
-        for world in self._generatePossibleWorldTuplesRecursive(self.gndatoms, [], evidence):
+        for world in self._generateValueTuplesRecursive(self.gndatoms, [], evidence):
             yield world
     
     
-    def _generatePossibleWorldTuplesRecursive(self, gndatoms, assignment, evidence):
+    def _generateValueTuplesRecursive(self, gndatoms, assignment, evidence):
         atomindices = map(lambda a: a.idx, gndatoms)
         valpattern = []
         for mutexatom in atomindices:
@@ -137,24 +174,32 @@ class MutexBlock(AtomicBlock):
                 values[i] = 1
                 yield tuple(values)
 
+    
+    def getValueIndex(self, value):
+        if sum(value) != 1:
+            raise Exception('Invalid world value for mutex block %s: %s' % (str(self), str(value)))
+        else:
+            return value.index(1)
+        
+        
 
 class SoftMutexBlock(AtomicBlock):
     '''
     Represents a soft mutex block of ground atoms.
     '''
     
-    def getNumberOfPossibleWorlds(self):
+    def getNumberOfValues(self):
         return len(self.gndatoms) + 1
 
 
-    def generatePossibleWorldTuples(self, evidence=None):
+    def generateValueTuples(self, evidence=None):
         if evidence is None:
             evidence = {}
-        for world in self._generatePossibleWorldTuplesRecursive(self.gndatoms, [], evidence):
+        for world in self._generateValueTuplesRecursive(self.gndatoms, [], evidence):
             yield world
     
     
-    def _generatePossibleWorldTuplesRecursive(self, gndatoms, assignment, evidence):
+    def _generateValueTuplesRecursive(self, gndatoms, assignment, evidence):
         atomindices = map(lambda a: a.idx, gndatoms)
         valpattern = []
         for mutexatom in atomindices:
@@ -175,7 +220,15 @@ class SoftMutexBlock(AtomicBlock):
                 values[i] = 1
                 yield tuple(values)
         yield tuple([0] * len(atomindices))
-                            
+        
+    
+    def getValueIndex(self, value):
+        if sum(value) > 1:
+            raise Exception('Invalid world value for soft mutex block %s: %s' % (str(self), str(value)))
+        try:
+            return value.index(1)
+        except ValueError:
+            return self.getNumberOfValues() - 1
 
 
 class MRF(object):
@@ -230,6 +283,7 @@ class MRF(object):
         self.gndAtomOccurrencesInGFs = []
         self.gndAtomicBlocks = {}
         self.gndAtom2AtomicBlock = {}
+        self.gndAtomicBlockByIdx = {}
         
         if type(db) == str:
             db = readDBFromFile(self.mln, db)
@@ -269,10 +323,10 @@ class MRF(object):
 #         for a in self.gndAtoms.values():
 #             log.debug('%s%s -> %2.2f' % (('%d' % a.idx).ljust(5), a, self.evidence[a.idx]))
         assert len(self.gndAtoms) == len(self.evidence)
-        for gndblock in self.gndAtomicBlocks.values():
-            print gndblock
-            for world in gndblock.generatePossibleWorldTuples():
-                print world
+#         for gndblock in self.gndAtomicBlocks.values():
+#             print gndblock
+#             for world in gndblock.generatePossibleWorldTuples():
+#                 print world
 
     def getHardFormulas(self):
         '''
@@ -384,10 +438,11 @@ class MRF(object):
         blockname = predicate.getblockname(gndatom)
         gndblock = self.gndAtomicBlocks.get(blockname, None)
         if gndblock is None:
-            gndblock = predicate.create_gndblock(blockname)
+            gndblock = predicate.create_gndblock(blockname, len(self.gndAtomicBlocks))
             self.gndAtomicBlocks[blockname] = gndblock
+            self.gndAtomicBlockByIdx[gndblock.blockidx] = gndblock 
         gndblock.gndatoms.append(gndatom)
-        self.gndAtom2AtomicBlock
+        self.gndAtom2AtomicBlock[gndatom.idx] = gndblock
         
 
     def _addGroundFormula(self, gndFormula, idxFormula, idxGndAtoms = None):
@@ -429,6 +484,16 @@ class MRF(object):
     def _setTemporaryEvidence(self, idxGndAtom, value):
         self.evidenceBackup[idxGndAtom] = self._getEvidence(idxGndAtom, closedWorld=False)
         self._setEvidence(idxGndAtom, value)
+        
+        
+    def setTemporaryEvidence(self, evidence):
+        '''
+        evidence should be a dict mapping gnd atom indices to truth values.
+        '''
+        self._removeTemporaryEvidence()
+        for atomidx, truth in evidence.iteritems():
+            self._setTemporaryEvidence(atomidx, truth)
+        
 
     def _getEvidence(self, idxGndAtom, closedWorld=True):
         '''

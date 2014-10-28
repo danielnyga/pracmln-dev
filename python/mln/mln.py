@@ -125,12 +125,12 @@ class Predicate(object):
         return str(gndatom)
     
     
-    def create_gndblock(self, blockname):
+    def create_gndblock(self, blockname, blockidx):
         '''
         Creates a new instance of an atomic ground block instance
         depending on the type of the predicate
         '''
-        return BinaryBlock(blockname)
+        return BinaryBlock(blockname, blockidx)
     
     
     def __eq__(self, other):
@@ -142,7 +142,11 @@ class Predicate(object):
     
     
     def __str__(self):
-        return '%s(%s)' % (self.predname, ','.join(map(str, self.domargs)))
+        return '%s(%s)' % (self.predname, self.argstr())
+    
+    
+    def argstr(self):
+        return ','.join(map(str, self.argdoms))
 
 
 class MutexBlockPredicate(Predicate):
@@ -162,8 +166,8 @@ class MutexBlockPredicate(Predicate):
         return '%s(%s)' % (gndatom.predName, ','.join(nonfuncargs))
     
 
-    def create_gndblock(self, blockname):
-        return MutexBlock(blockname)
+    def create_gndblock(self, blockname, blockidx):
+        return MutexBlock(blockname, blockidx)
     
     
     def __eq__(self, other):
@@ -171,7 +175,12 @@ class MutexBlockPredicate(Predicate):
         
         
     def __str__(self):
-        return '%s(%s)' % (self.predname, ','.join([arg if mutex is False else '%s!' % arg for (mutex, arg) in zip(self.mutex, self.argdoms)]))
+        return '%s(%s)' % (self.predname, self.argstr())
+    
+    
+    def argstr(self):
+        return ','.join([arg if mutex is False else '%s!' % arg for (mutex, arg) in zip(self.mutex, self.argdoms)])
+    
 
 class SoftMutexBlockPredicate(MutexBlockPredicate):
     '''
@@ -179,12 +188,16 @@ class SoftMutexBlockPredicate(MutexBlockPredicate):
     '''
     
     
-    def create_gndblock(self, blockname):
-        return SoftMutexBlock(blockname)
+    def create_gndblock(self, blockname, blockidx):
+        return SoftMutexBlock(blockname, blockidx)
 
 
     def __str__(self):
-        return '%s(%s)' % (self.predname, ','.join([arg if mutex is False else '%s?' % arg for (mutex, arg) in zip(self.mutex, self.argdoms)]))
+        return '%s(%s)' % (self.predname, self.argstr())
+    
+
+    def argstr(self):
+        return ','.join([arg if mutex is False else '%s?' % arg for (mutex, arg) in zip(self.mutex, self.argdoms)])
 
 
 # -- Markov logic network
@@ -647,13 +660,8 @@ class MLN(object):
             f.write("%s\n" % d)
         f.write('\n')
         f.write(colorize("\n// predicate declarations\n", comment_color, color))
-        for predname, args in self.predicates.iteritems():
-            excl = self.blocks.get(predname)
-            if not mutexInDecls or excl is None:
-                f.write("%s(%s)\n" % (colorize(predname, predicate_color, color), ", ".join(args)))
-            else:
-                f.write("%s(%s)\n" % (colorize(predname, predicate_color, color), 
-                                      ", ".join(map(lambda x: "%s%s" % (x[0], {True:"!", False:""}[x[1]]), zip(args, excl)))))
+        for predname, predicate in self.pred_decls.iteritems():
+                f.write("%s(%s)\n" % (colorize(predname, predicate_color, color), predicate.argstr()))
         if not mutexInDecls:
             f.write(colorize("\n// mutual exclusiveness and exhaustiveness\n", comment_color))
             for predname, excl in self.blocks.iteritems():
@@ -870,7 +878,7 @@ def readMLNFromString(text, searchPath='.', logic='FirstOrderLogic', grammar='PR
                         if dom[-1] in ('!', '?'): mutex.append(True)
                         else: mutex.append(False)
                         if dom[-1] == '?': softMutex = True
-                    domDecls = map(lambda x: x.strip('!'), domDecls)
+                    domDecls = map(lambda x: x.strip('!?'), domDecls)
                     pred = None
                     if any(mutex):
                         if softMutex:
