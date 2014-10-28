@@ -49,8 +49,7 @@ from util import mergeDomains, strFormula, stripComments
 from mrf import MRF
 import re
 from errors import MLNParsingError
-from mrf import MutexBlock, SoftMutexBlock
-from mrf import BinaryBlock
+from atomicblocks import MutexBlock, SoftMutexBlock, BinaryBlock
 
 
 if platform.architecture()[0] == '32bit':
