@@ -26,6 +26,7 @@
 import sys
 
 from common import *
+from mln.atomicblocks import SoftMutexBlock
 
 
 class LL(AbstractLearner):
@@ -35,6 +36,8 @@ class LL(AbstractLearner):
     
     def __init__(self, mln, mrf, **params):
         AbstractLearner.__init__(self, mln, mrf, **params)
+        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
+            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
     
     def _computeCounts(self):
         ''' 

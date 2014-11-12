@@ -71,6 +71,17 @@ class AtomicBlock(object):
         return self.getValueIndex(tuple(value))
     
     
+    def getEvidenceValue(self, evidence):
+        '''
+        Returns the value of this atomic block as a tuple of truth values.
+        Exp: (0, 1, 0) for a mutex atomic block containing 3 gnd atoms
+        '''
+        value = []
+        for gndatom in self.gndatoms:
+            value.append(evidence[gndatom.idx])
+        return tuple(value)
+    
+    
     def valueTuple2EvidenceDict(self, worldtuple):
         '''
         Takes a value tuple and transforms
@@ -101,7 +112,7 @@ class BinaryBlock(AtomicBlock):
         if len(self.gndatoms) == 0: return
         gndatom = self.gndatoms[0]
         if gndatom.idx in evidence:
-            yield evidence[gndatom.idx]
+            yield (evidence[gndatom.idx],)
             return
         for t in (0, 1): yield (t,)
 
@@ -143,7 +154,7 @@ class MutexBlock(AtomicBlock):
         if trues > 1: # sanity check
             raise Exception("More than one ground atom in mutex variable is true: %s" % str(self))
         if trues == 1: # if the true value of the mutex var is in the evidence, we have only one possibility
-            yield tuple([tuple(map(lambda x: 1 if x == 1 else 0, valpattern))])
+            yield tuple(map(lambda x: 1 if x == 1 else 0, valpattern))
             return
         for i, val in enumerate(valpattern): # generate a value tuple with a true value for each atom which is not set to false by evidence
             if val == 0: continue
@@ -189,7 +200,7 @@ class SoftMutexBlock(AtomicBlock):
         if trues > 1: # sanity check
             raise Exception("More than one ground atom in mutex variable is true: %s" % str(self))
         if trues == 1: # if the true value of the mutex var is in the evidence, we have only one possibility
-            yield tuple([tuple(map(lambda x: 1 if x == 1 else 0, valpattern))])
+            yield tuple(map(lambda x: 1 if x == 1 else 0, valpattern))
             return
         for i, val in enumerate(valpattern): # generate a value tuple with a true value for each atom which is not set to false by evidence
             if val == 0: continue

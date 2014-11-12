@@ -103,7 +103,7 @@ class AbstractLearner(object):
             if formula in self.mln.fixedWeightFormulas or gradient[formula.idxFormula] == 0:
                 self._fixedWeightFormulas[formula.idxFormula] = formula.weight
             
-    def f(self, wt):
+    def f(self, wt, verbose=True):
 #         if isinstance(wt, GenomeBase.GenomeBase):
 #             wt = wt.genomeList
         # compute prior
@@ -119,8 +119,13 @@ class AbstractLearner(object):
 #         sys.stdout.flush()
         # compute likelihood
         likelihood = self._f(wt)
-        sys.stdout.write('  likelihood = %f\r' % likelihood)
-        sys.stdout.flush()
+        if verbose:
+            sys.stdout.write('                                           \r')
+            if self.gaussianPriorSigma is not None:
+                sys.stdout.write('  log P(D|w) + log P(w) = %f + %f = %f\r' % (likelihood, prior, likelihood + prior))
+            else:
+                sys.stdout.write('  log P(D|w) = %f\r' % likelihood)
+            sys.stdout.flush()
         
         return likelihood + prior
         
@@ -211,7 +216,6 @@ class AbstractLearner(object):
             # precompute fixed formula weights
             self._fixFormulaWeights()
             self.wt = self._projectVectorToNonFixedWeightIndices(wt)
-            print self.wt
             self._optimize(**params)
             self._postProcess()
             repetitions += 1

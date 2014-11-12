@@ -51,7 +51,7 @@ LearningMethods = Enum(
 #      "CD": "[discriminative] Contrastive Divergence",
     "BPLL": "pseudo-log-likelihood with blocking (deprecated)",
 #      "DBPLL_CG": "[discriminative] pseudo-log-likelihood with blocking (custom grounding, deprecated)",
-#      "BPLL_CG": "pseudo-log-likelihood with blocking (custom grounding, deprecated)",
+    "BPLL_CG": "pseudo-log-likelihood with blocking (custom grounding, deprecated)",
       "BPLL_SF": "pseudo-log-likelihood with support for soft-functional constraints",
       #"BPLLMemoryEfficient": "pseudo-log-likelihood with blocking, memory-efficient", # NOTE: this method has now been merged into BPLL
 #      "PLL_fixed": "pseudo-log-likelihood with fixed unitary clauses [deprecated]",

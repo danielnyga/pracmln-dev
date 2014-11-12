@@ -127,6 +127,8 @@ class SLL(AbstractLearner):
     
     def __init__(self, mrf, **params):
         AbstractLearner.__init__(self, mrf, **params)
+        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
+            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
         self.mcsatSteps = self.params.get("mcsatSteps", 2000)        
         self.samplerParams = dict(given="", softEvidence={}, maxSteps=self.mcsatSteps, 
                                   doProbabilityFitting=False,

@@ -56,6 +56,8 @@ class PLL(AbstractLearner):
         AbstractLearner.__init__(self, mln, mrf, **params)
         self.pmbMethod = pmbMethod
         self.diffMethod = diffMethod
+        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
+            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
     
     def getAtomProbMB(self, atom):
         '''

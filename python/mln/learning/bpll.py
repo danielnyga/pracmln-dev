@@ -31,6 +31,7 @@ import logging
 import praclog
 import time
 from mln.learning.common import DiscriminativeLearner
+from mln.atomicblocks import SoftMutexBlock
 
 class BPLL(AbstractLearner):
     '''
@@ -44,8 +45,11 @@ class BPLL(AbstractLearner):
     
     def __init__(self, mln, mrf, **params):
         AbstractLearner.__init__(self, mln, mrf, **params)
+
         
     def _prepareOpt(self):
+        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
+            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
         log = logging.getLogger(self.__class__.__name__)
         log.info("constructing blocks...") 
         self.mrf._getPllBlocks()
@@ -207,6 +211,8 @@ class BPLL_CG(BPLL):
         BPLL.__init__(self, mln, mrf, **params)
     
     def _prepareOpt(self):
+        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
+            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
         log = logging.getLogger(self.__class__.__name__)
         log.info("constructing blocks...")
         self.mrf._getPllBlocks()
@@ -217,8 +223,6 @@ class BPLL_CG(BPLL):
         self.fcounts = self.mrf.groundingMethod.fcounts
         self.blockRelevantFormulas = self.mrf.groundingMethod.blockRelevantFormulas
         self.evidenceIndices = self.mrf.groundingMethod.evidenceIndices
-        for f, parts in self.fcounts.iteritems():
-            print f, parts
             
             
             
@@ -308,7 +312,6 @@ class BPLL_SF(BPLL):
             for atomicBlock in atomicBlocks:
                 blocksize = atomicBlock.getNumberOfValues()
                 for valueIdx, value in enumerate(atomicBlock.generateValueTuples()):
-                    print atomicBlock, value
                     self.mrf.setTemporaryEvidence(atomicBlock.valueTuple2EvidenceDict(value))
                     truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
                     self._addMBCount(atomicBlock.blockidx, blocksize, valueIdx, gndFormula.idxFormula, truth)
