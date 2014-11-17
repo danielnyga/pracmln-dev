@@ -190,6 +190,8 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                 gndFormulas = pool.map(with_tracing(create_formula_groundings), mrf.formulas)
                 for gndFormula in itertools.chain(*gndFormulas):
                     mrf._addGroundFormula(gndFormula, gndFormula.fIdx, None)
+                pool.close()
+                pool.join()
             except:
                 pool.terminate()
                 pool.join()
