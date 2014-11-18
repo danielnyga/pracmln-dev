@@ -86,7 +86,7 @@ class Constraint(object):
         if not len(t) == len(self.varIndices):
             print 'tuple:', t
             print 'vars:', self.varIndices
-            assert False
+            raise Exception('List of variables and tuples must have the same length.')
         self.tuples[tuple(t)] = cost
     
     def write(self, stream):
@@ -312,7 +312,6 @@ class WCSP(object):
                 nextLineIsSolution = True
                 continue
             if nextLineIsSolution:
-                if verbose: print solution, cost
                 solution = map(int, l.split())
                 nextLineIsSolution = False
         p.wait()        

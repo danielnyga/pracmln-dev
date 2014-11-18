@@ -29,6 +29,8 @@ from praclog import logging
 from utils import deprecated
 from logic.common import Logic
 from mln.database import Database
+import copy
+from mln.atomicblocks import MutexBlock, SoftMutexBlock
 import sys
 
 class WCSPConverter(object):
@@ -342,9 +344,8 @@ class WCSPConverter(object):
                 return {cost: (assignment,), defcost: 'else'}
         if defaultProcedure: 
             # fallback: go through all combinations of truth assignments
-            domains = [range(len(self.varIdx2GndAtom[i])) if i in self.mutexVars else [0,1] for i,_ in enumerate(self.vars) if i in varIndices]
+            domains = [list(b.generateValueTuples()) for b in self.variables if b.blockidx in varIndices]
             cost2assignments = {}
-#             log.debug(formula)
             # compute number of worlds to be examined and print a warning
             # if it exceeds 10,000 poss. worlds
             worlds = 1
@@ -354,13 +355,11 @@ class WCSPConverter(object):
                 log.warning('!!! WARNING: %d POSSIBLE WORLDS ARE GOING TO BE EVALUATED. KEEP IN SIGHT YOUR MEMORY CONSUMPTION !!!' % worlds)
             for c in utils.combinations(domains):
                 world = [0] * len(self.mrf.gndAtoms)
+                valIndices = []
                 for var, assignment in zip(varIndices, c):
-                    if var in self.mutexVars: # mutex constraint
-                        world[self.varIdx2GndAtom[var][assignment].idx] = 1
-#                         print '%s ---> 1' % self.varIdx2GndAtom[var][assignment]
-                    else:
-                        world[self.varIdx2GndAtom[var][0].idx] = 1 if assignment > 0 else 0
-#                         print '%s ---> %s' % (self.varIdx2GndAtom[var][0], 1 if assignment > 0 else 0)
+                    valIndices.append(self.variables[var].val2idx[assignment])
+                    for atom, val in zip(self.variables[var].gndatoms, assignment):
+                        world[atom.idx] = val
                 # the MRF feature imposed by this formula 
                 truth = formula.isTrue(world)
 #                 print truth
@@ -369,7 +368,7 @@ class WCSPConverter(object):
                 cost = WCSP.TOP if (truth < 1 and formula.isHard) else (1 - truth) * formula.weight
                 assignments = cost2assignments.get(cost, [])
                 cost2assignments[cost] = assignments
-                assignments.append(c)
+                assignments.append(valIndices)
             return cost2assignments
         assert False # unreachable
         
