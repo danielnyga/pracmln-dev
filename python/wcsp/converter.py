@@ -29,6 +29,7 @@ from logic.common import Logic
 from mln.database import Database
 import copy
 from mln.atomicblocks import MutexBlock, SoftMutexBlock
+import sys
 
 
 
@@ -221,7 +222,7 @@ class WCSPConverter(object):
                 return {cost: (assignment,), defcost: 'else'}
         if defaultProcedure: 
             # fallback: go through all combinations of truth assignments
-            domains = [list(b.generateValueTuples()) for b in self.variables]
+            domains = [list(b.generateValueTuples()) for b in self.variables if b.blockidx in varIndices]
             cost2assignments = {}
             # compute number of worlds to be examined and print a warning
             # if it exceeds 10,000 poss. worlds
@@ -232,7 +233,9 @@ class WCSPConverter(object):
                 log.warning('!!! WARNING: %d POSSIBLE WORLDS ARE GOING TO BE EVALUATED. KEEP IN SIGHT YOUR MEMORY CONSUMPTION !!!' % worlds)
             for c in utils.combinations(domains):
                 world = [0] * len(self.mrf.gndAtoms)
+                valIndices = []
                 for var, assignment in zip(varIndices, c):
+                    valIndices.append(self.variables[var].val2idx[assignment])
                     for atom, val in zip(self.variables[var].gndatoms, assignment):
                         world[atom.idx] = val
                 # the MRF feature imposed by this formula 
@@ -242,7 +245,7 @@ class WCSPConverter(object):
                 cost = WCSP.TOP if (truth < 1 and formula.isHard) else (1 - truth) * formula.weight
                 assignments = cost2assignments.get(cost, [])
                 cost2assignments[cost] = assignments
-                assignments.append(c)
+                assignments.append(valIndices)
             return cost2assignments
         assert False # unreachable
         
