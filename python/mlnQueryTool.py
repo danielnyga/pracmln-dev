@@ -188,10 +188,14 @@ class MLNInfer(object):
                 # invoke inference and retrieve results
                 print 'Inference parameters:', args
                 mrf.mln.watch.tag('Inference')
-                mrf.infer(queries, **args)
+                dist = mrf.infer(queries, **args)
                 results = {}
-                for gndFormula, p in mrf.getResultsDict().iteritems():
-                    results[str(gndFormula)] = p
+                fullDist = args.get('fullDist', False)
+                if fullDist:
+                    pickle.dump(dist, open('%s.dist' % output_base_filename, 'w+'))
+                else:
+                    for gndFormula, p in mrf.getResultsDict().iteritems():
+                        results[str(gndFormula)] = p
                 
                 mrf.mln.watch.printSteps()
                 

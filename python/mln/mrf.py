@@ -43,6 +43,7 @@ from grounding import *
 
 POSSWORLDS_BLOCKING = True
 
+
 class MRF(object):
     '''
     Represents a ground Markov Random Field
@@ -84,7 +85,7 @@ class MRF(object):
         self.evidenceBackup = {}
 #         self.softEvidence = list(mln.posteriorProbReqs) # constraints on posterior 
                                                         # probabilities are nothing but 
-                                                        #soft evidence and can be handled in exactly the same way
+                                                        # soft evidence and can be handled in exactly the same way
         log.debug('Formula simplification switched %s.' % {True: 'on', False: 'off'}[simplify])
         # ground members
         self.gndAtoms = {}
@@ -93,6 +94,9 @@ class MRF(object):
         self.gndAtomsByIdx = {}
         self.gndFormulas = []
         self.gndAtomOccurrencesInGFs = []
+        self.gndAtomicBlocks = {}
+        self.gndAtom2AtomicBlock = {}
+        self.gndAtomicBlockByIdx = {}
         
         if type(db) == str:
             db = readDBFromFile(self.mln, db)
@@ -132,6 +136,10 @@ class MRF(object):
 #         for a in self.gndAtoms.values():
 #             log.debug('%s%s -> %2.2f' % (('%d' % a.idx).ljust(5), a, self.evidence[a.idx]))
         assert len(self.gndAtoms) == len(self.evidence)
+#         for gndblock in self.gndAtomicBlocks.values():
+#             print gndblock
+#             for world in gndblock.generatePossibleWorldTuples():
+#                 print world
 
     def getHardFormulas(self):
         '''
@@ -213,30 +221,42 @@ class MRF(object):
             if verbose: print "  ", strFormula(f)
             f.weight = hard_weight
 
-    def addGroundAtom(self, gndLit):
+    def addGroundAtom(self, gndatom):
         '''
         Adds a ground atom to the set (actually it's a dict) of ground atoms.
         gndLit: a fol.GroundAtom object
         '''
-        if str(gndLit) in self.gndAtoms:
+        if str(gndatom) in self.gndAtoms:
             return
         atomIdx = len(self.gndAtoms)
-        gndLit.idx = atomIdx
-        self.gndAtomsByIdx[gndLit.idx] = gndLit
-        self.gndAtoms[str(gndLit)] = gndLit
+        gndatom.idx = atomIdx
+        self.gndAtomsByIdx[gndatom.idx] = gndatom
+        self.gndAtoms[str(gndatom)] = gndatom
         self.gndAtomOccurrencesInGFs.append([])
         
         # check if atom is in block and update the lookup
-        mutex = self.mln.blocks.get(gndLit.predName)
+        mutex = self.mln.blocks.get(gndatom.predName)
         if mutex != None and any(mutex):
-            blockName = "%s_" % gndLit.predName
+            blockName = "%s_" % gndatom.predName
             for i, v in enumerate(mutex):
                 if v == False:
-                    blockName += gndLit.params[i]
+                    blockName += gndatom.params[i]
             if not blockName in self.gndBlocks:
                 self.gndBlocks[blockName] = []
-            self.gndBlocks[blockName].append(gndLit.idx)
-            self.gndBlockLookup[gndLit.idx] = blockName
+            self.gndBlocks[blockName].append(gndatom.idx)
+            self.gndBlockLookup[gndatom.idx] = blockName
+            
+        # check the predicate for its type
+        predicate = self.mln.pred_decls.get(gndatom.predName)
+        blockname = predicate.getblockname(gndatom)
+        gndblock = self.gndAtomicBlocks.get(blockname, None)
+        if gndblock is None:
+            gndblock = predicate.create_gndblock(blockname, len(self.gndAtomicBlocks))
+            self.gndAtomicBlocks[blockname] = gndblock
+            self.gndAtomicBlockByIdx[gndblock.blockidx] = gndblock 
+        gndblock.gndatoms.append(gndatom)
+        self.gndAtom2AtomicBlock[gndatom.idx] = gndblock
+        
 
     def _addGroundFormula(self, gndFormula, idxFormula, idxGndAtoms = None):
         '''
@@ -277,6 +297,16 @@ class MRF(object):
     def _setTemporaryEvidence(self, idxGndAtom, value):
         self.evidenceBackup[idxGndAtom] = self._getEvidence(idxGndAtom, closedWorld=False)
         self._setEvidence(idxGndAtom, value)
+        
+        
+    def setTemporaryEvidence(self, evidence):
+        '''
+        evidence should be a dict mapping gnd atom indices to truth values.
+        '''
+        self._removeTemporaryEvidence()
+        for atomidx, truth in evidence.iteritems():
+            self._setTemporaryEvidence(atomidx, truth)
+        
 
     def _getEvidence(self, idxGndAtom, closedWorld=True):
         '''

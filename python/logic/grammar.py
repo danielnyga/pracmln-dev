@@ -196,7 +196,7 @@ class StandardGrammar(Grammar):
         openRB = Literal("(").suppress()
         closeRB = Literal(")").suppress()
         
-        domName = domName = Combine(lcName + Optional('!'))
+        domName = Combine(lcName + Optional(Literal('!')) | Literal('?'))
         
         constant = Word(ucCharacter, identifierCharacter) | Word(nums)
         variable = Word(lcCharacter, identifierCharacter)
@@ -256,7 +256,7 @@ class PRACGrammar(Grammar):
     def __init__(self, logic):
         # grammar
         
-        identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$' + '~' + '!'
+        identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$' + '~' + '!' + '\\'
         lcCharacter = alphas.lower()
         ucCharacter = alphas.upper()
         lcName = Word(lcCharacter, alphanums + '_')
@@ -267,7 +267,7 @@ class PRACGrammar(Grammar):
         openSB = Literal('[').suppress()
         closeSB = Literal(']').suppress()
         
-        domName = Combine(lcName + Optional('!'))
+        domName = Combine(lcName + Optional(Literal('!') | Literal('?')))
         
         constant = Word(identifierCharacter) | Word(nums) | Combine(Literal('"') + Word(printables.replace('"', '')) + Literal('"')) #QuotedString(quoteChar = '"', escChar = '\\')
         variable = Word(qMark, identifierCharacter)

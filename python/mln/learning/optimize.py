@@ -1,6 +1,8 @@
 
 import sys
 import logging
+import time
+import math
 
 try:
     import numpy
@@ -14,29 +16,62 @@ class DirectDescent(object):
     Naive gradient descent optimization.
     '''    
     
-    def __init__(self, wt, problem, gtol=1e-3, maxSteps=100, learningRate=0.1, **params):
-        self.problem = problem
+    def __init__(self, wt, learner, gtol=1e-3, maxiter=None, learningRate=0.1, **params):
+        self.learner = learner
         self.wt = wt
         self.gtol = gtol
-        self.maxSteps = maxSteps
+        self.maxiter = iter
         self.learningRate = learningRate
+        if self.learningRate < .0 or self.learningRate >= 1.:
+            raise Exception('learning rate must lie in [0,1[: %s' % self.learningRate)
     
     def run(self):
         log = logging.getLogger(self.__class__.__name__)
         norm = 1
-        alpha = self.learningRate
+        alpha = 1.0
         step = 1
         log.info('starting optimization with %s... (alpha=%f)' % (self.__class__.__name__, alpha))
+        f_ = None
         while True:
-            grad = self.problem.grad(self.wt)
+            grad = self.learner.grad(self.wt)
             norm = numpy.linalg.norm(grad)
-            log.info("step %d, norm: %f" % (step, norm))
-            log.info('grad = %s' % str(grad))
-            log.info('wt = %s' % str(self.wt))
-            if norm < self.gtol or step > self.maxSteps:
+            f_ = self.learner.f(self.wt)
+            print
+            print '|grad| =', norm
+            if norm < self.gtol or (self.maxiter is not None and step > self.maxiter):
                 break
-            step += 1
-            self.wt += grad * alpha
+            exitNow = False
+            w_ = None
+            smaller = False
+            bigger = False
+            f_opt = f_
+            while not exitNow:
+                w = self.wt + grad * alpha
+                print
+                f = self.learner.f(w, verbose=True)
+                if f_ < f:
+#                     if smaller:
+                    if f_opt < f: 
+                        self.wt = numpy.array(list(w))
+                        f_ = f
+                        alpha *= (1 + self.learningRate)
+                        exitNow = True
+#                     else:
+                    bigger = True
+                    w_ = numpy.array(list(w))
+                elif f_ > f:
+                    if bigger:
+                        if f_opt < f: 
+                            self.wt = w_
+                            f_ = f 
+                        exitNow = True
+                    alpha *= (1.0 - self.learningRate)
+                    smaller = True
+                else:
+                    exitNow = True
+                f_ = f
+            print
+            print 'alpha =', alpha
         return self.wt
 
 
@@ -205,55 +240,55 @@ class SciPyOpt(object):
         
         return wt
 
-try:
-    from playdoh import Fitness, maximize, MAXCPU, GA, PSO, print_table
-    from numpy import exp, tile, array
-
-
-    class FitnessTest(Fitness):
-        # This method allows to initialize some data.
-        def initialize(self, problem):
-            self.problem = problem
-    
-        # This method is called at every iteration.
-        def evaluate(self, x):
-            xt = x.T
-            result = []
-            for i in range(xt.shape[0]):
-                    result.append(self.problem._f(xt[i]))
-            return array(result)
-        
-    class PlaydohOpt(object):
-        # Maximize the fitness function in parallel
-        def __init__(self,  optimizer, wt, problem, **params):
-            self.optimizer = optimizer
-            self.wt = wt
-            self.problem = problem
-            self.optParams = params
-    
-        def run(self, initRange=[-10,10], maxIter=10):
-            popSize = self.optParams['popSize'] if ('popSize' in self.optParams) else 10
-            initRange = self.optParams['initRange'] if ('initRange' in self.optParams) else [-10, 10]
-            maxIter = self.optParams['maxIter'] if ('maxIter' in self.optParams) else 10
-            machines = self.optParams['machines'] if ('machines' in self.optParams) else ['localhost']
-    
-            algorithm = GA if (self.optimizer == 'ga') else PSO
-            initrange = numpy.tile(initRange, (len(self.wt), 1))
-    
-            results = maximize(FitnessTest,
-                       popsize=popSize,  # size of the population
-                       maxiter=maxIter,  # maximum number of iterations
-    #                    cpu=MAXCPU,  # number of CPUs to use on the local machine
-                       args=(self.problem,),  # parameters for the "initialize" method
-                       initrange=initrange, # initial range for the x parameter
-                       machines=machines, #list of machines to use
-                       algorithm=algorithm) #algorithm to use, PSO/GA/CMAES
-    
-            # Display the final result in a table
-            print_table(results)
-            #print results.best_pos
-            return results.best_pos
-
-except ImportError, e:
-    logging.getLogger(__name__).error('Playdoh has not been found. Distributed optimization will not be applicable. Download and install playdoh from https://github.com/danielnyga/playdoh')
+# try:
+#     from playdoh import Fitness, maximize, MAXCPU, GA, PSO, print_table
+#     from numpy import exp, tile, array
+# 
+# 
+#     class FitnessTest(Fitness):
+#         # This method allows to initialize some data.
+#         def initialize(self, problem):
+#             self.problem = problem
+#     
+#         # This method is called at every iteration.
+#         def evaluate(self, x):
+#             xt = x.T
+#             result = []
+#             for i in range(xt.shape[0]):
+#                     result.append(self.problem._f(xt[i]))
+#             return array(result)
+#         
+#     class PlaydohOpt(object):
+#         # Maximize the fitness function in parallel
+#         def __init__(self,  optimizer, wt, problem, **params):
+#             self.optimizer = optimizer
+#             self.wt = wt
+#             self.problem = problem
+#             self.optParams = params
+#     
+#         def run(self, initRange=[-10,10], maxIter=10):
+#             popSize = self.optParams['popSize'] if ('popSize' in self.optParams) else 10
+#             initRange = self.optParams['initRange'] if ('initRange' in self.optParams) else [-10, 10]
+#             maxIter = self.optParams['maxIter'] if ('maxIter' in self.optParams) else 10
+#             machines = self.optParams['machines'] if ('machines' in self.optParams) else ['localhost']
+#     
+#             algorithm = GA if (self.optimizer == 'ga') else PSO
+#             initrange = numpy.tile(initRange, (len(self.wt), 1))
+#     
+#             results = maximize(FitnessTest,
+#                        popsize=popSize,  # size of the population
+#                        maxiter=maxIter,  # maximum number of iterations
+#     #                    cpu=MAXCPU,  # number of CPUs to use on the local machine
+#                        args=(self.problem,),  # parameters for the "initialize" method
+#                        initrange=initrange, # initial range for the x parameter
+#                        machines=machines, #list of machines to use
+#                        algorithm=algorithm) #algorithm to use, PSO/GA/CMAES
+#     
+#             # Display the final result in a table
+#             print_table(results)
+#             #print results.best_pos
+#             return results.best_pos
+# 
+# except ImportError, e:
+#     logging.getLogger(__name__).error('Playdoh has not been found. Distributed optimization will not be applicable. Download and install playdoh from https://github.com/danielnyga/playdoh')
     

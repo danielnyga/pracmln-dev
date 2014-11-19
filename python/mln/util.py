@@ -63,7 +63,6 @@ def stripComments(text):
     # taken from http://stackoverflow.com/questions/241327/python-snippet-to-remove-c-and-c-comments
     def replacer(match):
         s = match.group(0)
-        print s
         if s.startswith('/'):
             return " " # note: a space and not an empty string
         else:

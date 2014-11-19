@@ -147,12 +147,13 @@ class Inference(object):
         msecs = int((elapsed - secs) * 1000)
         return (elapsed, "%d:%02d:%02d.%03d" % (hours, minutes, secs, msecs))
 
-    def infer(self, queries, given=None, verbose=True, details=False, shortOutput=True, outFile=None, saveResultsProlog=False, **args):
+    def infer(self, queries, given=None, verbose=False, details=False, shortOutput=True, outFile=None, saveResultsProlog=False, **args):
         '''
         Starts the inference process.
         queries: a list of queries - either strings 
                  (predicate names or partially/fully grounded atoms) or ground formulas
         '''
+        logger = logging.getLogger(self.__class__.__name__)
         self.given = given
         
         # read queries
@@ -164,7 +165,7 @@ class Inference(object):
         self.results = self._infer(verbose=verbose, details=details, **args)
         self.totalInferenceTime = self._getElapsedTime()
         # output
-        if verbose:
+        if verbose and not args.get('fullDist', False):
             if details: print "\nresults:"
             self.writeResults(sys.stdout, shortOutput=shortOutput)
             print '\ninference took %.2f sec' % self._getElapsedTime()[0]
@@ -176,6 +177,8 @@ class Inference(object):
             self.mrf.evidence = self.mrfEvidenceBackup
             
         # return results
+        if args.get('fullDist', False):
+            return self.results
         return self.getResultsDict()
     
     def getResultsDict(self):

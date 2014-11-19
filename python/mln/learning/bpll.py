@@ -31,6 +31,7 @@ import logging
 import praclog
 import time
 from mln.learning.common import DiscriminativeLearner
+from mln.atomicblocks import SoftMutexBlock
 
 class BPLL(AbstractLearner):
     '''
@@ -44,8 +45,11 @@ class BPLL(AbstractLearner):
     
     def __init__(self, mln, mrf, **params):
         AbstractLearner.__init__(self, mln, mrf, **params)
+
         
     def _prepareOpt(self):
+        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
+            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
         log = logging.getLogger(self.__class__.__name__)
         log.info("constructing blocks...") 
         self.mrf._getPllBlocks()
@@ -207,6 +211,8 @@ class BPLL_CG(BPLL):
         BPLL.__init__(self, mln, mrf, **params)
     
     def _prepareOpt(self):
+        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
+            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
         log = logging.getLogger(self.__class__.__name__)
         log.info("constructing blocks...")
         self.mrf._getPllBlocks()
@@ -217,8 +223,101 @@ class BPLL_CG(BPLL):
         self.fcounts = self.mrf.groundingMethod.fcounts
         self.blockRelevantFormulas = self.mrf.groundingMethod.blockRelevantFormulas
         self.evidenceIndices = self.mrf.groundingMethod.evidenceIndices
-        for f, parts in self.fcounts.iteritems():
-            print f, parts
+            
+            
+            
+class BPLL_SF(BPLL):
+    '''
+    BPLL learner variant that uses the new representation of 
+    ground atoms and block variables supporting soft functional constraints.
+    '''
+    
+    groundingMethod = 'DefaultGroundingFactory'
+    
+    def __init__(self, mln, mrf, **params):
+        BPLL.__init__(self, mln, mrf, **params)
+    
+    def _prepareOpt(self):
+        log = logging.getLogger(self.__class__.__name__)
+        log.info("constructing blocks...") 
+        self._computeStatistics()
+        # remove data that is now obsolete
+        self.mrf.removeGroundFormulaData()
+        log.info('Total time: %.2f' % (self.mrf.groundingMethod.gndTime + self.statTime))
+    
+    
+    def _f(self, wt):
+        self._calculateBlockProbsMB(wt)
+        probs = []
+        for idxVar in xrange(len(self.mrf.gndAtomicBlocks)):
+            p = self.blockProbsMB[idxVar][self.evidenceIndices[idxVar]]
+            if p == 0: p = 1e-10 # prevent 0 probabilities
+            probs.append(p)
+        return fsum(map(log, probs))
+        
+    
+    def _calculateBlockProbsMB(self, wt):
+        if ('wtsLastBlockProbMBComputation' not in dir(self)) or self.wtsLastBlockProbMBComputation != list(wt):
+            #print "recomputing block probabilities...",
+            self.blockProbsMB = [self._getBlockProbMB(i, wt) for i in xrange(len(self.mrf.gndAtomicBlocks))]
+#             print self.blockProbsMB
+            self.wtsLastBlockProbMBComputation = list(wt)    
+    
+        
+    def _getBlockProbMB(self, blockidx, wt):        
+        atomicBlock = self.mrf.gndAtomicBlockByIdx[blockidx]
+        numValues = atomicBlock.getNumberOfValues()
+        
+        relevantFormulas = self.blockRelevantFormulas.get(blockidx, None)
+        if relevantFormulas is None: # no list was saved, so the truth of all formulas is unaffected by the variable's value
+            # uniform distribution applies
+            p = 1.0 / numValues
+            return [p] * numValues
+        
+        sums = numpy.zeros(numValues)
+        for idxFormula in relevantFormulas:
+            for idxValue, n in enumerate(self.fcounts[idxFormula][blockidx]):
+                sums[idxValue] += n * wt[idxFormula]
+        sum_min = numpy.min(sums)
+        sums -= sum_min
+        sum_max = numpy.max(sums)
+        sums -= sum_max
+        expsums = numpy.sum(numpy.exp(sums))
+        s = numpy.log(expsums)
+        return numpy.exp(sums - s)
+    
+        
+    def _computeStatistics(self):
+        '''
+        computes the statistics upon which the optimization is based
+        '''
+        debug = False
+        log = logging.getLogger(self.__class__.__name__)
+        log.info("computing statistics...")
+        self.statTime = time.time()
+        # get evidence indices
+        self.evidenceIndices = [None] * len(self.mrf.gndAtomicBlocks)
+        for atomicBlock in self.mrf.gndAtomicBlocks.values():
+            self.evidenceIndices[atomicBlock.blockidx] = atomicBlock.getEvidenceIndex(self.mrf.evidence)
+        
+        # compute actual statistics
+        self.fcounts = {}
+        self.blockRelevantFormulas = defaultdict(set) # maps from variable/pllBlock index to a list of relevant formula indices
+        for gndFormula in self.mrf.gndFormulas:
+            # get the set of block indices that the variables appearing in the formula correspond to
+            atomicBlocks = set()
+            for idxGA in gndFormula.idxGroundAtoms():
+                atomicBlocks.add(self.mrf.gndAtom2AtomicBlock[idxGA])
+            
+            for atomicBlock in atomicBlocks:
+                blocksize = atomicBlock.getNumberOfValues()
+                for valueIdx, value in enumerate(atomicBlock.generateValueTuples()):
+                    self.mrf.setTemporaryEvidence(atomicBlock.valueTuple2EvidenceDict(value))
+                    truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
+                    self._addMBCount(atomicBlock.blockidx, blocksize, valueIdx, gndFormula.idxFormula, truth)
+                    self.mrf._removeTemporaryEvidence()
+                    
+        self.statTime = time.time() - self.statTime
 
 
 class DBPLL_CG(BPLL_CG, DiscriminativeLearner):

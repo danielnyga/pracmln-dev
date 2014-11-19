@@ -29,6 +29,7 @@ import sys
 
 from common import *
 from ll import *
+import logic
 
 class MCMCSampler(object):
     def __init__(self, mrf, mcsatParams, discardDuplicateWorlds = False, keepTopWorldCounts = False, computeHessian = False):
@@ -65,7 +66,7 @@ class MCMCSampler(object):
             print "calling MCSAT with weights:", wtFull
             
             #evidenceString = evidence2conjunction(self.mrf.getEvidenceDatabase())
-            what = [FOL.TrueFalse(True)]      
+            what = [logic.FirstOrderLogic.TrueFalse(True)]      
             mcsat = self.mrf.inferMCSAT(what, sampleCallback=self._sampleCallback, **self.mcsatParams)
             #print mcsat
             print "sampled %d worlds" % self.numSamples
@@ -127,6 +128,8 @@ class SLL(AbstractLearner):
     
     def __init__(self, mrf, **params):
         AbstractLearner.__init__(self, mrf, **params)
+        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
+            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
         self.mcsatSteps = self.params.get("mcsatSteps", 2000)        
         self.samplerParams = dict(given="", softEvidence={}, maxSteps=self.mcsatSteps, 
                                   doProbabilityFitting=False,
@@ -136,7 +139,7 @@ class SLL(AbstractLearner):
     def _sample(self, wt, caller):
         self.normSampler.sample(wt)
         
-    def _f(self, wt):
+    def _f(self, wt, **params):
         # although this function corresponds to the gradient, it cannot soundly be applied to
         # the problem, because the set of samples is drawn only from the set of worlds that
         # have probability mass only
@@ -149,7 +152,7 @@ class SLL(AbstractLearner):
         
         return ll
     
-    def _grad(self, wt):
+    def _grad(self, wt, **params):
         self._sample(wt, "grad")
         grad = self.formulaCountsTrainingDB - self.normSampler.globalFormulaCounts / self.normSampler.numSamples
         return grad
@@ -184,7 +187,7 @@ class SLL_DN(SLL):
         SLL.__init__(self, mrf, **params)
         self.samplerConstructionParams["computeHessian"] = True
     
-    def _f(self, wt):
+    def _f(self, wt, **params):
         raise Exception("Objective function not implemented; use e.g. diagonal Newton to optimize")
     
     def _hessian(self, wt):
@@ -207,7 +210,7 @@ class SLL_ISE(LL_ISE):
     def __init__(self, mrf, **params):
         LL_ISE.__init__(self, mrf, **params)
     
-    def _f(self, wt):
+    def _f(self, wt, **params):
         idxTrainDB = self.idxTrainingDB
         self._calculateWorldValues(wt) # (calculates sum for evidence world only)
         self.normSampler.sample(wt)
@@ -221,7 +224,7 @@ class SLL_ISE(LL_ISE):
         print 
         return ll
     
-    def _grad(self, wt):
+    def _grad(self, wt, **params):
         idxTrainDB = self.idxTrainingDB
 
         self.normSampler.sample(wt)
@@ -276,7 +279,7 @@ class SLL_SE(SoftEvidenceLearner):
         self.normSampler.sample(wt)
         self.seSampler.sample(wt)
     
-    def _grad(self, wt):
+    def _grad(self, wt, **params):
         self._sample()
         
         grad = (self.seSampler.scaledGlobalFormulaCounts / self.seSampler.Z) - (self.normSampler.scaledGlobalFormulaCounts / self.normSampler.Z)
@@ -290,7 +293,7 @@ class SLL_SE(SoftEvidenceLearner):
         print "SLL_SE: _grad:", grad
         return grad    
    
-    def _f(self, wt):        
+    def _f(self, wt, **params):        
         self._sample()
         
         numerator = self.seSampler.Z / self.seSampler.numSamples
@@ -326,14 +329,14 @@ class SLL_SE_DN(SoftEvidenceLearner):
         print "init soft ev learner"
         SoftEvidenceLearner.__init__(self, mrf, **params)
 
-    def _f(self, wt):
+    def _f(self, wt, **paramss):
         raise Exception("Objective function not implemented; use e.g. diagonal Newton to optimize")
     
     def _sample(self, wt):
         self.normSampler.sample(wt)
         self.seSampler.sample(wt)
     
-    def _grad(self, wt):
+    def _grad(self, wt, **params):
         self._sample(wt)
         grad = (self.seSampler.globalFormulaCounts / self.seSampler.numSamples) - (self.normSampler.globalFormulaCounts / self.normSampler.numSamples)
         return grad

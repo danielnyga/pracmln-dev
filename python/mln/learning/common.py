@@ -27,12 +27,17 @@ from mln.util import *
 import mln
 import optimize
 from mln.methods import LearningMethods
-from multiprocessing import Array, Value
+from multiprocessing import Array, Value, Pool
 import multiprocessing
 from multiprocessing import Process
 from multiprocessing.synchronize import Lock
 from utils import dict_union
 import logging
+from blessings import Terminal
+import traceback
+import signal
+# from optimization.ga import GeneticAlgorithm
+# from pyevolve import GenomeBase
 try:
     import numpy
 except:
@@ -55,6 +60,8 @@ class AbstractLearner(object):
         self.mrf = mrf
         self.params = params
         self.closedWorldAssumption = True
+        self._fixedWeightFormulas = {}
+        
     
     def _reconstructFullWeightVectorWithFixedWeights(self, wt):        
         if len(self._fixedWeightFormulas) == 0:
@@ -92,11 +99,18 @@ class AbstractLearner(object):
     
     def _fixFormulaWeights(self):
         self._fixedWeightFormulas = {}
-        for formula in self.mln.fixedWeightFormulas:
-            w = formula.weight
-            self._fixedWeightFormulas[formula.idxFormula] = w
+        # this is a small but effective hack that can speed up optimization in
+        # pseudo-likelihood learning tremedously: fix all weights of formulas
+        # whose gradient is zero from the very beginning. It will never become
+        # non-zero during learning due to independence assumptions in PLL. 
+        gradient = self._grad([f.weight for f in self.mln.formulas if not f.isHard])
+        for formula in self.mln.formulas:
+            if formula in self.mln.fixedWeightFormulas or gradient[formula.idxFormula] == 0:
+                self._fixedWeightFormulas[formula.idxFormula] = formula.weight
             
-    def f(self, wt):
+    def f(self, wt, **params):
+#         if isinstance(wt, GenomeBase.GenomeBase):
+#             wt = wt.genomeList
         # compute prior
         prior = 0
         if self.gaussianPriorSigma is not None:
@@ -108,14 +122,26 @@ class AbstractLearner(object):
         wt = self._convertToFloatVector(wt)
 #         print "_f: wt = ", wt
 #         sys.stdout.flush()
-        
         # compute likelihood
-        likelihood = self._f(wt)
-        sys.stdout.write('  likelihood = %f\r' % likelihood)
-        sys.stdout.flush()
+        likelihood = self._f(wt, **params)
+        if params.get('verbose', True):
+            sys.stdout.write('                                           \r')
+            if self.gaussianPriorSigma is not None:
+                sys.stdout.write('  log P(D|w) + log P(w) = %f + %f = %f\r' % (likelihood, prior, likelihood + prior))
+            else:
+                sys.stdout.write('  log P(D|w) = %f\r' % likelihood)
+            sys.stdout.flush()
         
         return likelihood + prior
         
+        
+    def __call__(self, wt):
+        return self.likelihood(wt)
+        
+    def likelihood(self, wt):
+        l = self.f(wt)
+        l = math.exp(l)
+        return l
     
     def _fDummy(self, wt):
         ''' a dummy target function that is used when f is disabled '''
@@ -145,7 +171,7 @@ class AbstractLearner(object):
         
         return self.dummyFValue
         
-    def grad(self, wt):
+    def grad(self, wt, **params):
         wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
         wt = self._convertToFloatVector(wt)
         
@@ -186,15 +212,20 @@ class AbstractLearner(object):
                 wt[i] = self.mln.formulas[i].weight
             log.debug('Using initial weight vector: %s' % str(wt))
                 
-        # precompute fixed formula weights
-        self._fixFormulaWeights()
-        self.wt = self._projectVectorToNonFixedWeightIndices(wt)
         
         self.params.update(params)
+    
+#         self.gaussianPriorSigma = 0.001 
     
         repetitions = 0
         while self._repeatLearning(repetitions): 
             self._prepareOpt()
+            # precompute fixed formula weights
+#             while self.gaussianPriorSigma <= 10:
+#                 log.error('new gaussian: %f' % self.gaussianPriorSigma)
+            self._fixFormulaWeights()
+            self.wt = self._projectVectorToNonFixedWeightIndices(wt)
+            self.gaussianPriorSigma *= 10
             self._optimize(**params)
             self._postProcess()
             repetitions += 1
@@ -222,12 +253,13 @@ class AbstractLearner(object):
             opt = optimize.DirectDescent(self.wt, self, **params)        
         elif optimizer == "diagonalNewton":
             opt = optimize.DiagonalNewton(self.wt, self, **params)  
-        elif optimizer in ['ga', 'pso']:
-            opt = optimize.PlaydohOpt(optimizer, self.wt, self, **params)      
+#         elif optimizer in ['ga', 'pso']:
+# #             opt = optimize.PlaydohOpt(optimizer, self.wt, self, **params)
+#             opt = GeneticAlgorithm(self.wt, self, **params)
         else:
             opt = optimize.SciPyOpt(optimizer, self.wt, self, **params)        
         
-        wt = opt.run()        
+        wt = opt.run()
         self.wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
         
         
@@ -268,7 +300,7 @@ class AbstractLearner(object):
     def _hessian(self, wt):
         raise Exception("The learner '%s' does not provide a Hessian computation; use another optimizer!" % str(type(self)))
     
-    def _f(self, wt):
+    def _f(self, wt, **params):
         raise Exception("The learner '%s' does not provide an objective function computation; use another optimizer!" % str(type(self)))
 
     def getName(self):
@@ -325,18 +357,28 @@ class SoftEvidenceLearner(AbstractLearner):
     
 def _mt_f(f, learners, wt):
     for learner in learners:
-#         fLock.acquire()
+        fLock.acquire()
         f.value += learner._f(wt)
-#         fLock.release()
+        fLock.release()
     
 def _mt_grad(grad, learners, wt):
     for learner in learners:
         g = learner._grad(wt)
-#         gradLock.acquire()
+        gradLock.acquire()
         for i, c in enumerate(g):
             grad[i] += c
-#         gradLock.release()
+        gradLock.release()
         
+
+def _f_eval((learner, wt, params)):
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    try:
+        return learner._f(wt, **params)
+    except:
+        traceback.print_exc()
+
+def _grad_eval((learner, wt, params)):
+    return learner.grad(wt, **params)
 
 gradLock = Lock()
 fLock = Lock()
@@ -356,7 +398,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         self.constructor = LearningMethods.byShortName(method)
         self.params = params
         self.learners = []
-        self.useMT = False
+        self.useMultiCPU = params.get('useMultiCPU')
         log = logging.getLogger(self.__class__.__name__)
         for i, db in enumerate(self.dbs):
             groundingMethod = eval('mln.learning.%s.groundingMethod' % self.constructor)
@@ -365,15 +407,14 @@ class MultipleDatabaseLearner(AbstractLearner):
             learner = eval("mln.learning.%s(mln_, mrf, **params)" % self.constructor)
             self.learners.append(learner)
 #             learner._prepareOpt()
-        if self.useMT:
+        if self.useMultiCPU:
             numCores = multiprocessing.cpu_count()
-            if self.verbose:
-                log.info('Setting up multi-core processing for %d cores' % numCores)
+            log.info('Setting up multi-core processing for %d cores' % numCores)
             self.multiCoreLearners = []
             learnersPerCore = int(ceil(len(self.learners) / float(numCores)))
             for i in range(numCores):
                 self.multiCoreLearners.append(self.learners[i*learnersPerCore:(i+1)*learnersPerCore])
-            print self.multiCoreLearners
+#             print self.multiCoreLearners
     
     
     def getName(self):
@@ -384,8 +425,8 @@ class MultipleDatabaseLearner(AbstractLearner):
         return AbstractLearner._repeatLearning(self, repetitions) and any([l._repeatLearning(repetitions) for l in self.learners])
         
         
-    def _f(self, wt):
-        if self.useMT:
+    def _f(self, wt, **params):
+        if self.useMultiCPU:
             f = Value('d', 0.0)
             processes = []
             for l in self.multiCoreLearners:
@@ -401,8 +442,8 @@ class MultipleDatabaseLearner(AbstractLearner):
                 likelihood += learner._f(wt)
             return likelihood
         
-    def _grad(self, wt):
-        if self.useMT:
+    def _grad(self, wt, **params):
+        if self.useMultiCPU:
             grad = Array('d', len(self.mln.formulas))
             processes = []
             for l in self.multiCoreLearners:
@@ -415,12 +456,13 @@ class MultipleDatabaseLearner(AbstractLearner):
             for c in grad[:]:
                 grad2.append(float(str(c)))
             return grad2
-        grad2 = numpy.zeros(len(self.mln.formulas), numpy.float64)
-        for i, learner in enumerate(self.learners):
-            grad_i = learner._grad(wt)
-            #print "  grad %d: %s" % (i, str(grad_i))
-            grad2 += grad_i
-        return grad2
+        else:
+            grad2 = numpy.zeros(len(self.mln.formulas), numpy.float64)
+            for i, learner in enumerate(self.learners):
+                grad_i = learner._grad(wt)
+                #print "  grad %d: %s" % (i, str(grad_i))
+                grad2 += grad_i
+            return grad2
 
     def _hessian(self, wt):
         N = len(self.mln.formulas)
@@ -434,14 +476,14 @@ class MultipleDatabaseLearner(AbstractLearner):
             learner._prepareOpt()
         pass # _prepareOpt is called for individual learners during construction
     
-    def _fixFormulaWeights(self):
-        self._fixedWeightFormulas = {}
-        for learner in self.learners:
-            learner._fixFormulaWeights()
-            for i, w in learner._fixedWeightFormulas.iteritems():
-                if i not in self._fixedWeightFormulas:
-                    self._fixedWeightFormulas[i] = 0.0
-                self._fixedWeightFormulas[i] += w / len(self.learners)
+#     def _fixFormulaWeights(self):
+#         self._fixedWeightFormulas = {}
+#         for learner in self.learners:
+#             learner._fixFormulaWeights()
+#             for i, w in learner._fixedWeightFormulas.iteritems():
+#                 if i not in self._fixedWeightFormulas:
+#                     self._fixedWeightFormulas[i] = 0.0
+#                 self._fixedWeightFormulas[i] += w / len(self.learners)
 
 
 class IncrementalLearner(AbstractLearner):
@@ -486,7 +528,7 @@ class IncrementalLearner(AbstractLearner):
     def getName(self):
         return "IncrementalLearner[%d*%s]" % (len(self.learners), self.learners[0].getName())
         
-    def _f(self, wt):
+    def _f(self, wt, **params):
         if self.useMT:
             f = Value('d', 0.0)
             processes = []
@@ -503,7 +545,7 @@ class IncrementalLearner(AbstractLearner):
                 likelihood += learner._f(wt)
             return likelihood
         
-    def _grad(self, wt):
+    def _grad(self, wt, **params):
         if self.useMT:
             grad = Array('d', len(self.mln.formulas))
             processes = []

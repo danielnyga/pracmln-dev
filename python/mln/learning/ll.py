@@ -26,6 +26,7 @@
 import sys
 
 from common import *
+from mln.atomicblocks import SoftMutexBlock
 
 
 class LL(AbstractLearner):
@@ -35,6 +36,8 @@ class LL(AbstractLearner):
     
     def __init__(self, mln, mrf, **params):
         AbstractLearner.__init__(self, mln, mrf, **params)
+        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
+            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
     
     def _computeCounts(self):
         ''' 
@@ -65,7 +68,7 @@ class LL(AbstractLearner):
         self.partition_function = fsum(self.expsums)
         self.wtsLastWorldValueComputation = list(wts)
 
-    def _grad(self, wt):
+    def _grad(self, wt, **params):
         '''
         Computes the gradient of the log-likelihood given the weight vector wt
         '''
@@ -83,7 +86,7 @@ class LL(AbstractLearner):
         print
         return grad
 
-    def _f(self, wt):
+    def _f(self, wt, **params):
         self._calculateWorldValues(wt)
         #ll = log(self.expsums[self.idxTrainingDB] / (self.partition_function / (len(self.mrf.worlds))))
         ll = log(self.expsums[self.idxTrainingDB] / self.partition_function)
@@ -230,7 +233,7 @@ class Abstract_ISEWW(SoftEvidenceLearner, LL):
                 if worldProbability > 0:
                     self.worldProbabilities[idxWorld] = worldProbability
                     
-    def _grad(self, wt):
+    def _grad(self, wt, **params):
         raise Exception("Mode LL_ISEWW: gradient function is not implemented")
     
     def useGrad(self):
@@ -241,7 +244,7 @@ class LL_ISEWW(Abstract_ISEWW):
     def __init__(self, mrf, **params):
         Abstract_ISEWW.__init__(self, mrf, **params)
     
-    def _f(self, wt):
+    def _f(self, wt, **params):
         self._calculateWorldValues(wt) #only to calculate partition function here:
         #print "worlds[idxTrainDB][\"sum\"] / Z", self.worlds[idxTrainDB]["sum"] , self.partition_function
         self._calculateWorldProbabilities()
@@ -268,7 +271,7 @@ class E_ISEWW(Abstract_ISEWW):
         self.countsByWorld = {}
         self.softCountsEvidenceWorld = {}
         
-    def _f(self, wt):
+    def _f(self, wt, **params):
         self._calculateWorldValues(wt) #only to calculate partition function here:
 
         #self._calculateWorldProbabilities()

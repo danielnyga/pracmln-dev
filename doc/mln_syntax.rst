@@ -14,7 +14,7 @@ Markov Logic Networks:
     All lower-case symbols are interpreted as variables.
   * ``PRACGrammar`` - a slightly modified grammar, which eases practical
     knowledge engineering of MLNs in some cases. In the ``PRACGrammar`` definitions,
-    all variables in an MLN must be prefixed with ``?``, any different 
+    all variables in an MLN must be prefixed by ``?``, any different 
     symbol is considered a constant (upper- or lower-case).
     
 * Semantics:
@@ -47,6 +47,72 @@ An MLN file may contain:
 * Predicate declarations to declare a predicate and the types/domains that apply to each of its arguments
   e.g. ``myPredicate(domFoo, domBar)``.
   A predicate declaration may coincide with a rule for mutual exclusiveness and exhaustiveness (see below).
+
+Predicate declarations
+----------------------
+
+Every predicate that is used in the MLN needs to be declared once in
+the MLN file. A predicate declaration consists of the predicate name
+followed by a comma-separated list of domain names of its arguments
+in round brackets. For example, ::
+
+  person(name, gender)
+  
+declares a predicate ``person``, which has two arguments of the domains
+``name`` and ``gender``. 
+ 
+Predicate arguments in MLNs are *typed*. This means that all predicates having
+a predicate of the same domain are sharing all values of that domain.
+A another predicate declaration, such as ::
+
+  friends(name, name)
+  
+is defined over the same set of ``name`` s. Normally the values of the 
+domains are automatically filled with the respective values that the MLN
+engine finds in formulas or databases. But it is also possible to
+explicitly define a domain range, for instance::
+
+  gender = {male, female}
+  
+specifies that there are two possible values ``male`` and ``female``
+for any predicate argument of the type ``gender``.
+
+Sometimes it is reasonable to specify that *exactly* one out of several
+atoms must always be true and all others in turn must be false. Such
+constraints are called *functional* constraints since the value
+of one argument is *functionally* determined by the values of the
+other arguments. In PRACMLNs, this can be specified by appending an
+exclamation mark ``!`` to the functionally determined argument: ::
+
+  person(name, gender!)
+  
+for example specifies that for every person ``p`` in the domain of discourse,
+*exactly* one out of the ground atoms ``person(p, male)`` and ``person(p, female)``
+must always be true. Any possible world that violates this constraint
+is automatically assigned 0 probability. Apart from that it is reasonable
+to use functional constraints from a modelling point of view in many
+cases, it is typically also computationally beneficial since functional
+constraints result in a partial linearization of the computational
+problem. In PRACMLNs, there is a second type of functional constraints,
+so-called *soft functional-constraints*, that require *maximally* one
+ground atom out of the set of mutually exclusive ground atoms to be true
+instead of exactly one. This is very convenient for classification
+problems, for instance, in order to let the probabilistic model
+decline to make a decision in case of insufficient confidence, but still
+exploit the computational appeal of functional constraints. Soft-functional
+constraints are specified by appending a question mark ``?`` to the respective
+predicate argument: ::
+
+  class(object, class?)
+  
+assigns exactly one class label to an object, or none.
+
+.. warning::
+
+    Soft-functional constraints are extensions of the original MLN formalism
+    and are not compatible with all learning and inference algorithms.
+
+
 
 Rules for mutual exclusiveness and exhaustiveness
 -------------------------------------------------
@@ -160,6 +226,19 @@ A database file may contain:
       evidence on non-atomic formulas can be handled using posterior 
       probability constraints (see above).
 
-* Domain extensionsas domain declarations (see above); useful if you want to define constants without making any statements about them.
+* Domain extensions like domain declarations (see above); useful if you want to define constants without making any statements about them.
+
+Databases stored in different ``.db`` files are considered *independent* of
+each others by default (independent in its probabilistic meaning). Different
+databases that should be treated independent can also be stored in one
+single file by separating their contents by three dashes ``---`` in a single line: ::
+
+   foo(x,y)
+   bar(y,z)
+   ---
+   foo(a,b)
+   bar(b,c)
+   
+represents two independent databases.
 
 

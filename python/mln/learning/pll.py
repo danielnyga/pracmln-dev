@@ -56,6 +56,8 @@ class PLL(AbstractLearner):
         AbstractLearner.__init__(self, mln, mrf, **params)
         self.pmbMethod = pmbMethod
         self.diffMethod = diffMethod
+        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
+            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
     
     def getAtomProbMB(self, atom):
         '''
@@ -191,7 +193,7 @@ class PLL(AbstractLearner):
             self.wtsLastAtomProbMBComputation = list(wt)
             print "done."
 
-    def _f(self, wt):
+    def _f(self, wt, **params):
         self._calculateAtomProbsMB(wt)
         #print self.atomProbsMB
         probs = map(lambda x: x if x > 0 else 1e-10, self.atomProbsMB) # prevent 0 probs
@@ -237,7 +239,7 @@ class PLL(AbstractLearner):
                                         self._addToDiff(gndFormula.idxFormula, i, diff / (len(block) - 1))
                                         
 
-    def _grad(self, wt):        
+    def _grad(self, wt, **params):        
         grad = numpy.zeros(len(self.mln.formulas), numpy.float64)
         fullWt = wt
         self._calculateAtomProbsMB(fullWt)
@@ -271,7 +273,7 @@ class DPLL(PLL, DiscriminativeLearner):
         self.queryPreds = self._getQueryPreds(params)
         
                 
-    def _f(self, wt):
+    def _f(self, wt, **params):
         self._calculateAtomProbsMB(wt)
 #         probs = map(lambda x: x if x > 0 else 1e-10, self.atomProbsMB) # prevent 0 probs
         probs = self.atomProbsMB
@@ -283,7 +285,7 @@ class DPLL(PLL, DiscriminativeLearner):
         return pll
 
     
-    def _grad(self, wt):        
+    def _grad(self, wt, **params):        
         grad = numpy.zeros(len(self.mln.formulas), numpy.float64)
         fullWt = wt
         self._calculateAtomProbsMB(fullWt)
@@ -356,7 +358,7 @@ class PLL_ISE(SoftEvidenceLearner, PLL):
         
         PLL._prepareOpt(self)
         
-    def _f(self, wt):
+    def _f(self, wt, **params):
         
         pll = PLL._f(self, wt)
             
@@ -368,7 +370,7 @@ class PLL_ISE(SoftEvidenceLearner, PLL):
         print "pseudo-log-likelihood:", pll
         return pll
         
-    def _grad(self, wt):        
+    def _grad(self, wt, **params):        
         grad = PLL._grad(self, wt)
                 
         if self.gaussianPriorSigma != None:
