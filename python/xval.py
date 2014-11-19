@@ -72,9 +72,11 @@ class XValFoldParams(object):
         self.cwPreds = None
         self.learningMethod = LearningMethods.CLL
         self.optimizer = 'cg'
-        self.maxrepeat = 10
-        self.partSize = 2
-        self.maxiter = 5
+        self.gtol = 0.1
+        self.learningRate = .5
+        self.maxrepeat = 1
+        self.partSize = 1
+        self.maxiter = None
         self.verbose = False
         self.noisyStringDomains = None
         self.directory = None
@@ -178,8 +180,10 @@ class XValFold(object):
                                           gaussianPriorSigma=10.,
                                           verbose=verbose,
                                           maxiter=self.params.maxiter,
+                                          learningRate=self.params.learningRate,
                                           partSize=self.params.partSize,
-                                          maxrepeat=self.params.maxrepeat)#200
+                                          maxrepeat=self.params.maxrepeat,
+                                          gtol=self.params.gtol)#200
             # store the learned MLN in a file
             learnedMLN.writeToFile(os.path.join(directory, 'run_%d.mln' % self.params.foldIdx))
             log.debug('Finished learning.')
