@@ -2,6 +2,7 @@
 import sys
 import logging
 import time
+import math
 
 try:
     import numpy
@@ -15,57 +16,62 @@ class DirectDescent(object):
     Naive gradient descent optimization.
     '''    
     
-    def __init__(self, wt, learner, gtol=1e-3, maxiter=None, learningRate=0.0001, **params):
+    def __init__(self, wt, learner, gtol=1e-3, maxiter=None, learningRate=0.1, **params):
         self.learner = learner
         self.wt = wt
         self.gtol = gtol
         self.maxiter = iter
         self.learningRate = learningRate
+        if self.learningRate < .0 or self.learningRate >= 1.:
+            raise Exception('learning rate must lie in [0,1[: %s' % self.learningRate)
     
     def run(self):
         log = logging.getLogger(self.__class__.__name__)
         norm = 1
-        alpha = self.learningRate
+        alpha = 1.0
         step = 1
         log.info('starting optimization with %s... (alpha=%f)' % (self.__class__.__name__, alpha))
         f_ = None
         while True:
             grad = self.learner.grad(self.wt)
-            f_ = self.learner.f(self.wt)
             norm = numpy.linalg.norm(grad)
+            f_ = self.learner.f(self.wt)
+            print
+            print '|grad| =', norm
             if norm < self.gtol or (self.maxiter is not None and step > self.maxiter):
                 break
             exitNow = False
             w_ = None
             smaller = False
             bigger = False
+            f_opt = f_
             while not exitNow:
                 w = self.wt + grad * alpha
                 print
-                f = self.learner.f(w)
-                print
-                print alpha
-#                 print 'old =', f_, 'new =', f
+                f = self.learner.f(w, verbose=True)
                 if f_ < f:
-#                     print 'bigger'
-                    if smaller: 
+#                     if smaller:
+                    if f_opt < f: 
                         self.wt = numpy.array(list(w))
+                        f_ = f
+                        alpha *= (1 + self.learningRate)
                         exitNow = True
-                    alpha *= 10.
+#                     else:
                     bigger = True
                     w_ = numpy.array(list(w))
                 elif f_ > f:
-#                     print 'smaller'
                     if bigger:
-                        self.wt = w_ 
+                        if f_opt < f: 
+                            self.wt = w_
+                            f_ = f 
                         exitNow = True
-                    alpha /= 10.
+                    alpha *= (1.0 - self.learningRate)
                     smaller = True
                 else:
                     exitNow = True
                 f_ = f
             print
-            log.warning('alpha = %f' % alpha)
+            print 'alpha =', alpha
         return self.wt
 
 

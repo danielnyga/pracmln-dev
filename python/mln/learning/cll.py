@@ -310,7 +310,7 @@ class CLL(AbstractLearner):
         return probs
         
 
-    def _f(self, w):
+    def _f(self, w, **params):
         logger = logging.getLogger(self.__class__.__name__)
         if self.current_wts is None or not numpy.array_equal(self.current_wts, w):
             self.current_wts = w
@@ -324,7 +324,7 @@ class CLL(AbstractLearner):
         self.iter += 1
         return fsum(map(log, likelihood))
             
-    def _grad(self, w):    
+    def _grad(self, w, **params):    
         log = logging.getLogger(self.__class__.__name__)
         if self.current_wts is None or not numpy.array_equal(self.current_wts, w):
             self.current_wts = w
@@ -496,4 +496,4 @@ class DCLL(CLL, DiscriminativeLearner):
         self.atomicVariables = filter(lambda block: self._getPredNameForPllBlock(block) in self.queryPreds, self.mrf.pllBlocks)
     
     
-    
+GndAtomPartition = CLL.GndAtomPartition
