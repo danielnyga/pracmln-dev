@@ -276,13 +276,15 @@ class MLN(object):
         Returns the predicate name, the domains of arguments and block information about
         the predicate with the given name, or None if there is none.
         '''
-        domains = self.predicates.get(pred_name, None)
-        if domains is None:
-            return None
-        blocks = self.blocks.get(pred_name, None)
-        if blocks is None:
-            blocks = [False] * len(domains)
-        return pred_name, domains, blocks
+        return self.pred_decls.get(pred_name, None)
+        
+#         domains = self.predicates.get(pred_name, None)
+#         if domains is None:
+#             return None
+#         blocks = self.blocks.get(pred_name, None)
+#         if blocks is None:
+#             blocks = [False] * len(domains)
+#         return pred_name, domains, blocks
     
     
     def iter_predicates(self):
@@ -299,7 +301,7 @@ class MLN(object):
         of the given one.
         '''
         for pred in mln.iter_predicates():
-            self.declarePredicate(*pred)
+            self.declarePredicate(pred)
     
 
     def declarePredicate(self, pred):
