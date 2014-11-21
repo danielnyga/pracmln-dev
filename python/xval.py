@@ -70,12 +70,13 @@ class XValFoldParams(object):
         self.queryPred = None
         self.queryDom = None
         self.cwPreds = None
-        self.learningMethod = LearningMethods.CLL
+        self.learningMethod = LearningMethods.DCLL
         self.optimizer = 'cg'
-        self.gtol = 0.1
+        self.gtol = 0.001
         self.learningRate = .5
-        self.maxrepeat = 50
-        self.partSize = 3
+        self.maxrepeat = 1
+        self.queryPreds = ['object']
+        self.partSize = 1
         self.maxiter = None
         self.verbose = False
         self.noisyStringDomains = None
@@ -182,6 +183,7 @@ class XValFold(object):
                                           maxiter=self.params.maxiter,
                                           learningRate=self.params.learningRate,
                                           partSize=self.params.partSize,
+                                          queryPreds=self.params.queryPreds,
                                           maxrepeat=self.params.maxrepeat,
                                           gtol=self.params.gtol)#200
             # store the learned MLN in a file

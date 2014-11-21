@@ -26,10 +26,11 @@ class AtomicBlock(object):
     Represents a (mutually exclusive) block of ground atoms.
     '''
     
-    def __init__(self, blockname, blockidx, *gndatoms):
+    def __init__(self, blockname, blockidx, predicate, *gndatoms):
         self.gndatoms = list(gndatoms)
         self.blockidx = blockidx
         self.name = blockname
+        self.predicate = predicate
     
     
     def iteratoms(self):
