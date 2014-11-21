@@ -493,7 +493,7 @@ class DCLL(CLL, DiscriminativeLearner):
         
     
     def _createVariables(self):
-        self.atomicVariables = filter(lambda block: self._getPredNameForPllBlock(block) in self.queryPreds, self.mrf.pllBlocks)
+        self.atomicVariables = [block for block in self.mrf.gndAtomicBlocks.values() if block.predicate.predname in self.queryPreds]
     
     
 GndAtomPartition = CLL.GndAtomPartition
