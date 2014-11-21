@@ -177,7 +177,8 @@ if __name__ == '__main__':
     logutilsDir = adapt("$SRLDB_HOME/3rdparty/logutils-0.3.3", arch)
     
     # make the experiments dir
-    os.mkdir('experiments')
+    if not os.path.exists('experiments'):
+        os.mkdir('experiments')
      
     if not "win" in arch:
         f = file("env.sh", "w")
