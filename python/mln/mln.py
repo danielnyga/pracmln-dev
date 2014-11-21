@@ -129,7 +129,7 @@ class Predicate(object):
         Creates a new instance of an atomic ground block instance
         depending on the type of the predicate
         '''
-        return BinaryBlock(blockname, blockidx)
+        return BinaryBlock(blockname, blockidx, self)
     
     
     def __eq__(self, other):
@@ -166,7 +166,7 @@ class MutexBlockPredicate(Predicate):
     
 
     def create_gndblock(self, blockname, blockidx):
-        return MutexBlock(blockname, blockidx)
+        return MutexBlock(blockname, blockidx, self)
     
     
     def __eq__(self, other):
@@ -188,7 +188,7 @@ class SoftMutexBlockPredicate(MutexBlockPredicate):
     
     
     def create_gndblock(self, blockname, blockidx):
-        return SoftMutexBlock(blockname, blockidx)
+        return SoftMutexBlock(blockname, blockidx, self)
 
 
     def __str__(self):
