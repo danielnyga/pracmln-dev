@@ -74,8 +74,8 @@ class XValFoldParams(object):
         self.optimizer = 'cg'
         self.gtol = 0.1
         self.learningRate = .5
-        self.maxrepeat = 1
-        self.partSize = 1
+        self.maxrepeat = 50
+        self.partSize = 3
         self.maxiter = None
         self.verbose = False
         self.noisyStringDomains = None
