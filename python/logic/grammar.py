@@ -196,9 +196,9 @@ class StandardGrammar(Grammar):
         openRB = Literal("(").suppress()
         closeRB = Literal(")").suppress()
         
-        domName = Combine(lcName + Optional(Literal('!')) | Literal('?'))
+        domName = Combine(lcName + Optional(Literal('!') | Literal('?')))
         
-        constant = Word(ucCharacter, identifierCharacter) | Word(nums)
+        constant = constant = Word(identifierCharacter) | Word(nums) | Combine(Literal('"') + Word(printables.replace('"', '')) + Literal('"'))
         variable = Word(lcCharacter, identifierCharacter)
         
         atomArgs = Group(delimitedList(constant | Combine(Optional("+") + variable)))
@@ -346,8 +346,8 @@ if __name__=='__main__':
     from fuzzy import FuzzyLogic
     
     test = 'parsing'
-#     logic = FirstOrderLogic('StandardGrammar')
-    logic = FuzzyLogic('PRACGrammar')
+    logic = FirstOrderLogic('StandardGrammar')
+#     logic = FuzzyLogic('PRACGrammar')
     
     if test == 'parsing':
         tests = [#"numberEats(o,2) <=> EXIST p, p2 (eats(o,p) ^ eats(o,p2) ^ !(o=p) ^ !(o=p2) ^ !(p=p2) ^ !(EXIST q (eats(o,q) ^ !(p=q) ^ !(p2=q))))",
@@ -361,8 +361,8 @@ if __name__=='__main__':
 #         tests = ["(EXIST y1 (rel(x,y1) ^ EXIST y2 (rel(x,y2) ^ !(y1=y2) ^ !(EXIST y3 (rel(?x,y3) ^ !(y1=y3) ^ !(y2=y3))))))"]
 #         tests = ["EXIST ?x (a(?x))"]
 #         tests = ['!foo(?x, ?y) ^ ?x =/= ?y']
-        print logic.grammar.parseLiteral('foo("bla",c)')
-        print logic.grammar.parsePredDecl('foo(ar, bar2!)')
+        print logic.grammar.parseLiteral('foo("bla!", c)')
+        print logic.grammar.parsePredDecl('foo(ar,bar2!)')
         for test in tests:
             print "trying to parse %s..." % test
             logic.grammar.parseFormula(test).printStructure()
