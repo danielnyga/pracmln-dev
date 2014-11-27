@@ -33,7 +33,6 @@ from multiprocessing import Process
 from multiprocessing.synchronize import Lock
 from utils import dict_union
 import logging
-from blessings import Terminal
 import traceback
 import signal
 # from optimization.ga import GeneticAlgorithm
