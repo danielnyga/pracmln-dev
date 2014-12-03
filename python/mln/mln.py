@@ -379,7 +379,10 @@ class MLN(object):
             result_db.addGroundAtom(atom, value)
             if value > 0:
                 log.info("%.3f    %s" % (value, atom))
-        return result_db.union(None, evidence_db) 
+        if params.get('mergeDBs', True):
+            return result_db.union(None, evidence_db)
+        else:
+            return result_db 
         
                 
     def materializeFormulaTemplates(self, dbs, verbose=False):
