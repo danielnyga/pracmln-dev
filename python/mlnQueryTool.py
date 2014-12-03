@@ -171,7 +171,7 @@ class MLNInfer(object):
                 
                 # create ground MRF
                 mln = mln.materializeFormulaTemplates([db], args.get('verbose', False))
-                mrf = mln.groundMRF(db, verbose=args.get('verbose', False), method='FastConjunctionGrounding')
+                mrf = mln.groundMRF(db, verbose=args.get('verbose', False), groundingMethod='FastConjunctionGrounding')
 
                 # check for print/write requests
                 if "printGroundAtoms" in args:
