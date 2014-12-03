@@ -116,6 +116,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                 # by our customized one
                 setattr(child, 'getVariables', types.MethodType(getEqualityVariables, child))
         for child in list(children):
+            if isinstance(child, Logic.TrueFalse): continue
             predName = child.predName if isinstance(child, Logic.Lit) else child.gndAtom.predName
             if predName in self.mrf.mln.blocks: 
                 conjunction.append(child)
