@@ -431,7 +431,6 @@ class MLN(object):
             for domName in domNames:
                 newMLN.domains[domName] = fullDomain[domName]
         newMLN._materializeFormulaTemplates()
-        print newMLN.predicates
         return newMLN
 
     def _materializeFormulaTemplates(self, verbose=False):
