@@ -1,6 +1,6 @@
 
 Getting Started
-============
+===============
 
 Compatibility
 -------------
@@ -52,6 +52,61 @@ Installation
    If you intend to make use of scripting, also set ``PYTHONPATH`` and ``JYTHONPATH`` as described
    by ``make_apps``.
 
+C++ bindings
+------------
+
+* Requirements:
+
+ * Linux OS (tested on Ubuntu 14.04)
+
+ * libboost-python
+
+ * libpython-dev
+
+* Installation:
+
+ * Run the ``make_apps`` script with ``--cppbindings``: ::
+
+    python make_apps.py --cppbindings
+
+* Usage:
+
+ * Include the header ``pracmln/mln.h`` and link against ``libpracmln``
+
+ * A simple example program ::
+
+    #include <pracmln/mln.h>
+
+    int main(int argc, char **argv)
+    {
+      // create a mln object
+      MLN mln;
+
+      // initialize the object (loading python packages, etc.)
+      if(!mln.initialize()){
+        // error
+      }
+
+      std::vector<std::string> query;
+      query.push_back("some query");
+
+      // change settings, give input files, etc.
+      mln.setQuery(query);
+      mln.setMLN("path to mln file");
+      mln.setDB("path to db file");
+
+      std::vector<std::string> results;
+      std::vector<double> probabilities;
+
+      // execute inference
+      if(mln.infer(results, probabilities)){
+        // error
+      }
+
+      // do something with the results
+
+      return 0;
+    }
 
 Examples
 --------

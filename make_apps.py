@@ -4,6 +4,7 @@ import os
 import stat
 import sys
 import platform
+import shutil
 
 sys.path.append(os.path.join(os.getcwd(), 'python'))
 sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
@@ -93,12 +94,49 @@ def getJavaAppData(name, arch):
             libs.append(adapt(includes[inc]["lib"], arch))
     return {"cp": jars, "lib": libs, "skip": skip, "missing": missing}
 
+def buildLibpracmln():
+    envSetup  = 'export LD_LIBRARY_PATH="{0}/lib:${{LD_LIBRARY_PATH}}"\n'
+    envSetup += 'export LIBRARY_PATH="{0}/lib:${{LIBRARY_PATH}}"\n'
+    envSetup += 'export CPATH="{0}/include:${{CPATH}}"\n'
+
+    oldwd = os.getcwd()
+    basePath = os.path.join(os.getcwd(), 'libpracmln')
+    buildPath = os.path.join(basePath, 'build')
+    installPath = os.path.join(basePath, 'install')
+
+    if os.path.exists(buildPath):
+        shutil.rmtree(buildPath, True)
+    if os.path.exists(installPath):
+        shutil.rmtree(installPath, True)
+
+    os.mkdir(buildPath)
+    os.chdir(buildPath)
+
+    ret = os.system("cmake ..")
+    if ret != 0:
+        os.chdir(oldwd)
+        return None
+
+    ret = os.system("make")
+    if ret != 0:
+        os.chdir(oldwd)
+        return None
+
+    ret = os.system("make install")
+    if ret != 0:
+        os.chdir(oldwd)
+        return None
+
+    os.chdir(oldwd)
+
+    return envSetup.format(installPath)
+
 if __name__ == '__main__':
 
     archs = ["win32", "linux_amd64", "linux_i386", "macosx", "macosx64"]
         
     print "PRACMLNs Apps Generator\n\n"
-    print "  usage: make_apps [--arch=%s] [additional JVM args]\n" % "|".join(archs)
+    print "  usage: make_apps [--arch=%s] [--cppbindings] [additional JVM args]\n" % "|".join(archs)
     print
     print "  Note: Some useful JVM args include"
     print "    -Xmx8000m   set maximum Java heap space to 8000 MB"
@@ -130,7 +168,12 @@ if __name__ == '__main__':
     if arch not in archs:
         print "Unknown architecture '%s'" % arch
         sys.exit(1)
-        
+
+    buildlib = False
+    if len(args) > 0 and args[0] == "--cppbindings":
+        buildlib = True;
+        args = args[1:]
+
     jvm_userargs = " ".join(args)
 
     if not os.path.exists("apps"):
@@ -179,7 +222,11 @@ if __name__ == '__main__':
     # make the experiments dir
     if not os.path.exists('experiments'):
         os.mkdir('experiments')
-     
+
+    extraExports = None
+    if not "win" in arch and buildlib:
+        extraExports = buildLibpracmln()
+
     if not "win" in arch:
         f = file("env.sh", "w")
         f.write("export PATH=$PATH:%s\n" % appsDir)
@@ -189,6 +236,8 @@ if __name__ == '__main__':
         f.write("export JYTHONPATH=$JYTHONPATH:%s:%s\n" % (jythonDir, pythonDir))
         f.write("export PROBCOG_HOME=%s\n" % adapt("$SRLDB_HOME", arch))
         f.write("export PRACMLN_EXPERIMENTS=%s\n" % adapt(os.path.join("$SRLDB_HOME", 'experiments'), arch))
+        if extraExports:
+            f.write(extraExports)
         f.close()
         print 'Now, to set up your environment type:'
         print '    source env.sh'

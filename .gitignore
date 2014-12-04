@@ -7,3 +7,5 @@ env.sh
 *.pyc
 *.pyo
 *.log
+libpracmln/build
+libpracmln/install
