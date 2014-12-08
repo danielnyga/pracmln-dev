@@ -346,10 +346,14 @@ class MLN(object):
         formulaSet.append(formula)
         # extend domains
         constants = {}
-        formula.getConstants(self, constants)
+        formula.getVariables(self, None, constants)
         for domain, constants in constants.iteritems():
-            for c in constants: 
-                self.addConstant(domain, c)
+            for c in constants: mln.addConstant(domain, c)
+#         constants = {}
+#         formula.getConstants(self, constants)
+#         for domain, constants in constants.iteritems():
+#             for c in constants: 
+#                 self.addConstant(domain, c)
         
                 
     def infer(self, method, queries=None, evidence_db=None, **params):
