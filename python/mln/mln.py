@@ -136,7 +136,7 @@ class Predicate(object):
         return other.predname == self.predname and other.argdoms == self.argdoms
     
     
-    def __neq__(self, other):
+    def __ne__(self, other):
         return not self == other
     
     
@@ -311,7 +311,9 @@ class MLN(object):
         '''
         pred_ = self.pred_decls.get(pred.predname)
         
-        if pred_ is not None and pred_.__neq__(pred):
+        if pred_ is not None and pred_!=pred:
+            print type(pred_)
+            print type(pred)
             raise Exception('Contradictory predicate definitions: %s <--> %s' % (pred, pred_))
         else:
             self.predicates[pred.predname] = pred.argdoms
