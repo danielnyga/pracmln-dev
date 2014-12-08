@@ -310,7 +310,10 @@ class MLN(object):
         - pred:        an instance of Predicate or one of its subclasses specifying a predicate declaration.
         '''
         pred_ = self.pred_decls.get(pred.predname)
-        if pred_ is not None and pred_ != pred:
+        
+        if pred_ is not None and pred_.__neq__(pred):
+            print pred_
+            print pred
             raise Exception('Contradictory predicate definitions: %s <--> %s' % (pred, pred_))
         else:
             self.predicates[pred.predname] = pred.argdoms
