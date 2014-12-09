@@ -372,7 +372,7 @@ class CLL(AbstractLearner):
             '''
             evidence = {}
             for block, value in zip(self.variables, worldtuple):
-                evidence.update(block.worldTuple2EvidenceDict(value))
+                evidence.update(block.valueTuple2EvidenceDict(value))
             return evidence
             
         
