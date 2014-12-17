@@ -196,7 +196,7 @@ class StandardGrammar(Grammar):
         openRB = Literal("(").suppress()
         closeRB = Literal(")").suppress()
         
-        domName = Combine(lcName + Optional(Literal('!')) | Literal('?'))
+        domName = Combine(Optional(Literal(':')) + lcName + Optional(Literal('!')) | Literal('?'))
         
         constant = Word(ucCharacter, identifierCharacter) | Word(nums)
         variable = Word(lcCharacter, identifierCharacter)
@@ -267,7 +267,7 @@ class PRACGrammar(Grammar):
         openSB = Literal('[').suppress()
         closeSB = Literal(']').suppress()
         
-        domName = Combine(lcName + Optional(Literal('!') | Literal('?')))
+        domName = Combine(Optional(Literal(':')) + lcName + Optional(Literal('!') | Literal('?')))
         
         constant = Word(identifierCharacter) | Word(nums) | Combine(Literal('"') + Word(printables.replace('"', '')) + Literal('"')) #QuotedString(quoteChar = '"', escChar = '\\')
         variable = Word(qMark, identifierCharacter)
