@@ -225,7 +225,6 @@ class AbstractLearner(object):
 #                 log.error('new gaussian: %f' % self.gaussianPriorSigma)
             self._fixFormulaWeights()
             self.wt = self._projectVectorToNonFixedWeightIndices(wt)
-            self.gaussianPriorSigma *= 10
             self._optimize(**params)
             self._postProcess()
             repetitions += 1
