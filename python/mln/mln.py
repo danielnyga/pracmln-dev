@@ -348,7 +348,7 @@ class MLN(object):
         constants = {}
         formula.getVariables(self, None, constants)
         for domain, constants in constants.iteritems():
-            for c in constants: mln.addConstant(domain, c)
+            for c in constants: self.addConstant(domain, c)
 #         constants = {}
 #         formula.getConstants(self, constants)
 #         for domain, constants in constants.iteritems():
@@ -627,6 +627,11 @@ class MLN(object):
             fittingParams.update(params)
             print "fitting with params ", fittingParams
             self._fitProbabilityConstraints(self.probreqs, **fittingParams)
+        
+        if params.get('ignoreZeroWeightFormulas', False):
+            for f in list(learnedMLN.formulas):
+                if f.weight == 0:
+                    mln.formulas.remove(f)
         
         if self.verbose:
             learnedMLN.write(sys.stdout, color=True)
