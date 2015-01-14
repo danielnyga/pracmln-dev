@@ -83,7 +83,7 @@ struct MLN::Internal
  * Initialize
  ******************************************************************************/
 
-MLN::MLN() : internal(NULL), method(0), logic(0), grammar(0), initialized(false), initializedMLN(false), dbIsFile(false)
+MLN::MLN() : internal(NULL), method(0), logic(0), grammar(0), initialized(false), dbIsFile(false), updateDB(false), updateMLN(false)
 {
   if(!Py_IsInitialized())
   {
@@ -183,7 +183,8 @@ bool MLN::setLogic(const std::string &logic)
   const size_t oldValue = this->logic;
   if(isInOptions(logic, logics, this->logic))
   {
-    initializedMLN = initializedMLN && this->logic == oldValue;
+    updateMLN = this->logic != oldValue;
+    updateDB = updateMLN;
     return true;
   }
   return false;
@@ -195,7 +196,8 @@ bool MLN::setGrammar(const std::string &grammar)
   const size_t oldValue = this->grammar;
   if(isInOptions(grammar, grammars, this->grammar))
   {
-    initializedMLN = initializedMLN && this->grammar == oldValue;
+    updateMLN = this->grammar == oldValue;
+    updateDB = updateMLN;
     return true;
   }
   return false;
@@ -204,6 +206,8 @@ bool MLN::setGrammar(const std::string &grammar)
 void MLN::setMLN(const std::string &mln)
 {
   CHECK_INITIALIZED();
+  updateMLN = true;
+  updateDB = true;
   this->mln = mln;
 }
 
@@ -212,6 +216,7 @@ void MLN::setDB(const std::string &db, const bool isFile)
   CHECK_INITIALIZED();
   this->db = db;
   dbIsFile = isFile;
+  updateDB = true;
 }
 
 void MLN::setQuery(const std::vector<std::string> &query)
@@ -339,7 +344,7 @@ bool MLN::infer(std::vector<std::string> &results, std::vector<double> &probabil
   CHECK_INITIALIZED();
   try
   {
-    if(!initializedMLN && !init())
+    if(!init())
     {
       return false;
     }
@@ -383,25 +388,33 @@ bool MLN::init()
 {
   try
   {
-    internal->mln = internal->dict_mln["readMLNFromFile"](mln, logics[logic], grammars[grammar]);
+    if(updateMLN)
+    {
+      internal->mln = internal->dict_mln["readMLNFromFile"](mln, logics[logic], grammars[grammar]);
+    }
 
-    python::list dbs;
-    if(dbIsFile)
+    if(updateDB)
     {
-      dbs = python::extract<python::list>(internal->dict_database["readDBFromFile"](internal->mln, db));
+      python::list dbs;
+      if(dbIsFile)
+      {
+        dbs = python::extract<python::list>(internal->dict_database["readDBFromFile"](internal->mln, db));
+      }
+      else
+      {
+        dbs = python::extract<python::list>(internal->dict_database["readDBFromString"](internal->mln, db));
+      }
+      internal->db = dbs[0];
     }
-    else
-    {
-      dbs = python::extract<python::list>(internal->dict_database["readDBFromString"](internal->mln, db));
-    }
-    internal->db = dbs[0];
+
+    updateMLN = false;
+    updateDB = false;
   }
   catch(python::error_already_set)
   {
     PyErr_Print();
     return false;
   }
-  initializedMLN = true;
   return true;
 }
 

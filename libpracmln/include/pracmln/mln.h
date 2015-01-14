@@ -20,8 +20,9 @@ private:
   std::string db;
 
   bool initialized;
-  bool initializedMLN;
   bool dbIsFile;
+  bool updateDB;
+  bool updateMLN;
 
 public:
   MLN();
