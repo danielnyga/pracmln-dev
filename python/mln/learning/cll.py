@@ -259,7 +259,7 @@ class CLL(AbstractLearner):
             # partition, we can stop the grounding process here. The gnd conjunction
             # will never ever be rendered true by any of this partitions values (criterion no. 5)
             isEvidence = hasattr(self, 'queryPreds') and gnd_lit_.gndAtom.predName not in self.queryPreds
-            assert isEvidence == False
+            #assert isEvidence == False
             if isconj and truth == 0:
                 falseLitInPart = False
                 if f_gndlit_parts is not None and not f_gndlit_parts.contains(atomidx):
