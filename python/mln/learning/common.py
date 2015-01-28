@@ -33,7 +33,6 @@ from multiprocessing import Process
 from multiprocessing.synchronize import Lock
 from utils import dict_union
 import logging
-from blessings import Terminal
 import traceback
 import signal
 # from optimization.ga import GeneticAlgorithm
@@ -391,8 +390,8 @@ class MultipleDatabaseLearner(AbstractLearner):
         '''
         dbs: list of tuples (domain, evidence) as returned by the database reading method
         '''
-        AbstractLearner.__init__(self, mln, None, **params)
-        self.mln = mln_
+        AbstractLearner.__init__(self, mln_, None, **params)
+#         self.mln = mln_
         self.dbs = dbs
         self.constructor = LearningMethods.byShortName(method)
         self.params = params
