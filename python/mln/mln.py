@@ -351,10 +351,14 @@ class MLN(object):
         formulaSet.append(formula)
         # extend domains
         constants = {}
-        formula.getConstants(self, constants)
+        formula.getVariables(self, None, constants)
         for domain, constants in constants.iteritems():
-            for c in constants: 
-                self.addConstant(domain, c)
+            for c in constants: self.addConstant(domain, c)
+#         constants = {}
+#         formula.getConstants(self, constants)
+#         for domain, constants in constants.iteritems():
+#             for c in constants: 
+#                 self.addConstant(domain, c)
         
                 
     def infer(self, method, queries=None, evidence_db=None, **params):
@@ -541,10 +545,10 @@ class MLN(object):
 
     def setClosedWorldPred(self, *predicates):
         '''
-        Sets the given predicate as closed-world (for inference)
-        a predicate that is closed-world is assumed to be false for 
+        Sets the given predicates as closed-world (for inference)
+        a predicates that is closed-world is assumed to be false for 
         any parameters not explicitly specified otherwise in the evidence.
-        If predicateName is None, all predicates are set to open world.
+        If predicates is None, all predicates are set to open world.
         '''
         if len(predicates) == 1 and predicates[0] is None:
             self.closedWorldPreds = []
@@ -603,7 +607,9 @@ class MLN(object):
         if len(newMLN.formulas) == 0:
             raise Exception('No formulas in the materialized MLN.')
         # run learner
-        if len(dbs) == 1:
+        if method == LearningMethods.MLNBoost:
+            learner = MLNBoost(newMLN, dbs, **params)
+        elif len(dbs) == 1:
             groundingMethod = eval('%s.groundingMethod' % method)
             log.info("grounding MRF using %s..." % groundingMethod) 
             mrf = newMLN.groundMRF(dbs[0], simplify=False, groundingMethod=groundingMethod, cwAssumption=True, **params)  # @UnusedVariable
@@ -630,6 +636,11 @@ class MLN(object):
             fittingParams.update(params)
             print "fitting with params ", fittingParams
             self._fitProbabilityConstraints(self.probreqs, **fittingParams)
+        
+        if params.get('ignoreZeroWeightFormulas', False):
+            for f in list(learnedMLN.formulas):
+                if f.weight == 0:
+                    mln.formulas.remove(f)
         
         if self.verbose:
             learnedMLN.write(sys.stdout, color=True)

@@ -224,7 +224,6 @@ class AbstractLearner(object):
 #                 log.error('new gaussian: %f' % self.gaussianPriorSigma)
             self._fixFormulaWeights()
             self.wt = self._projectVectorToNonFixedWeightIndices(wt)
-            self.gaussianPriorSigma *= 10
             self._optimize(**params)
             self._postProcess()
             repetitions += 1
@@ -391,8 +390,8 @@ class MultipleDatabaseLearner(AbstractLearner):
         '''
         dbs: list of tuples (domain, evidence) as returned by the database reading method
         '''
-        AbstractLearner.__init__(self, mln, None, **params)
-        self.mln = mln_
+        AbstractLearner.__init__(self, mln_, None, **params)
+#         self.mln = mln_
         self.dbs = dbs
         self.constructor = LearningMethods.byShortName(method)
         self.params = params

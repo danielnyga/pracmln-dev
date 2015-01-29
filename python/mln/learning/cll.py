@@ -82,7 +82,6 @@ class CLL(AbstractLearner):
         # create random partition of the ground atoms
         self._createVariables()
         variables = self.atomicVariables
-        log.info('repartitioning %d' % self.repart)
         random.shuffle(variables)
         self.partitions = []
         self.atomIdx2partition = {}
@@ -372,7 +371,7 @@ class CLL(AbstractLearner):
             '''
             evidence = {}
             for block, value in zip(self.variables, worldtuple):
-                evidence.update(block.worldTuple2EvidenceDict(value))
+                evidence.update(block.valueTuple2EvidenceDict(value))
             return evidence
             
         
