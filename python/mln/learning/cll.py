@@ -82,7 +82,6 @@ class CLL(AbstractLearner):
         # create random partition of the ground atoms
         self._createVariables()
         variables = self.atomicVariables
-        log.info('repartitioning %d' % self.repart)
         random.shuffle(variables)
         self.partitions = []
         self.atomIdx2partition = {}
