@@ -143,26 +143,38 @@ class MLNInfer(object):
         if engine in ("internal", "PRACMLNs"): 
             try:
                 print "\nStarting %s...\n" % method
+                # create MLN
+                mln = readMLNFromFile(input_files, logic=self.settings['logic'], grammar=self.settings['grammar'])#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
+                mln.defaultInferenceMethod = InferenceMethods.byName(method)
                 
-                # read queries
+                # read queries and check them for correct syntax. collect all the query predicates
+                # in case the closedWorld flag is set
                 queries = []
+                queryPreds = set()
                 q = ""
                 for s in map(str.strip, query.split(",")):
                     if q != "": q += ','
                     q += s
                     if balancedParentheses(q):
+                        try:
+                            # try to read it as a formula and update query predicates
+                            f = mln.logic.parseFormula(q)
+                            literals = f.iterLiterals()
+                            predNames = map(lambda l: l.predName, literals)
+                            queryPreds.update(predNames)
+                        except:
+                            # not a formula, must be a pure predicate name 
+                            queryPreds.add(s)
                         queries.append(q)
                         q = ""
-                if q != "": raise Exception("Unbalanced parentheses in queries!")
+                if q != "": raise Exception("Unbalanced parentheses in queries: " + q)
                 
-                # create MLN
-                # mln = MLN.MLN(input_files, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
-                mln = readMLNFromFile(input_files, logic=self.settings['logic'], grammar=self.settings['grammar'])#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
-                mln.defaultInferenceMethod = InferenceMethods.byName(method)
                 # set closed-world predicates
-                for pred in cwPreds:
-                    mln.setClosedWorldPred(pred)
-                
+                if self.settings.get('closedWorld', False):
+                    mln.setClosedWorldPred(*set(mln.predicates.keys()).difference(queryPreds))
+                else:
+                    mln.setClosedWorldPred(*cwPreds)
+
                 # parse the database
                 dbs = readDBFromFile(mln, db)
                 if len(dbs) != 1:
@@ -475,10 +487,11 @@ class MLNQueryGUI(object):
         option_container = Frame(self.frame)
         option_container.grid(row=row, column=1, sticky="NES")
         row += 1
-        self.open_world = IntVar()
-        self.cb_open_world = Checkbutton(option_container, text="Apply open-world assumption to all predicates", variable=self.open_world)
-        self.cb_open_world.grid(row=row, column=1, sticky=W)
-        self.open_world.set(self.settings.get("openWorld", True))
+        self.closed_world = IntVar()
+        self.closed_world.trace('w', self.onChangeClosedWorld)
+        self.cb_closed_world = Checkbutton(option_container, text="Apply CW assumption to all but the query preds", variable=self.closed_world)
+        self.cb_closed_world.grid(row=row, column=1, sticky=W)
+        self.closed_world.set(self.settings.get("closedWorld", False))
         
         # Multiprocessing 
         self.use_multiCPU = IntVar()
@@ -510,7 +523,7 @@ class MLNQueryGUI(object):
 
         self.initialized = True
         self.onChangeEngine()
-
+        self.onChangeClosedWorld()
         self.setGeometry()
 
     def setGeometry(self):
@@ -563,6 +576,13 @@ class MLNQueryGUI(object):
     def onChangeLogic(self, name = None, index = None, mode = None):
         pass
     
+    def onChangeClosedWorld(self, name=None, index=None, mode=None):
+        if self.closed_world.get():
+            self.entry_cw.configure(state=DISABLED)
+        else:
+            self.entry_cw.configure(state=NORMAL)
+        
+    
     def onChangeGrammar(self, name=None, index=None, mode=None):
         grammar = eval(self.selected_grammar.get())(None)
         self.selected_mln.editor.grammar = grammar        
@@ -574,19 +594,18 @@ class MLNQueryGUI(object):
             self.numEngine = 1
             methods = self.inference.pymlns_methods
             #self.entry_output_filename.configure(state=NORMAL)
-            self.cb_open_world.configure(state=DISABLED)
             self.cb_save_results.configure(state=NORMAL)
         elif engineName == "J-MLNs":
             self.numEngine = 2
             methods = self.inference.jmlns_methods.keys()
             #self.entry_output_filename.configure(state=NORMAL)
-            self.cb_open_world.configure(state=DISABLED)
+            self.cb_closed_world.configure(state=DISABLED)
             self.cb_save_results.configure(state=NORMAL)
         else:
             self.numEngine = 0
             methods = self.inference.alchemy_methods.keys()
             #self.entry_output_filename.configure(state=NORMAL)
-            self.cb_open_world.configure(state=NORMAL)
+            self.cb_closed_world.configure(state=NORMAL)
             self.cb_save_results.configure(state=DISABLED)
 
         # change additional parameters
@@ -632,7 +651,7 @@ class MLNQueryGUI(object):
         self.settings["engine"] = self.selected_engine.get()
         self.settings["qf"] = qf
         self.settings["output_filename"] = output
-        self.settings["openWorld"] = self.open_world.get()
+        self.settings["closedWorld"] = self.closed_world.get()
         self.settings["cwPreds"] = self.cwPreds.get()
         self.settings["convertAlchemy"] = self.convert_to_alchemy.get()
         self.settings["useEMLN"] = self.use_emln.get()
