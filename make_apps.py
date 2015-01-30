@@ -98,6 +98,8 @@ def buildLibpracmln():
     envSetup  = 'export LD_LIBRARY_PATH="{0}/lib:${{LD_LIBRARY_PATH}}"\n'
     envSetup += 'export LIBRARY_PATH="{0}/lib:${{LIBRARY_PATH}}"\n'
     envSetup += 'export CPATH="{0}/include:${{CPATH}}"\n'
+    envSetup += 'export CMAKE_LIBRARY_PATH="{0}/lib:${{CMAKE_LIBRARY_PATH}}"\n'
+    envSetup += 'export CMAKE_INCLUDE_PATH="{0}/include:${{CMAKE_INCLUDE_PATH}}"\n'
 
     oldwd = os.getcwd()
     basePath = os.path.join(os.getcwd(), 'libpracmln')
