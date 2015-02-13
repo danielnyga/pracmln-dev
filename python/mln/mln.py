@@ -607,8 +607,8 @@ class MLN(object):
         if len(newMLN.formulas) == 0:
             raise Exception('No formulas in the materialized MLN.')
         # run learner
-        if method == LearningMethods.MLNBoost:
-            learner = MLNBoost(newMLN, dbs, **params)
+#         if method == LearningMethods.MLNBoost:
+#             learner = MLNBoost(newMLN, dbs, **params)
         elif len(dbs) == 1:
             groundingMethod = eval('%s.groundingMethod' % method)
             log.info("grounding MRF using %s..." % groundingMethod) 
