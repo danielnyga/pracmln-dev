@@ -183,7 +183,7 @@ bool MLN::setLogic(const std::string &logic)
   const size_t oldValue = this->logic;
   if(isInOptions(logic, logics, this->logic))
   {
-    updateMLN = this->logic != oldValue;
+    updateMLN = updateMLN || this->logic != oldValue;
     updateDB = updateMLN;
     return true;
   }
@@ -196,7 +196,7 @@ bool MLN::setGrammar(const std::string &grammar)
   const size_t oldValue = this->grammar;
   if(isInOptions(grammar, grammars, this->grammar))
   {
-    updateMLN = this->grammar == oldValue;
+    updateMLN = updateMLN || this->grammar == oldValue;
     updateDB = updateMLN;
     return true;
   }
