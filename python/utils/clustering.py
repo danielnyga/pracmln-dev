@@ -24,6 +24,8 @@
 from utils.evalSeqLabels import editDistance
 import math
 import numpy
+from collections import defaultdict
+
 
 class Cluster(object):
     '''
@@ -186,6 +188,74 @@ def computeClosestCluster(dataPoint, clusters, linkage='avg', dist='auto'):
             minDist = d
             minDistC = c2
     return (minDistC, minDistC._computeCentroid(dist))
+            
+            
+
+class CorrelationClustering():
+    '''
+    Clustering based on similarity or correlation only, without having
+    to represent the data points explicitly.
+    '''
+    
+    def __init__(self, correlations, points, thr=None):
+        '''
+        The data is given as a sequence of pairs ((d1,d2), corr(d1, d2)) representing
+        pairs of data points and their correlation/similarity. Type of the data 
+        points can be anything, but it must be ensured that instances representing the 
+        same point have same hashes. 
+        
+            correlations:    the data to be clustered
+            length:          the number of distinct data points
+            thr:             threshold for correlation specifying a termination criterion
+        
+        Example:
+        
+            correlations = [(('a','b'), .2), (('b', 'c'), .7), ....]
+        '''
+        # sort the points wrt to their absolute correlations
+        sorted_data = sorted(correlations, key=lambda corr: abs(corr[1]), reverse=True)
+        # use as the default threashold the median of correlations
+        if thr is None:
+            thr = numpy.mean(numpy.array([abs(c[1]) for c in correlations])) * 2
+        clusters = dict([(a, i) for i, a in enumerate(points)])
+        cluster2data = dict([(i, [a]) for i, a in enumerate(points)])#defaultdict(list)
+        counter = 0
+        remainder = len(points)
+        for i, ((d1, d2), corr) in enumerate(sorted_data):
+            corr = abs(corr)
+            if corr <= thr or remainder == 0: 
+                break
+            c1 = clusters.get(d1)
+            c2 = clusters.get(d2)
+            if c1 is None and c2 is None:
+                counter += 1
+                clusters[d1] = counter
+                clusters[d2] = counter
+                cluster2data[counter].extend((d1, d2))
+                remainder -= 2
+            elif c1 is not None and c2 is None:
+                clusters[d2] = c1
+                cluster2data[c1].append(d2)
+                remainder -= 1
+            elif c1 is None and c2 is not None:
+                clusters[d1] = c2
+                cluster2data[c2].append(d1)
+                remainder -= 1
+            elif c1 is not None and c2 is not None and c1 != c2:
+                for d in list(cluster2data[c2]):
+                    clusters[d] = c1
+                    cluster2data[c1].append(d)
+                    cluster2data[c2].remove(d)
+                    if not cluster2data[c2]:
+                        del cluster2data[c2]
+        self.cluster2data = cluster2data
+        self.clusters = clusters
+        
+                
+            
+            
+    
+    
             
 if __name__ == '__main__':
     

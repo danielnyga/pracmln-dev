@@ -105,10 +105,12 @@ class CLL(AbstractLearner):
             self.evidenceIndices[partidx] = partition.getEvidenceIndex()
             variables = variables[len(partition.variables):]
         log.debug('CLL created %d partitions' % len(self.partitions))
+#         self._computeStatistics()
+        
+        
+    def run(self, **params):
         self._computeStatistics()
-        
-        
-#     def run(self, **params):
+        AbstractLearner.run(self, **params)
 #         '''
 #         This is a modification of the run method of the AbstractLearner, which
 #         runs the optimization only for a specified number of iterations and

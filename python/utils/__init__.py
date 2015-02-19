@@ -121,7 +121,14 @@ def dict_union(d1, d2):
     for key, value in d2.iteritems():
         d_new[key] = value
     return d_new
-    
+
+
+def dict_subset(subset, superset):
+    '''
+    Checks whether or not a dictionary is a subset of another dictionary.
+    '''
+    return all(item in superset.items() for item in subset.items())
+
     
 if __name__ == '__main__':
     

@@ -264,8 +264,7 @@ class Logic(object):
             eqVars[v] = fVars[v]
         for assignment in Logic._iterEqVariableAssignments(mln, eqVars, {}):
             yield assignment
-        
-    
+            
     @staticmethod
     def _iterEqVariableAssignments(mrf, variables, assignment):
         if len(variables) == 0:

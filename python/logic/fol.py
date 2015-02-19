@@ -27,6 +27,7 @@ import itertools
 from common import Logic, logic_factory
 from utils import colorize, predicate_color
 from mln.errors import NoSuchDomainError
+from mln.util import strFormula
 
 
 class FirstOrderLogic(Logic):
@@ -105,12 +106,39 @@ class FirstOrderLogic(Logic):
                 child.getGroundAtoms(l)
             return l
     
+        def getTemplateAtoms(self, mln):
+            '''
+            Returns a list of template variants of all atoms 
+            that can be generated from this formula and the given mln.
+            
+            Example: foo(?x, +?y) ^ bar(?x, +?z) --> [foo(?x, X1), foo(?x, X2), ..., 
+                                                      bar(?x, Z1), bar(?x, Z2), ...]
+            '''
+            templ_atoms = []
+            for literal in self.iterLiterals():
+                for templ in literal.getTemplateVariants(mln):
+                    templ_atoms.append(templ)
+            return templ_atoms
+        
+        def getAtomicConstituents(self, ofType=None):
+            '''
+            Returns a list of all atomic logical constituents, optionally filtered
+            by type. 
+            
+            Example: f.getAtomicConstituents(Logic.Equality)
+            
+            returns a list of all equality constraints in this formula.
+            '''
+            const = list(self.iterLiterals())
+            if ofType is None: return const
+            else: return filter(lambda c: isinstance(c, ofType), const)
+            
+    
         def getTemplateVariants(self, mln):
             '''
             Gets all the template variants of the formula for the given
             MLN (ground Markov Random Field)
             '''
-            log = logging.getLogger('fol')
             uniqueVars = mln.uniqueFormulaExpansions.get(self, [])
             if len(uniqueVars) > 0:
                 uniqueVarsDomain = list(mln.domains[self.getVarDomain(uniqueVars[0], mln)])
@@ -1262,6 +1290,15 @@ class FirstOrderLogic(Logic):
         
         def getVarDomain(self, varname, mln):
             return None
+        
+        def getVarDomainsFromFormula(self, mln, formula):
+            f_var_domains = formula.getVariables(mln)
+            eq_vars = self.getVariables(mln)
+            for var_ in eq_vars:
+                if var_ not in f_var_domains:
+                    raise Exception('Variable %s not bound to a domain by formula %s' % (var_, strFormula(formula)))
+                eq_vars[var_] = f_var_domains[var_]
+            return eq_vars
         
         def getPredicateNames(self, predNames=None):
             if predNames is None:

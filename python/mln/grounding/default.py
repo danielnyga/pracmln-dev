@@ -26,6 +26,7 @@ import logging
 from mln.util import strFormula
 from logic.common import Logic
 import time
+from utils import dict_union
 
 class DefaultGroundingFactory(AbstractGroundingFactory):
     '''
@@ -91,6 +92,75 @@ class NoGroundingFactory(DefaultGroundingFactory):
     
     def _createGroundFormulas(self, simplify=False):
         pass
+
+
+class EqualityConstraintGrounder(object):
+    '''
+    Grounding factory for equality constraints only.
+    '''
+    
+    def __init__(self, mln, domains, *eq_constraints):
+        '''
+        Initialize the equality constraint grounder with the given MLN
+        and formula. A formula is required that contains all variables
+        in the equalities in order to infer the respective domain names.
+        '''
+        self.constraints = eq_constraints
+        self.vardomains = domains
+        self.mln = mln
+    
+    def iter_true_variable_assignments(self):
+        '''
+        Yields all variable assignments for which all equality constraints
+        evaluate to true.
+        '''
+        for a in self._iter_true_variable_assignments(self.vardomains.keys(), {}, self.constraints):
+            yield a
+    
+    def _iter_true_variable_assignments(self, variables, assignments, eq_groundings):
+        if not variables: 
+            yield assignments
+            return
+        variable = variables[0]
+        for value in self.mln.domains[self.vardomains[variable]]:
+            new_eq_groundings = []
+            continue_ = True
+            for eq in eq_groundings:
+                geq = eq.ground(None, {variable: value}, allowPartialGroundings=True)
+                if geq.isTrue(None) == 0:
+                    continue_ = False
+                    break
+                new_eq_groundings.append(geq)
+            if not continue_: continue
+            for assignment in self._iter_true_variable_assignments(variables[1:], dict_union(assignments, {variable: value}), new_eq_groundings):
+                yield assignment
+    
+    @staticmethod
+    def getVarDomainsFromFormula(mln, formula, *varnames):
+        if isinstance(formula, basestring):
+            formula = mln.logic.parseFormula(formula)
+        vardomains = {}
+        f_vardomains = formula.getVariables(mln)
+        for var in varnames:
+            if var not in f_vardomains:
+                raise Exception('Variable %s not bound to a domain by formula %s' % (var, strFormula(formula)))
+            vardomains[var] = f_vardomains[var]
+        return vardomains
+                
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     
