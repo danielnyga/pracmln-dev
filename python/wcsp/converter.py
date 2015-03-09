@@ -58,7 +58,8 @@ class WCSPConverter(object):
             newAtomicBlock = copy.copy(atomicBlock)
             newAtomicBlock.gndatoms = []
             for gndatom in atomicBlock.gndatoms:
-                if self.mrf.evidence[gndatom.idx] != None:
+                print gndatom, self.mrf.evidence[gndatom.idx]
+                if self.mrf.evidence[gndatom.idx] is not None:
                     continue
                 newAtomicBlock.gndatoms.append(gndatom)
             newAtomicBlock.idx2val = {}
@@ -96,8 +97,10 @@ class WCSPConverter(object):
                 f.isHard = gf.isHard
             else: f = gf
             f_ = f.simplify(self.mrf)
-            if isinstance(f_, Logic.TrueFalse) or gf.weight == 0 and not gf.isHard:
+            if (isinstance(f_, Logic.TrueFalse) or gf.weight == 0) and not gf.isHard:
                 continue
+            elif isinstance(f_, Logic.TrueFalse) and f_.value is False and gf.isHard:
+                raise Exception('MLN is unsatisfiable due to hard constraint violation: %s' % gf)
             f_ = f_.toNNF()
             f_.weight = f.weight
             f_.isHard = f.isHard
