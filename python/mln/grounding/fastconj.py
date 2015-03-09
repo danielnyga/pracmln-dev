@@ -94,7 +94,8 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         log = logging.getLogger(self.__class__.__name__)
         logic = self.mrf.mln.logic
         # make a copy of the formula to avoid side effects
-        formula = formula.ground(self.mrf, {}, allowPartialGroundings=True)
+        orig_formula = formula
+        formula = formula.ground(self.mrf, {}, allowPartialGroundings=True, simplify=True)
         conjunction_ = logic.conjunction([formula, logic.true_false(1)]) if not hasattr(formula, 'children') else formula
         # make equality constraints access their variable domains
         # this is a _really_ dirty hack but it does the job ;-)
@@ -116,14 +117,17 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                 # by our customized one
                 setattr(child, 'getVariables', types.MethodType(getEqualityVariables, child))
         for child in list(children):
-            if isinstance(child, Logic.TrueFalse): continue
+            if isinstance(child, Logic.TrueFalse): 
+                if orig_formula.isHard and child.value is False:
+                    raise Exception('MLN unsatisfiable due to hard constraint violation: %s' % orig_formula)
+                else: continue
             predName = child.predName if isinstance(child, Logic.Lit) else child.gndAtom.predName
             if predName in self.mrf.mln.blocks: 
                 conjunction.append(child)
                 children.remove(child)
         conjunction.extend(children)
         conjunction = logic.conjunction(conjunction)
-        for gndFormula in self._iterConjunctionGroundings(conjunction, 0, len(conjunction.children), self.mrf, {}):
+        for gndFormula in self._iterConjunctionGroundings(conjunction, 0, len(conjunction.children), self.mrf, {}, isHard=orig_formula.isHard):
             yield gndFormula
             
             
@@ -149,19 +153,19 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
 #                 yield gndFormula
                 
                 
-    def _iterConjunctionGroundings(self, formula, litIdx, numChildren, mrf, assignment):
+    def _iterConjunctionGroundings(self, formula, litIdx, numChildren, mrf, assignment, isHard=False):
         log = logging.getLogger(self.__class__.__name__)
         if litIdx == numChildren:
-#             if formula.isTrue(mrf.evidence) is not None: # the gnd formula is rendered true by the evidence. skip this one
-#                 return
             gndFormula = formula.ground(mrf, assignment, simplify=True)#.simplify(mrf)
-            if isinstance(gndFormula, Logic.TrueFalse): return
+            if isinstance(gndFormula, Logic.TrueFalse):
+                if isHard and gndFormula.value is False:
+                    raise Exception('MLN unsatisfiable due to hard constraint violation: %s' % formula)
+                else: 
+                    return
             else: yield gndFormula
             return
         lit = formula.children[litIdx]
         for varAssignment in lit.iterTrueVariableAssignments(mrf, mrf.evidence, truthThreshold=.0, strict=True, includeUnknown=True, partialAssignment=assignment):
-#             log.warning(assignment)
-#             log.warning(varAssignment)
             if varAssignment == {}:
                 if len(set(lit.getVariables(mrf.mln).keys()).difference(assignment.keys())) > 0 or \
                     lit.ground(mrf, assignment).isTrue(mrf.evidence) == 0: 
@@ -179,7 +183,6 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         log = logging.getLogger(self.__class__.__name__)
         # generate all groundings
         log.info('Grounding formulas...')
-#         log.debug('Ground formulas (all should have a truth value):')
         multiCPU = self.params.get('useMultiCPU', False)
         if multiCPU:
             for i, f in enumerate(mrf.formulas):
