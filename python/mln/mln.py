@@ -640,7 +640,7 @@ class MLN(object):
         if params.get('ignoreZeroWeightFormulas', False):
             for f in list(learnedMLN.formulas):
                 if f.weight == 0:
-                    mln.formulas.remove(f)
+                    learnedMLN.formulas.remove(f)
         
         if self.verbose:
             learnedMLN.write(sys.stdout, color=True)
