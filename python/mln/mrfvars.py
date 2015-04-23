@@ -21,15 +21,15 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-class AtomicBlock(object):
+class MRFVariable(object):
     '''
     Represents a (mutually exclusive) block of ground atoms.
     '''
     
-    def __init__(self, blockname, blockidx, predicate, *gndatoms):
+    def __init__(self, mrf, name, predicate, *gndatoms):
         self.gndatoms = list(gndatoms)
-        self.blockidx = blockidx
-        self.name = blockname
+        self.idx = len(mrf.variables)
+        self.name = name
         self.predicate = predicate
     
     
@@ -92,13 +92,35 @@ class AtomicBlock(object):
         for atom, value in zip(self.gndatoms, worldtuple):
             evidence[atom.idx] = value
         return evidence
-            
+    
+    
+    def itervalues(self, evidence=None):
+        '''
+        Returns a generator for values and their indices yielding (idx, valuetuple) pairs.
+        '''
+        for tup in self.generateValueTuples(evidence):
+            yield self.getValueIndex(tup), tup
+    
+    def iterworlds(self, evidence):
+        '''
+        Iterates over possible worlds of evidence which can be generated with this atomic block.
+        Yields pairs of value index and evidence
+        '''
+        for i, tup in self.itervalues():
+            world = list(evidence)
+            for gndatom, val in zip(self.iteratoms(), tup):
+                world[gndatom.idx] = val
+            yield i, world
+        
     
     def __str__(self):
         return '%s: %s' % (self.name, ','.join(map(str, self.gndatoms)))
+    
+    def __contains__(self, element):
+        return element in self.gndatoms
 
 
-class BinaryBlock(AtomicBlock):
+class BinaryVariable(MRFVariable):
     '''
     Represents a binary ("normal") ground atom with the two states 1 and 0
     '''
@@ -127,7 +149,7 @@ class BinaryBlock(AtomicBlock):
             raise Exception('Invalid world value for binary block %s: %s' % (str(self), str(value)))
         
 
-class MutexBlock(AtomicBlock):
+class MutexVariable(MRFVariable):
     '''
     Represents a mutually exclusive block of ground atoms.
     '''
@@ -173,7 +195,7 @@ class MutexBlock(AtomicBlock):
         
         
 
-class SoftMutexBlock(AtomicBlock):
+class SoftMutexVariable(MRFVariable):
     '''
     Represents a soft mutex block of ground atoms.
     '''
