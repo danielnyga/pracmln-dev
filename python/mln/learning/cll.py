@@ -74,7 +74,7 @@ class CLL(AbstractLearner):
         A discriminative variant can be obtained by filtering out those
         atomic vars that correspond to evidence predicates.
         '''
-        self.atomicVariables = list(self.mrf.gndAtomicBlocks.values())
+        self.atomicVariables = list(self.mrf.variables.values())
         
         
     def _prepareOpt(self):
@@ -87,6 +87,7 @@ class CLL(AbstractLearner):
         self.atomIdx2partition = {}
         self.evidenceIndices = {}
         self.partValueCount = {}
+        self.partitionProbValues = {}
         self.current_wts = None
         self.iter = 0
         self.probs = None
@@ -105,12 +106,12 @@ class CLL(AbstractLearner):
             self.evidenceIndices[partidx] = partition.getEvidenceIndex()
             variables = variables[len(partition.variables):]
         log.debug('CLL created %d partitions' % len(self.partitions))
-#         self._computeStatistics()
+        self._computeStatistics()
         
         
     def run(self, **params):
-        self._computeStatistics()
-        AbstractLearner.run(self, **params)
+#         self._computeStatistics()
+        return AbstractLearner.run(self, **params)
 #         '''
 #         This is a modification of the run method of the AbstractLearner, which
 #         runs the optimization only for a specified number of iterations and
@@ -165,7 +166,7 @@ class CLL(AbstractLearner):
         self.statistics = {}
         self.partRelevantFormulas = defaultdict(set)
         log = logging.getLogger(self.__class__.__name__)
-        for formula in self.mrf.formulas:
+        for formula in self.mln.formulas:
             literals = []
             for literal in formula.iterLiterals():
                 literals.append(literal)
@@ -308,6 +309,7 @@ class CLL(AbstractLearner):
             probs[partIdx] = numpy.exp(sums - s)
 #             expsum = numpy.exp(sums)
 #             probs[partIdx] = expsum / fsum(expsum)
+#             self.partitionProbValues[partIdx] = expsum
         return probs
         
 
@@ -494,7 +496,7 @@ class DCLL(CLL, DiscriminativeLearner):
         
     
     def _createVariables(self):
-        self.atomicVariables = [block for block in self.mrf.gndAtomicBlocks.values() if block.predicate.predname in self.queryPreds]
+        self.atomicVariables = [block for block in self.mrf.variables.values() if block.predicate.predname in self.queryPreds]
     
     
 GndAtomPartition = CLL.GndAtomPartition

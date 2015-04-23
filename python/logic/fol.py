@@ -1087,7 +1087,10 @@ class FirstOrderLogic(Logic):
         '''
         
         def __init__(self, children):
-            assert len(children) == 1
+            if hasattr(children, '__iter__'):
+                assert len(children) == 1
+            else:
+                children = [children]
             self.children = children
     
         def __str__(self):

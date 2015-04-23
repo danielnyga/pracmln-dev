@@ -41,6 +41,7 @@ InferenceMethods = Enum(
 LearningMethods = Enum(
      {
     'MLNBoost': 'MLN-BOOST',
+    'WPLL': 'Weighted Pseudo-likelihood',
       'CLL': "composite-log-likelihood",
       'DCLL': '[discriminative] composite-log-likelihood',
       "LL": "log-likelihood",

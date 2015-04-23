@@ -48,7 +48,7 @@ from util import mergeDomains, strFormula, stripComments
 from mrf import MRF
 import re
 from errors import MLNParsingError
-from atomicblocks import MutexBlock, SoftMutexBlock, BinaryBlock
+from mrfvars import MutexVariable, SoftMutexVariable, BinaryVariable
 from experimental.mlnboost import MLNBoost
 from database import readDBFromFile
 
@@ -62,45 +62,6 @@ if platform.architecture()[0] == '32bit':
         logging.getLogger(__name__).critical("Note: Psyco (http://psyco.sourceforge.net) was not loaded. On 32bit systems, it is recommended to install it for improved performance.\n")
 
 sys.setrecursionlimit(10000)
-
-'''
-Your MLN files may contain:
-    - domain declarations, e.g.
-            domainName = {value1, value2, value3}
-    - predicate declarations, e.g.
-            pred1(domainName1, domainName2)
-        mutual exclusiveness and exhaustiveness may be declared simultaneously, e.g.
-        pred1(a,b!) to state that for every constant value that variable a can take on, there is exactly one value that b can take on
-    - formulas, e.g.
-            12   cloudy(d)
-    - C++-style comments (i.e. // and /* */) anywhere
-
-The syntax of .mln files is mostly compatible to the Alchemy system (see manual of the Alchemy system)
-with the following limitations:
-    - one line per definition, no line breaks allowed
-    - all formulas must be preceded by a weight, which can be expressed as an arithmetic expression such as "1.0/3.0" or "log(0.5)"
-      note that formulas are not decomposed into clauses but processed as is.
-      operators (in order of precedence; use parentheses to change precendence):
-              !   negation
-              v   disjunction
-              ^   conjunction
-              =>  implication
-              <=> biimplication
-      Like Alchemy, we support the prefix operators * on literals and + on variables to specify templates for formulas.
-    - no support for functions
-
-As a special construct of our implementation, an MLN file may contain constraints of the sort
-    P(foo(x, Bar)) = 0.5
-i.e. constraints on formula probabilities that cause weights to be automatically adjusted to conform to the constraint.
-Note that the MLN must contain the corresponding formula.
-
-deprecated features:
-
-We support an alternate representation where the parameters are factors between 0 and 1 instead of regular weights.
-To use this representation, make use of infer2 rather than infer to compute probabilities.
-To learn factors rather than regular weights, use "LL_fac" rather than "LL" as the method you supply to learnwts.
-(pseudolikelihood is currently unsupported for learning such representations)
-'''
 
 
 class Predicate(object):
@@ -125,12 +86,12 @@ class Predicate(object):
         return str(gndatom)
     
     
-    def create_gndblock(self, blockname, blockidx):
+    def create_var(self, mrf, name):
         '''
         Creates a new instance of an atomic ground block instance
         depending on the type of the predicate
         '''
-        return BinaryBlock(blockname, blockidx, self)
+        return BinaryVariable(mrf, name, self)
     
     
     def __eq__(self, other):
@@ -166,8 +127,8 @@ class MutexBlockPredicate(Predicate):
         return '%s(%s)' % (gndatom.predName, ','.join(nonfuncargs))
     
 
-    def create_gndblock(self, blockname, blockidx):
-        return MutexBlock(blockname, blockidx, self)
+    def create_var(self, mrf, name):
+        return MutexVariable(mrf, name, self)
     
     
     def __eq__(self, other):
@@ -187,9 +148,8 @@ class SoftMutexBlockPredicate(MutexBlockPredicate):
     Represents a predicate declaration for soft function constraint.
     '''
     
-    
-    def create_gndblock(self, blockname, blockidx):
-        return SoftMutexBlock(blockname, blockidx, self)
+    def create_var(self, mrf, name):
+        return SoftMutexVariable(mrf, name, self)
 
 
     def __str__(self):
@@ -628,7 +588,7 @@ class MLN(object):
         # create the resulting MLN and set its weights
         learnedMLN = newMLN.duplicate()
         learnedMLN.setWeights(wt)
-
+        
         # fit prior prob. constraints if any available
         if len(self.probreqs) > 0:
             fittingParams = {

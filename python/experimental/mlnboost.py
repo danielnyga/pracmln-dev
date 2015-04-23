@@ -32,7 +32,9 @@ from mln.grounding.default import EqualityConstraintGrounder
 from logic.common import Logic
 from tabulate import tabulate
 from utils.clustering import CorrelationClustering
-from mln.util import strFormula
+from mln.util import strFormula, fsum
+from mln.learning.wpll import WPLL
+from mln.grounding.pll import PLLGroundingFactory
 
 
 class AtomCorrelationMatrix(object):
@@ -47,7 +49,7 @@ class AtomCorrelationMatrix(object):
         '''
         self.mlnboost = mlnboost
         self.mln = mlnboost.mln
-        self.bmrfs = mlnboost.bmrfs
+        self.mrfs = mlnboost.mrfs
         self.formula = formula
         self.groups = {} # maps an atom to its template
         if group_templ_atoms:
@@ -59,7 +61,7 @@ class AtomCorrelationMatrix(object):
         else:
             atoms = formula.getTemplateAtoms(self.mln)
         self.atoms = sorted(atoms, key=str)
-        self.atom2idx = dict([(a, i) for a, i in enumerate(self.atoms)])
+        self.atom2idx = dict([(a, i) for i, a in enumerate(self.atoms)])
         self.corr = defaultdict(dict)
         eq_constraints = formula.getAtomicConstituents(ofType=Logic.Equality)
         for i in range(len(self.atoms)):
@@ -76,7 +78,7 @@ class AtomCorrelationMatrix(object):
             i = self.atom2idx[i]
         if isinstance(j, Logic.Lit):
             j = self.atom2idx[j]
-        return self.corr[i][j] if i > j else self.corr[j][i]
+        return self.corr[i][j] if i >= j else self.corr[j][i]
     
     def __str__(self):
         table = [[str(self.atoms[i])] + [self[i,j] for j in range(len(self.atoms))] for i in range(len(self.atoms))]
@@ -115,19 +117,19 @@ class AtomCorrelationMatrix(object):
         # first, compute the (weighted) sample means
         w1_total = w2_total = w2_true = w1_true = 0.
         datapoints = [] # stores tuples (truth1, truth2, w1, w2) for later covariance computation
-        for bmrf in self.bmrfs:
-            for varassign in conj.iterVariableAssignments(bmrf.mrf):
+        for mrf in self.mrfs:
+            for varassign in conj.iterVariableAssignments(mrf):
                 if not any([dict_subset(valid, varassign) for valid in valid_varassignments]):
                     continue
-                gconj = conj.ground(bmrf.mrf, varassign)
+                gconj = conj.ground(mrf, varassign)
                 (gndlit1, gndlit2) = gconj.children
-                w1 = bmrf.bgnd_atoms[gndlit1.gndAtom.idx].weight
-                w2 = bmrf.bgnd_atoms[gndlit2.gndAtom.idx].weight
-                w1_true += gndlit1.isTrue(bmrf.mrf.evidence) * w1 
-                w2_true += gndlit2.isTrue(bmrf.mrf.evidence) * w2
+                w1 = mrf.gndAtomsByIdx[gndlit1.gndAtom.idx].weight
+                w2 = mrf.gndAtomsByIdx[gndlit2.gndAtom.idx].weight
+                w1_true += gndlit1.isTrue(mrf.evidence) * w1 
+                w2_true += gndlit2.isTrue(mrf.evidence) * w2
                 w1_total += w1
                 w2_total += w2
-                datapoints.append((gndlit1.isTrue(bmrf.mrf.evidence), gndlit2.isTrue(bmrf.mrf.evidence), w1, w2))
+                datapoints.append((gndlit1.isTrue(mrf.evidence), gndlit2.isTrue(mrf.evidence), w1, w2))
         mean1 = w1_true / w1_total
         mean2 = w2_true / w2_total
         # second, compute the weighted variances and covariances
@@ -139,8 +141,12 @@ class AtomCorrelationMatrix(object):
             w_total += w
             wsq_total += w ** 2
             cov += w * (mean1 - t1) * (mean2 - t2)
-        var1 /= ((len(datapoints) - 1) / float(len(datapoints))) * w1_total
-        var2 /= ((len(datapoints) - 1) / float(len(datapoints))) * w2_total
+        n = float(len(datapoints))
+        var1 /= (n - 1) / n * w1_total
+        var2 /= (n - 1) / n * w2_total
+        var1 = max(1e-5, var1)
+        var2 = max(1e-5, var2)
+        print len(datapoints)
         return w_total / (w_total ** 2 - wsq_total) * cov / math.sqrt(var1 * var2)
 
 
@@ -165,10 +171,14 @@ class WeakMLNLearn():
         
     def _learn_from_formula(self, from_formula):
         corr = AtomCorrelationMatrix(self.mlnboost, from_formula, group_templ_atoms=True)
-        clusters = CorrelationClustering(corr.items(), corr.atoms, thr=None).cluster2data
+        print corr
+        clusters = CorrelationClustering(corr.items(), corr.atoms, corr, thr=.2).cluster2data
+        print clusters
         formulas = []
-        for cluster in clusters.values():
-            formulas.extend(self._formula_from_cluster(cluster, corr))
+        for idx, cluster in clusters.iteritems():
+            for f in self._formula_from_cluster(cluster, corr):
+#                 print idx, f
+                formulas.append(f)
         return formulas
         
     def _formula_from_cluster(self, cluster_atoms, corr):
@@ -186,6 +196,22 @@ class WeakMLNLearn():
             return [cnf[0]]
         else:
             return [self.mln.logic.conjunction(cnf)]
+        
+#     def _formula_from_negcluster(self, cluster_atoms, corr):
+#         # group atoms by their template
+#         atom_groups = defaultdict(list)
+#         for atom in cluster_atoms:
+#             atom_groups[corr.groups[atom]].append(atom)
+#         cnf = []
+#         for disj in atom_groups.values():
+#             if len(disj) == 1:
+#                 cnf.append(self.mln.logic.lit(True, disj[0].predName, disj[0].params))
+#             else:
+#                 cnf.append(self.mln.logic.conjunction(disj))
+#         if len(cnf) == 1:
+#             return [cnf[0]]
+#         else:
+#             return [self.mln.logic.conjunction(cnf)]
 
 
 class MLNBoost(AbstractLearner):
@@ -199,28 +225,28 @@ class MLNBoost(AbstractLearner):
         self.clock = StopWatch()
     
     def _prepareOpt(self):
-        self.cll_learners = [] # list of all CLL learners
-        self.gndatoms = [] # list of all boosted ground atoms
-        self.bmrfs = []
         #  generate the template atoms from the literals in all formula.
-#         self._generate_templ_atoms()
         mln = self.mln
+        for f in mln.formulas:
+            f.idxFormula = len(mln.formulas)
+        self.mrfs = []
         self.clock.tag('grounding all MRFs', False)
+        # generate all ground MRFs
         for db in self.dbs:
             mrf = mln.groundMRF(db, cwAssumption=True, groundingMethod='NoGroundingFactory', **self.params)
-            cll = CLL(mln, mrf, partSize=1)
-            self.cll_learners.append(cll)
-            cll._prepareOpt()
-            bmrf = MLNBoost.BoostedMRF(mrf)
-            self.bmrfs.append(bmrf)
-            for partition in cll.partitions:
-                for gndatom in partition.variables[0].gndatoms:
-                    bgndatom = MLNBoost.BoostedGroundAtom(gndatom, len(self.gndatoms), mrf.evidence[gndatom.idx], 
-                                                          1. / partition.getNumberOfPossibleWorlds(), 1, mrf, cll)
-                    self.gndatoms.append(bgndatom)
-                    bmrf.bgnd_atoms[gndatom.idx] = bgndatom
+            self.mrfs.append(mrf)
+        self.variables = reduce(list.__add__, map(lambda mrf: list(mrf.variables.values()), self.mrfs))
+        # materialize the variable weights
+        for idx, var in enumerate(self.variables):
+            var.global_idx = idx
+            self._set_variable_weight(var, 1. / len(self.variables))
         self.clock.finish()
     
+    def _set_variable_weight(self, var, weight):
+        var.weight = weight
+        for gndatom in var.gndatoms:
+            gndatom.weight = weight
+            
     
     def run(self, **params):
         log = logging.getLogger(self.__class__.__name__)
@@ -236,9 +262,9 @@ class MLNBoost(AbstractLearner):
             weakmln = self.mln.duplicate()
             weakmln.formulas = weak_formulas
             weakmln = weakmln.materializeFormulaTemplates(self.dbs)
-            for i, f in enumerate(weak_formulas):
-                f.idxFormula = i
-                print strFormula(f)
+            for f in weak_formulas:
+                print f.idxFormula, f
+            exit(0)
             formulas.extend(weak_formulas)
             # ground the weak MLN and adjust the cll learners
             self.cll_learners = [] # list of all CLL learners
@@ -264,6 +290,7 @@ class MLNBoost(AbstractLearner):
             total = 0
             for gndatom in self.gndatoms:
                 gndatom.weight = gndatom.prob * (1. - gndatom.prob)
+#                 gndatom.weight *= math.exp((gndatom.truth - 1) * 2. * (gndatom.prob - 1) * 2.)
                 total += gndatom.weight
             for a in self.gndatoms:
                 a.weight /= total
@@ -275,12 +302,8 @@ class MLNBoost(AbstractLearner):
                 cll = gndatom.cll
                 for f_idx in cll.partRelevantFormulas[gndatom.partition_idx]: # collect all statistics from formulas that are relevant for this gnd atom
                     negvalues = sum([v for v, i in enumerate(stat[f_idx][gndatom.partition_idx]) if i != gndatom.value_idx])
-                    print negvalues
                     posvalue = stat[f_idx][gndatom.partition_idx][gndatom.value_idx]
-                    print posvalue
                     designmat[gndatom.idx, f_idx] = negvalues - posvalue
-#             for r in designmat:
-#                 print r
             # do the regression
             self.clock.tag('linear regression')
             f_weights = weighted_linear_regression(y, designmat, [atom.weight for atom in self.gndatoms])
@@ -289,11 +312,17 @@ class MLNBoost(AbstractLearner):
             self.clock.finish()
             # update the model predictions
             probabilities = {}
+            prob_values = {}
             for cll in self.cll_learners:
                 probabilities[cll] = cll._computeProbabilities(f_weights)
+                prob_values[cll] = cll.partitionProbValues
             for gndatom in self.gndatoms:
+                self.partition_prob_values[cll.mrf][gndatom] = self.partition_prob_values[cll.mrf].get(gndatom, 
+                                                                                                       [0] * gndatom.cll.partitions[gndatom.partition_idx].getNumberOfPossibleWorlds()) + prob_values[gndatom.cll][gndatom.partition_idx] 
                 probs = probabilities[gndatom.cll]
-                gndatom.prob = probs[gndatom.partition_idx][gndatom.value_idx]
+                probs = self.partition_prob_values[cll.mrf][gndatom]
+                probs = probs / fsum(probs)
+                gndatom.prob = probs[gndatom.value_idx]
         for gndatom in self.gndatoms:
             print '%.3f  %.3f  %s' % (gndatom.truth, gndatom.prob, str(gndatom.atom))
         self.clock.printSteps()
