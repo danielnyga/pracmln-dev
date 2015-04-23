@@ -31,10 +31,10 @@ params = ""
 files = []
 dbs = []
 for filename in os.listdir('.'):
-	if fnmatch(filename, '*.mln'):
-        	files.append(filename)
-	if fnmatch(filename, '*.db') or fnmatch(filename, '*.blogdb'):
-		dbs.append(filename)
+    if fnmatch(filename, '*.mln'):
+            files.append(filename)
+    if fnmatch(filename, '*.db') or fnmatch(filename, '*.blogdb'):
+        dbs.append(filename)
 files.sort()
 dbs.sort()
 if len(files) == 0: files.append("(no %s files found)" % str('*.mln'))
@@ -46,63 +46,63 @@ def show_entries():
 
 @app.route('/_change_engine', methods=['GET', 'OPTIONS'])
 def change_engine():
-		
-		engineName = request.args.get('engine')
-		
-		if engineName in ("internal", "PRACMLNs"):
-		    numEngine = 1
-		    methods = inference.pymlns_methods
-		    #self.cb_save_results.configure(state=NORMAL)
-		elif engineName == "J-MLNs":
-		    numEngine = 2
-		    methods = inference.jmlns_methods.keys()
-		    #self.cb_closed_world.configure(state=DISABLED)
-		    #self.cb_save_results.configure(state=NORMAL)
-		else:
-		    numEngine = 0
-		    methods = inference.alchemy_methods.keys()
-		    #self.cb_closed_world.configure(state=NORMAL)
-		    #self.cb_save_results.configure(state=DISABLED)
+        
+        engineName = request.args.get('engine')
+        
+        if engineName in ("internal", "PRACMLNs"):
+            numEngine = 1
+            methods = inference.pymlns_methods
+            #self.cb_save_results.configure(state=NORMAL)
+        elif engineName == "J-MLNs":
+            numEngine = 2
+            methods = inference.jmlns_methods.keys()
+            #self.cb_closed_world.configure(state=DISABLED)
+            #self.cb_save_results.configure(state=NORMAL)
+        else:
+            numEngine = 0
+            methods = inference.alchemy_methods.keys()
+            #self.cb_closed_world.configure(state=NORMAL)
+            #self.cb_save_results.configure(state=DISABLED)
 
-		# change additional parameters
-		params = settings.get("params%d" % int(numEngine), "")
+        # change additional parameters
+        params = settings.get("params%d" % int(numEngine), "")
 
-		# change selected inference methods
-		preferedMethod = settings.get("method%d" % int(numEngine), methods[0])
-		#if preferedMethod not in methods: preferedMethod = methods[0]
-		
-		return ';'.join((params,preferedMethod,','.join(methods)))
+        # change selected inference methods
+        preferedMethod = settings.get("method%d" % int(numEngine), methods[0])
+        #if preferedMethod not in methods: preferedMethod = methods[0]
+        
+        return ';'.join((params,preferedMethod,','.join(methods)))
 
 @app.route('/_mln', methods=['GET', 'OPTIONS'])
 def fetch_mln():
-		filename = request.args.get('filename')
-		directory = '.'
-		if os.path.exists(os.path.join(directory, filename)):
-		    text = file(os.path.join(directory, filename)).read()
-		    if text.strip() == "":
-		        text = "// %s is empty\n" % filename;
-		else:
-		    text = filename
-		return text
+        filename = request.args.get('filename')
+        directory = '.'
+        if os.path.exists(os.path.join(directory, filename)):
+            text = file(os.path.join(directory, filename)).read()
+            if text.strip() == "":
+                text = "// %s is empty\n" % filename;
+        else:
+            text = filename
+        return text
 
 @app.route('/_load_evidence', methods=['GET', 'OPTIONS'])
 def load_evidence():
-		filename = request.args.get('filename')
-		directory = '.'
-		if os.path.exists(os.path.join(directory, filename)):
-		    text = file(os.path.join(directory, filename)).read()
-		    if text.strip() == "":
-		        text = "// %s is empty\n" % filename;
-		else:
-		    text = filename
-		return text
+        filename = request.args.get('filename')
+        directory = '.'
+        if os.path.exists(os.path.join(directory, filename)):
+            text = file(os.path.join(directory, filename)).read()
+            if text.strip() == "":
+                text = "// %s is empty\n" % filename;
+        else:
+            text = filename
+        return text
 @app.route('/_test', methods=['GET', 'OPTIONS'])
 def test():
-	return "LOL"
+    return "LOL"
 
 @app.route('/_start_inference', methods=['GET', 'OPTIONS'])
 def start_inference():
-	emln = request.args['emln']
+    emln = request.args['emln']
         mln = request.args['mln']
         emln = request.args['emln']
         db = request.args['db']
@@ -166,7 +166,7 @@ def start_inference():
         except:
             cls, e, tb = sys.exc_info()
             sys.stderr.write("Error: %s\n" % str(e))
-	    return ("Error: %s\n" % str(e))
+        return ("Error: %s\n" % str(e))
             traceback.print_tb(tb)
         # restore main window
         #self.master.deiconify()
@@ -176,7 +176,7 @@ def start_inference():
         #self.selected_db.reloadFile()
 
         sys.stdout.flush()
-	return "LOL"
+    return "LOL"
 
 
 @app.route('/_init', methods=['GET', 'OPTIONS'])
