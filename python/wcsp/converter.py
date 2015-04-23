@@ -28,7 +28,7 @@ from praclog import logging
 from logic.common import Logic
 from mln.database import Database
 import copy
-from mln.atomicblocks import MutexBlock, SoftMutexBlock
+from mln.mrfvars import MutexVariable, SoftMutexVariable
 import sys
 
 
@@ -41,7 +41,7 @@ class WCSPConverter(object):
     
     def __init__(self, mrf):
         self.mrf = mrf
-        self.gndAtom2AtomicBlock = {}
+        self.gndatom2variable = {}
         self.createVariables()
         self.constraintBySignature = {}
     
@@ -51,9 +51,9 @@ class WCSPConverter(object):
         Create the variables, one binary for each ground atom.
         Considers also mutually exclusive blocks of ground atoms.
         '''
-        blocks = copy.deepcopy(self.mrf.gndAtomicBlocks)
+        blocks = copy.deepcopy(self.mrf.variables)
         self.variables = []
-        self.gndAtom2AtomicBlock = {}
+        self.gndatom2variable = {}
         for atomicBlock in blocks.values():
             newAtomicBlock = copy.copy(atomicBlock)
             newAtomicBlock.gndatoms = []
@@ -71,7 +71,7 @@ class WCSPConverter(object):
                 newAtomicBlock.blockidx = len(self.variables)
                 self.variables.append(newAtomicBlock)
                 for gndatom in newAtomicBlock.gndatoms:
-                    self.gndAtom2AtomicBlock[gndatom.idx] = newAtomicBlock
+                    self.gndatom2variable[gndatom.idx] = newAtomicBlock
 
     
     def convert(self):
@@ -113,7 +113,7 @@ class WCSPConverter(object):
         '''
         #log = logging.getLogger('wcsp')
         idxGndAtoms = wf.idxGroundAtoms()
-        varIndices = set(map(lambda x: self.gndAtom2AtomicBlock[x].blockidx, idxGndAtoms))
+        varIndices = set(map(lambda x: self.gndatom2variable[x].blockidx, idxGndAtoms))
         varIndices = tuple(sorted(varIndices))
         # collect the constraint tuples
         cost2assignments = self.gatherConstraintTuples(wcsp, varIndices, wf)
@@ -191,8 +191,8 @@ class WCSPConverter(object):
                 if not conj: varVal = not varVal
                 varVal = 1 if varVal else 0
                 
-                block = self.gndAtom2AtomicBlock[gndAtom.idx]
-                if isinstance(block, MutexBlock) or isinstance(block, SoftMutexBlock):
+                block = self.gndatom2variable[gndAtom.idx]
+                if isinstance(block, MutexVariable) or isinstance(block, SoftMutexVariable):
                     if isinstance(gndLiteral, Logic.GroundLit) and varVal == 0:
                         defaultProcedure = True
                         break

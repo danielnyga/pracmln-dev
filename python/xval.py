@@ -70,8 +70,8 @@ class XValFoldParams(object):
         self.queryPred = None
         self.queryDom = None
         self.cwPreds = None
-        self.learningMethod = LearningMethods.DCLL
-        self.optimizer = 'cg'
+        self.learningMethod = LearningMethods.LR
+        self.optimizer = 'bfgs'
         self.gtol = 0.001
         self.learningRate = .5
         self.maxrepeat = 1

@@ -108,20 +108,15 @@ class AbstractLearner(object):
                 self._fixedWeightFormulas[formula.idxFormula] = formula.weight
             
     def f(self, wt, **params):
-#         if isinstance(wt, GenomeBase.GenomeBase):
-#             wt = wt.genomeList
         # compute prior
         prior = 0
         if self.gaussianPriorSigma is not None:
             for weight in wt: # we have to use the log of the prior here
                 prior -= 1./(2.*(self.gaussianPriorSigma**2)) * weight**2 #gaussianZeroMean(weight, self.gaussianPriorSigma)
-        
         # reconstruct full weight vector
         wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
         wt = self._convertToFloatVector(wt)
-#         print "_f: wt = ", wt
-#         sys.stdout.flush()
-        # compute likelihood
+        # compute log likelihood
         likelihood = self._f(wt, **params)
         if params.get('verbose', True):
             sys.stdout.write('                                           \r')

@@ -94,9 +94,9 @@ class MRF(object):
         self.gndAtomsByIdx = {}
         self.gndFormulas = []
         self.gndAtomOccurrencesInGFs = []
-        self.gndAtomicBlocks = {}
-        self.gndAtom2AtomicBlock = {}
-        self.gndAtomicBlockByIdx = {}
+        self.variables = {}
+        self.gndatom2variable = {} # atom string -> variable
+        self.variable_by_idx = {} # gnd atom idx -> variable
         
         if type(db) == str:
             db = readDBFromFile(self.mln, db)
@@ -105,10 +105,9 @@ class MRF(object):
         else:
             raise Exception("Not a valid database argument (type %s)" % (str(type(db))))
         self.db = db
-        # materialize MLN formulas
-#         if self.mln.formulas is None:
-#             db = self.mln.materializeFormulaTemplates([db],verbose)[0]
-        self.formulas = list(self.mln.formulas) # copy the list of formulas, because we may change or extend it
+
+        # copy the list of formulas, because we may change or extend it
+        self.formulas = list(self.mln.formulas) 
         # get combined domain
         self.domains = mergeDomains(self.mln.domains, db.domains)
         log.debug('MRF domains:')
@@ -123,23 +122,12 @@ class MRF(object):
         self.posteriorProbReqs = list(self.mln.posteriorProbReqs)
         self.predicates = copy.deepcopy(self.mln.predicates)
         self.templateIdx2GroupIdx = self.mln.templateIdx2GroupIdx
-        #log.debug('grounding the following MLN:')
-        #self.mln.write(sys.stdout, color=True)
-        #log.debug('grounding with the following database:')
-        #db.write(sys.stdout, color=True)
         # grounding
         log.info('Loading %s...' % groundingMethod)
         groundingMethod = eval('%s(self, db, **params)' % groundingMethod)
         self.groundingMethod = groundingMethod
         groundingMethod.groundMRF(cwAssumption=cwAssumption, simplify=simplify)
-        #og.debug('ground atoms  vs. evidence' + (' (all should be known):' if cwAssumption else ':'))
-#         for a in self.gndAtoms.values():
-#             log.debug('%s%s -> %2.2f' % (('%d' % a.idx).ljust(5), a, self.evidence[a.idx]))
         assert len(self.gndAtoms) == len(self.evidence)
-#         for gndblock in self.gndAtomicBlocks.values():
-#             print gndblock
-#             for world in gndblock.generatePossibleWorldTuples():
-#                 print world
 
     def getHardFormulas(self):
         '''
@@ -248,14 +236,14 @@ class MRF(object):
             
         # check the predicate for its type
         predicate = self.mln.pred_decls.get(gndatom.predName)
-        blockname = predicate.getblockname(gndatom)
-        gndblock = self.gndAtomicBlocks.get(blockname, None)
-        if gndblock is None:
-            gndblock = predicate.create_gndblock(blockname, len(self.gndAtomicBlocks))
-            self.gndAtomicBlocks[blockname] = gndblock
-            self.gndAtomicBlockByIdx[gndblock.blockidx] = gndblock 
-        gndblock.gndatoms.append(gndatom)
-        self.gndAtom2AtomicBlock[gndatom.idx] = gndblock
+        varname = predicate.getblockname(gndatom)
+        variable = self.variables.get(varname, None)
+        if variable is None:
+            variable = predicate.create_var(self, varname)
+            self.variables[varname] = variable
+            self.variable_by_idx[variable.idx] = variable 
+        variable.gndatoms.append(gndatom)
+        self.gndatom2variable[gndatom.idx] = variable
         
 
     def _addGroundFormula(self, gndFormula, idxFormula, idxGndAtoms = None):
