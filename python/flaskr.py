@@ -143,7 +143,7 @@ def start_inference():
         settings['logic'] = request.args['logic'].encode('ascii','ignore')
         settings['grammar'] = request.args['grammar'].encode('ascii','ignore')
         settings['useMultiCPU'] = convert_to_boolean(request.args['use_multicpu'])
-
+	print settings
         if "params" in settings: del settings["params"]
         #if saveGeometry:
         #    settings["geometry"] = self.master.winfo_geometry()
@@ -171,18 +171,23 @@ def start_inference():
         # runinference
 	q = StdoutQueue()
 	sys.stdout = q
+	#sys.stderr = q
 
 	#def worker(q):
 	#	sys.stdout = q
-	inference.run(input_files, db, method, settings["query"], params=params, **settings)	
+	shitfuck = inference.run(input_files, db, method, settings["query"], params=params, **settings)	
 
 	#thread.start_new_thread(worker,(q,))	
 
 	def generate():
 			
 		#yield inference.run(input_files, db, method, settings["query"], params=params, **settings)
-		while not q.empty():
-    			yield q.get()
+		yield "results:\n"
+			
+		while shitfuck:
+    		#	yield q.pop()
+			key, value = shitfuck.popitem()
+			yield "{:.6f}".format(value) + " " + key + "\n"
         # restore main window
         #self.master.deiconify()
         #self.setGeometry()
@@ -192,6 +197,7 @@ def start_inference():
 
         #sys.stdout.flush()
 	return Response(stream_with_context(generate()))
+	#return str(shitfuck)
 
 @app.route('/_use_model_ext', methods=['GET', 'OPTIONS'])
 def get_emln():
