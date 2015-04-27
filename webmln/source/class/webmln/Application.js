@@ -1,15 +1,11 @@
 /* ************************************************************************
-
    Copyright:
-
    License:
-
    Authors:
-
 ************************************************************************ */
 
 /**
- * This is the main application class of your custom application "webmln"
+ * This is the main application class of your custom application "myapp"
  *
  * @asset(webmln/*)
  */
@@ -60,6 +56,7 @@ qx.Class.define("webmln.Application",
 		Below is your actual application code...
 	      -------------------------------------------------------------------------
 	      */
+
 	var root = qx.core.Init.getApplication().getRoot();
 	var windowManager = new qx.ui.window.Manager();
 	var desktop = new qx.ui.window.Desktop(windowManager);
@@ -81,15 +78,11 @@ qx.Class.define("webmln.Application",
 	var layout = new qx.ui.layout.Grid();
 	var layout3 = new qx.ui.layout.Grow();
         
-    
 	layout.setRowFlex(4, 1);
 	layout.setRowFlex(12, 1);
 
 	win1.setLayout(layout);
 	win1.setShowStatusbar(false);
-
-	// win1.add(new qx.ui.basic.Label("Simple text label"), {row:0, column: 0});
-	// win1.add(container, {row: 1, column: 0});
 
 	win3.setLayout(layout3);
 	//win1.setStatus("Demo loaded");
