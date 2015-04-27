@@ -149,7 +149,10 @@ qx.Class.define("webmln.Application",
 	var checkBoxSaveOutput = new qx.ui.form.CheckBox("save");
 
 	buttonStart.addListener("execute",function(e) {
-						req = new qx.io.remote.Request("/_start_inference", "GET", "text/plain");
+						//req = new qx.io.remote.Request("/_start_inference", "GET", "text/plain");
+						req = new qx.io.request.Xhr(); 
+						req.setUrl("/_start_inference");
+						req.setMethod("GET");
 						var mln = (selectMLN.getSelectables().length != 0) ? selectMLN.getSelection()[0].getLabel() : "";
 						var emln = (selectEMLN.getSelectables().length != 0) ? selectEMLN.getSelection()[0].getLabel() : "";
 						var db = (selectEvidence.getSelectables().length != 0) ? selectEvidence.getSelection()[0].getLabel() : "";
@@ -157,6 +160,7 @@ qx.Class.define("webmln.Application",
 						var engine = (selectEngine.getSelectables().length != 0) ? selectEngine.getSelection()[0].getLabel() : "";
 						var logic = (selectLogic.getSelectables().length != 0) ? selectLogic.getSelection()[0].getLabel() : "";
 						var grammar = (selectGrammar.getSelectables().length != 0) ? selectGrammar.getSelection()[0].getLabel() : "";  
+						/*setRequestData						
 						req.setParameter("mln", mln);
 						req.setParameter("emln", emln);
 						req.setParameter("db", db);
@@ -177,9 +181,12 @@ qx.Class.define("webmln.Application",
 						req.setParameter("use_emln", checkBoxUseModelExt.getValue());
 						req.setParameter("max_steps", textFieldMaxSteps.getValue());
 						req.setParameter("num_chains", textFieldNumChains.getValue());
-						req.setParameter("use_multicpu", checkBoxUseAllCPU.getValue());
-						req.addListener("completed", function(e) {
-								response = e.getContent();
+						req.setParameter("use_multicpu", checkBoxUseAllCPU.getValue());*/
+						req.setRequestData({"mln":mln,"emln":emln,"db":db,"method":method,"engine":engine,"logic":logic,"grammar":grammar,"mln_text":textAreaMLN.getValue(),"db_text":textAreaEvidence.getValue(),"output":textFieldOutput.getValue(),"params":textFieldAddParams.getValue(),"mln_rename_on_edit":checkBoxRenameEditMLN.getValue(),"db_rename_on_edit":checkBoxRenameEditEvidence.getValue(),"query":textFieldQueries.getValue(),"closed_world":checkBoxApplyCWOption.getValue(),"cw_preds":textFieldCWPreds.getValue(),"convert_to_alchemy":checkBoxConvertAlchemy.getValue(),"use_emln":checkBoxUseModelExt.getValue(),"max_steps":textFieldMaxSteps.getValue(),"num_chains":textFieldNumChains.getValue(),"use_multicpu":checkBoxUseAllCPU.getValue()});
+						req.addListener("success", function(e) {
+								var tar = e.getTarget();								
+								//response = e.getContent();
+								response = tar.getResponse();
 								textAreaResults.setValue(response);
 								win1.open();
 								desktop.setActiveWindow(win3);
