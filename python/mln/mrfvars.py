@@ -69,6 +69,8 @@ class MRFVariable(object):
         value = []
         for gndatom in self.gndatoms:
             value.append(evidence[gndatom.idx])
+        if not any(map(lambda v: v ==1, value)):
+            return None
         return self.getValueIndex(tuple(value))
     
     
