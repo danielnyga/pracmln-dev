@@ -326,14 +326,16 @@ class EnumerationAsk(Inference):
     def __enumerateWorlds(self, i, worldValues):
 #         log = logging.getLogger(self.__class__.__name__)
         numBlocks = len(self.mrf.pllBlocks)
+#         print numBlocks
         if i == numBlocks:
             self.doneCountingTotalWorlds = True
             yield worldValues
             return
         idxGA, block = self.mrf.pllBlocks[i]
         if block is not None: # block of mutex ground atoms
+#             print map(lambda b: self.mrf.gndBlockLookup[b], block)
             haveTrueEvidence = i in self.evidenceBlocks
-            if self.haveSoftEvidence and not haveTrueEvidence: # check for soft evidence
+            if False:#self.haveSoftEvidence and not haveTrueEvidence: # check for soft evidence
                 numSoft = 0
                 for idxGA in block:
                     se = self.mrf._getSoftEvidence(self.mrf.gndAtomsByIdx[idxGA])
@@ -350,7 +352,9 @@ class EnumerationAsk(Inference):
                 if not self.doneCountingTotalWorlds: self.totalWorlds *= len(block)
                 for idxBlockValue, idxGA in enumerate(block):
                     if idxBlockValue in self.blockExclusions.get(i, []): 
-#                         log.info('skipping block %s' % str(self.mrf.gndAtomsByIdx[idxGA]))
+#                         print 'skipping block %s' % str(self.mrf.gndAtomsByIdx[idxGA])
+                        for w in self.__enumerateWorlds(i+1, list(worldValues)):
+                            yield w 
                         continue
                     for idxGA2 in block:
                         worldValues[idxGA2] = 1 if idxGA == idxGA2 else 0
