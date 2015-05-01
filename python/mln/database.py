@@ -184,7 +184,19 @@ class Database(object):
             atomString = str(gndLit.gndAtom)
         else:
             raise Exception('gndLit has an illegal type: %s' % str(type(gndLit)))
+        if atomString not in self.evidence: return
         del self.evidence[atomString]
+        
+        
+    def removeDomainValue(self, domain, value):
+        for atom in list(self.evidence):
+            _, predname, args = self.mln.logic.parseLiteral(atom)
+            for i, arg in enumerate(args):
+                if self.mln.predicates[predname][i] == domain and arg == value:
+                    self.retractGndAtom(atom)
+        self.domains[domain].remove(value)
+                    
+        
                 
     def isEmpty(self):
         '''
