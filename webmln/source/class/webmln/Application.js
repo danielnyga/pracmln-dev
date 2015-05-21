@@ -59,7 +59,9 @@ qx.Class.define("webmln.Application",
 
 	var root = qx.core.Init.getApplication().getRoot();
 	var windowManager = new qx.ui.window.Manager();
-	var desktop = new qx.ui.window.Desktop(windowManager);
+	var desktop = new qx.ui.window.Desktop(windowManager).set({
+        decorator: decorator
+    });
 	root.add(desktop);
 	//var widgets = this._widgets;
 
@@ -68,22 +70,27 @@ qx.Class.define("webmln.Application",
 
 	var win1 = new qx.ui.window.Window("MLN Query Tool", null).set({
 		width:100
-        });
-	var win2 = new qx.ui.window.Window("Graph", null);
+    });
+    var win2 = new qx.ui.window.Window("Graph", null).set({
+		width:500,
+		height:400
+	});
+	//var win2 = new qx.ui.window.Window("Graph", null);
 	var win3 = new qx.ui.window.Window("Results", null).set({
 		width:500,
 		height:400
 	});
 	
 	var layout = new qx.ui.layout.Grid();
+    var layout2 = new qx.ui.layout.Grow();
 	var layout3 = new qx.ui.layout.Grow();
-        
+
 	layout.setRowFlex(4, 1);
 	layout.setRowFlex(12, 1);
 
 	win1.setLayout(layout);
 	win1.setShowStatusbar(false);
-
+    win2.setLayout(layout2);
 	win3.setLayout(layout3);
 	//win1.setStatus("Demo loaded");
 
@@ -120,6 +127,7 @@ qx.Class.define("webmln.Application",
 	var textAreaEMLN = new qx.ui.form.TextArea("");
 	var textAreaEvidence = new qx.ui.form.TextArea("");
 	var textAreaResults = new qx.ui.form.TextArea("");
+	textAreaResults.setReadOnly(true);
 
 	var textFieldNameMLN = new qx.ui.form.TextField("");
 	textFieldNameMLN.setEnabled(false);
@@ -143,9 +151,7 @@ qx.Class.define("webmln.Application",
 
 	buttonStart.addListener("execute",function(e) {
 						//req = new qx.io.remote.Request("/_start_inference", "GET", "text/plain");
-						req = new qx.io.request.Xhr(); 
-						req.setUrl("/_start_inference");
-						req.setMethod("GET");
+						req = new qx.io.request.Xhr("/_start_inference","GET");
 						var mln = (selectMLN.getSelectables().length != 0) ? selectMLN.getSelection()[0].getLabel() : "";
 						var emln = (selectEMLN.getSelectables().length != 0) ? selectEMLN.getSelection()[0].getLabel() : "";
 						var db = (selectEvidence.getSelectables().length != 0) ? selectEvidence.getSelection()[0].getLabel() : "";
@@ -180,6 +186,8 @@ qx.Class.define("webmln.Application",
 								var tar = e.getTarget();								
 								//response = e.getContent();
 								response = tar.getResponse();
+								//labelResults.setValue(response);
+                                //alert(response);
 								textAreaResults.setValue(response);
 								win1.open();
 								desktop.setActiveWindow(win3);
@@ -192,11 +200,11 @@ qx.Class.define("webmln.Application",
 						
 	});
 	buttonSaveMLN.addListener("execute",function(e){
-						req = new qx.io.remote.Request("/_test", "GET", "text/plain");
-						req.addListener("completed", function(e) {
-								alert(e.getContent());
-						});
-						req.send();
+						//req = new qx.io.remote.Request("/_test", "GET", "text/plain");
+						//req.addListener("completed", function(e) {
+						//		alert(e.getContent());
+						//});
+						//req.send();
 
 	});
 	buttonSaveEMLN.addListener("execute",function(e){});
@@ -214,9 +222,11 @@ qx.Class.define("webmln.Application",
 									win1.add(checkBoxRenameEditEMLN, {row: 9, column: 1});
 									win1.add(textFieldNameEMLN, {row: 10, column: 1, colSpan: 3});
 									layout.setRowFlex(8, 1);
-									req = new qx.io.remote.Request("/_use_model_ext", "GET", "text/plain");
-									req.addListener("completed", function(e) {
-										response = e.getContent().split(",");
+									req = new qx.io.request.Xhr("/_use_model_ext", "GET");
+									req.addListener("success", function(e) {
+										var tar = e.getTarget();
+										response = tar.getResponse().split(",");
+										//response = e.getContent().split(",");
 										for (var i = 0; i < response.length; i++) {
 											selectEMLN.add(new qx.ui.form.ListItem(response[i]));
 										}
@@ -241,10 +251,13 @@ qx.Class.define("webmln.Application",
 		
 	selectEngine.addListener("changeSelection",function(e) {
 								var item = selectEngine.getSelection()[0];
-								req = new qx.io.remote.Request("/_change_engine", "GET", "text/plain");
-								req.setParameter("engine", item.getLabel());
-								req.addListener("completed", function(e) {
-									response = e.getContent().split(";");
+								req = new qx.io.request.Xhr("/_change_engine", "GET");
+								req.setRequestData({"engine":item.getLabel()});
+								//req.setParameter("engine", item.getLabel());
+								req.addListener("success", function(e) {
+									var tar = e.getTarget();
+									response = tar.getResponse().split(";");
+									//response = e.getContent().split(";");
 									var params = response[0];
 									var methods = response[2].split(",");
 									if (item.getLabel() == "J-MLNs") {
@@ -271,10 +284,13 @@ qx.Class.define("webmln.Application",
 	selectMLN.addListener("changeSelection",function(e){
 								var item = selectMLN.getSelection()[0];
 								textFieldNameMLN.setValue(item.getLabel());
-								req = new qx.io.remote.Request("/_mln", "GET", "text/plain");
-								req.setParameter("filename", item.getLabel());
-								req.addListener("completed", function(e) {
-									response = e.getContent();
+								req = new qx.io.request.Xhr("/_mln", "GET");
+								req.setRequestData({"filename":item.getLabel()});
+								//req.setParameter("filename", item.getLabel());
+								req.addListener("success", function(e) {
+									var tar = e.getTarget();								
+									//response = e.getContent();
+									response = tar.getResponse();
 									textAreaMLN.setValue(response);
 								
 								});
@@ -286,10 +302,13 @@ qx.Class.define("webmln.Application",
 	selectEvidence.addListener("changeSelection",function(e){
 								var item = selectEvidence.getSelection()[0];
 								textFieldDB.setValue(item.getLabel());
-								req = new qx.io.remote.Request("/_load_evidence", "GET", "text/plain");	
-								req.setParameter("filename", item.getLabel());
-								req.addListener("completed", function(e) {
-									response = e.getContent().split(";");
+								req = new qx.io.request.Xhr("/_load_evidence", "GET");	
+								req.setRequestData({"filename":item.getLabel()});
+								//req.setParameter("filename", item.getLabel());
+								req.addListener("success", function(e) {
+									var tar = e.getTarget();
+									response = tar.getResponse().split(";");
+									//response = e.getContent().split(";");
 									textAreaEvidence.setValue(response[0]);
 									textFieldQueries.setValue(response[1]);
 								});
@@ -356,15 +375,118 @@ qx.Class.define("webmln.Application",
 	win1.add(checkBoxSaveOutput, {row: 21, column: 3});
 
 	win3.add(textAreaResults);
-	      
+	//win3.add(labelResults);
+	     
+	var canvas = new qx.ui.container.Composite(new qx.ui.layout.Grow());
+
+    var html = new qx.ui.embed.Html('<div id="d3"></div>');
+
+    canvas.add(html);
+/*
+    html.addListener("appear", function(e) {
+        var div = d3.select('#d3');
+            var graph = div.append('svg:svg').attr('width', 400).attr('height', 400);
+       
+            var pathinfo = [{x:0, y:60},
+                            {x:50, y:110},
+                            {x:90, y:70},
+                            {x:140, y:100}];
+
+            var line = d3.svg.line()
+                        .x(function(d){return d.x;})
+                        .y(function(d){return d.y;})
+                        .interpolate('linear');
+
+            graph.append('svg:path').attr('d', line(pathinfo))
+                    .style('stroke-width', 2)
+                    .style('stroke', 'steelblue')
+                    .style('fill', 'none');
+    });*/
+
+    html.addListener("appear", function(e) {
+    
+        var width = 500, height = 400;
+
+        var color = d3.scale.category20();
+
+        var force = d3.layout.force()
+            .charge(-1000)
+            .linkDistance(200)
+            .size([width, height]);
+
+        var svg = d3.select('#d3').append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        d3.json("resource/miserables1.json", function(error, graph) {
+          force
+              .nodes(graph.nodes)
+              .links(graph.links)
+              .start();
+
+          var link = svg.selectAll(".link")
+              .data(graph.links)
+            .enter().append("line")
+              .attr("class", "link")
+              .style("stroke-width", function(d) { return Math.sqrt(d.value); });
+
+          var node = svg.selectAll(".node")
+              .data(graph.nodes)
+            .enter().append("rect")
+              .attr("class", "node")
+              .attr("width", 100)
+	          .attr("height", 50)
+	          .attr("rx", 5)
+	          .attr("ry", 5)
+              .style("fill", function(d) { return color(d.group); })
+              .call(force.drag);
+
+          node.append("title")
+              .text(function(d) { return d.name; });
+	          
+          var text = svg.selectAll("text")
+		        .data(graph.nodes)
+		        .enter().append("text")
+		        .text(function(d) { return d.name; });
+						
+          var textLabels = text
+		        .attr("x", function(d) { return d.cx; })
+		        .attr("y", function(d) { return d.cy; })
+		        .attr("font-size", "20px")
+		        .style("text-anchor", "middle")
+		        .text(function(d) { return d.name; });
+
+          force.on("tick", function() {
+            link.attr("x1", function(d) { return d.source.x; })
+                .attr("y1", function(d) { return d.source.y; })
+                .attr("x2", function(d) { return d.target.x; })
+                .attr("y2", function(d) { return d.target.y; });
+
+            node.attr("x", function(d) { return d.x-50; })
+                .attr("y", function(d) { return d.y-25; });
+		
+	        text.attr("x", function(d) { return d.x; })
+		        .attr("y", function(d) { return d.y; });
+          });
+        });
+    });
+	win2.add(canvas);
+
+    win1.addListener("appear", function(e) {
+        //not quite :/
+        desktop.add(win2, {left: win1.getWidth(), top: 0});
+        win2.open();
+    });
 	desktop.add(win1, {left: 0, top: 0});
 	desktop.add(win3, {left: 150, top: 150});
 
 	textFieldOutput.setValue("smoking-test-smoking.results");
 	//Fetch options to choose from
-	req = new qx.io.remote.Request("/_init", "GET", "text/plain");
-	req.addListener("completed", function(e) {
-						response = e.getContent().split(";");
+	req = new qx.io.request.Xhr("/_init", "GET");
+	req.addListener("success", function(e) {
+						var tar = e.getTarget();
+						response = tar.getResponse().split(";");
+						//response = e.getContent().split(";");
 						var sub;
 						for (var i = 0; i < response.length; i++) {
 							if (i == 3) {

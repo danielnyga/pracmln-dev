@@ -22,7 +22,7 @@ from mln import readMLNFromFile
 from mln.util import balancedParentheses
 from mln.database import readDBFromFile
 
-DEBUG = True
+DEBUG = False
 SECRET_KEY = 'development key'
 USERNAME = 'admin'
 PASSWORD = 'default'
@@ -48,7 +48,6 @@ def send_static(filename):
 def change_engine():
         global numEngine
         engineName = request.args.get('engine')
-        print 'Engine ' + engineName
         if engineName in ("internal", "PRACMLNs"):
             numEngine = 1
             methods = inference.pymlns_methods
@@ -148,7 +147,6 @@ def start_inference():
     settings['logic'] = request.args['logic'].encode('ascii','ignore')
     settings['grammar'] = request.args['grammar'].encode('ascii','ignore')
     settings['useMultiCPU'] = convert_to_boolean(request.args['use_multicpu'])
-    print settings
     if "params" in settings: del settings["params"]
     #if saveGeometry:
     #    settings["geometry"] = self.master.winfo_geometry()
@@ -170,8 +168,6 @@ def start_inference():
     input_files = [mln]
     if settings["useEMLN"] == 1 and emln != "": # using extended model
         input_files.append(emln)
-    # hide main window
-    #self.master.withdraw()
         
         # runinference
     q = StdoutQueue()
@@ -180,29 +176,28 @@ def start_inference():
 
     #def worker(q):
     #    sys.stdout = q
-    shitfuck = inference.run(input_files, db, method, settings["query"], params=params, **settings)    
+    results = inference.run(input_files, db, method, settings["query"], params=params, **settings)    
 
     #thread.start_new_thread(worker,(q,))    
 
     def generate():
             
         #yield inference.run(input_files, db, method, settings["query"], params=params, **settings)
-        yield "results:\n"
+        #yield "results:\n"
             
-        while shitfuck:
-            #    yield q.pop()
-            key, value = shitfuck.popitem()
-            yield "{:.6f}".format(value) + " " + key + "\n"
-        # restore main window
-        #self.master.deiconify()
-        #self.setGeometry()
+        while not q.empty():
+	        temp = q.get()
+	        temp = temp.replace("\033[1m","")
+	        temp = temp.replace("\033[0m","")
+                yield temp
+            #key, value = shitfuck.popitem()
+            #yield "{:.6f}".format(value) + " " + key + "\n"
         # reload the files (in case they changed)
         #self.selected_mln.reloadFile()
         #self.selected_db.reloadFile()
 
         #sys.stdout.flush()
     return Response(stream_with_context(generate()))
-    #return str(shitfuck)
 
 @app.route('/_use_model_ext', methods=['GET', 'OPTIONS'])
 def get_emln():
@@ -216,7 +211,7 @@ def get_emln():
 
 @app.route('/_init', methods=['GET', 'OPTIONS'])
 def init_options():
-        return ';'.join(((','.join(alchemy_engines)),(','.join(inference_methods)),(','.join(files)),(',,'.join(dbs)),(settings["query"]),(settings["maxSteps"])))
+    return ';'.join(((','.join(alchemy_engines)),(','.join(inference_methods)),(','.join(files)),(',,'.join(dbs)),(settings["query"]),(settings["maxSteps"])))
 
 def convert_to_boolean(request):
     if request == u'true':
@@ -253,4 +248,4 @@ if __name__ == '__main__':
                 except:
                     pass
                 break
-    app.run(debug=True,threaded=True)
+    app.run(debug=False,threaded=True)
