@@ -1,0 +1,15 @@
+import logging
+from pracmln.praclog.logformat import RainbowLoggingHandler
+import sys
+
+def logger(name): return logging.getLogger(name)
+
+root_logger = logging.getLogger()
+
+handler = RainbowLoggingHandler(sys.stdout)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+root_logger.addHandler(handler)
+
+def out(logger, *msgs):
+    logger.debug(' '.join(map(str, msgs)))
