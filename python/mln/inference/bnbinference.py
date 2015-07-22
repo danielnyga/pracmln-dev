@@ -23,7 +23,7 @@
 
 from mln.inference.inference import Inference
 from wcsp.branchandbound import BranchAndBound
-from mln.util import strFormula
+from mln.util import fstr
 from wcsp.russiandoll import RussianDoll
 
 class BnBInference(Inference):
@@ -35,7 +35,7 @@ class BnBInference(Inference):
         bnb = RussianDoll(self.mrf)
         bnb.search()
         result = bnb.best_solution
-        strQueries = map(strFormula, self.queries)
+        strQueries = map(fstr, self.queries)
         if result is None:
             raise Exception('Knowledge base is unsatisfiable.')
         result = dict([(i, 1. if result[q] == True else 0.) for i, q in enumerate(strQueries)])

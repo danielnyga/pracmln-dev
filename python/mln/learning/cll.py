@@ -25,12 +25,11 @@ from mln.learning.common import AbstractLearner, DiscriminativeLearner
 import random
 import logging
 from collections import defaultdict
-from mln.util import fsum
+from mln.util import fsum, StopWatch, dict_union
 from numpy.ma.core import log, sqrt
 import numpy
 from logic.common import Logic
 import sys
-from utils import dict_union, StopWatch
 import types
 
 class CLL(AbstractLearner):
@@ -234,7 +233,7 @@ class CLL(AbstractLearner):
         lit = literals[0]
         # ground the literal with the existing assignments
         gndlit = lit.ground(self.mrf, var_assign, allowPartialGroundings=True)
-        for assign in Logic.iterEqVariableAssignments(gndlit, formula, self.mrf) if self.mrf.mln.logic.isEquality(gndlit) else gndlit.iterVariableAssignments(self.mrf):
+        for assign in Logic.iter_eq_varassignments(gndlit, formula, self.mrf) if self.mrf.mln.logic.isEquality(gndlit) else gndlit.iterVariableAssignments(self.mrf):
             # copy the arguments to avoid side effects
             # if f_gndlit_parts is None: f_gndlit_parts = set()
             # else: f_gndlit_parts = set(f_gndlit_parts)

@@ -32,7 +32,7 @@ from mln.grounding.default import EqualityConstraintGrounder
 from logic.common import Logic
 from tabulate import tabulate
 from utils.clustering import CorrelationClustering
-from mln.util import strFormula, fsum
+from mln.util import fstr, fsum
 from mln.learning.wpll import WPLL
 from mln.grounding.pll import PLLGroundingFactory
 

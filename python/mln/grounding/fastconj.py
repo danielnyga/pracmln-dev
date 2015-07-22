@@ -27,8 +27,15 @@ from logic.common import Logic
 import types
 from multiprocessing.pool import Pool
 from utils.multicore import with_tracing
+from itertools import imap
 import itertools
+from mln.mlnpreds import FunctionalPredicate, SoftFunctionalPredicate
+from mln.util import fstr, dict_union, stop, out
+from mln.errors import SatisfiabilityException
+from mln.constants import HARD, auto
+from collections import defaultdict
 
+logger = logging.getLogger(__name__)
     
 # this readonly global is for multiprocessing to exploit copy-on-write
 # on linux systems
@@ -36,177 +43,140 @@ global_fastConjGrounding = None
 
 # multiprocessing function
 def create_formula_groundings(formula):
-    gndFormulas = []
-#     for formula in formulas:
-    if global_fastConjGrounding.mrf.mln.logic.isConjunctionOfLiterals(formula):
-        for gndFormula in global_fastConjGrounding.iterConjunctionGroundings(formula):
-            gndFormula.isHard = formula.isHard
-            gndFormula.weight = formula.weight
-#                 groundingFactory.mrf._addGroundFormula(gndFormula, idxFormula, None)
-            gndFormula.fIdx = formula.idx
-            gndFormulas.append(gndFormula)
+    gfs = []
+    if global_fastConjGrounding.mrf.mln.logic.islitconj(formula) or global_fastConjGrounding.mrf.mln.logic.isclause(formula):
+        for gf in global_fastConjGrounding.itergroundings_fast(formula):
+            gfs.append(gf)
     else:
-        for gndFormula, _ in formula.iterGroundings(global_fastConjGrounding.mrf, simplify=True):
-            gndFormula.isHard = formula.isHard
-            gndFormula.weight = formula.weight
-            gndFormula.fIdx = formula.idx
-            gndFormulas.append(gndFormula)
-    #                 groundingFactory.mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
-    return gndFormulas
+        for gf in formula.itergroundings(global_fastConjGrounding.mrf, simplify=True):
+            gfs.append(gf)
+    return gfs
     
+def pivot(t):
+    if t == 'conj':
+        return min
+    elif t == 'disj':
+        return max
 
 class FastConjunctionGrounding(DefaultGroundingFactory):
     
-    def _getEvidenceBlockData(self):
-        # build up data structures
-        self.evidenceBlocks = [] # list of pll block indices where we know the true one (and thus the setting for all of the block's atoms)
-        self.blockExclusions = {} # dict: pll block index -> list (of indices into the block) of atoms that mustn't be set to true
-        for idxBlock, (idxGA, block) in enumerate(self.mrf.pllBlocks): # fill the list of blocks that we have evidence for
-            if block != None:
-                haveTrueone = False
-                falseones = []
-                for i, idxGA in enumerate(block):
-                    ev = self.mrf._getEvidence(idxGA, False)
-                    if ev == 1:
-                        haveTrueone = True
-                        break
-                    elif ev == 0:
-                        falseones.append(i)
-                if haveTrueone:
-                    self.evidenceBlocks.append(idxBlock)
-                elif len(falseones) > 0:
-                    self.blockExclusions[idxBlock] = falseones
-            else:
-                if self.mrf._getEvidence(idxGA, False) != None:
-                    self.evidenceBlocks.append(idxBlock)
-
     
-    def prepareGrounding(self): pass
-#         self.mrf._getPllBlocks()
-#         self.mrf._getEvidenceBlockData()
+    def __init__(self, mrf, formulas=None, cache=auto, **params):
+        DefaultGroundingFactory.__init__(self, mrf, formulas, cache)
+            
+    
+    def _conjsort(self, e):
+        if isinstance(e, Logic.Equality):
+            return 2.5
+        elif isinstance(e, Logic.TrueFalse):
+            return 1
+        elif isinstance(e, Logic.GroundLit):
+            if self.mrf.evidence[e.gndatom.idx] is not None:
+                return 2
+            elif type(self.mrf.mln.predicate(e.gndatom.predname)) in (FunctionalPredicate, SoftFunctionalPredicate):
+                return 3
+            else:
+                return 4
+        elif isinstance(e, Logic.Lit) and type(self.mrf.mln.predicate(e.predname)) in (FunctionalPredicate, SoftFunctionalPredicate):
+            return 5
+        elif isinstance(e, Logic.Lit):
+            return 6
+        else:
+            return 7
         
-
-    def iterConjunctionGroundings(self, formula):
+    
+    def itergroundings_fast(self, formula):
         '''
         Recursively generate the groundings of a conjunction that do _not_
         have a definite truth value yet given the evidence.
         '''
-        log = logging.getLogger(self.__class__.__name__)
-        logic = self.mrf.mln.logic
         # make a copy of the formula to avoid side effects
-        formula = formula.ground(self.mrf, {}, allowPartialGroundings=True)
-        conjunction_ = logic.conjunction([formula, logic.true_false(1)]) if not hasattr(formula, 'children') else formula
+        formula = formula.ground(self.mrf, {}, partial=True)
+        if self.mrf.mln.logic.isclause(formula):
+            t = 'disj'
+        elif self.mrf.mln.logic.islitconj(formula):
+            t = 'conj'
+        else:
+            raise Exception('Unexpected formula: %s' % fstr(formula))
+        children = [formula] if  not hasattr(formula, 'children') else formula.children
         # make equality constraints access their variable domains
         # this is a _really_ dirty hack but it does the job ;-)
-        variables = conjunction_.getVariables(self.mrf.mln)
-        def getEqualityVariables(self, mln):
-            var2dom = {}
-            for c in self.params:
-                if mln.logic.isVar(c):
-                    var2dom[c] = variables[c]
-            return var2dom 
-        # rearrange children
-        children = list(conjunction_.children)
-        conjunction = []
-        for child in list(children):
+        variables = formula.vardoms()
+        def eqvardoms(self, v=None, c=None):
+            if v is None:
+                v = defaultdict(set)
+            for a in self.args:
+                if self.mln.logic.isvar(a):
+                    v[a] = variables[a]
+            return v 
+        for child in children:
             if isinstance(child, Logic.Equality):
-                conjunction.append(child)
-                children.remove(child)
-                # replace the getVariables method in this equality instance
+                # replace the vardoms method in this equality instance
                 # by our customized one
-                setattr(child, 'getVariables', types.MethodType(getEqualityVariables, child))
-        for child in list(children):
-            if isinstance(child, Logic.TrueFalse): continue
-            predName = child.predName if isinstance(child, Logic.Lit) else child.gndAtom.predName
-            if predName in self.mrf.mln.blocks: 
-                conjunction.append(child)
-                children.remove(child)
-        conjunction.extend(children)
-        conjunction = logic.conjunction(conjunction)
-        for gndFormula in self._iterConjunctionGroundings(conjunction, 0, len(conjunction.children), self.mrf, {}):
-            yield gndFormula
+                setattr(child, 'vardoms', types.MethodType(eqvardoms, child))
+        lits = sorted(children, key=self._conjsort)
+        for gf in self._itergroundings_fast(t, formula, variables, lits, gndlits=[], truthpivot=1 if t == 'conj' else 0, assignment={}):
+            yield gf
             
             
-#     def _iterConjunctionGroundings(self, formula, litIdx, numChildren, mrf, assignment):
-#         
-#         log = logging.getLogger(self.__class__.__name__)
-#         if litIdx == numChildren:
-#             gndFormula = formula.ground(mrf, assignment, simplify=True)#.simplify(mrf)
-#             if isinstance(gndFormula, Logic.TrueFalse): return
-#             else: yield gndFormula
-#             return
-#         lit = formula.children[litIdx]
-#         for varAssignment in lit.iterTrueVariableAssignments(mrf, mrf.evidence, truthThreshold=.0, strict=True, includeUnknown=True, partialAssignment=assignment):
-#             log.warning(assignment)
-#             log.warning(varAssignment)
-#             if varAssignment == {}:
-#                 if len(set(lit.getVariables(mrf.mln).keys()).difference(assignment.keys())) > 0 or \
-#                     lit.ground(mrf, assignment).isTrue(mrf.evidence) == 0: 
-#                     return
-#             assignment_ = dict(assignment)
-#             assignment_.update(varAssignment)
-#             for gndFormula in self._iterConjunctionGroundings(formula, litIdx+1, numChildren, mrf, assignment_):
-#                 yield gndFormula
-                
-                
-    def _iterConjunctionGroundings(self, formula, litIdx, numChildren, mrf, assignment):
-        log = logging.getLogger(self.__class__.__name__)
-        if litIdx == numChildren:
-#             if formula.isTrue(mrf.evidence) is not None: # the gnd formula is rendered true by the evidence. skip this one
-#                 return
-            gndFormula = formula.ground(mrf, assignment, simplify=True)#.simplify(mrf)
-            if isinstance(gndFormula, Logic.TrueFalse): return
-            else: yield gndFormula
+    def _itergroundings_fast(self, typ, formula, domains, lits, gndlits, assignment, truthpivot, level=0):
+        if truthpivot == 0 and typ == 'conj':
+            if formula.weight == HARD:
+                raise SatisfiabilityException('MLN is unsatisfiable given evidence due to hard constraint violation: %s' % fstr(formula))
             return
-        lit = formula.children[litIdx]
-        for varAssignment in lit.iterTrueVariableAssignments(mrf, mrf.evidence, truthThreshold=.0, strict=True, includeUnknown=True, partialAssignment=assignment):
-#             log.warning(assignment)
-#             log.warning(varAssignment)
-            if varAssignment == {}:
-                if len(set(lit.getVariables(mrf.mln).keys()).difference(assignment.keys())) > 0 or \
-                    lit.ground(mrf, assignment).isTrue(mrf.evidence) == 0: 
-                    return
-            assignment_ = dict(assignment)
-            assignment_.update(varAssignment)
-            for gndFormula in self._iterConjunctionGroundings(formula, litIdx+1, numChildren, mrf, assignment_):
-                yield gndFormula
+        if truthpivot == 1 and typ == 'disj':
+            return
+        if not lits:
+            if typ == 'conj':
+                gf = self.mrf.mln.logic.conjunction(gndlits, mln=self.mrf.mln, idx=formula.idx).simplify(self.mrf)
+            elif typ == 'disj':
+                gf = self.mrf.mln.logic.disjunction(gndlits, mln=self.mrf.mln, idx=formula.idx).simplify(self.mrf)
+            if isinstance(gf, Logic.TrueFalse): 
+                if gf.weight == HARD and gf.value < 1:
+                    raise SatisfiabilityException('MLN is unsatisfiable given evidence due to hard constraint violation: %s' % fstr(formula))
+            else: 
+                yield gf
+            return
+        lit = lits[0]
+        lit = lit.ground(self.mrf, assignment, partial=True)
+        if isinstance(lit, Logic.Equality):
+            def eqvardoms(self, v=None, c=None):
+                if v is None:
+                    v = defaultdict(set)
+                for a in self.args:
+                    if self.mln.logic.isvar(a):
+                        v[a] = domains[a]
+                return v 
+            setattr(lit, 'vardoms', types.MethodType(eqvardoms, lit))
+
+        for varass in lit.itervargroundings(self.mrf):
+            ga = lit.ground(self.mrf, varass)
+            for gf in self._itergroundings_fast(typ, formula, domains, lits[1:], gndlits + [ga], dict_union(assignment, varass), pivot(typ)(truthpivot, ga.truth(self.mrf.evidence)), level+1):
+                yield gf
             
         
-    def _createGroundFormulas(self, simplify=True):
-        global global_fastConjGrounding
-        mrf = self.mrf
-        assert len(mrf.gndAtoms) > 0
-        log = logging.getLogger(self.__class__.__name__)
-        # generate all groundings
-        log.info('Grounding formulas...')
-#         log.debug('Ground formulas (all should have a truth value):')
-        multiCPU = self.params.get('useMultiCPU', False)
-        if multiCPU:
-            for i, f in enumerate(mrf.formulas):
-                f.idx = i
-            global_fastConjGrounding = self
-            pool = Pool()
-            log.info('Multiprocessing enabled using %d cores.' % pool._processes)
-            try:
-                gndFormulas = pool.map(with_tracing(create_formula_groundings), mrf.formulas)
-                for gndFormula in itertools.chain(*gndFormulas):
-                    mrf._addGroundFormula(gndFormula, gndFormula.fIdx, None)
-                pool.close()
-                pool.join()
-            except:
-                pool.terminate()
-                pool.join()
+    def itergroundings(self, simplify=True, unsatfailure=True):
+        if self.iscached:
+            for gf in self._cache:
+                yield gf
+            return
         else:
-            for idxFormula, formula in enumerate(mrf.formulas):
-                if mrf.mln.logic.isConjunctionOfLiterals(formula):
-                    for gndFormula in self.iterConjunctionGroundings(formula):
-                        gndFormula.isHard = formula.isHard
-                        gndFormula.weight = formula.weight
-                        mrf._addGroundFormula(gndFormula, idxFormula, None)
-                else:
-                    for gndFormula, referencedGndAtoms in formula.iterGroundings(mrf, simplify=simplify):
-                        gndFormula.isHard = formula.isHard
-                        gndFormula.weight = formula.weight
-                        mrf._addGroundFormula(gndFormula, idxFormula, referencedGndAtoms)
-        log.info('created %d ground formulas.' % len(mrf.gndFormulas))
+            if self.usecache: self._cacheinit()
+        # generate all groundings
+        global global_fastConjGrounding
+        global_fastConjGrounding = self
+        if self.multicore:
+            pool = Pool()
+            for gfs in pool.imap(with_tracing(create_formula_groundings), self.formulas):
+                if self._cache is not None:
+                    self._cache.extend(gfs)
+                for gf in gfs: yield gf
+            pool.terminate()
+            pool.join()
+        else:
+            for gfs in imap(create_formula_groundings, self.formulas):
+                if self._cache is not None:
+                    self._cache.extend(gfs)
+                for gf in gfs: yield gf
+
             

@@ -175,11 +175,12 @@ class SciPyOpt(object):
     '''
     
     
-    def __init__(self, optimizer, wt, problem, **optParams):
+    def __init__(self, optimizer, wt, problem, verbose=False, **optParams):
         self.wt = wt
         self.problem = problem        
         self.optParams = optParams
         self.optimizer = optimizer
+        self.verbose = verbose
     
     def run(self):
 
@@ -196,15 +197,16 @@ class SciPyOpt(object):
         neg_f = lambda wt: -f(wt)
         neg_grad = lambda wt: -grad(wt)
         #if not useGrad or not p.useGrad(): neg_grad = None
-        if not p.useF(): 
+        if not p.usef: 
             neg_f = lambda wt: -p._fDummy(wt)
         log = logging.getLogger(self.__class__.__name__)
         if optimizer == "bfgs":
             params = dict(filter(lambda (k,v): k in ["gtol", "epsilon", "maxiter"], self.optParams.iteritems()))
-            log.info("starting optimization with %s... %s" % (optimizer, params))
+            if self.verbose: print "starting optimization with %s... %s" % (optimizer, params)
             wt, f_opt, grad_opt, Hopt, func_calls, grad_calls, warn_flags = fmin_bfgs(neg_f, self.wt, fprime=neg_grad, full_output=True, **params)
-            log.info("optimization done with %s..." % optimizer)
-            log.info("f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags))
+            if self.verbose: 
+                print "optimization done with %s..." % optimizer
+                print "f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags)
         elif optimizer == "cg":            
             params = dict(filter(lambda (k,v): k in ["gtol", "epsilon", "maxiter"], self.optParams.iteritems()))
             log.info("starting optimization with %s... %s" % (optimizer, params))

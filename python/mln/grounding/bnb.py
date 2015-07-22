@@ -24,7 +24,7 @@
 from utils.undo import Ref, Number, List, ListDict, Boolean
 from logic import fol, grammar
 import utils
-from mln.util import strFormula
+from mln.util import fstr
 from logic.common import Logic
 
 

@@ -27,232 +27,157 @@ import time
 from mln.util import *
 from logic.common import Logic
 from praclog import logging
+import sys
+from mln.database import Database
+from mln.mrf import temporary_evidence
+from mln.constants import ALL
+from mln.mrfvars import MutexVariable, SoftMutexVariable
 
 
 class Inference(object):
     '''
-    Represents a super class for all kinds of inference methods.
+    Represents a super class for all inference methods.
     Also provides some convenience methods for collecting statistics
     about the inference process and nicely outputting results.
     '''
     
-    groundingMethod = 'FastConjunctionGrounding'
+    def __init__(self, mrf, queries=ALL, **params):
+        self.mrf = mrf
+        self.mln = mrf.mln 
+        self._params = params
+        if queries == ALL:
+            self.queries = [self.mln.logic.gnd_lit(ga, negated=False, mln=self.mln) for ga in self.mrf.gndatoms if self.mrf.evidence[ga.idx] is None]
+        else:
+            # check for single/multiple query and expand
+            if type(queries) is not list:
+                queries = [queries]
+            self.queries = self._expand_queries(queries)
+        self._watch = StopWatch()
     
     
-    def __init__(self, mrf):
-        self.mrf = mrf 
-        self.mln = mrf.mln # for backward compatibility (virtually all code uses this)
-        self.mrfEvidenceBackup = None
-        self.t_start = time.time()
+    @property
+    def verbose(self):
+        return self._params.get('verbose', False)
     
-    def _readQueries(self, queries):
-        # check for single/multiple query and expand
-        if type(queries) != list:
-            queries = [queries]
-        self.queries = self._expandQueries(queries)
+    @property
+    def results(self):
+        if self._results is None:
+            raise Exception('No results available. Run the inference first.')
+        else:
+            return self._results
+        
+    @property
+    def elapsedtime(self):
+        return self._watch['inference'].elapsedtime
+        
+        
+    @property
+    def multicore(self):
+        return self._params.get('multicore')
+    
+    
+    @property
+    def resultdb(self):
+        db = Database(self.mrf.mln)
+        for atom in sorted(self.results, key=str):
+            db[str(atom)] = self.results[atom]
+        return db
+    
 
-    def _expandQueries(self, queries):
+#     @property
+#     def closedworld(self):
+#         self._params.get('closedworld', None)
+        
+
+    def _expand_queries(self, queries):
         ''' 
         Expands the list of queries where necessary, e.g. queries that are 
         just predicate names are expanded to the corresponding list of atoms.
         '''
         equeries = []
-        log = logging.getLogger(self.__class__.__name__)
+        logger = logging.getLogger(self.__class__.__name__)
         for query in queries:
-            #print "got query '%s' of type '%s'" % (str(query), str(type(query)))
             if type(query) == str:
                 prevLen = len(equeries)
-                
-                if "(" in query: # a fully or partially grounded formula
-                    f = self.mln.logic.parseFormula(query)
-                    for gndFormula in f.iterGroundings(self.mrf):
-                        equeries.append(gndFormula[0])
+                if '(' in query: # a fully or partially grounded formula
+                    f = self.mln.logic.parse_formula(query)
+                    for gf in f.itergroundings(self.mrf):
+                        equeries.append(gf)
                 else: # just a predicate name
-                    if query not in self.mrf.predicates:
-                        log.warning('Unsupported query: %s is not among the admissible predicates.' % (query))
+                    if query not in self.mln.prednames:
+                        logger.warning('Unsupported query: %s is not among the admissible predicates.' % (query))
                         continue
-                    for gndPred in self.mrf._getPredGroundings(query):
-                        equeries.append(self.mln.logic.parseFormula(gndPred).ground(self.mrf, {}))
-
+                    for gndatom in self.mln.predicate(query).groundatoms(self.mln, self.mrf.domains):
+                        equeries.append(self.mln.logic.gnd_lit(self.mrf.gndatom(gndatom), negated=False, mln=self.mln))
                 if len(equeries) - prevLen == 0:
                     raise Exception("String query '%s' could not be expanded." % query)
-                
             elif isinstance(query, Logic.Formula):
                 equeries.append(query)
             else:
                 raise Exception("Received query of unsupported type '%s'" % str(type(query)))
         return equeries
     
-    def _infer(self, verbose=False, **args):
-        raise Exception('%s does not implement _infer()' % self.__class__.__name__)
     
-#     def _setEvidence(self, conjunction):
-#         '''
-#         Set evidence in the MRF according to the given conjunction of 
-#         ground literals, keeping a backup to undo the assignment later
-#         '''
-#         if conjunction is not None:
-#             literals = map(lambda x: x.strip().replace(" ", ""), conjunction.split("^"))
-#             evidence = {}
-#             for gndAtom in literals:
-#                 if gndAtom == '': continue
-#                 tv = 1
-#                 if(gndAtom[0] == '!'):
-#                     tv = 0
-#                     gndAtom = gndAtom[1:]
-#                 evidence[gndAtom] = tv
-#             self.mrfEvidenceBackup = self.mrf.evidence
-#             self.mrf.setEvidence(evidence)
+    def _run(self, verbose=False, **args):
+        raise Exception('%s does not implement _infer()' % self.__class__.__name__)
 
-    def _readEvidence(self):
-        self._getEvidenceBlockData()
-        
-        
-    def _getEvidenceBlockData(self):
-        # set evidence
-#         self._setEvidence(conjunction)
-        # build up data structures
-        self.evidenceBlocks = [] # list of pll block indices where we know the true one (and thus the setting for all of the block's atoms)
-        self.blockExclusions = {} # dict: pll block index -> list (of indices into the block) of atoms that mustn't be set to true
-        for idxBlock, (idxGA, block) in enumerate(self.mrf.pllBlocks): # fill the list of blocks that we have evidence for
-            if block != None:
-                haveTrueone = False
-                falseones = []
-                for i, idxGA in enumerate(block):
-                    ev = self.mrf._getEvidence(idxGA, False)
-                    if ev == 1:
-                        haveTrueone = True
-                        break
-                    elif ev == 0:
-                        falseones.append(i)
-                if haveTrueone:
-                    self.evidenceBlocks.append(idxBlock)
-                elif len(falseones) > 0:
-                    self.blockExclusions[idxBlock] = falseones
-            else:
-                if self.mrf._getEvidence(idxGA, False) != None:
-                    self.evidenceBlocks.append(idxBlock)
 
-    def _getElapsedTime(self):
-        '''
-        Returns a pair (t,s) where t is the time in seconds elapsed thus 
-        far (since construction) and s is a readable string representation thereof.
-        '''
-        elapsed = time.time() - self.t_start
-        hours = int(elapsed / 3600)
-        elapsed -= hours * 3600
-        minutes = int(elapsed / 60)
-        elapsed -= minutes * 60
-        secs = int(elapsed)
-        msecs = int((elapsed - secs) * 1000)
-        return (elapsed, "%d:%02d:%02d.%03d" % (hours, minutes, secs, msecs))
-
-    def infer(self, queries, given=None, verbose=False, details=False, shortOutput=True, outFile=None, saveResultsProlog=False, **args):
+    def run(self):
         '''
         Starts the inference process.
-        queries: a list of queries - either strings 
-                 (predicate names or partially/fully grounded atoms) or ground formulas
         '''
-        logger = logging.getLogger(self.__class__.__name__)
-        self.given = given
-        
-        # read queries
-        self._readQueries(queries)
-        self.additionalQueryInfo = [""] * len(self.queries)
         
         # perform actual inference (polymorphic)
-        if verbose: print type(self)
-        self.results = self._infer(verbose=verbose, details=details, **args)
-        self.totalInferenceTime = self._getElapsedTime()
-        # output
-        if verbose and not args.get('fullDist', False):
-            if details: print "\nresults:"
-            self.writeResults(sys.stdout, shortOutput=shortOutput)
-            print '\ninference took %.2f sec' % self._getElapsedTime()[0]
-        if outFile != None:
-            self.writeResults(outFile, shortOutput=True, saveResultsProlog=saveResultsProlog)
-        
-#         # undo potential side-effects
-        if self.mrfEvidenceBackup is not None:
-            self.mrf.evidence = self.mrfEvidenceBackup
-            
-        # return results
-        if args.get('fullDist', False):
-            return self.results
-        return self.getResultsDict()
+        if self.verbose: print 'Inference engine: %s' % self.__class__.__name__
+        self._watch.tag('inference', verbose=self.verbose)
+#         if self.closedworld is not None:
+#             with temporary_evidence(self.mrf):
+#                 self.mrf.apply_cw(None if self.closedworld is ALL else self.closedworld)
+        self._results = self._run()
+        self._watch.finish('inference')
+        return self
     
-    def getResultsDict(self):
-        '''
-            gets the results previously computed via a call to infer in the form of a dictionary
-            that maps ground formulas to probabilities
-        '''
-        return dict(zip(self.queries, self.results))
-        
-    def getTotalInferenceTime(self):
-        '''
-        Returns a pair (t,s) where t is the total inference time 
-        in seconds and s is a readable string representation thereof.
-        '''
-        return self.totalInferenceTime
     
-    def writeResults(self, out, shortOutput=True, saveResultsProlog=False):
-        self._writeResults(out, self.results, shortOutput, saveResultsProlog)
+    def write(self, stream=sys.stdout, color=None, sort='prob', group=True, reverse=True):
+        barwidth = 30
+        if stream is sys.stdout and color is None:
+            color = 'yellow'
+        if sort not in ('alpha', 'prob'):
+            raise Exception('Unknown sorting: %s' % sort)
+        results = dict(self.results)
+        if group:
+            for var in sorted(self.mrf.variables, key=str):
+                res = dict([(atom, prob) for atom, prob in results.iteritems() if atom in map(str, var.gndatoms)])
+                if not res: continue
+                if isinstance(var, MutexVariable) or isinstance(var, SoftMutexVariable):
+                    stream.write('%s:\n' % var)
+                if sort == 'prob':
+                    res = sorted(res, key=self.results.__getitem__, reverse=reverse)
+                elif sort == 'alpha':
+                    res = sorted(res, key=str)
+                for atom in res:
+                    stream.write('%s %s\n' % (barstr(barwidth, self.results[atom], color=color), atom))
+            return
+        # first sort wrt to probability
+        results = sorted(results, key=self.results.__getitem__, reverse=reverse)
+        # then wrt gnd atoms
+        results = sorted(results, key=str)
+        for q in results:
+            stream.write('%s %s\n' % (barstr(barwidth, self.results[q], color=color), q))
     
-    def _writeResults(self, out, results, shortOutput=True, saveResultsProlog=False):
-
-        if False == saveResultsProlog:
-            
-            # determine maximum query length to beautify output
-            if shortOutput:
-                maxLen = 0
-                for q in self.queries:
-                    maxLen = max(maxLen, len(strFormula(q)))
-            # if necessary, get string representation of evidence
-            if not shortOutput:
-                if self.given is not None:
-                    evidenceString = self.given
-                else:
-                    evidenceString = evidence2conjunction(self.mrf.getEvidenceDatabase())
-            # print sorted results, one per line
-            strQueries = map(strFormula, self.queries)
-            query2Index = {}
-            for i, q in enumerate(strQueries): query2Index[q] = i
-            for q in sorted(strQueries):
-                i = query2Index[q]
-                addInfo = self.additionalQueryInfo[i]
-                if not shortOutput:
-                    out.write("P(%s | %s) = %f  %s\n" % (q, evidenceString, results[i], addInfo))
-                else:
-                    out.write("%f  %-*s  %s\n" % (results[i], maxLen, q, addInfo))
-        else:
-            #HACK, TODO
-            if self.given is not None:
-                evidenceString = self.given
-            else:
-                evidenceString = evidence2conjunction(self.mrf.getEvidenceDatabase())
-            # print sorted results, one per line
-            strQueries = map(strFormula, self.queries)
-            query2Index = {}
-            for i, q in enumerate(strQueries): query2Index[q] = i
-            for q in sorted(strQueries):
-                i = query2Index[q]
-                addInfo = self.additionalQueryInfo[i]
-                out.write("queryResult('"+self.queries[0].getGroundAtoms()[0].params[0].lower()+"', Value) :- Value is "+str(results[i])+".")
-                #print "self.q",self.queries[0].getGroundAtoms()[0].params[0].lower()
     
-    def _compareResults(self, results, referenceResults):
-        if len(results) != len(referenceResults):
-            raise Exception("Cannot compare results - different number of results in reference")
-        me = 0
-        mse = 0
-        maxdiff = 0
-        for i in xrange(len(results)):
-            diff = abs(results[i] - referenceResults[i])
-            maxdiff = max(maxdiff, diff)
-            me += diff
-            mse += diff * diff
-        me /= len(results)
-        mse /= len(results)
-        return {"reference_me": me, "reference_mse": mse, "reference_maxe": maxdiff}
+    def write_elapsed_time(self, stream=sys.stdout, color=None):
+        if stream is sys.stdout and color is None:
+            color = True
+        elif color is None:
+            color = False
+        if color: col = 'blue'
+        else: col = None
+        total = float(self._watch['inference'].elapsedtime)
+        stream.write(colorize('INFERENCE RUNTIME STATISTICS\n============================\n', format=(None, None, True), color=color))
+        for t in sorted(self._watch.tags.values(), key=lambda t: t.elapsedtime, reverse=True):
+            stream.write('%s %s %s\n' % (barstr(width=30, percent=t.elapsedtime / total, color=col), elapsed_time_str(t.elapsedtime), t.label))
+    
+    
 
 

@@ -23,7 +23,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from pyparsing_ import *
+from pyparsing import *
 import re
 
 
@@ -47,7 +47,7 @@ class TreeBuilder(object):
                 toks = toks[1]
             else:
                 toks = toks[0]
-            self.stack.append(self.logic.lit(negated, toks[0], toks[1]))
+            self.stack.append(self.logic.lit(negated, toks[0], toks[1], self.logic.mln))
         elif op == 'gndlit':
             negated = False
             if toks[0] == '!':
@@ -56,45 +56,44 @@ class TreeBuilder(object):
             else:
                 toks = toks[0]
             # return a normal lit since we do not have gnd atoms when parsing
-            self.stack.append(self.logic.lit(negated, toks[0], toks[1])) 
+            self.stack.append(self.logic.lit(negated, toks[0], toks[1], self.logic.mln)) 
         elif op == '!':
             if len(toks) == 1:
-                formula = self.logic.negation(self.stack[-1:])
+                formula = self.logic.negation(self.stack[-1:], self.logic.mln)
                 self.stack = self.stack[:-1]
                 self.stack.append(formula)
         elif op == 'v':
             if len(toks) > 1:
-                formula = self.logic.disjunction(self.stack[-len(toks):])
+                formula = self.logic.disjunction(self.stack[-len(toks):], self.logic.mln)
                 self.stack = self.stack[:-len(toks)]
                 self.stack.append(formula)
         elif op == '^':
             if len(toks) > 1:
-                formula = self.logic.conjunction(self.stack[-len(toks):])
+                formula = self.logic.conjunction(self.stack[-len(toks):], self.logic.mln)
                 self.stack = self.stack[:-len(toks)]
                 self.stack.append(formula)
         elif op == 'ex':
             if len(toks) == 2:
                 formula = self.stack.pop()
                 variables = map(str, toks[0])
-                self.stack.append(self.logic.exist(variables, formula))
+                self.stack.append(self.logic.exist(variables, formula, self.logic.mln))
         elif op == '=>':
             if len(toks) == 2:
                 children = self.stack[-2:]
                 self.stack = self.stack[:-2]
-                self.stack.append(self.logic.implication(children))
+                self.stack.append(self.logic.implication(children, self.logic.mln))
         elif op == '<=>':
             if len(toks) == 2:
                 children = self.stack[-2:]
                 self.stack = self.stack[:-2]
-                self.stack.append(self.logic.biimplication(children))
+                self.stack.append(self.logic.biimplication(children, self.logic.mln))
         elif op == '=':
             if len(toks) == 2:
-                self.stack.append(self.logic.equality(list(toks)))
+                self.stack.append(self.logic.equality(list(toks), False, self.logic.mln))
         elif op == '!=':
             if len(toks) == 2:
-                self.stack.append(self.logic.equality(list(toks), negated=True))
+                self.stack.append(self.logic.equality(list(toks), True, self.logic.mln))
         elif op == 'count':
-            print toks
             if len(toks) in (3,4):                
                 pred, pred_params = toks[0]
                 if len(toks) == 3:
@@ -129,13 +128,13 @@ class Grammar(object):
     def __deepcopy__(self, memo):
         return self
     
-    def parseFormula(self, s):
+    def parse_formula(self, s):
         self.tree.reset()
         self.formula.parseString(s)
         constr = self.tree.getConstraint()
         return constr
     
-    def parseAtom(self, string):
+    def parse_atom(self, string):
         '''
         Parses a predicate such as p(A,B) and returns a tuple where the first item 
         is the predicate name and the second is a list of parameters, e.g. ("p", ["A", "B"])
@@ -145,16 +144,19 @@ class Grammar(object):
             return (m.group(1), map(str.strip, m.group(2).split(",")))
         raise Exception("Could not parse predicate '%s'" % string)
     
-    def parsePredDecl(self, s):
+    def parse_predicate(self, s):
         return self.predDecl.parseString(s)[0]
     
-    def isVar(self, identifier):
-        raise Exception('%s does not implement isVar().' % str(type(self)))
+    def isvar(self, identifier):
+        raise Exception('%s does not implement isvar().' % str(type(self)))
     
-    def isConstant(self, identifier):
+    def isconstant(self, identifier):
         return not self.isVar(identifier)
     
-    def parseDomDecl(self, s):
+    def istemplvar(self, s):
+        return s[0] == '+' and self.isvar(s[1:])
+    
+    def parse_domain(self, s):
         '''
         Parses a domain declaration and returns a tuple (domain name, list of constants)
         Returns None if it cannot be parsed.
@@ -165,7 +167,7 @@ class Grammar(object):
 #             raise Exception("Could not parse the domain declaration '%s'" % line)
         return (m.group(1), map(str.strip, m.group(2).split(',')))
     
-    def parseLiteral(self, s):
+    def parse_literal(self, s):
         '''
         Parses a literal such as !p(A,B) or p(A,B)=False and returns a tuple 
         where the first item is whether the literal is true, the second is the 
@@ -175,7 +177,7 @@ class Grammar(object):
         self.tree.reset()
         lit = self.literal.parseString(s)
         lit = self.tree.getConstraint()
-        return (not lit.negated, lit.predName, lit.params)
+        return (not lit.negated, lit.predname, lit.args)
 #         m = re.match(r'(!?)(\w+)\((.*?)\)$', s)
 #         if m is not None:
 #             return (m.group(1) != "!", m.group(2), map(str.strip, m.group(3).split(",")))
@@ -208,7 +210,8 @@ class StandardGrammar(Grammar):
         
         atom = Group(predName + openRB + atomArgs + closeRB)
         literal = Optional(Literal("!") | Literal("*")) + atom
-        
+        gndAtomArgs = Group(delimitedList(constant))
+        gndLiteral = Optional(Literal("!")) + Group(predName + openRB + gndAtomArgs + closeRB)
         predDecl = Group(predName + openRB + predDeclArgs + closeRB) + StringEnd()
         
         varList = Group(delimitedList(variable))
@@ -217,6 +220,7 @@ class StandardGrammar(Grammar):
         formula = Forward()
         exist = Literal("EXIST ").suppress() + Group(delimitedList(variable)) + openRB + Group(formula) + closeRB
         equality = (constant|variable) + Literal("=").suppress() + (constant|variable)
+        inequality = (constant|variable) + Literal('=/=').suppress() + (constant|variable)
         negation = Literal("!").suppress() + openRB + Group(formula) + closeRB
         item = literal | exist | equality | openRB + formula + closeRB | negation
         disjunction = Group(item) + ZeroOrMore(Literal("v").suppress() + Group(item))
@@ -226,24 +230,38 @@ class StandardGrammar(Grammar):
         constraint = biimplication | count_constraint
         formula << constraint
     
+        def lit_parse_action(a, b, c): tree.trigger(a,b,c,'lit')
+        def gndlit_parse_action(a, b, c): tree.trigger(a,b,c,'gndlit')
+        def neg_parse_action(a, b, c): tree.trigger(a,b,c,'!')
+        def disjunction_parse_action(a, b, c): tree.trigger(a,b,c,'v')
+        def conjunction_parse_action(a, b, c): tree.trigger(a,b,c,'^')
+        def exist_parse_action(a, b, c): tree.trigger(a,b,c,"ex")
+        def implication_parse_action(a, b, c): tree.trigger(a,b,c,"=>")
+        def biimplication_parse_action(a, b, c): tree.trigger(a,b,c,"<=>")
+        def equality_parse_action(a, b, c): tree.trigger(a,b,c,"=")
+        def inequality_parse_action(a, b, c): tree.trigger(a,b,c,"!=")
+        def count_constraint_parse_action(a, b, c): tree.trigger(a,b,c,'count')
+        
+
         tree = TreeBuilder(logic)
-        literal.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'lit'))
-        negation.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'!'))
-        #item.setParseAction(lambda a,b,c: foo(a,b,c,'item'))
-        disjunction.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'v'))
-        conjunction.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'^'))
-        exist.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"ex"))
-        implication.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"=>"))
-        biimplication.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"<=>"))
-        equality.setParseAction(lambda a,b,c: tree.trigger(a,b,c,"="))
-        count_constraint.setParseAction(lambda a,b,c: tree.trigger(a,b,c,'count'))
+        literal.setParseAction(lit_parse_action)
+        gndLiteral.setParseAction(gndlit_parse_action)
+        negation.setParseAction(neg_parse_action)
+        disjunction.setParseAction(disjunction_parse_action)
+        conjunction.setParseAction(conjunction_parse_action)
+        exist.setParseAction(exist_parse_action)
+        implication.setParseAction(implication_parse_action)
+        biimplication.setParseAction(biimplication_parse_action)
+        equality.setParseAction(equality_parse_action)
+        inequality.setParseAction(inequality_parse_action)
+        count_constraint.setParseAction(count_constraint_parse_action)
         
         self.tree = tree
         self.formula = formula + StringEnd()
         self.predDecl = predDecl
         self.literal = literal
         
-    def isVar(self, identifier):
+    def isvar(self, identifier):
         return identifier[0].islower() or identifier[0] == '+'
             
 
@@ -332,7 +350,7 @@ class PRACGrammar(Grammar):
         self.literal = literal
         self.gndlit = gndLiteral
         
-    def isVar(self, identifier):
+    def isvar(self, identifier):
         '''
         Variables must start with a question mark (or the + operator, 
         anything else is considered a constant.
@@ -344,28 +362,39 @@ class PRACGrammar(Grammar):
 if __name__=='__main__':
     from fol import FirstOrderLogic
     from fuzzy import FuzzyLogic
-    
-    test = 'parsing'
-    logic = FirstOrderLogic('StandardGrammar')
-#     logic = FuzzyLogic('PRACGrammar')
+    from mln.base import MLN
+
+    test = 'NF'
+    mln = MLN(grammar='StandardGrammar')
+    mln << 'foo(x, y)'
+    mln << 'numberEats(k,n)'
+    mln << 'eats(p,m)'
+    mln << 'rel(x,y)'
+    mln << 'a(s)'
+    mln << 'b(s)'
+    mln << 'c(s)'
+    mln << 'd(s)'
+    mln << 'e(s)'
+    mln << 'g(s)'
+    mln << 'f(s)'
     
     if test == 'parsing':
-        tests = [#"numberEats(o,2) <=> EXIST p, p2 (eats(o,p) ^ eats(o,p2) ^ !(o=p) ^ !(o=p2) ^ !(p=p2) ^ !(EXIST q (eats(o,q) ^ !(p=q) ^ !(p2=q))))",
-                 #"EXIST y (rel(x,y) ^ EXIST y2 (!(y2=y) ^ rel(x,y2)) ^ !(EXIST y3 (!(y3=y) ^ !(y3=y2) ^ rel(x,y3))))",
-#                  '(EXIST ?w (action_role(?w, +?r)))',
-                    'class(?s1, ?c1) ^ class(?s2, ?c2) ^ ?s1=/=?s2'
-#                   'EXIST ?w (action_role(?w, +?r) ^ is_a(?w, +?c))'
-#                  "((a(x) ^ b(x)) v (c(x) ^ !(d(x) ^ e(x) ^ g(x)))) => f(x)"
+        tests = ["numberEats(o,2) <=> EXIST p, p2 (eats(o,p) ^ eats(o,p2) ^ !(o=p) ^ !(o=p2) ^ !(p=p2) ^ !(EXIST q (eats(o,q) ^ !(p=q) ^ !(p2=q))))",
+                 "EXIST y (rel(x,y) ^ EXIST y2 (!(y2=y) ^ rel(x,y2)) ^ !(EXIST y3 (!(y3=y) ^ !(y3=y2) ^ rel(x,y3))))",
+#                 '(EXIST ?w (action_role(?w, +?r)))',
+#                     'class(?s1, ?c1) ^ class(?s2, ?c2) ^ ?s1=/=?s2'
+#                 'EXIST ?w (action_role(?w, +?r) ^ is_a(?w, +?c))'
+                "((a(x) ^ b(x)) v (c(x) ^ !(d(x) ^ e(x) ^ g(x)))) => f(x)"
                  ]#,"foo(x) <=> !(EXIST p (foo(p)))", "numberEats(o,1) <=> !(EXIST p (eats(o,p) ^ !(o=p)))", "!a(c,d) => c=d", "c(b) v !(a(b) ^ b(c))"]
 #         tests = ["((!a(x) => b(x)) ^ (b(x) => a(x))) v !(b(x)=>c(x))"]
 #         tests = ["(EXIST y1 (rel(x,y1) ^ EXIST y2 (rel(x,y2) ^ !(y1=y2) ^ !(EXIST y3 (rel(?x,y3) ^ !(y1=y3) ^ !(y2=y3))))))"]
 #         tests = ["EXIST ?x (a(?x))"]
 #         tests = ['!foo(?x, ?y) ^ ?x =/= ?y']
-        print logic.grammar.parseLiteral('foo("bla!", c)')
-        print logic.grammar.parsePredDecl('foo(ar,bar2!)')
+        print mln.logic.parse_literal('foo("bla!", c)')
+        print mln.logic.parse_predicate('foo(ar,bar2!)')
         for test in tests:
             print "trying to parse %s..." % test
-            logic.grammar.parseFormula(test).printStructure()
+            mln.logic.parse_formula(test).print_structure()
 #             f = logic.grammar.parseFormula(test).toCNF()
 #             print "got this: %s" % str(f)
 #             f.printStructure()
@@ -373,7 +402,7 @@ if __name__=='__main__':
         f = "a(x) <=> b(x)"
         f = "((a(x) ^ b(x)) v (c(x) ^ !(d(x) ^ e(x) ^ g(x)))) => f(x)"
         f = "(a(x) v (b(x) ^ c(x))) => f(x)"
-        f = "(a(x) ^ b(x)) <=> (c(x) ^ d(x))"
+#         f = "(a(x) ^ b(x)) <=> (c(x) ^ d(x))"
         #f = "(a(x) ^ b(x)) v (c(x) ^ d(x))"        
         #f = "(a(x) ^ b(x)) v (c(x) ^ d(x)) v (e(x) ^ f(x))"
         #f = "(a(x) ^ b(x)) v (c(x) ^ d(x)) v (e(x) ^ f(x)) v (g(x) ^ h(x))"
@@ -386,14 +415,14 @@ if __name__=='__main__':
         #f = "(a(x) ^ b(x) ^ !c(x) ^ !d(x)) v (a(x) ^ !b(x) ^ c(x) ^ !d(x)) v (!a(x) ^ b(x) ^ c(x) ^ !d(x)) v (a(x) ^ !b(x) ^ !c(x) ^ d(x)) v (!a(x) ^ b(x) ^ !c(x) ^ d(x)) v (!a(x) ^ !b(x) ^ c(x) ^ d(x))"
         #f = "consumesAny(P,Coffee) <=> ((consumedBy(C3,P) ^ goodsT(C3,Coffee)) v (consumedBy(C2,P) ^ goodsT(C2,Coffee)) v (consumedBy(C1,P) ^ goodsT(C1,Coffee)) v (consumedBy(C4,P) ^ goodsT(C4,Coffee)))"
         #f = "consumesAny(P,Coffee) <=> ((consumedBy(C3,P) ^ goodsT(C3,Coffee)) v (consumedBy(C2,P) ^ goodsT(C2,Coffee)) v (consumedBy(C1,P) ^ goodsT(C1,Coffee)))"
-        f = logic.grammar.parseFormula(f)
-        f = f.toCNF()
-        f.printStructure()
+        f = mln.logic.parse_formula(f)
+        f = f.nnf()
+        f.print_structure()
     elif test == 'count':
         c = "count(directs(a,m)|m) >= 4"
         c = "count(foo(a,Const)) = 2"
         #c = count_constraint.parseString(c)
-        c = logic.grammar.parseFormula(c).toCNF()
+        c = mln.logic.parseFormula(c).cnf()
         print str(c)
         pass
     

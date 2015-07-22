@@ -23,123 +23,127 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from mln.util import *
-import mln
 import optimize
 from mln.methods import LearningMethods
 from multiprocessing import Array, Value, Pool
 import multiprocessing
 from multiprocessing import Process
 from multiprocessing.synchronize import Lock
-from utils import dict_union
 import logging
 import traceback
 import signal
-# from optimization.ga import GeneticAlgorithm
-# from pyevolve import GenomeBase
+from utils.multicore import with_tracing
+import sys
+from numpy.ma.core import exp
+from mln.util import ProgressBar, StopWatch
+import random
+import time
+from mln.constants import HARD
+
+
 try:
     import numpy
 except:
     pass
 
+logger = logging.getLogger(__name__)
+
+
 class AbstractLearner(object):
+    '''
+    Abstract base class for every MLN learning algorithm.
+    '''
     
-    groundingMethod = 'DefaultGroundingFactory'
-    
-    __init__params = {'verbose': False,
-                      'initialWts': True,
-                      'gaussianPriorSigma': None}
-    
-    def __init__(self, mln, mrf=None, **params):
-        # params overrides __init__params
-        self.params = dict_union(AbstractLearner.__init__params, params)
-        for key, value in self.params.iteritems():
-            setattr(self, key, value)
-        self.mln = mln
+    def __init__(self, mrf=None, **params):
         self.mrf = mrf
-        self.params = params
-        self.closedWorldAssumption = True
-        self._fixedWeightFormulas = {}
-        
+        self._params = params
+        self.mrf.consistent(strict=True)
+
+
+    @property
+    def prior_stdev(self):
+        return self._params.get('prior_stdev')
     
-    def _reconstructFullWeightVectorWithFixedWeights(self, wt):        
-        if len(self._fixedWeightFormulas) == 0:
-            return wt
-        
-        wtD = numpy.zeros(len(self.mln.formulas), numpy.float64)
-        wtIndex = 0
-        for i, formula in enumerate(self.mln.formulas):
-            if (i in self._fixedWeightFormulas):
-                wtD[i] = self._fixedWeightFormulas[i]
-                #print "self._fixedWeightFormulas[i]", self._fixedWeightFormulas[i]
+
+    @property
+    def verbose(self):
+        return self._params.get('verbose', False)
+    
+    
+    @property
+    def use_init_weights(self):
+        return self._params.get('use_init_weights')
+    
+
+    @property
+    def usegrad(self):
+        return True
+    
+    
+    @property
+    def usef(self):
+        return True
+    
+    
+    @property
+    def multicore(self):
+        return self._params.get('multicore', False)
+    
+    
+    @property
+    def weights(self):
+        return self._w
+    
+    
+    def _fullweights(self, w):
+        i = 0
+        w_ = []
+        for f in self.mrf.formulas:
+            if self.mrf.mln.fixweights[f.idx]:
+                w_.append(self._w[f.idx])
             else:
-                wtD[i] = wt[wtIndex]
-                #print "wt[wtIndex]", wt[wtIndex]
-                wtIndex = wtIndex + 1
-        return wtD
+                w_.append(w[i])
+                i += 1
+        return w_
     
-    def _projectVectorToNonFixedWeightIndices(self, wt):
-        if len(self._fixedWeightFormulas) == 0:
-            return wt
-
-        wtD = numpy.zeros(len(self.mln.formulas) - len(self._fixedWeightFormulas), numpy.float64)
-        #wtD = numpy.array([mpmath.mpf(0) for i in xrange(len(self.formulas) - len(self._fixedWeightFormulas.items()))])
-        wtIndex = 0
-        for i, formula in enumerate(self.mln.formulas):
-            if (i in self._fixedWeightFormulas):
-                continue
-            wtD[wtIndex] = wt[i] #mpmath.mpf(wt[i])
-            wtIndex = wtIndex + 1   
-        return wtD
-
-    def _getTruthDegreeGivenEvidence(self, gndFormula):
-        if self.mrf._isTrueGndFormulaGivenEvidence(gndFormula): return 1.0 
-        else: return 0.0
     
-    def _fixFormulaWeights(self):
-        self._fixedWeightFormulas = {}
-        # this is a small but effective hack that can speed up optimization in
-        # pseudo-likelihood learning tremedously: fix all weights of formulas
-        # whose gradient is zero from the very beginning. It will never become
-        # non-zero during learning due to independence assumptions in PLL. 
-        gradient = self._grad([f.weight for f in self.mln.formulas if not f.isHard])
-        for formula in self.mln.formulas:
-            if formula in self.mln.fixedWeightFormulas or gradient[formula.idxFormula] == 0:
-                self._fixedWeightFormulas[formula.idxFormula] = formula.weight
-            
-    def f(self, wt, **params):
+    def _varweights(self):
+        return self._remove_fixweights(self._w)
+    
+    
+    def f(self, weights):
+        # reconstruct full weight vector
+        self._w = self._fullweights(weights) 
         # compute prior
         prior = 0
-        if self.gaussianPriorSigma is not None:
-            for weight in wt: # we have to use the log of the prior here
-                prior -= 1./(2.*(self.gaussianPriorSigma**2)) * weight**2 #gaussianZeroMean(weight, self.gaussianPriorSigma)
-        # reconstruct full weight vector
-        wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
-        wt = self._convertToFloatVector(wt)
+        if self.prior_stdev is not None:
+            for w in self._w: # we have to use the log of the prior here
+                prior -= 1. / (2. * (self.prior_stdev ** 2)) * w ** 2 
         # compute log likelihood
-        likelihood = self._f(wt, **params)
-        if params.get('verbose', True):
+        likelihood = self._f(self._w)
+        if self.verbose:
             sys.stdout.write('                                           \r')
-            if self.gaussianPriorSigma is not None:
+            if self.prior_stdev is not None:
                 sys.stdout.write('  log P(D|w) + log P(w) = %f + %f = %f\r' % (likelihood, prior, likelihood + prior))
             else:
                 sys.stdout.write('  log P(D|w) = %f\r' % likelihood)
             sys.stdout.flush()
-        
         return likelihood + prior
         
         
-    def __call__(self, wt):
-        return self.likelihood(wt)
+    def __call__(self, weights):
+        return self.likelihood(weights)
+        
         
     def likelihood(self, wt):
         l = self.f(wt)
-        l = math.exp(l)
+        l = exp(l)
         return l
+    
     
     def _fDummy(self, wt):
         ''' a dummy target function that is used when f is disabled '''
-        if not hasattr(self, 'dummyFValue'):
+        if not hasattr(self, 'dummy_f'):
             self.dummyFCount = 0
         self.dummyFCount += 1
         if self.dummyFCount > 150:
@@ -164,112 +168,75 @@ class AbstractLearner(object):
 #        self.secondlastFullGradient = self.lastFullGradient     
         
         return self.dummyFValue
-        
-    def grad(self, wt, **params):
-        wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
-        wt = self._convertToFloatVector(wt)
-        
-        grad = self._grad(wt)
-#         print "_grad: wt = %s\ngrad = %s" % (wt, grad)
-#         sys.stdout.flush()
-
-        self.lastFullGradient = grad
-        
-        # add gaussian prior
-        if self.gaussianPriorSigma is not None:
-            for i, weight in enumerate(wt):
-                grad[i] -= 1./(self.gaussianPriorSigma**2) * weight#gradGaussianZeroMean(weight, self.gaussianPriorSigma)
-        
-        return self._projectVectorToNonFixedWeightIndices(grad)
     
-    #make sure mpmath datatypes aren't propagated in here as they can be very slow compared to native floats
-    def _convertToFloatVector(self, wts):
-        for wt in wts:
-            wt = float(wt)
-        return wts
+        
+    def grad(self, weights):
+        self._w = self._fullweights(weights)
+        grad = self._grad(self._w)
+        self._grad_ = grad
+        # add gaussian prior
+        if self.prior_stdev is not None:
+            for i, weight in enumerate(self._w):
+                grad[i] -= 1./(self.prior_stdev ** 2) * weight
+        return self._remove_fixweights(grad)
 
+    
+    def _remove_fixweights(self, v):
+        '''
+        Removes from the vector `v` all elements at indices that correspond to a fixed weight formula index.
+        '''
+        if len(v) != len(self.mrf.formulas):
+            raise Exception('Vector must have same length as formula weights')
+        v_ = []#numpy.zeros(len(v), numpy.float64)
+        for val in [v[i] for i in range(len(self.mrf.formulas)) if not self.mrf.mln.fixweights[i]]:
+            v_.append(val)
+        return v_
+    
+    
     def run(self, **params):
         '''
         Learn the weights of the MLN given the training data previously 
         loaded 
-        
-        initialWts: whether to use the MLN's current weights as the starting point for the optimization
         '''
-        
-        log = logging.getLogger(self.__class__.__name__)
         if not 'scipy' in sys.modules:
             raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
         # initial parameter vector: all zeros or weights from formulas
-        wt = numpy.zeros(len(self.mln.formulas), numpy.float64)
-        if self.initialWts:
-            for i in range(len(self.mln.formulas)):
-                wt[i] = self.mln.formulas[i].weight
-            log.debug('Using initial weight vector: %s' % str(wt))
-                
-        
-        self.params.update(params)
+        self._w = [0] * len(self.mrf.formulas)
+        for f in self.mrf.formulas:
+            if self.mrf.mln.fixweights[f.idx] or self.use_init_weights:
+                self._w[f.idx] = f.weight
+        self._prepare()
+        self._optimize(**self._params)
+        self._cleanup()
+        return self.weights
     
-#         self.gaussianPriorSigma = 0.001 
     
-        repetitions = 0
-        while self._repeatLearning(repetitions): 
-            self._prepareOpt()
-            # precompute fixed formula weights
-#             while self.gaussianPriorSigma <= 10:
-#                 log.error('new gaussian: %f' % self.gaussianPriorSigma)
-            self._fixFormulaWeights()
-            self.wt = self._projectVectorToNonFixedWeightIndices(wt)
-            self._optimize(**params)
-            self._postProcess()
-            repetitions += 1
-            
-        return self.wt
-    
-    def _repeatLearning(self, repetitions):
-        return repetitions < self.params.get('maxrepeat', 1)
-    
-    def _prepareOpt(self):
+    def _prepare(self):
         pass
+
     
-    def _postProcess(self):
+    def _cleanup(self):
         pass
+
     
-    def _optimize(self, optimizer = None, **params):
-        imposedOptimizer = self.getAssociatedOptimizerName()
-        if imposedOptimizer is not None:
-            if optimizer is not None: raise Exception("Cannot override the optimizer for this method with '%s'" % optimizer)
-            optimizer = imposedOptimizer
-        else:
-            if optimizer is None: optimizer = "bfgs"
-        
+    def _optimize(self, optimizer='bfgs', **params):
+        w = self._varweights()
         if optimizer == "directDescent":
-            opt = optimize.DirectDescent(self.wt, self, **params)        
+            opt = optimize.DirectDescent(w, self, **params)        
         elif optimizer == "diagonalNewton":
-            opt = optimize.DiagonalNewton(self.wt, self, **params)  
-#         elif optimizer in ['ga', 'pso']:
-# #             opt = optimize.PlaydohOpt(optimizer, self.wt, self, **params)
-#             opt = GeneticAlgorithm(self.wt, self, **params)
+            opt = optimize.DiagonalNewton(w, self, **params)  
         else:
-            opt = optimize.SciPyOpt(optimizer, self.wt, self, **params)        
+            opt = optimize.SciPyOpt(optimizer, w, self, **params)        
+        w = opt.run()
+        self._w = self._fullweights(w)
         
-        wt = opt.run()
-        self.wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
         
-        
-    def useGrad(self):
-        return True
-    
-    def useF(self):
-        return True
-
-    def getAssociatedOptimizerName(self):
-        return None
-
     def hessian(self, wt):
         wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
-        wt = self._convertToFloatVector(wt)
+        wt = map(float, wt)
         fullHessian = self._hessian(wt)
         return self._projectMatrixToNonFixedWeightIndices(fullHessian)
+    
     
     def _projectMatrixToNonFixedWeightIndices(self, matrix):
         if len(self._fixedWeightFormulas) == 0:
@@ -290,18 +257,23 @@ class AbstractLearner(object):
             i2 += 1            
         return proj
 
+
     def _hessian(self, wt):
         raise Exception("The learner '%s' does not provide a Hessian computation; use another optimizer!" % str(type(self)))
+
     
     def _f(self, wt, **params):
         raise Exception("The learner '%s' does not provide an objective function computation; use another optimizer!" % str(type(self)))
 
-    def getName(self):
-        if self.gaussianPriorSigma is None:
+
+    @property
+    def name(self):
+        if self.prior_stdev is None:
             sigma = 'no prior'
         else:
-            sigma = "sigma=%f" % self.gaussianPriorSigma
+            sigma = "sigma=%f" % self.prior_stdev
         return "%s[%s]" % (self.__class__.__name__, sigma)
+    
     
 
 class DiscriminativeLearner(AbstractLearner):
@@ -311,172 +283,46 @@ class DiscriminativeLearner(AbstractLearner):
     query predicates from the common parameters.
     '''
     
-    def _getQueryPreds(self, params):
+    
+    @property
+    def qpreds(self):
         '''
         Computes from the set parameters the list of query predicates
-        for the discriminative learner. Eitehr the 'queryPreds' or 'evidencePreds'
+        for the discriminative learner. Eitehr the 'qpreds' or 'epreds'
         parameters must be given, both are lists of predicate names.
         '''
-        queryPreds = params.get('queryPreds', [])
-        if 'evidencePreds' in params:
-            evidencePreds = params['evidencePreds']
-            queryPreds.extend([p for p in self.mln.predicates if p not in evidencePreds])
-            if not set(queryPreds).isdisjoint(evidencePreds):
+        qpreds = self._params.get('qpreds', [])
+        if 'epreds' in self._params:
+            epreds = self._params['epreds']
+            qpreds.extend([p for p in self.mrf.predicates if p not in epreds])
+            if not set(qpreds).isdisjoint(epreds):
                 raise Exception('Query predicates and evidence predicates must be disjoint.')
-        if len(queryPreds) == 0:
-            raise Exception("For discriminative Learning, must provide query predicates by setting keyword argument queryPreds to a list of query predicate names, e.g. queryPreds=[\"classLabel\", \"propertyLabel\"].")        
-        return queryPreds
+        if len(qpreds) == 0:
+            raise Exception("For discriminative Learning, query or evidence predicates must be provided.")        
+        return qpreds
     
     
-    def _isQueryPredicate(self, predName):
-        return predName in self.queryPreds
+    def _qpred(self, predname):
+        return predname in self.qpreds
 
-    def getName(self):
-        return self.__class__.__name__ + "[queryPreds:%s]" % ",".join(self.queryPreds)
     
-
-from softeval import truthDegreeGivenSoftEvidence
-
-
+    @property
+    def name(self):
+        return self.__class__.__name__ + "[queryPreds:%s]" % ",".join(self.qpreds)
+    
+    
 class SoftEvidenceLearner(AbstractLearner):
-
-    def __init__(self, mln, **params):
-        AbstractLearner.__init__(self,mln, **params)
-        
-
-    def _getTruthDegreeGivenEvidence(self, gf, worldValues=None):
-        if worldValues is None: worldValues = self.mln.evidence
-        return truthDegreeGivenSoftEvidence(gf, worldValues, self.mln)
-    
-def _mt_f(f, learners, wt):
-    for learner in learners:
-        fLock.acquire()
-        f.value += learner._f(wt)
-        fLock.release()
-    
-def _mt_grad(grad, learners, wt):
-    for learner in learners:
-        g = learner._grad(wt)
-        gradLock.acquire()
-        for i, c in enumerate(g):
-            grad[i] += c
-        gradLock.release()
-        
-
-def _f_eval((learner, wt, params)):
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-    try:
-        return learner._f(wt, **params)
-    except:
-        traceback.print_exc()
-
-def _grad_eval((learner, wt, params)):
-    return learner.grad(wt, **params)
-
-gradLock = Lock()
-fLock = Lock()
-
-class MultipleDatabaseLearner(AbstractLearner):
     '''
-    learns from multiple databases using an arbitrary sub-learning method for each database, assuming independence between individual databases
+    Superclass for all soft-evidence learners.
     '''
-    
-    def __init__(self, mln_, method, dbs, **params):
-        '''
-        dbs: list of tuples (domain, evidence) as returned by the database reading method
-        '''
-        AbstractLearner.__init__(self, mln_, None, **params)
-#         self.mln = mln_
-        self.dbs = dbs
-        self.constructor = LearningMethods.byShortName(method)
-        self.params = params
-        self.learners = []
-        self.useMultiCPU = params.get('useMultiCPU')
-        log = logging.getLogger(self.__class__.__name__)
-        for i, db in enumerate(self.dbs):
-            groundingMethod = eval('mln.learning.%s.groundingMethod' % self.constructor)
-            log.info("grounding MRF for database %d/%d using %s..." % (i+1, len(self.dbs), groundingMethod))
-            mrf = mln_.groundMRF(db, groundingMethod=groundingMethod, cwAssumption=True, **params)
-            learner = eval("mln.learning.%s(mln_, mrf, **params)" % self.constructor)
-            self.learners.append(learner)
-#             learner._prepareOpt()
-        if self.useMultiCPU:
-            numCores = multiprocessing.cpu_count()
-            log.info('Setting up multi-core processing for %d cores' % numCores)
-            self.multiCoreLearners = []
-            learnersPerCore = int(ceil(len(self.learners) / float(numCores)))
-            for i in range(numCores):
-                self.multiCoreLearners.append(self.learners[i*learnersPerCore:(i+1)*learnersPerCore])
-#             print self.multiCoreLearners
-    
-    
-    def getName(self):
-        return "MultipleDatabaseLearner[%d*%s]" % (len(self.learners), self.learners[0].getName())
+    def __init__(self, mrf, **params):
+        AbstractLearner.__init__(self, mrf, **params)
         
-        
-    def _repeatLearning(self, repetitions):
-        return AbstractLearner._repeatLearning(self, repetitions) and any([l._repeatLearning(repetitions) for l in self.learners])
-        
-        
-    def _f(self, wt, **params):
-        if self.useMultiCPU:
-            f = Value('d', 0.0)
-            processes = []
-            for l in self.multiCoreLearners:
-                processes.append(Process(target=_mt_f, args=(f, l, wt)))
-            for p in processes:
-                p.start()
-            for p in processes:
-                p.join()
-            return float(str(f.value))
-        else:
-            likelihood = 0
-            for learner in self.learners:
-                likelihood += learner._f(wt)
-            return likelihood
-        
-    def _grad(self, wt, **params):
-        if self.useMultiCPU:
-            grad = Array('d', len(self.mln.formulas))
-            processes = []
-            for l in self.multiCoreLearners:
-                processes.append(Process(target=_mt_grad, args=(grad, l, wt)))
-            for p in processes:
-                p.start()
-            for p in processes:
-                p.join()
-            grad2 = []
-            for c in grad[:]:
-                grad2.append(float(str(c)))
-            return grad2
-        else:
-            grad2 = numpy.zeros(len(self.mln.formulas), numpy.float64)
-            for i, learner in enumerate(self.learners):
-                grad_i = learner._grad(wt)
-                #print "  grad %d: %s" % (i, str(grad_i))
-                grad2 += grad_i
-            return grad2
 
-    def _hessian(self, wt):
-        N = len(self.mln.formulas)
-        hessian = numpy.matrix(numpy.zeros((N,N)))
-        for learner in self.learners:
-            hessian += learner._hessian(wt)
-        return hessian
-
-    def _prepareOpt(self):
-        for learner in self.learners:
-            learner._prepareOpt()
-        pass # _prepareOpt is called for individual learners during construction
+    def _getTruthDegreeGivenEvidence(self, gf, world=None):
+        if world is None: world = self.mrf.evidence
+        return gf.noisyor(world)
     
-#     def _fixFormulaWeights(self):
-#         self._fixedWeightFormulas = {}
-#         for learner in self.learners:
-#             learner._fixFormulaWeights()
-#             for i, w in learner._fixedWeightFormulas.iteritems():
-#                 if i not in self._fixedWeightFormulas:
-#                     self._fixedWeightFormulas[i] = 0.0
-#                 self._fixedWeightFormulas[i] += w / len(self.learners)
 
 
 class IncrementalLearner(AbstractLearner):

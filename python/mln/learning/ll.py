@@ -26,7 +26,7 @@
 import sys
 
 from common import *
-from mln.atomicblocks import SoftMutexBlock
+from mln.mrfvars import SoftMutexVariable
 
 
 class LL(AbstractLearner):

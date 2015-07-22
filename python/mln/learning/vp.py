@@ -23,7 +23,6 @@
 
 from mln.learning.common import AbstractLearner
 from mln.database import Database
-from wcsp.converter import WCSPConverter
 from praclog import logging
 import numpy
 import random

@@ -24,61 +24,48 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from mcmc import *
-from SAMaxWalkSAT import * 
+from mln.inference.maxwalk import SAMaxWalkSAT
+from mln.mrfvars import BinaryVariable
+
 
 class GibbsSampler(MCMCInference):
+
+    
     class Chain(MCMCInference.Chain):
-        def __init__(self, gibbsSampler):
-            self.gs = gibbsSampler
-            MCMCInference.Chain.__init__(self, gibbsSampler, gibbsSampler.queries)            
-            # run walksat
-            mws = SAMaxWalkSAT(self.state, self.gs.mln, self.gs.evidenceBlocks)
-            mws.run()
-            
-        def _getAtomExpsums(self, idxGndAtom, wt, world_values, relevantGroundFormulas=None):
-            sums = [0, 0]
-            # process all (relevant) ground formulas
-            checkRelevance = False
-            if relevantGroundFormulas == None:
-                relevantGroundFormulas = self.gndFormulas
-                checkRelevance = True
-            old_tv = world_values[idxGndAtom]
-            for gf in relevantGroundFormulas:
-                if checkRelevance: 
-                    if not gf.containsGndAtom(idxGndAtom):
-                        continue
-                for i, tv in enumerate([False, True]):
-                    world_values[idxGndAtom] = tv
-                    if gf.isTrue(world_values):
-                        sums[i] += wt[gf.idxFormula]
-                    world_values[idxGndAtom] = old_tv
-            return map(math.exp, sums)
+    
         
-        def step(self, debug=False):
-            mln = self.gs.mln
-            if debug: 
-                print "step %d" % (self.numSteps + 1)
-                #time.sleep(1)
-                pass
+        def __init__(self, infer, queries):
+            MCMCInference.Chain.__init__(self, infer, queries)            
+            self.mws = SAMaxWalkSAT(self.infer.mrf)
+            self.mws.run()
+    
+            
+        def _var_expsums(self, var, world):
+            sums = [0] * len(var.gndatoms)
+            for gf in self.mws.var2gf[var.idx]:
+                for i, value in var.itervalues():
+                    world_ = list(world)
+                    var.setval(value, world_)
+                    sums[i] += gf.weight * gf(world)
+            return map(math.exp, sums)
+
+        
+        def step(self):
+            mrf = self.infer.mrf
             # reassign values by sampling from the conditional distributions given the Markov blanket
-            wt = mln._weights()
-            for idxBlock, (idxGA, block) in enumerate(mln.pllBlocks):
+            for var in self.mrf.variables:
                 # compute distribution to sample from
-                if idxBlock in self.gs.evidenceBlocks: # do not sample if we have evidence 
-                    continue
-                if block != None:
-                    expsums = self.gs.mln._getBlockExpsums(block, wt, self.state, None, mln.blockRelevantGFs[idxBlock])
-                    if idxBlock in self.gs.blockExclusions:
-                        for i in self.gs.blockExclusions[idxBlock]:
-                            expsums[i] = 0
-                else:
-                    expsums = mln._getAtomExpsums(idxGA, wt, self.state, mln.blockRelevantGFs[idxBlock])
-                Z = sum(expsums)           
+                evdict = var.value2dict(var.evidence_value(self.mrf.evidence))
+                valuecount = var.valuecount(evdict) 
+                if valuecount == 1: # do not sample if we have evidence 
+                    continue  
+                expsums = self._var_expsums(var, self.state)
+                Z = sum(expsums)
                 # check for soft evidence and greedily satisfy it if possible                
                 idx = None
-                if block == None:
-                    formula = self.gs.mln.gndAtomsByIdx[idxGA]
-                    p = self.gs.mln._getSoftEvidence(formula)
+                if isinstance(var, BinaryVariable):
+                    atoms = var.gndatoms[0]
+                    p = mrf.evidence[var.gndatoms[0]]
                     if p is not None:
                         currentBelief = self.getSoftEvidenceFrequency(formula)
                         if p > currentBelief and expsums[1] > 0:
@@ -112,7 +99,7 @@ class GibbsSampler(MCMCInference):
         # check compatibility with MLN
         for f in mln.formulas:
             if not f.isLogical():
-                raise Exception("GibbsSampler does not support non-logical constraints such as '%s'!" % strFormula(f))
+                raise Exception("GibbsSampler does not support non-logical constraints such as '%s'!" % fstr(f))
         # get the pll blocks
         mln._getPllBlocks()
         # get the list of relevant ground atoms for each block

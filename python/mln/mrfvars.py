@@ -20,13 +20,31 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+from mln.errors import MRFValueException
+from mln.util import Interval, ifNone
 
 class MRFVariable(object):
     '''
     Represents a (mutually exclusive) block of ground atoms.
+    
+    This is the base class for different types of variables an MRF
+    may consist of, e.g. mutually exclusive ground atoms. The purpose
+    of these variables is to provide some convenience methods for 
+    easy iteration over their values ("possible worlds") and to ease
+    introduction of new types of variables in an MRF.
+    
+    The values of a variable should have a fixed order, so every value
+    must have a fixed index.
     '''
     
     def __init__(self, mrf, name, predicate, *gndatoms):
+        '''
+        :param mrf:         the instance of the MRF that this variable is added to
+        :param name:        the readable name of the variable
+        :param predicate:   the :class:`mln.base.Predicate` instance of this variable
+        :param gndatoms:    the ground atoms constituting this variable
+        '''
+        self.mrf = mrf
         self.gndatoms = list(gndatoms)
         self.idx = len(mrf.variables)
         self.name = name
@@ -35,192 +53,310 @@ class MRFVariable(object):
     
     def iteratoms(self):
         '''
-        Yields all ground atoms in this block, sorted by atom index ascending
+        Yields all ground atoms in this variable, sorted by atom index ascending
         '''
         for atom in sorted(self.gndatoms, key=lambda a: a.idx):
             yield atom
     
     
-    def getNumberOfValues(self):
-        raise Exception('%s does not implement getNumberOfValues()' % self.__class__.__name__)
+    def strval(self, value):
+        '''
+        Returns a readable string representation for the value tuple given by `value`.
+        '''
+        return '<%s>' % ', '.join(map(lambda (a, v): '%s' % str(a) if v == 1 else ('!%s' % str(a) if v == 0 else '?%s?' % str(a)), zip(self.gndatoms, value)))
     
     
-    def generateValueTuples(self, evidence=None):
+    def valuecount(self, evidence=None):
         '''
-        evidence mapping gnd atom indices to truth values
+        Returns the number of values this variable can take.
         '''
-        raise Exception('%s does not implement generateValueTuples()' % self.__class__.__name__)
+        raise Exception('%s does not implement valuecount()' % self.__class__.__name__)
     
     
-    def getValueIndex(self, value):
+    def _itervalues(self, evidence=None):
         '''
-        Computes the index of the given value (for this atomic block, so only wrt
-        the ground atoms contained in this block). Values are given as tuples. For
-        a binary atomic bock (a 'normal' ground atom), the two values are represented
-        by (0,) and (1,).
+        Generates all values of this variable as tuples of truth values.
+        
+        :param evidence: an optional dictionary mapping ground atoms to truth values.
+        
+        .. seealso:: values are given in the same format as in :method:`MRFVariable.itervalues()`
         '''
-        raise Exception('%s does not implement getValueIndex()' % self.__class__.__name__)
+        raise Exception('%s does not implement _itervalues()' % self.__class__.__name__)
     
     
-    def getEvidenceIndex(self, evidence):
+    def valueidx(self, value):
         '''
-        Returns the index of this atomic block value for the given possible world.
+        Computes the index of the given value.
+        
+        .. seealso:: values are given in the same format as in :method:`MRFVariable.itervalues()`
         '''
-        value = []
-        for gndatom in self.gndatoms:
-            value.append(evidence[gndatom.idx])
-        if not any(map(lambda v: v ==1, value)):
+        raise Exception('%s does not implement valueidx()' % self.__class__.__name__)
+    
+    
+    def evidence_value_index(self, evidence=None):
+        '''
+        Returns the index of this atomic block value for the possible world given in `evidence`.
+        
+        .. seealso:: `MRFVariable.evidence_value()`
+        '''
+        value = self.evidence_value(evidence)
+        if any(map(lambda v: v is None, value)):
             return None
-        return self.getValueIndex(tuple(value))
+        return self.valueidx(tuple(value))
     
     
-    def getEvidenceValue(self, evidence):
+    def evidence_value(self, evidence=None):
         '''
-        Returns the value of this atomic block as a tuple of truth values.
-        Exp: (0, 1, 0) for a mutex atomic block containing 3 gnd atoms
+        Returns the value of this variable as a tuple of truth values
+        in the possible world given by `evidence`.
+        
+        Exp: (0, 1, 0) for a mutex variable containing 3 gnd atoms
+        
+        :param evidence:   the truth values wrt. the ground atom indices. Can be a 
+                           complete assignment of truth values (i.e. a list) or a dict
+                           mapping ground atom indices to their truth values. If evidence is `None`,
+                           the evidence vector of the MRF is taken.
         '''
+        if evidence is None: evidence = self.mrf.evidence
         value = []
         for gndatom in self.gndatoms:
             value.append(evidence[gndatom.idx])
+#         if all(map(lambda v: v is None, value)):
+#             return None
+#         if not all(map(lambda v: v is not None, value)) and not all(map(lambda v: v is None, value)):
+#             raise Exception('Inconsistent truth assignment in evidence')
         return tuple(value)
     
     
-    def valueTuple2EvidenceDict(self, worldtuple):
+    def value2dict(self, value):
         '''
-        Takes a value tuple and transforms
-        it into a dict mapping the respective atom indices to their truth values
+        Takes a tuple of truth values and transforms it into a dict 
+        mapping the respective ground atom indices to their truth values.
+        
+        :param value: the value tuple to be converted.
         '''
         evidence = {}
-        for atom, value in zip(self.gndatoms, worldtuple):
-            evidence[atom.idx] = value
+        for atom, val in zip(self.gndatoms, value):
+            evidence[atom.idx] = val
         return evidence
+    
+    
+    def setval(self, value, world):
+        '''
+        Sets the value of this variable in the world `world` to the given value.
+        
+        :param value:    tuple representing the value of the variable.
+        :param world:    vector representing the world to be modified:
+        :returns:        the modified world.  
+        '''
+        for i, v in self.value2dict(value).iteritems():
+            world[i] = v
+        return world
     
     
     def itervalues(self, evidence=None):
         '''
-        Returns a generator for values and their indices yielding (idx, valuetuple) pairs.
+        Iterates over (idx, value) pairs for this variable.
+        
+        Values are given as tuples of truth values of the respective ground atoms. 
+        For a binary variable (a 'normal' ground atom), for example, the two values 
+        are represented by (0,) and (1,). If `evidence is` given, only values 
+        matching the evidence values are generated.
+        
+        :param evidence:     an optional dictionary mapping ground atom indices to truth values.
+        
+                             .. warning:: ground atom indices are with respect to the mrf instance,
+                                          not to the index of the gnd atom in the variable
+                                           
+        .. warning:: The values are not necessarily orderd with respect to their
+                     actual index obtained by `MRFVariable.valueidx()`.
+        
         '''
-        for tup in self.generateValueTuples(evidence):
-            yield self.getValueIndex(tup), tup
+        for tup in self._itervalues(evidence):
+            yield self.valueidx(tup), tup
     
-    def iterworlds(self, evidence):
+    
+    def iterworlds(self, evidence=None):
         '''
-        Iterates over possible worlds of evidence which can be generated with this atomic block.
-        Yields pairs of value index and evidence
+        Iterates over possible worlds of evidence which can be generated with this variable.
+        
+        This does not have side effects on the `evidence`. If no `evidence` is specified,
+        the evidence vector of the MRF is taken.
+        
+        :param evidence:     a possible world of truth values of all ground atoms in the MRF.
+        :returns:            
         '''
-        for i, tup in self.itervalues():
-            world = list(evidence)
-            for gndatom, val in zip(self.iteratoms(), tup):
-                world[gndatom.idx] = val
+        if type(evidence) is not dict:
+            raise Exception('evidence must be of type dict, is %s' % type(evidence))
+        if evidence is None:
+            evidence = self.mrf.evidence_dicti()
+        for i, val  in self.itervalues(evidence):
+            world = dict(evidence)
+            value = self.value2dict(val)
+            world.update(value)
             yield i, world
+        
+        
+    def consistent(self, world, strict=False):
+        '''
+        Checks for this variable if its assignment in the assignment `evidence` is consistent.
+        
+        :param evidence: the assignment to be checked.
+        :param strict:   if True, no unknown assignments are allowed, i.e. there must not be any
+                         ground atoms in the variable that do not have a truth value assigned.
+        '''
+        total = 0
+        evstr = ','.join([ifNone(world[atom.idx], '?', str) for atom in self.gndatoms])
+        for gnatom in self.gndatoms:
+            val = world[gnatom.idx]
+            if strict and val is None:
+                raise MRFValueException('Not all values have truth assignments: %s: %s' % (repr(self), evstr))
+            total += ifNone(val, 0)
+        if not (total == 1 if strict else total in Interval('[0,1]')):
+            raise MRFValueException('Invalid value of variable %s: %s' % (repr(self), evstr))
+        return True
         
     
     def __str__(self):
-        return '%s: %s' % (self.name, ','.join(map(str, self.gndatoms)))
+        return self.name
+    
+    def __repr__(self):
+        return '<%s "%s": [%s]>' % (self.__class__.__name__, self.name, ','.join(map(str, self.gndatoms)))
     
     def __contains__(self, element):
         return element in self.gndatoms
+    
 
+class FuzzyVariable(MRFVariable):
+    '''
+    Represents a fuzzy ground atom that can take values of truth in [0,1].
+    
+    It does not support iteration over values or value indexing.
+    '''
+    
+    def consistent(self, world, strict=False):
+        value = self.evidence_value(world)[0]
+        if value is not None:
+            if value >= 0 and value <= 1:
+                return True
+            else: return False
+        else:
+            if strict: return False
+            else: return True
+    
+    
+    def valuecount(self, evidence=None):
+        if evidence is None or evidence[self.gndatoms[0].idx] is None:
+            raise Exception('Cannot count number of values of an unassigned FuzzyVariable.')
+        else:
+            return 1
+            
+    
 
 class BinaryVariable(MRFVariable):
     '''
-    Represents a binary ("normal") ground atom with the two states 1 and 0
+    Represents a binary ("normal") ground atom with the two truth values 1 (true) and 0 (false).
+    The first value is always the false one.
     '''
+    
 
-    def getNumberOfValues(self):
-        return 2
+    def valuecount(self, evidence=None):
+        if evidence is None:
+            return 2
+        else:
+            return len(list(self.itervalues(evidence)))
 
 
-    def generateValueTuples(self, evidence=None):
+    def _itervalues(self, evidence=None):
         if evidence is None:
             evidence = {}
-        if len(self.gndatoms) == 0: return
+        if len(self.gndatoms) != 1: raise Exception('Illegal number of ground atoms in the variable %s' % repr(self))
         gndatom = self.gndatoms[0]
-        if gndatom.idx in evidence:
+        if evidence.get(gndatom.idx) is not None and evidence.get(gndatom.idx) in (0,1):
             yield (evidence[gndatom.idx],)
             return
-        for t in (0, 1): yield (t,)
+        for t in (0, 1):
+            yield (t,)
 
 
-    def getValueIndex(self, value):
-        if value == (0,):
-            return 0
-        elif value == (1,):
-            return 1
+    def valueidx(self, value):
+        if value == (0,): return 0
+        elif value == (1,): return 1
         else:
-            raise Exception('Invalid world value for binary block %s: %s' % (str(self), str(value)))
+            raise MRFValueException('Invalid world value for binary variable %s: %s' % (str(self), str(value)))
+        
+
+    def consistent(self, world, strict=False):
+        val = world[self.gndatoms[0].idx]
+        if strict and val is None:
+            raise MRFValueException('Invalid value of variable %s: %s' % (repr(self), val))
         
 
 class MutexVariable(MRFVariable):
     '''
-    Represents a mutually exclusive block of ground atoms.
+    Represents a mutually exclusive block of ground atoms, i.e. a block
+    in which exactly one ground atom must be true.
     '''
     
-    def getNumberOfValues(self):
-        return len(self.gndatoms)
+    def valuecount(self, evidence=None):
+        if evidence is None:
+            return len(self.gndatoms)
+        else:
+            return len(list(self.itervalues(evidence)))
     
     
-    def generateValueTuples(self, evidence=None):
+    def _itervalues(self, evidence=None):
         if evidence is None:
             evidence = {}
-        for world in self._generateValueTuplesRecursive(self.gndatoms, [], evidence):
-            yield world
-    
-    
-    def _generateValueTuplesRecursive(self, gndatoms, assignment, evidence):
-        atomindices = map(lambda a: a.idx, gndatoms)
+        atomindices = map(lambda a: a.idx, self.gndatoms)
         valpattern = []
         for mutexatom in atomindices:
             valpattern.append(evidence.get(mutexatom, None))
-        # at this point, we have generated a value pattern with
-        # all values that are fixed by the evidence argument and None
-        # for all others
+        # at this point, we have generated a value pattern with all values 
+        # that are fixed by the evidence argument and None for all others
         trues = sum(filter(lambda x: x == 1, valpattern))
         if trues > 1: # sanity check
             raise Exception("More than one ground atom in mutex variable is true: %s" % str(self))
         if trues == 1: # if the true value of the mutex var is in the evidence, we have only one possibility
             yield tuple(map(lambda x: 1 if x == 1 else 0, valpattern))
             return
-        for i, val in enumerate(valpattern): # generate a value tuple with a true value for each atom which is not set to false by evidence
+        for i, val in enumerate(valpattern): # generate a value tuple with a truth value for each atom which is not set to false by evidence
             if val == 0: continue
             elif val is None:
                 values = [0] * len(valpattern)
                 values[i] = 1
                 yield tuple(values)
-
+                
     
-    def getValueIndex(self, value):
+    def valueidx(self, value):
         if sum(value) != 1:
-            raise Exception('Invalid world value for mutex block %s: %s' % (str(self), str(value)))
+            raise Exception('Invalid world value for mutex variable %s: %s' % (str(self), str(value)))
         else:
             return value.index(1)
-        
         
 
 class SoftMutexVariable(MRFVariable):
     '''
-    Represents a soft mutex block of ground atoms.
+    Represents a soft mutex block of ground atoms, i.e. a mutex block in which maximally
+    one ground atom may be true.
     '''
     
-    def getNumberOfValues(self):
-        return len(self.gndatoms) + 1
+    def valuecount(self, evidence=None):
+        if evidence is None:
+            return len(self.gndatoms) + 1
+        else:
+            return len(list(self.itervalues(evidence)))
 
 
-    def generateValueTuples(self, evidence=None):
+    def _itervalues(self, evidence=None):
         if evidence is None:
             evidence = {}
-        for world in self._generateValueTuplesRecursive(self.gndatoms, [], evidence):
-            yield world
-    
-    
-    def _generateValueTuplesRecursive(self, gndatoms, assignment, evidence):
-        atomindices = map(lambda a: a.idx, gndatoms)
+        atomindices = map(lambda a: a.idx, self.gndatoms)
         valpattern = []
         for mutexatom in atomindices:
             valpattern.append(evidence.get(mutexatom, None))
-        # at this point, we have generated a value pattern with
-        # all values that are fixed by the evidence argument and None
-        # for all others
+        # at this point, we have generated a value pattern with all values 
+        # that are fixed by the evidence argument and None for all others
         trues = sum(filter(lambda x: x == 1, valpattern))
         if trues > 1: # sanity check
             raise Exception("More than one ground atom in mutex variable is true: %s" % str(self))
@@ -236,10 +372,9 @@ class SoftMutexVariable(MRFVariable):
         yield tuple([0] * len(atomindices))
         
     
-    def getValueIndex(self, value):
+    def valueidx(self, value):
         if sum(value) > 1:
             raise Exception('Invalid world value for soft mutex block %s: %s' % (str(self), str(value)))
-        try:
-            return value.index(1)
-        except ValueError:
-            return self.getNumberOfValues() - 1
+        elif sum(value) == 1:
+            return value.index(1) + 1
+        else: return 0

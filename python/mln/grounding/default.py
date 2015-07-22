@@ -23,77 +23,96 @@
 
 from common import AbstractGroundingFactory
 import logging
-from mln.util import strFormula
+from mln.util import fstr, dict_union, StopWatch, ProgressBar
 from logic.common import Logic
 import time
-from utils import dict_union
+from mln.constants import auto, HARD
+from mln.errors import SatisfiabilityException
 
-class DefaultGroundingFactory(AbstractGroundingFactory):
+
+logger = logging.getLogger(__name__)
+
+CACHE_SIZE = 100000
+
+class DefaultGroundingFactory:
     '''
     Implementation of the default grounding algorithm, which
     creates ALL ground atoms and ALL ground formulas.
     '''
     
-    def __init__(self, mrf, db, **params):
-        AbstractGroundingFactory.__init__(self, mrf, db, **params)
-        self.formula2GndFormulas = {}
+    def __init__(self, mrf, formulas=None, cache=auto, **params):
+        self.mrf = mrf
+        self.formulas = self.mrf.formulas if formulas is None else formulas
+        self._cachesize = CACHE_SIZE if cache is auto else cache
+        self._cache = None
+        self.__cacheinit = False
+        self._params = params
+        self.watch = StopWatch()
         
-    
-    def _createGroundAtoms(self):
-        # create ground atoms
-        for predName, domNames in self.mln.predicates.iteritems():
-            self._groundAtoms([], predName, domNames)
-
-
-    def _groundAtoms(self, cur, predName, domNames):
-        # if there are no more parameters to ground, we're done
-        # and we cann add the ground atom to the MRF
-        mrf = self.mrf
-        assert len(mrf.gndFormulas) == 0
-        if domNames == []:
-            atom = mrf.mln.logic.gnd_atom(predName, cur)
-            mrf.addGroundAtom(atom)
-            return True
-        log = logging.getLogger(self.__class__.__name__)
-        # create ground atoms for each way of grounding the first of the 
-        # remaining variables whose domains are given in domNames
-        dom = mrf.domains.get(domNames[0])
-        if dom is None or len(dom) == 0:
-            log.info("Ground Atoms for predicate %s could not be generated, since the domain '%s' is empty" % (predName, domNames[0]))
-            return False
-        for value in dom:
-            if not self._groundAtoms(cur + [value], predName, domNames[1:]): return False
-        return True
-
         
-    def _createGroundFormulas(self, simplify=False):
-        mrf = self.mrf
-        assert len(mrf.gndAtoms) > 0
-        log = logging.getLogger(self.__class__.__name__)
-        # generate all groundings
-        log.info('Grounding formulas...')
-        log.debug('Ground formulas (all should have a truth value):')
-        self.gndTime = time.time()
-        for idxFormula, formula in enumerate(mrf.formulas):
-            for gndFormula, _ in formula.iterGroundings(mrf, simplify=simplify):
-                gndFormula.isHard = formula.isHard
-                gndFormula.weight = formula.weight
-                gndFormula.fIdx = idxFormula
-                mrf._addGroundFormula(gndFormula, idxFormula, None)
-        self.gndTime = time.time() - self.gndTime
-
-
-class NoGroundingFactory(DefaultGroundingFactory):
-    '''
-    Subclass of the default grounding factory, which only creates ground atoms,
-    but no ground formulas. Can be used for customized groundings in the learning
-    or inference algorithms, if necessary.
-    '''
+    @property
+    def verbose(self):
+        return self._params.get('verbose', False)
     
-    def _createGroundFormulas(self, simplify=False):
-        pass
+    
+    @property
+    def multicore(self):
+        return self._params.get('multicore', False)
+    
+    
+    @property
+    def iscached(self):
+        return self._cache is not None and self.__cacheinit
 
-
+    
+    @property
+    def usecache(self):
+        return self._cachesize is not None and self._cachesize > 0
+    
+    
+    def _cacheinit(self):
+        total = 0
+        for f in self.formulas:
+            total += f.countgroundings(self.mrf)
+        if total > self._cachesize:
+            logging.getLogger(self.__class__.__name__).warning('Number of formula groundings (%d) exceeds cache size (%d). Caching is disabled.' % (total, self._cachesize))
+        else:
+            self._cache = []
+        self.__cacheinit = True
+    
+    
+    def itergroundings(self, simplify=False, unsatfailure=False):
+        '''
+        Iterates over all formula groundings.
+        
+        :param simplify:        if `True`, the formula will be simplified according to the
+                                evidence given.
+        :param unsatfailure:    raises a :class:`mln.errors.SatisfiabilityException` if a 
+                                hard logical constraint is violated by the evidence.
+        '''
+        if self.iscached:
+            for gf in self._cache:
+                yield gf
+            return
+        else:
+            if self.usecache and not self.iscached:
+                self._cacheinit()
+            self.watch.tag('grounding', verbose=self.verbose)
+            if self.verbose: 
+                bar = ProgressBar(width=100, color='green')
+            for i, formula in enumerate(self.formulas):
+                if self.verbose: bar.update((i+1) / float(len(self.formulas)))
+                for gndformula in formula.itergroundings(self.mrf, simplify=simplify):
+                    if self._cache is not None:
+                        self._cache.append(gndformula)
+                    if unsatfailure and gndformula.weight == HARD and gndformula(self.mrf.evidence) != 1:
+                        print
+                        gndformula.print_structure(self.mrf.evidence)
+                        raise SatisfiabilityException('MLN is unsatisfiable due to hard constraint violation %s (see above)' % self.mrf.formulas[gndformula.idx])
+                    yield gndformula
+            self.watch.finish('grounding')
+        
+            
 class EqualityConstraintGrounder(object):
     '''
     Grounding factory for equality constraints only.
@@ -143,7 +162,7 @@ class EqualityConstraintGrounder(object):
         f_vardomains = formula.getVariables(mln)
         for var in varnames:
             if var not in f_vardomains:
-                raise Exception('Variable %s not bound to a domain by formula %s' % (var, strFormula(formula)))
+                raise Exception('Variable %s not bound to a domain by formula %s' % (var, fstr(formula)))
             vardomains[var] = f_vardomains[var]
         return vardomains
                 

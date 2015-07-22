@@ -1,5 +1,5 @@
 
-from common import MultipleDatabaseLearner
+from multidb import MultipleDatabaseLearner
 from ll import *
 from sll import *
 from pll import *

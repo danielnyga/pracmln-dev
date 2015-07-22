@@ -24,13 +24,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from mcmc import * 
-from SAMaxWalkSAT import *
 import pickle
 from logic.common import Logic
 import logging
 import time
 import math
-from mln.util import strFormula
+from mln.util import fstr
 from mln.database import Database
 
 
@@ -106,22 +105,22 @@ class FuzzyMCSAT(Inference):
         log.debug(result)
         return result
 
+
+
 class MCSAT(MCMCInference):
-    ''' MC-SAT/MC-SAT-PC '''
+    ''' 
+    MC-SAT/MC-SAT-PC
+    '''
     
-    def __init__(self, mrf, verbose=False):
-        Inference.__init__(self, mrf)
-        # minimize the formulas' weights by exploiting group information (in order to speed up convergence)
-        if verbose: print "normalizing weights..."
-        #mln.minimizeGroupWeights() # TODO!!! disabled because weights are not yet evaluated
-        # get the pll blocks
-        if verbose: print "getting blocks..."
-        mrf._getPllBlocks()
-        # get the block index for each ground atom
-        mrf._getAtom2BlockIdx()
+    def __init__(self, mrf, queries, **params):
+        MCMCInference.__init__(self, mrf, queries, **params)
+
  
-    # initialize the knowledge base to the required format and collect structural information for optimization purposes
+    
     def _initKB(self, verbose=False):
+        '''
+        Initialize the knowledge base to the required format and collect structural information for optimization purposes
+        '''
         # convert the MLN ground formulas to CNF
         if verbose: print "converting formulas to CNF..."
         #self.mln._toCNF(allPositive=True)
@@ -235,7 +234,7 @@ class MCSAT(MCMCInference):
         if self.debug:
             log.debug("\nCNF KB:")
             for gf in self.gndFormulas:
-                log.debug("%7.3f  %s" % (self.formulas[gf.idxFormula].weight, strFormula(gf)))
+                log.debug("%7.3f  %s" % (self.formulas[gf.idxFormula].weight, fstr(gf)))
             print
         # set the random seed if it was given
         if randomSeed != None:
@@ -375,7 +374,7 @@ class MCSAT(MCMCInference):
                     else:
                         NLC.append(gf)
                     if self.debug and self.debugLevel >= 3:
-                        print "  to satisfy:", strFormula(gf)
+                        print "  to satisfy:", fstr(gf)
         # add soft evidence constraints
         if self.handleSoftEvidence:
             for se in self.softEvidence:
@@ -538,7 +537,7 @@ class SampleSAT:
             return len(self.trueGndLits) == 0
         
         def __str__(self):
-            return " v ".join(map(lambda x: strFormula(x), self.lits))
+            return " v ".join(map(lambda x: fstr(x), self.lits))
     
         def getFormula(self):
             '''
@@ -675,10 +674,10 @@ class SampleSAT:
                     isTrue = clause.isTrue(self.state)
                     if not isTrue:
                         if idxClause not in self.unsatisfiedClauseIdx:
-                            print "    %s is unsatisfied but not in the list" % strFormula(clause)
+                            print "    %s is unsatisfied but not in the list" % fstr(clause)
                     else:
                         if idxClause in self.unsatisfiedClauseIdx:
-                            print "    %s is satisfied but in the list" % strFormula(clause)
+                            print "    %s is satisfied but in the list" % fstr(clause)
             if self.debug and False:
                 self.mln.printState(self.state, True)
                 print "bottlenecks:", self.bottlenecks
@@ -762,7 +761,7 @@ class SampleSAT:
         if bestGA == None:
             #print self.mln.printState(self.state)
             gf = constraint.getFormula()
-            raise Exception("SampleSAT error: unsatisfiable constraint '%s' given the evidence! It is an instance of '%s'." % (strFormula(gf), strFormula(self.mln.formulas[gf.idxFormula])))
+            raise Exception("SampleSAT error: unsatisfiable constraint '%s' given the evidence! It is an instance of '%s'." % (fstr(gf), fstr(self.mln.formulas[gf.idxFormula])))
         # flip the best one and, in case of a blocked ground atom, a second one
         self._flipGndAtom(bestGA)
         if bestGAsecond != None:

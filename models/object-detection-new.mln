@@ -10,11 +10,12 @@ size(cluster, size)
 linemod(cluster, mod)
 scene(scene)
 
-object(cluster, object!)
+object(cluster, object)
 
 // formulas
 
-0 size(?c, +?size) ^ shape(?c, +?s) ^ color(?c, +?col) ^ object(?c, +?obj)
+0 size(?c, +?size) ^ shape(?c, +?s) ^ color(?c, +?col) ^ object(?c, +?obj) 
+0 size(?c, +?size) ^ object(?c, +?obj)
 //0 linemod(?c, +?m) ^ object(?c, +?obj)
 //0 goggles_Logo(?c, +?comp) ^ object(?c, +?obj)
 //0 goggles_Product(?c, +?prod) ^ object(?c, +?obj)
@@ -26,8 +27,14 @@ object(cluster, object!)
 
 #unique{+?t1,+?t2}
 0 scene(+?s) ^ object(?c1, +?t1) ^ object(?c2, +?t2) ^ ?c1 =/= ?c2
+
 //#unique{+?t1,+?t2}
 //0 !scene(+?s) ^ object(?c1, +?t1) ^ object(?c2, +?t2) ^ ?c1 =/= ?c2
+
+
+
+
+
 
 
 

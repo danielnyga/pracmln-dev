@@ -9,3 +9,5 @@ formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(messag
 handler.setFormatter(formatter)
 root_logger.addHandler(handler)
 
+def out(logger, *msgs):
+    logger.debug(' '.join(map(str, msgs)))
