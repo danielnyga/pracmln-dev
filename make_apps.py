@@ -10,12 +10,10 @@ sys.path.append(os.path.join(os.getcwd(), 'python'))
 sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
 sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'pyparsing'))
 
-from utils import colorize
-
 python_apps = [
-    {"name": "mlnquery", "script": "$PRACMLN_HOME/python/mlnQueryTool.py"},
-    {"name": "mlnlearn", "script": "$PRACMLN_HOME/python/mlnLearningTool.py"},
-    {"name": "xval", "script": "$PRACMLN_HOME/python/xval.py"},
+    {"name": "mlnquery", "script": "$PRACMLN_HOME/pracmln/mlnquery.py"},
+    {"name": "mlnlearn", "script": "$PRACMLN_HOME/pracmln/mlnlearn.py"},
+    {"name": "xval", "script": "$PRACMLN_HOME/pracmln/xval.py"},
 ]
 
 def adapt(name, arch):
@@ -93,6 +91,9 @@ if __name__ == '__main__':
         buildlib = True;
         args = args[1:]
 
+    print 'Removing old app folder...'
+    shutil.rmtree('apps', ignore_errors=True)
+
     if not os.path.exists("apps"):
         os.mkdir("apps")
 
@@ -102,6 +103,16 @@ if __name__ == '__main__':
     preamble = "@echo off\r\n" if isWindows else "#!/bin/sh\n"
     allargs = '%*' if isWindows else '"$@"'
     pathsep = os.path.pathsep
+    
+    for app in python_apps:
+        filename = os.path.join("apps", "%s%s" % (app["name"], {True:".bat", False:""}[isWindows]))
+        print "  %s" % filename
+        f = file(filename, "w")
+        f.write(preamble)
+        f.write("python -O \"%s\" %s\n" % (adapt(app["script"], arch), allargs))
+        f.close()
+        if not isWindows: os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+    print
 
     # write shell script for environment setup
     appsDir = adapt("$PRACMLN_HOME/apps", arch)
@@ -121,12 +132,13 @@ if __name__ == '__main__':
 
     if not "win" in arch:
         f = file("env.sh", "w")
+        f.write('#!/bin/bash\n')
         f.write("export PATH=$PATH:%s\n" % appsDir)
-        f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % pythonDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % logutilsDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % pyparsingDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % tabulateDir)
         f.write("export PRACMLN_HOME=%s\n" % adapt("$PRACMLN_HOME", arch))
+        f.write("export PYTHONPATH=$PRACMLN_HOME:$PYTHONPATH\n")
         f.write("export PRACMLN_EXPERIMENTS=%s\n" % adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
         if extraExports:
             f.write(extraExports)
