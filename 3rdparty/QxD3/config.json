@@ -1,5 +1,5 @@
 {
-  "name"    : "webmln",
+  "name"    : "QxD3",
 
   "include" :
   [
@@ -12,7 +12,6 @@
   [
     "api",
     "api-data",
-    "build",
     "clean",
     "distclean",
     "dependencies",
@@ -22,29 +21,20 @@
     "lint",
     "migration",
     "pretty",
-    "profiling",
-    "source",
-    "source-all",
-    "source-hybrid",
-    "source-server",
-    "source-server-reload",
-    "source-httpd-config",
     "test",
     "test-source",
-    "translation",
-    "validate-config",
-    "validate-manifest",
-    "watch"
+    "translation"
   ],
-
-  "default-job" : "source-hybrid",
 
   "let" :
   {
-    "APPLICATION"  : "webmln",
-    "QOOXDOO_PATH" : "../3rdparty/qooxdoo-4.1-sdk",
-    "QXTHEME"      : "webmln.theme.Theme",
-    "API_EXCLUDE"  : ["qx.test.*", "${APPLICATION}.theme.*", "${APPLICATION}.test.*"],
+    "APPLICATION"  : "qxd3",
+    "APPLICATION_MAIN_CLASS" : "${APPLICATION}.demo.Demo",
+    //"QOOXDOO_PATH" : "../qooxdoo/4.0",
+    "QOOXDOO_PATH" : "../qooxdoo-4.1-sdk",
+    //"QXTHEME"      : "qxd3.theme.modern.Theme",
+    "QXTHEME"      : "qx.theme.Modern",
+    "API_EXCLUDE"  : ["qx.test.*", "qxd3.demo.*", "${APPLICATION}.theme.*", "${APPLICATION}.test.*"],
     "LOCALES"      : [ "en" ],
     "CACHE"        : "${TMPDIR}/qx${QOOXDOO_VERSION}/cache",
     "ROOT"         : "."
@@ -60,12 +50,12 @@
     // using a contrib: library, it will be downloaded into the path specified
     // by the 'cache/downloads' config key
     
-    "libraries" :
+    "libraries" : 
     {
       "library" :
       [
         {
-          "manifest" : "../3rdparty/QxD3/Manifest.json"
+          "manifest" : "contrib://SkeletonApplication/trunk/Manifest.json"
         }
       ]
     }
@@ -77,13 +67,13 @@
     /*
     ,"build-script" :
     {
-      "compile-options" :
+      "compile-options" : 
       {
         "code" :
         {
           "format" : false
         }
-      }
+      }      
     }
     */
   }
