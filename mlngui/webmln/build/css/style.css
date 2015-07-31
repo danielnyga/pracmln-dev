@@ -1,61 +1,71 @@
-    .link {
-      fill: none;
-      stroke: #08088A;;
-      stroke-width: 1.5px;
-    }
+html, body {
+  width: 100%;
+  height: 100%;
+}
 
-    .link.strokegreen {
-      stroke: #89a35c;
-    }
+#mln_container {
+  width: 100%;
+  height: 100%;
+}
 
-    .link.object {
-      stroke: green;
-    }
+.link {
+  fill: none;
+  stroke: #08088A;;
+  stroke-width: 1.5px;
+}
 
-    .link.strokeblue {
-      stroke: blue;
-    }
+.link.strokegreen {
+  stroke: #89a35c;
+}
 
-    .link.default {
-      stroke: black;
-    }
+.link.object {
+  stroke: green;
+}
 
-    .link.dashedred {
-      stroke-dasharray: 0,2 1;
-      stroke: red;
-    }
+.link.strokeblue {
+  stroke: blue;
+}
 
-    marker {
-      fill: #89a35c;
-    }
+.link.default {
+  stroke: black;
+}
 
-    .bar rect {
-      fill: #89a35c;
-    }
+.link.dashedred {
+  stroke-dasharray: 0,2 1;
+  stroke: red;
+}
 
-    .bar text.value {
-      fill: white;
-    }
+marker {
+  fill: #89a35c;
+}
 
-    .axis {
-      shape-rendering: crispEdges;
-    }
+.bar rect {
+  fill: #89a35c;
+}
 
-    .axis path {
-      fill: none;
-    }
+.bar text.value {
+  fill: white;
+}
 
-    .x.axis line {
-      stroke: #fff;
-      stroke-opacity: .8;
-    }
+.axis {
+  shape-rendering: crispEdges;
+}
 
-    .y.axis path {
-      stroke: black;
-    }
+.axis path {
+  fill: none;
+}
 
-    circle {
-      fill: #bee280;
-      stroke: #89a35c;
-      stroke-width: 1.5px;
-    }
+.x.axis line {
+  stroke: #fff;
+  stroke-opacity: .8;
+}
+
+.y.axis path {
+  stroke: black;
+}
+
+circle {
+  fill: #bee280;
+  stroke: #89a35c;
+  stroke-width: 1.5px;
+}

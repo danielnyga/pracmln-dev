@@ -12,6 +12,7 @@
 qx.Class.define("webmln.Application",
 {
 	extend : qx.application.Standalone,
+//	extend : qx.application.Inline, TODO
 
 
 
@@ -105,7 +106,33 @@ qx.Class.define("webmln.Application",
 	      -------------------------------------------------------------------------
 	      */
 
-	    var root = qx.core.Init.getApplication().getRoot();
+//        TODO
+//        wir holen uns das div mit der id 'mln_container':
+//        var mln_container = document.getElementById("mln_container", true, true);
+
+//        und in diesen container koennen wir jetzt den ganzen content
+//        erzeugen (deine windows oder splitpanes oder was auch immer..):
+//        var contentisle = new qx.ui.root.Inline(mln_container,true,true);
+
+//        und jetzt setzen wir noch layout und groesse, sodass wir den uns zur
+//         verfuegung stehenden platz voll ausnutzen:
+//        contentIsle.setWidth(document.getElementById("container", true, true).offsetWidth);
+//        contentIsle.setHeight(document.getElementById("container", true, true).offsetHeight);
+//        contentIsle.setLayout(new qx.ui.layout.Grow());
+//
+//        und resizen wenn das fenster verkleinert/vergroessert wird
+//        mln_container.addEventListener("resize", function() {
+//            var w = document.getElementById("container", true, true).offsetWidth;
+//            var h = document.getElementById("container", true, true).offsetHeight;
+//            contentIsle.setWidth(w);
+//            contentIsle.setHeight(h);
+//        }, this);
+
+//        und so fuegst du dann zeug in die contentisle ein:
+//        contentIsle.add(irgendeincontainer, {width: "100%", height: "100%"});
+//        TODO
+
+	    var root = qx.core.Init.getAppl ication().getRoot();
 	    var windowManager = new qx.ui.window.Manager();
 	    var desktop = new qx.ui.window.Desktop(windowManager).set({
             decorator: decorator

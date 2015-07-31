@@ -215,7 +215,7 @@ if __name__ == '__main__':
         if not isWindows: os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
 
     # build qooxdoo
-    generate = adapt("$SRLDB_HOME/mlngui/webmln/generate.py", "")
+    generate = adapt("$SRLDB_HOME/mlngui/webmln/generate.py", arch)
     os.system(generate + ' source-all')
     os.system(generate + ' build')
 
@@ -224,6 +224,7 @@ if __name__ == '__main__':
     # write shell script for environment setup
     appsDir = adapt("$SRLDB_HOME/apps", arch)
     pythonDir = adapt("$SRLDB_HOME/python", arch)
+    guiDir = adapt("$SRLDB_HOME/mlngui", arch)
     pyparsingDir = adapt("$SRLDB_HOME/3rdparty/pyparsing", arch)
     jythonDir = adapt("$SRLDB_HOME/jython", arch)
     logutilsDir = adapt("$SRLDB_HOME/3rdparty/logutils-0.3.3", arch)
@@ -240,6 +241,7 @@ if __name__ == '__main__':
         f = file("env.sh", "w")
         f.write("export PATH=$PATH:%s\n" % appsDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % pythonDir)
+        f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % guiDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % logutilsDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % pyparsingDir)
         f.write("export JYTHONPATH=$JYTHONPATH:%s:%s\n" % (jythonDir, pythonDir))
