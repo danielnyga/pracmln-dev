@@ -244,7 +244,8 @@ qx.Class.define("webmln.Application",
                             
                             //win2.close();
 						    //req = new qx.io.remote.Request("/_start_inference", "GET", "text/plain");
-						    req = new qx.io.request.Xhr("/_start_inference","GET");
+						    req = new qx.io.request.Xhr
+						    ("/mln/_start_inference","GET");
 						    var mln = (selectMLN.getSelectables().length != 0) ? selectMLN.getSelection()[0].getLabel() : "";
 						    var emln = (selectEMLN.getSelectables().length != 0) ? selectEMLN.getSelection()[0].getLabel() : "";
 						    var db = (selectEvidence.getSelectables().length != 0) ? selectEvidence.getSelection()[0].getLabel() : "";
@@ -388,7 +389,8 @@ qx.Class.define("webmln.Application",
 						
 	    }, this);
 	    buttonSaveMLN.addListener("execute",function(e){
-						    //req = new qx.io.remote.Request("/_test", "GET", "text/plain");
+						    //req = new qx.io.remote.Request("/mln/_test",
+//						    "GET", "text/plain");
 						    //req.addListener("completed", function(e) {
 						    //		alert(e.getContent());
 						    //});
@@ -410,7 +412,8 @@ qx.Class.define("webmln.Application",
 									    container2.add(checkBoxRenameEditEMLN, {row: 9, column: 1});
 									    container2.add(textFieldNameEMLN, {row: 10, column: 1, colSpan: 3});
 									    layout.setRowFlex(8, 1);
-									    req = new qx.io.request.Xhr("/_use_model_ext", "GET");
+									    req = new qx.io.request.Xhr
+									    ("/mln/_use_model_ext", "GET");
 									    req.addListener("success", function(e) {
 										    var tar = e.getTarget();
 										    response = tar.getResponse().split(",");
@@ -438,7 +441,8 @@ qx.Class.define("webmln.Application",
 	    checkBoxSaveOutput.addListener("changeValue",function(e){});
 	    selectEngine.addListener("changeSelection",function(e) {
 								    var item = selectEngine.getSelection()[0];
-								    req = new qx.io.request.Xhr("/_change_engine", "GET");
+								    req = new qx.io.request.Xhr
+								    ("/mln/_change_engine", "GET");
 								    req.setRequestData({"engine":item.getLabel()});
 								    //req.setParameter("engine", item.getLabel());
 								    req.addListener("success", function(e) {
@@ -471,7 +475,8 @@ qx.Class.define("webmln.Application",
 	    selectMLN.addListener("changeSelection",function(e){
 								    var item = selectMLN.getSelection()[0];
 								    textFieldNameMLN.setValue(item.getLabel());
-								    req = new qx.io.request.Xhr("/_mln", "GET");
+								    req = new qx.io.request.Xhr("/mln/_mln",
+								    "GET");
 								    req.setRequestData({"filename":item.getLabel()});
 								    //req.setParameter("filename", item.getLabel());
 								    req.addListener("success", function(e) {
@@ -489,7 +494,8 @@ qx.Class.define("webmln.Application",
 	    selectEvidence.addListener("changeSelection",function(e){
 								    var item = selectEvidence.getSelection()[0];
 								    textFieldDB.setValue(item.getLabel());
-								    req = new qx.io.request.Xhr("/_load_evidence", "GET");	
+								    req = new qx.io.request.Xhr
+								    ("/mln/_load_evidence", "GET");
 								    req.setRequestData({"filename":item.getLabel()});
 								    //req.setParameter("filename", item.getLabel());
 								    req.addListener("success", function(e) {
@@ -983,7 +989,7 @@ qx.Class.define("webmln.Application",
 	    desktop.add(win3, {left: 150, top: 150});
 	    textFieldOutput.setValue("smoking-test-smoking.results");
 	    //Fetch options to choose from
-	    req = new qx.io.request.Xhr("/_init", "GET");
+	    req = new qx.io.request.Xhr("/mln/_init", "GET");
 	    req.addListener("success", function(e) {
 						    var tar = e.getTarget();
 						    response = tar.getResponse().split(";");

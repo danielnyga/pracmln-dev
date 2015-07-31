@@ -42,7 +42,7 @@
   "let" :
   {
     "APPLICATION"  : "webmln",
-    "QOOXDOO_PATH" : "../3rdparty/qooxdoo-4.1-sdk",
+    "QOOXDOO_PATH" : "../../3rdparty/qooxdoo-4.1-sdk",
     "QXTHEME"      : "webmln.theme.Theme",
     "API_EXCLUDE"  : ["qx.test.*", "${APPLICATION}.theme.*", "${APPLICATION}.test.*"],
     "LOCALES"      : [ "en" ],
@@ -65,7 +65,7 @@
       "library" :
       [
         {
-          "manifest" : "../3rdparty/QxD3/Manifest.json"
+          "manifest" : "../../3rdparty/QxD3/Manifest.json"
         }
       ]
     }

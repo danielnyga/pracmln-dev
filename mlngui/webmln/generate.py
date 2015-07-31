@@ -26,7 +26,7 @@
 import sys, os, re, subprocess, codecs, optparse
 
 CMD_PYTHON = sys.executable
-QOOXDOO_PATH = '../3rdparty/qooxdoo-4.1-sdk'
+QOOXDOO_PATH = '../../3rdparty/qooxdoo-4.1-sdk'
 QX_PYLIB = "tool/pylib"
 
 ##
@@ -75,6 +75,7 @@ def stripComments(s):
 
 def getQxPath():
     path = QOOXDOO_PATH
+    print 'path1', path
     # OS env takes precedence
     if os.environ.has_key("QOOXDOO_PATH"):
         path = os.environ["QOOXDOO_PATH"]
@@ -116,7 +117,7 @@ def getQxPath():
                         break # assume first occurrence is ok
 
     path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), path))
-
+    print path
     return path
 
 os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))  # switch to skeleton dir

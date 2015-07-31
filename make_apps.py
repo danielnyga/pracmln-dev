@@ -73,7 +73,7 @@ python_apps = [
     {"name": "evalSeqLabels", "script": "$SRLDB_HOME/python/evalSeqLabels.py"},
     {"name": "pmml2graphml", "script": "$SRLDB_HOME/python/pmml2graphml.py"},
     {"name": "xval", "script": "$SRLDB_HOME/python/xval.py"},
-    {"name": "webmln", "script": "$SRLDB_HOME/webmln/build/flaskr.py"}
+    {"name": "webmln", "script": "$SRLDB_HOME/mlngui/runMLN.py"}
 ]
 
 def adapt(name, arch):
