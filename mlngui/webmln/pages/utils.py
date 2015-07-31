@@ -11,26 +11,26 @@ def ensure_mln_session(session):
     mln_session = mlnApp.session_store[session]
     if mln_session is None:
         session['id'] = os.urandom(24)
-        prac_session = MLNSession(session)
-        log.info('created new MLN session %s' % str(prac_session.id.encode(
+        mln_session = MLNSession(session)
+        log.info('created new MLN session %s' % str(mln_session.id.encode(
             'base-64')))
-        mlnApp.session_store.put(prac_session)
+        mlnApp.session_store.put(mln_session)
         initFileStorage()
-    return prac_session
+    return mln_session
 
-@mlnApp.app.route('/prac/log')
-def praclog():
-    return praclog_('null')
+@mlnApp.app.route('/mln/log')
+def mlnlog():
+    return mlnlog_('null')
 
-@mlnApp.app.route('/prac/log/<filename>')
-def praclog_(filename):
+@mlnApp.app.route('/mln/log/<filename>')
+def mlnlog_(filename):
     if os.path.isfile(os.path.join(mlnApp.app.config['LOG_FOLDER'], filename)):
         return send_from_directory(mlnApp.app.config['LOG_FOLDER'], filename)
     elif os.path.isfile(os.path.join(mlnApp.app.config['LOG_FOLDER'],
                                      '{}.json'.format(filename))):
         return send_from_directory(mlnApp.app.config['LOG_FOLDER'], '{}.json'.format(filename))
     else:
-        return render_template('logs.html', **locals())
+        return render_template('log.html', **locals())
 
 
 def initFileStorage():
