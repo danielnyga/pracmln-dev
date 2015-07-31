@@ -33,7 +33,7 @@ InferenceMethods = Enum(
      "IPFPM_exact": "IPFP-M[exact]", 
      "IPFPM_MCSAT": "IPFP-M[MC-SAT]",
      "EnumerationAsk": "Enumeration-Ask (exact)",
-     'WCSP': 'WCSP (exact MPE with Toulbar2)',
+     'WCSPInference': 'WCSP (exact MPE with Toulbar2)',
      'BnB': 'Branch-&-Bound Search (exact MPE)'
     })
 

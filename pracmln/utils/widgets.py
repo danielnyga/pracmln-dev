@@ -326,7 +326,7 @@ class SyntaxHighlightingText(ScrolledText2):
         # variable and predicate highlighting
         for match in re.finditer('(\\?[a-zA-Z0-9]+|[\w]*[a-zA-Z]\\()', buffer):
             token = match.group(0)
-            if self.grammar is not None and self.grammar.isVar(token):
+            if self.grammar is not None and self.grammar.isvar(token):
                 self.tag_add('var', '%s.%d' % (cline, match.start()), '%s.%d' % (cline, match.end()))
             elif token[-1] == '(':
                 self.tag_add('pred', '%s.%d' % (cline, match.start()), '%s.%d' % (cline, match.end()-1))
@@ -471,9 +471,9 @@ class FilePickEdit(Frame):
         if self.user_onChange != None:
             self.user_onChange(filename)
 
-    def onSaveChange(self, name, index, mode):
-        if self.user_onChange != None:
-            self.user_onChange(self.save_name.get())
+    def onSaveChange(self, name, index, mode): pass
+#         if self.user_onChange != None:
+#             self.user_onChange(self.save_name.get())
 
     def autoRename(self):
         # modify "save as" name

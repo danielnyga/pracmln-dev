@@ -366,8 +366,8 @@ class MLNLearnGUI:
         
         # Multiprocessing 
         self.use_multiCPU = IntVar()
-        self.cb_use_multiCPU = Checkbutton(self.frame, text="Use all CPUs", variable=self.use_multiCPU)
-        self.cb_use_multiCPU.grid(row=row, column=1, sticky=E)
+        self.cb_multicore = Checkbutton(self.frame, text="Use all CPUs", variable=self.use_multiCPU)
+        self.cb_multicore.grid(row=row, column=1, sticky=E)
         self.use_multiCPU.set(self.settings.get("useMultiCPU", False))
 
         row += 1

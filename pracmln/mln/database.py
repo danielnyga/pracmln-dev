@@ -32,7 +32,9 @@ from pracmln.logic.fol import FirstOrderLogic
 import os
 from StringIO import StringIO
 import sys
-from pracmln.mln.util import barstr, colorize
+from pracmln.mln.util import barstr, colorize, out
+from pracmln.mln.errors import MLNParsingError
+import traceback
 
 class Database(object):
     '''
@@ -552,7 +554,7 @@ def parse_db(mln, content, ignore_unknown_preds=False, db=None):
             if db.evidence(gndatom) is not None:
                 raise log.exception("Duplicate soft evidence for '%s'" % gndatom)
             positive, predname, constants =   mln.logic.parse_literal(gndatom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
-#             if not positive: value = 1. - value
+            out(positive, predname, constants)
             if mln.predicates(predname) is None:
                 if ignore_unknown_preds:
                     log.debug('Predicate "%s" is undefined.' % predname)
@@ -569,13 +571,15 @@ def parse_db(mln, content, ignore_unknown_preds=False, db=None):
                 true, predname, constants = mln.logic.parse_literal(l)
             except NoSuchPredicateError, e:
                 if ignore_unknown_preds: continue
+                else: raise e
             except Exception, e:
-                raise Exception('Error parsing line %d: %s (%s)' % (line, l, e.message))
+                traceback.print_exc()
+                raise MLNParsingError('Error parsing line %d: %s (%s)' % (line, l, e.message))
             if mln.predicate(predname) is None and ignore_unknown_preds:
                 log.debug('Predicate "%s" is undefined.' % predname)
                 continue
             elif mln.predicate(predname) is None:
-                raise Exception('Predicate "%s" is undefined.' % predname)
+                raise NoSuchPredicateError(predname)
             domnames = mln.predicate(predname).argdoms
             # save evidence
             true = 1 if true else 0

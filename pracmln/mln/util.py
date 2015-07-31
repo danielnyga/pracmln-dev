@@ -137,6 +137,35 @@ def stripComments(text):
     return re.sub(pattern, replacer, text)
 
 
+def parse_queries(mln, query_str):
+    '''
+    Parses a list of comma-separated query strings.
+    
+    Admissible queries are all kinds of formulas or just predicate names.
+    Returns a list of the queries.
+    '''
+    queries = []
+    query_preds = set()
+    q = ''
+    for s in map(str.strip, query_str.split(',')):
+        if q != '': q += ','
+        q += s
+        if balancedParentheses(q):
+            try:
+                # try to read it as a formula and update query predicates
+                f = mln.logic.parse_formula(q)
+                literals = f.literals()
+                prednames = map(lambda l: l.predname, literals)
+                query_preds.update(prednames)
+            except:
+                # not a formula, must be a pure predicate name 
+                query_preds.add(s)
+            queries.append(q)
+            q = ''
+    if q != '': raise Exception('Unbalanced parentheses in queries: ' + q)
+    return queries
+
+
 def predicate_declaration_string(predName, domains, blocks):
     '''
     Returns a string representation of the given predicate.
@@ -343,8 +372,12 @@ class ProgressBar():
         self.value = float(self.step) / self.steps
         self.update(self.value)
         
+BOLD = (None, None, True)
             
-                 
+def headline(s):
+    l = ''.ljust(len(s), '=')
+    return '%s\n%s\n%s' % (colorize(l, BOLD, True), colorize(s, BOLD, True), colorize(l, BOLD, True))
+
 
 def gaussianZeroMean(x, sigma):
     return 1.0/sqrt(2 * math.pi * sigma**2) * math.exp(- (x**2) / (2 * sigma**2))
@@ -440,7 +473,7 @@ class StopWatch(object):
     def finish(self, label=None):
         now = time.time()
         if label is None:
-            for tag in self.tags:
+            for _, tag in self.tags.iteritems():
                 tag.stoptime = ifNone(tag.stoptime, now)
         else:
             tag = self.tags.get(label)

@@ -138,7 +138,6 @@ class WCSPConverter(object):
 #             gf = gf.nnf()
 #             gf.print_structure(self.mrf.evidence)
             self.generate_constraint(gf)
-        out(len(self.mrf.mln.weights), len(self._weights))
         self.mrf.mln.weights = self._weights
         return self.wcsp
 
