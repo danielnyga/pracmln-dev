@@ -213,6 +213,12 @@ if __name__ == '__main__':
         f.write("python -O \"%s\" %s\n" % (adapt(app["script"], arch), allargs))
         f.close()
         if not isWindows: os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+
+    # build qooxdoo
+    generate = adapt("$SRLDB_HOME/mlngui/webmln/generate.py", "")
+    os.system(generate + ' source-all')
+    os.system(generate + ' build')
+
     print
 
     # write shell script for environment setup
