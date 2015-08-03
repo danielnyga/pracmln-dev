@@ -86,7 +86,7 @@ def load_evidence():
         else:
             text = filename
         query = settings["queryByDB"].get(filename)
-        return ';'.join((text,query))
+        return jsonify( {'text':text, 'query':query} )
 
 @mlnApp.app.route('/mln/_test', methods=['GET', 'OPTIONS'])
 def test():
@@ -119,6 +119,7 @@ def start_inference():
     output = request.args['output'].encode('ascii','ignore')
     method = request.args['method'].encode('ascii','ignore')
     params = request.args['params'].encode('ascii','ignore')
+
     # update settings
     settings["mln"] = mln
     settings["mln_rename"] = convert_to_boolean(request.args["mln_rename_on_edit"])
@@ -174,13 +175,18 @@ def start_inference():
 
     #thread.start_new_thread(worker,(q,))
 
+
     #def generate(mlnFiles, evidenceDB, method, queries, engine="PRACMLNs", output_filename=None, params="", **settings):
     def generate():
+        atoms = []
+        formulas = []
+        resultKeys = []
+        resultValues = []
+        output = ''
+
         queue = StdoutQueue()
-        sys.stdout = queue
-        sys.stderr = queue
-        #yield inference.run(input_files, db, method, settings["query"], params=params, **settings)
-        #yield "results:\n"
+        # sys.stdout = queue
+        # sys.stderr = queue
 
         #while not q.empty():
 	    #    temp = q.get()
@@ -193,11 +199,6 @@ def start_inference():
         #self.selected_mln.reloadFile()
         #self.selected_db.reloadFile()
 
-        #sys.stdout.flush()
-        pymlns_methods = InferenceMethods.getNames()
-        alchemy_methods = {"MC-SAT":"-ms", "Gibbs sampling":"-p", "simulated tempering":"-simtp", "MaxWalkSAT (MPE)":"-a", "belief propagation":"-bp"}
-        jmlns_methods = {"MaxWalkSAT (MPE)":"-mws", "MC-SAT":"-mcsat", "Toulbar2 B&B (MPE)":"-t2"}
-        alchemy_versions = config.alchemy_versions
         default_settings = {"numChains":"1", "maxSteps":"", "saveResults":False, "convertAlchemy":False, "openWorld":True} # a minimal set of settings required to run inference
 
         settings = dict(default_settings)
@@ -238,7 +239,6 @@ def start_inference():
         args['useMultiCPU'] = settings.get('useMultiCPU', False)
         args["probabilityFittingResultFileName"] = output_base_filename + "_fitted.mln"
 
-        print args
         # engine-specific handling
         if settings['engine'] in ("internal", "PRACMLNs"):
             try:
@@ -286,11 +286,8 @@ def start_inference():
                 mrf = mln.groundMRF(db_local, verbose=args.get('verbose', False), groundingMethod='FastConjunctionGrounding')
 
 
-
-                yield(';'.join(mrf.gndAtoms))
-                yield(';;')
-                yield(';'.join(str(i[1]) for i in mrf.getGroundFormulas()))
-                yield(';;')
+                atoms = mrf.gndAtoms.keys()
+                formulas = [str(i[1]) for i in mrf.getGroundFormulas()]
                 #mrf.printGroundAtoms()
                 #mrf.printGroundFormulas()
                 # check for print/write requests
@@ -318,9 +315,9 @@ def start_inference():
                 else:
                     for gndFormula, p in mrf.getResultsDict().iteritems():
                         results[str(gndFormula)] = p
-                yield(';'.join(results.keys()))
-                yield(';;')
-                yield(';'.join(map(str,results.values())))
+
+                resultKeys = results.keys()
+                resultValues = results.values()
                 mrf.mln.watch.printSteps()
                 # close output file and open if requested
                 if outFile != None:
@@ -330,14 +327,17 @@ def start_inference():
                 sys.stderr.write("Error: %s\n" % str(e))
                 traceback.print_tb(tb)
 
-        yield(';;')
         while not queue.empty():
 	        temp = queue.get()
 	        temp = temp.replace("\033[1m","")
 	        temp = temp.replace("\033[0m","")
-                yield temp
+                output = temp
+        return {'atoms': atoms, 'formulas': formulas, 'resultkeys': resultKeys, 'resultvalues': resultValues, 'output': output}
     #return Response(stream_with_context(generate(input_files, db, method, settings["query"], params=params, **settings)))
-    return Response(generate())
+    # return Response(generate())
+    res = generate()
+    print res
+    return jsonify( res )
 
 @mlnApp.app.route('/mln/_use_model_ext', methods=['GET', 'OPTIONS'])
 def get_emln():
@@ -351,10 +351,14 @@ def get_emln():
 
 @mlnApp.app.route('/mln/_init', methods=['GET', 'OPTIONS'])
 def init_options():
-    return ';'.join(((','.join(alchemy_engines)),(','.join(inference_methods)),(','.join(files)),(',,'.join(dbs)),(settings["query"]),(settings["maxSteps"])))
+    res = { 'engines': alchemy_engines, 'infMethods': inference_methods,
+            'files': files, 'dbs': dbs, 'queries': settings['query'],
+            'maxSteps': settings['maxSteps']}
+    return jsonify( res )
 
 
 def initialize():
+    # TODO: make pretty. Maybe store settings in session?
     global settings
     global inference
     global inference_methods
