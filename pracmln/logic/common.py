@@ -23,7 +23,8 @@
 
 from grammar import StandardGrammar, PRACGrammar
 import sys
-from pracmln.mln.util import ifNone, fstr, dict_union, colorize, flip, out
+from pracmln.mln.util import ifNone, fstr, dict_union, colorize, flip, out,\
+    trace
 from pracmln.mln.errors import NoSuchDomainError, NoSuchPredicateError
 from collections import defaultdict
 import itertools
@@ -715,6 +716,7 @@ class Logic(object):
         @children.setter
         def children(self, children):
             if len(children) < 2:
+                trace(children)
                 raise Exception('Conjunction needs at least 2 children.')
             self._children = children
     
@@ -734,8 +736,10 @@ class Logic(object):
         def cnf(self, level=0):
             clauses = []
             litSets = []
+            out(self.children)
             for child in self.children:
                 c = child.cnf(level+1)
+                out(child, c)
                 if isinstance(c, Logic.Conjunction): # flatten nested conjunction
                     l = c.children
                 else:
@@ -770,8 +774,10 @@ class Logic(object):
                     if doAdd:
                         clauses.append(clause)
                         litSets.append(litSet)
-            if len(clauses) == 1:
-                return clauses[0]
+            if not clauses:
+                return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
+            elif len(clauses) == 1:
+                return clauses[0].copy()
             return self.mln.logic.conjunction(clauses, mln=self.mln, idx=self.idx)
         
         
@@ -828,7 +834,6 @@ class Logic(object):
     
         def cnf(self, level=0):
             disj = []
-            str_disj = []
             conj = []
             # convert children to CNF and group by disjunction/conjunction; flatten nested disjunction, remove duplicates, check for tautology
             for child in self.children:
@@ -837,38 +842,31 @@ class Logic(object):
                     conj.append(c)
                 else:
                     if isinstance(c, Logic.Disjunction):
-                        l = c.children
+                        lits = c.children
                     else: # literal or boolean constant
-                        l = [c]
-                    for x in l:
+                        lits = [c]
+                    for l in lits:
                         # if the literal is always true, the disjunction is always true; if it's always false, it can be ignored
-                        if isinstance(c, Logic.TrueFalse):
-                            if x.truth():
+                        if isinstance(l, Logic.TrueFalse):
+                            if l.truth():
                                 return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
-                            else:
-                                continue
+                            else: continue
                         # it's a regular literal: check if the negated literal is already among the disjuncts
-                        s = str(x)
-                        if s[0] == '!':
-                            if s[1:] in str_disj:
-                                return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
-                        else:
-                            if ("!" + s) in str_disj:
-                                return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
+                        l_ = l.copy()
+                        l_.negated = True
+                        if l_ in disj:
+                            return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
                         # check if the literal itself is not already there and if not, add it
-                        if not s in str_disj:
-                            disj.append(x)
-                            str_disj.append(s)
+                        if l not in disj: disj.append(l)
             # if there are no conjunctions, this is a flat disjunction or unit clause
-            if len(conj) == 0: 
+            if not conj: 
                 if len(disj) >= 2:
                     return self.mln.logic.disjunction(disj, mln=self.mln, idx=self.idx)
                 else:
-                    return disj[0]
+                    return disj[0].copy()
             # there are conjunctions among the disjuncts
             # if there is only one conjunction and no additional disjuncts, we are done
-            if len(conj) == 1 and len(disj) == 0:
-                return conj[0]
+            if len(conj) == 1 and not disj: return conj[0].copy()
             # otherwise apply distributivity
             # use the first conjunction to distribute: (C_1 ^ ... ^ C_n) v RD = (C_1 v RD) ^ ... ^  (C_n v RD)
             # - C_i = conjuncts[i]
@@ -878,7 +876,7 @@ class Logic(object):
             # - create disjunctions
             disj = []
             for c in conjuncts:
-                disj.append(Disjunction([c] + remaining_disjuncts, mln=self.mln, idx=self.idx))
+                disj.append(self.mln.logic.disjunction([c] + remaining_disjuncts, mln=self.mln, idx=self.idx))
             return self.mln.logic.conjunction(disj, mln=self.mln, idx=self.idx).cnf(level + 1)
     
     
@@ -1066,6 +1064,16 @@ class Logic(object):
             else:
                 if self.negated: truth = 1 - truth
                 return self.mln.logic.true_false(truth, mln=self.mln, idx=self.idx)
+            
+            
+        def __eq__(self, other):
+            return str(self) == str(other)
+        
+        
+        def __ne__(self, other):
+            return not self == other
+        
+        
     
     
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -1448,11 +1456,18 @@ class Logic(object):
     
     
         def __str__(self):
-            return str(self.children[0]) + " => " + str(self.children[1])
+            c1 = self.children[0]
+            c2 = self.children[1]
+            return (str(c1) if not isinstance(c1, Logic.ComplexFormula) \
+                else '(%s)' % str(c1)) + " => " + (str(c2) if not isinstance(c2, Logic.ComplexFormula) else '(%s)' % str(c2))
     
         
         def cstr(self, color=False):
-            return self.children[0].cstr(color) + " => " + self.children[1].cstr(color)
+            c1 = self.children[0]
+            c2 = self.children[1]
+            (s1, s2) = (c1.cstr(color), c2.cstr(color))
+            (s1, s2) = (('(%s)' if isinstance(c1, Logic.ComplexFormula) else '%s') % s1, ('(%s)' if isinstance(c2, Logic.ComplexFormula) else '%s') % s2)
+            return '%s => %s' % (s1, s2)
     
     
         def latex(self):
@@ -1498,11 +1513,18 @@ class Logic(object):
     
     
         def __str__(self):
-            return '%s <=> %s' % (str(self.children[0]), str(self.children[1]))
+            c1 = self.children[0]
+            c2 = self.children[1]
+            return (str(c1) if not isinstance(c1, Logic.ComplexFormula) \
+                else '(%s)' % str(c1)) + " <=> " + (str(c2) if not isinstance(c2, Logic.ComplexFormula) else str(c2))
     
         
         def cstr(self, color=False):
-            return '%s <=> %s' % (self.children[0].cstr(color), self.children[1].cstr(color))
+            c1 = self.children[0]
+            c2 = self.children[1]
+            (s1, s2) = (c1.cstr(color), c2.cstr(color))
+            (s1, s2) = (('(%s)' if isinstance(c1, Logic.ComplexFormula) else '%s') % s1, ('(%s)' if isinstance(c2, Logic.ComplexFormula) else '%s') % s2)
+            return '%s <=> %s' % (s1, s2)
     
     
         def latex(self):
