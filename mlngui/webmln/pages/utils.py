@@ -5,6 +5,10 @@ from flask import send_from_directory, render_template
 from webmln.app import MLNSession
 from werkzeug.utils import redirect
 
+LEARN_CONFIG_PATTERN = '{}.learn.conf'
+QUERY_CONFIG_PATTERN = '{}.query.conf'
+GLOBAL_CONFIG_FILENAME = '.pracmln.conf'
+GUI_SETTINGS = ['db_rename', 'mln_rename', 'db', 'method', 'use_emln', 'save', 'output', 'grammar', 'queries', 'emln']
 
 def ensure_mln_session(session):
     log = logging.getLogger(__name__)
@@ -44,3 +48,21 @@ def initFileStorage():
 @mlnApp.app.route('/mln/resource/<path:filename>')
 def resource_file(filename):
     return redirect('/mln/static/resource/{}'.format(filename))
+
+
+# returns content of given file, replaces includes by content of the included file
+def getFileContent(fDir, fName):
+    c = ''
+    if os.path.isfile(os.path.join(fDir, fName)):
+        with open (os.path.join(fDir, fName), "r") as f:
+            c = f.readlines()
+
+    content = ''
+    for l in c:
+        if '#include' in l:
+            # includefile = re.sub('#include (.*[.].*$)', '\g<1>', l).strip()
+            includefile = re.sub('#include ([\w,\s-]+\.[A-Za-z])', '\g<1>', l).strip()
+            content += getFileContent(fDir, includefile)
+        else:
+            content += l
+    return content

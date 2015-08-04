@@ -11,7 +11,6 @@
  */
 qx.Class.define("webmln.Application",
 {
-//	extend : qx.application.Standalone,
 	extend : qx.application.Inline,
 
 
@@ -54,6 +53,7 @@ qx.Class.define("webmln.Application",
 
             var mln_container = document.getElementById("mln_container", true, true);
             var contentIsle = new qx.ui.root.Inline(mln_container,true,true);
+            this.__contentIsle = contentIsle;
             contentIsle.setWidth(document.getElementById("container", true, true).offsetWidth);
             contentIsle.setHeight(document.getElementById("container", true, true).offsetHeight);
             contentIsle.setLayout(new qx.ui.layout.Grow());
@@ -436,36 +436,37 @@ qx.Class.define("webmln.Application",
                 padding: 10
             });
 
-        var engineLabel = new qx.ui.basic.Label("Engine:");
-            var grammarLabel = new qx.ui.basic.Label("Grammar:");
-            var logicLabel = new qx.ui.basic.Label("Logic:");
-            var mlnLabel = new qx.ui.basic.Label("MLN:");
-            var evidenceLabel = new qx.ui.basic.Label("Evidence:");
-            var methodLabel = new qx.ui.basic.Label("Method:");
-            var queriesLabel = new qx.ui.basic.Label("Queries:");
-            var maxStepsLabel = new qx.ui.basic.Label("Max. steps:");
-            var numChainsLabel = new qx.ui.basic.Label("Num. chains:");
-            var addParamsLabel = new qx.ui.basic.Label("Add. params:");
-            var cwPredsLabel = new qx.ui.basic.Label("CW preds:");
-            var outputLabel = new qx.ui.basic.Label("Output:");
+            var grammarLabel = new qx.ui.basic.Label("Grammar");
+            var logicLabel = new qx.ui.basic.Label("Logic");
+            var mlnLabel = new qx.ui.basic.Label("MLN");
+            var exampleFolderLabel = new qx.ui.basic.Label("Example");
+            var evidenceLabel = new qx.ui.basic.Label("Evidence");
+            var methodLabel = new qx.ui.basic.Label("Method");
+            var queriesLabel = new qx.ui.basic.Label("Queries");
+            var verboseStepsLabel = new qx.ui.basic.Label("Verbose");
+            var addParamsLabel = new qx.ui.basic.Label("Add. params");
+            var cwPredsLabel = new qx.ui.basic.Label("CW preds");
+            var outputLabel = new qx.ui.basic.Label("Output");
 
             var buttonStart = new qx.ui.form.Button(">>Start Inference<<", null);
             var buttonSaveMLN = new qx.ui.form.Button("save", null);
             var buttonSaveEvidence = new qx.ui.form.Button("save", null);
             var buttonSaveEMLN = new qx.ui.form.Button("save",null);
 
-            var selectEngine = new qx.ui.form.SelectBox();
             var selectGrammar = new qx.ui.form.SelectBox();
             var selectLogic = new qx.ui.form.SelectBox();
             var selectMLN = new qx.ui.form.SelectBox();
+            var selectExampleFolder = new qx.ui.form.SelectBox();
+            this.__selectExampleFolder = selectExampleFolder;
             var selectEMLN = new qx.ui.form.SelectBox();
             var selectEvidence = new qx.ui.form.SelectBox();
             var selectMethod = new qx.ui.form.SelectBox();
 
             var textAreaMLN = new qx.ui.form.TextArea("");
+            this.__textAreaMLN = textAreaMLN;
             var textAreaEMLN = new qx.ui.form.TextArea("");
             var textAreaEvidence = new qx.ui.form.TextArea("");
-
+            this.__textAreaEvidence = textAreaEvidence;
 
             var textFieldNameMLN = new qx.ui.form.TextField("");
             textFieldNameMLN.setEnabled(false);
@@ -474,17 +475,16 @@ qx.Class.define("webmln.Application",
             var textFieldOutput = new qx.ui.form.TextField("");
             var textFieldDB = new qx.ui.form.TextField("");
             var textFieldQueries = new qx.ui.form.TextField("");
-            var textFieldMaxSteps = new qx.ui.form.TextField("");
-            var textFieldNumChains = new qx.ui.form.TextField("");
+            var textFieldVerbose = new qx.ui.form.TextField("");
             var textFieldAddParams = new qx.ui.form.TextField("");
 
             var checkBoxRenameEditMLN = new qx.ui.form.CheckBox("rename on edit");
             var checkBoxRenameEditEvidence = new qx.ui.form.CheckBox("rename on edit");
             var checkBoxRenameEditEMLN = new qx.ui.form.CheckBox("rename on edit");
-            var checkBoxConvertAlchemy = new qx.ui.form.CheckBox("convert to Alchemy format");
             var checkBoxUseModelExt = new qx.ui.form.CheckBox("use model extension");
             var checkBoxApplyCWOption = new qx.ui.form.CheckBox("Apply CW assumption to all but the query preds");
             var checkBoxUseAllCPU = new qx.ui.form.CheckBox("Use all CPUs");
+            var checkBoxIgnoreUnknown = new qx.ui.form.CheckBox("Ignore Unknown Predicates");
             var checkBoxSaveOutput = new qx.ui.form.CheckBox("save");
 
             textFieldOutput.setValue("smoking-test-smoking.results");
@@ -492,21 +492,36 @@ qx.Class.define("webmln.Application",
                                 var that = this;
 
                                 //req = new qx.io.remote.Request("/_start_inference", "GET", "text/plain");
-                                req = new qx.io.request.Xhr
-                                ("/mln/_start_inference","GET");
+                                req = new qx.io.request.Xhr("/mln/_start_inference", "POST");
                                 var mln = (selectMLN.getSelectables().length != 0) ? selectMLN.getSelection()[0].getLabel() : "";
                                 var emln = (selectEMLN.getSelectables().length != 0) ? selectEMLN.getSelection()[0].getLabel() : "";
                                 var db = (selectEvidence.getSelectables().length != 0) ? selectEvidence.getSelection()[0].getLabel() : "";
                                 var method = (selectMethod.getSelectables().length != 0) ? selectMethod.getSelection()[0].getLabel() : "";
-                                var engine = (selectEngine.getSelectables().length != 0) ? selectEngine.getSelection()[0].getLabel() : "";
                                 var logic = (selectLogic.getSelectables().length != 0) ? selectLogic.getSelection()[0].getLabel() : "";
                                 var grammar = (selectGrammar.getSelectables().length != 0) ? selectGrammar.getSelection()[0].getLabel() : "";
-                                req.setRequestData({"mln":mln,"emln":emln,"db":db,"method":method,"engine":engine,"logic":logic,"grammar":grammar,"mln_text":textAreaMLN.getValue                       (),"db_text":textAreaEvidence.getValue(),"output":textFieldOutput.getValue(),"params":textFieldAddParams.getValue(),"mln_rename_on_edit":checkBoxRenameEditMLN.getValue(),"db_rename_on_edit":checkBoxRenameEditEvidence.getValue(),"query":textFieldQueries.getValue(),"closed_world":checkBoxApplyCWOption.getValue(),"cw_preds":textFieldCWPreds.getValue(),"convert_to_alchemy":checkBoxConvertAlchemy.getValue(),"use_emln":checkBoxUseModelExt.getValue(),"max_steps":textFieldMaxSteps.getValue(),"num_chains":textFieldNumChains.getValue(),"use_multicpu":checkBoxUseAllCPU.getValue()});
+                                req.setRequestHeader("Content-Type", "application/json");
+                                req.setRequestData({"mln":mln,"emln":emln,
+                                                    "db":db,"method":method,
+                                                    "logic":logic,"grammar":grammar,
+                                                    "mln_text":textAreaMLN.getValue(),
+                                                    "emln_text":textAreaEMLN.getValue(),
+                                                    "db_text":textAreaEvidence.getValue(),
+                                                    "output":textFieldOutput.getValue(),
+                                                    "params":textFieldAddParams.getValue(),
+                                                    "mln_rename_on_edit":checkBoxRenameEditMLN.getValue(),
+                                                    "db_rename_on_edit":checkBoxRenameEditEvidence.getValue(),
+                                                    "query":textFieldQueries.getValue(),
+                                                    "closed_world":checkBoxApplyCWOption.getValue(),
+                                                    "cw_preds":textFieldCWPreds.getValue(),
+                                                    "use_emln":checkBoxUseModelExt.getValue(),
+                                                    "verbose":textFieldVerbose.getValue(),
+                                                    "ignore_unknown_preds":checkBoxIgnoreUnknown.getValue(),
+                                                    "save_results":checkBoxSaveOutput.getValue(),
+                                                    "use_multicpu":checkBoxUseAllCPU.getValue()});
                                 req.addListener("success", function(e) {
                                         var tar = e.getTarget();
                                         //response = e.getContent();
                                         response = tar.getResponse();
-                                        console.log('response', response);
 
                                         var atoms = response.atoms;
                                         var formulas = response.formulas;
@@ -601,10 +616,8 @@ qx.Class.define("webmln.Application",
                                         //that.updateGraph([],addList);
                                         //labelResults.setValue(response);
 
-                                        that.__textAreaResults.setValue
-                                        (output);
-                                        that.__textAreaResults
-                                        .getContentElement().scrollToY(10000);
+                                        that.__textAreaResults.setValue(output);
+                                        that.__textAreaResults.getContentElement().scrollToY(10000);
 
                                 });
                                 req.send();
@@ -619,13 +632,7 @@ qx.Class.define("webmln.Application",
                                 //req.send();
 
             });
-            buttonSaveEMLN.addListener("execute",function(e){});
-            buttonSaveEvidence.addListener("execute",function(e){});
 
-            checkBoxRenameEditMLN.addListener("changeValue",function(e){});
-            checkBoxRenameEditEvidence.addListener("changeValue",function(e){});
-            checkBoxRenameEditEMLN.addListener("changeValue",function(e){});
-            checkBoxConvertAlchemy.addListener("changeValue",function(e){});
             checkBoxUseModelExt.addListener("changeValue",function(e) {
                                         if (Boolean(checkBoxUseModelExt.getValue())) {
                                             mlnFormContainer.add(selectEMLN, {row: 7, column: 1, colSpan: 2});
@@ -633,7 +640,7 @@ qx.Class.define("webmln.Application",
                                             mlnFormContainer.add(textAreaEMLN, {row: 8, column: 1, colSpan: 3});
                                             mlnFormContainer.add(checkBoxRenameEditEMLN, {row: 9, column: 1});
                                             mlnFormContainer.add(textFieldNameEMLN, {row: 10, column: 1, colSpan: 3});
-                                            layout.setRowFlex(8, 1);
+                                            mlnFormContainerLayout.setRowFlex(8, 1);
                                             req = new qx.io.request.Xhr
                                             ("/mln/_use_model_ext", "GET");
                                             req.addListener("success", function(e) {
@@ -651,150 +658,119 @@ qx.Class.define("webmln.Application",
                                             mlnFormContainer.remove(textAreaEMLN);
                                             mlnFormContainer.remove(checkBoxRenameEditEMLN);
                                             mlnFormContainer.remove(textFieldNameEMLN);
-                                            layout.setRowFlex(8, 0);
+                                            mlnFormContainerLayout.setRowFlex(8, 0);
                                             selectEMLN.removeAll();
                                             textAreaEMLN.setValue("");
                                             checkBoxRenameEditEMLN.setValue(Boolean(false));
                                             textFieldNameEMLN.setValue("");
                                         }
                                     });
-            checkBoxApplyCWOption.addListener("changeValue",function(e){});
-            checkBoxUseAllCPU.addListener("changeValue",function(e){});
-            checkBoxSaveOutput.addListener("changeValue",function(e){});
-            selectEngine.addListener("changeSelection",function(e) {
-                                        var item = selectEngine.getSelection()[0];
-                                        req = new qx.io.request.Xhr
-                                        ("/mln/_change_engine", "GET");
-                                        req.setRequestData({"engine":item.getLabel()});
-                                        //req.setParameter("engine", item.getLabel());
-                                        req.addListener("success", function(e) {
-                                            var tar = e.getTarget();
-                                            response = tar.getResponse().split(";");
-                                            //response = e.getContent().split(";");
-                                            var params = response[0];
-                                            var methods = response[2].split(",");
-                                            if (item.getLabel() == "J-MLNs") {
-                                                checkBoxApplyCWOption.setEnabled(false);
-                                            } else {
-                                                checkBoxApplyCWOption.setEnabled(true);
-                                            }
-                                            selectMethod.removeAll();
-                                            for (var i = 0; i < methods.length; i++) {
-                                                selectMethod.add(new qx.ui.form.ListItem(methods[i]));
-                                            }
-                                            for (var i = 0; i < selectMethod.getSelectables().length; i++) {
-                                                if (selectMethod.getSelectables()[i].getLabel() == response[1]) {
-                                                    selectMethod.setSelection([selectMethod.getSelectables()[i]]);
-                                                }
-                                            }
-                                            textFieldAddParams.setValue(params);
-                                        });
-                                        req.send();
+            selectMLN.addListener("changeSelection", this._update_mln_text, this);
 
-            });
-            selectGrammar.addListener("changeSelection",function(e){});
-            selectLogic.addListener("changeSelection",function(e){});
-            selectMLN.addListener("changeSelection",function(e){
-                                        var item = selectMLN.getSelection()[0];
-                                        textFieldNameMLN.setValue(item.getLabel());
-                                        req = new qx.io.request.Xhr("/mln/_mln",
-                                        "GET");
-                                        req.setRequestData({"filename":item.getLabel()});
-                                        //req.setParameter("filename", item.getLabel());
-                                        req.addListener("success", function(e) {
-                                            var tar = e.getTarget();
-                                            //response = e.getContent();
-                                            response = tar.getResponse();
-                                            textAreaMLN.setValue(response);
+            selectExampleFolder.addListener("changeSelection",function(e){
+                    var exampleFolder = e.getData()[0].getLabel();
+                    req = new qx.io.request.Xhr("/mln/_change_example", "POST");
+                    req.setRequestHeader("Content-Type", "application/json");
+                    req.setRequestData({"folder": exampleFolder});
+                    req.addListener("success", function(e) {
+                        var tar = e.getTarget();
+                        response = tar.getResponse();
 
-                                        });
-                                        req.send();
+                        selectMLN.removeAll();
+                        for (var i = 0; i < response.mlns.length; i++) {
+                            selectMLN.add(new qx.ui.form.ListItem(response.mlns[i]));
+                        }
 
+                        selectEvidence.removeAll();
+                        for (var z = 0; z < response.dbs.length; z++) {
+                            selectEvidence.add(new qx.ui.form.ListItem(response.dbs[z]));
+                        }
+                    }, this);
+                    req.send();
+            }, this);
 
-            });
-            selectEMLN.addListener("changeSelection",function(e){});
-            selectEvidence.addListener("changeSelection",function(e){
-                                        var item = selectEvidence.getSelection()[0];
-                                        textFieldDB.setValue(item.getLabel());
-                                        req = new qx.io.request.Xhr("/mln/_load_evidence", "GET");
-                                        req.setRequestData({"filename":item.getLabel()});
-                                        req.addListener("success", function(e) {
-                                            var tar = e.getTarget();
-                                            var response = tar.getResponse();
-                                            textAreaEvidence.setValue(response.text);
-                                            textFieldQueries.setValue(response.query);
-                                        });
-                                        req.send();
-            });
-            selectMethod.addListener("changeSelection",function(e){});
-            selectEngine.add(new qx.ui.form.ListItem("PRACMLNs"));
-            selectEngine.add(new qx.ui.form.ListItem("J-MLNs"));
+            selectEvidence.addListener("changeSelection", this._update_evidence_text, this);
             selectGrammar.add(new qx.ui.form.ListItem("StandardGrammar"));
             selectGrammar.add(new qx.ui.form.ListItem("PRACGrammar"));
             selectLogic.add(new qx.ui.form.ListItem("FirstOrderLogic"));
             selectLogic.add(new qx.ui.form.ListItem("FuzzyLogic"));
-            mlnFormContainer.add(engineLabel, {row: 0, column: 0});
+
+            mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
             mlnFormContainer.add(grammarLabel, {row: 1, column: 0});
             mlnFormContainer.add(logicLabel, {row: 2, column: 0});
             mlnFormContainer.add(mlnLabel, {row: 3, column: 0});
             mlnFormContainer.add(evidenceLabel, {row: 11, column: 0});
             mlnFormContainer.add(methodLabel, {row: 15, column: 0});
             mlnFormContainer.add(queriesLabel, {row: 16, column: 0});
-            mlnFormContainer.add(maxStepsLabel, {row: 17, column: 0});
-            mlnFormContainer.add(numChainsLabel, {row: 18, column: 0});
             mlnFormContainer.add(addParamsLabel, {row: 19, column: 0});
             mlnFormContainer.add(cwPredsLabel, {row: 20, column: 0});
             mlnFormContainer.add(outputLabel, {row: 21, column: 0});
-            mlnFormContainer.add(selectEngine, {row: 0, column: 1, colSpan: 3});
+
+            mlnFormContainer.add(selectExampleFolder, {row: 0, column: 1, colSpan: 3});
             mlnFormContainer.add(selectGrammar, {row: 1, column: 1, colSpan: 3});
             mlnFormContainer.add(selectLogic, {row: 2, column: 1, colSpan: 3});
-            mlnFormContainer.add(selectMLN, {row: 3, column: 1, colSpan: 2});
             mlnFormContainer.add(selectEvidence, {row: 11, column: 1, colSpan: 2});
             mlnFormContainer.add(selectMethod, {row: 15, column: 1, colSpan: 3});
+            mlnFormContainer.add(buttonStart, {row: 23, column: 1, colSpan: 3});
 
-            mlnFormContainer.add(buttonStart, {row: 22, column: 1, colSpan: 3});
-            mlnFormContainer.add(buttonSaveMLN, {row: 3, column: 3});
+            var folderButton = new com.zenesis.qx.upload.UploadButton("Load File");
+            var uploader = new com.zenesis.qx.upload.UploadMgr(folderButton, "/demoupload");
+            uploader.setAutoUpload(false);
+
+            uploader.addListener("addFile", function(evt) {
+                var file = evt.getData();
+                var fileName = file.getFilename();
+//                var progressListenerId = file.addListener("changeProgress", function(evt) {
+//                    console.log("Upload " + file.getFilename() + ": " +
+//                        evt.getData() + " / " + file.getSize() + " - " +
+//                        Math.round(evt.getData() / file.getSize() * 100) + "%");
+//                }, this);
+            }, this);
+
+            mlnFormContainer.add(selectMLN, {row: 3, column: 1, colSpan: 2});
+            mlnFormContainer.add(folderButton, {row: 3, column: 3});
             mlnFormContainer.add(buttonSaveEvidence, {row: 11, column: 3});
 
             mlnFormContainer.add(textAreaMLN, {row: 4, column: 1, colSpan: 3});
             mlnFormContainer.add(textAreaEvidence, {row: 12, column: 1, colSpan: 3});
-            mlnFormContainer.add(textFieldNameMLN, {row: 6, column: 1, colSpan: 3});
+            mlnFormContainer.add(textFieldNameMLN, {row: 6, column: 1, colSpan: 2});
+            mlnFormContainer.add(buttonSaveMLN, {row: 6, column: 3});
             mlnFormContainer.add(textFieldDB, {row: 14, column: 1, colSpan: 3});
             mlnFormContainer.add(textFieldQueries, {row: 16, column: 1, colSpan: 3});
-            mlnFormContainer.add(textFieldMaxSteps, {row: 17, column: 1, colSpan: 3});
-            mlnFormContainer.add(textFieldNumChains, {row: 18, column: 1, colSpan: 3});
+            mlnFormContainer.add(textFieldVerbose, {row: 17, column: 1, colSpan: 3});
             mlnFormContainer.add(textFieldAddParams, {row: 19, column: 1, colSpan: 3});
-            mlnFormContainer.add(textFieldCWPreds, {row: 20, column: 1});
             mlnFormContainer.add(textFieldOutput, {row: 21, column: 1, colSpan: 2});
 
             mlnFormContainer.add(checkBoxRenameEditMLN, {row: 5, column: 1});
-            mlnFormContainer.add(checkBoxConvertAlchemy, {row: 5, column: 2});
             mlnFormContainer.add(checkBoxUseModelExt, {row: 5, column: 3});
             mlnFormContainer.add(checkBoxRenameEditEvidence, {row: 13, column: 1});
-            mlnFormContainer.add(checkBoxApplyCWOption, {row: 20, column: 2});
-            mlnFormContainer.add(checkBoxUseAllCPU, {row: 20, column: 3});
+            mlnFormContainer.add(textFieldCWPreds, {row: 20, column: 1, colSpan: 2});
+            mlnFormContainer.add(checkBoxApplyCWOption, {row: 20, column: 3});
+            mlnFormContainer.add(checkBoxUseAllCPU, {row: 22, column: 1});
+            mlnFormContainer.add(checkBoxIgnoreUnknown, {row: 22, column: 2});
             mlnFormContainer.add(checkBoxSaveOutput, {row: 21, column: 3});
 
 
             //Fetch options to choose from
             req = new qx.io.request.Xhr("/mln/_init", "GET");
             req.addListener("success", function(e) {
-                                var tar = e.getTarget();
-                                var response = tar.getResponse();
-                                var sub;
-                                textFieldQueries.setValue(response.queries);
-                                textFieldMaxSteps.setValue(response.maxSteps);
+                    var tar = e.getTarget();
+                    var response = tar.getResponse();
+                    for (var i = 0; i < response.examples.length; i++) {
+                         this.__selectExampleFolder.add(new qx.ui.form.ListItem(response.examples[i]));
+                    }
 
-                                var arr = ['files', 'engines','infMethods', 'dbs'];
-                                for (var x = 0; x < arr.length; x++) {
-                                    for (var i = 0; i < response[arr[x]].length; i++) {
-                                        (arr[x] == 'files' ? selectMLN : arr[x] ==
-                                         'engines' ? selectEngine : arr[x] ==
-                                         'infMethods' ? selectMethod :
-                                         selectEvidence).add(new qx.ui.form.ListItem(response[arr[x]][i]));
-                                    }
-                                }
-            });
+                    textFieldQueries.setValue(response.queries);
+
+                    var arr = ['files', 'infMethods', 'dbs'];
+                    for (var x = 0; x < arr.length; x++) {
+                        for (var i = 0; i < response[arr[x]].length; i++) {
+                            (arr[x] == 'files' ? selectMLN : arr[x] ==
+                             'infMethods' ? selectMethod :
+                             selectEvidence).add(new qx.ui.form.ListItem(response[arr[x]][i]));
+                        }
+                    }
+            }, this);
             req.send();
 
             return mlnFormContainer;
@@ -848,6 +824,68 @@ qx.Class.define("webmln.Application",
           }
 
           return [toBeRemoved, toBeAdded];
+        },
+
+
+        _update_mln_text : function(e) {
+            if (e.getData().length > 0) {
+                var selection = e.getData()[0].getLabel();
+                this._update_text(selection, this.__textAreaMLN);
+            } else {
+                this.__textAreaMLN.setValue('');
+            }
+        },
+
+        _update_evidence_text : function(e) {
+            if (e.getData().length > 0) {
+                 var selection = e.getData()[0].getLabel();
+                 this._update_text(selection, this.__textAreaEvidence);
+            } else {
+                this.__textAreaEvidence.setValue('');
+            }
+        },
+
+        _update_text : function(selection, area) {
+            var that = this;
+            var folder = this.__selectExampleFolder.getSelection()[0].getLabel();
+            var req = new qx.io.request.Xhr();
+            req.setUrl("/mln/_get_filecontent");
+            req.setMethod('POST');
+            req.setRequestHeader("Cache-Control", "no-cache");
+            req.setRequestHeader("Content-Type", 'application/json');
+            req.setRequestData({ "example": folder , "filename": selection });
+            req.addListener("success", function(e) {
+                 var tar = e.getTarget();
+                 var response = tar.getResponse();
+                 area.setValue(response.text);
+
+                 return;
+            }, that);
+            req.send();
+            // request options for other form fields from server
+        },
+
+        /**
+        * update selection items in expert settings
+        */
+        _update_selections : function(data) {
+            // update kb selections
+            this.kbSelect.removeAll();
+            for (var k = 0; k < data.kblist.length; k++) {
+                this.kbSelect.add(new qx.ui.form.ListItem(data.kblist[k]));
+            }
+
+            // update mln selections
+            this.mlnSelect.removeAll();
+            for (var m = 0; m < data.mlnlist.length; m++) {
+                 this.mlnSelect.add(new qx.ui.form.ListItem(data.mlnlist[m]));
+            }
+
+            // update evidence selections
+            this.evidenceSelect.removeAll();
+            for (var e = 0; e < data.evidencelist.length; e++) {
+                this.evidenceSelect.add(new qx.ui.form.ListItem(data.evidencelist[e]));
+            }
         },
 
 

@@ -294,22 +294,31 @@ qx.Class.define("webmln.Graph",
         .attr("class", "node")
         .call(this.force.drag);
 
+      // circle labels appear as tooltips on mouseover
       circleEnter.append("svg:circle")
-        .attr("r", function(d) { 
+        .on("mouseover", function(d) {
+            //Get this bar's x/y values, then augment for the tooltip
+           circleEnter.append("text")
+          .attr("id", "tooltip")
+          .attr("dx", function (d) { return 0; }) // move inside rect
+          .attr("dy", function (d) { return 0; }) // move inside rect
+          .attr("text-anchor", "middle")
+          .attr("font-family", "sans-serif")
+          .attr("font-size", "11px")
+          .attr("font-weight", "bold")
+          .attr("fill", "black")
+          .text(d.id);
+        })
+        .on("mouseout", function() {
+
+            //Remove the tooltip
+            d3.select("#tooltip").remove();
+
+        })
+        .attr("r", function(d) {
           d.radius = 10;
           return d.radius; } )
         .attr("id", function(d) { return d.id; } );
-
-      // circleEnter.append("svg:rect")
-      //   .attr("width", function(d) {return 10*d.id.length;}) // set width according to text length
-      //   .attr("height", 25)
-      //   .attr("id", function(d) { return d.id; } );
-
-      circleEnter.append("svg:text")
-        .attr("class","textClass")
-        .attr("dx", function (d) { return 5; }) // move inside rect
-        .attr("dy", function (d) { return 15; }) // move inside rect
-        .text( function(d) { return d.id; } );
 
       circle.exit().remove();
 
