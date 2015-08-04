@@ -207,16 +207,16 @@ class MLNQueryGUI(object):
         start_button = Button(self.frame, text=">> Start Inference <<", command=self.start)
         start_button.grid(row=row, column=1, sticky="NEW")
 
-        self.set_dir(ifNone(directory, ifNone(conf['prev_query_path'], os.getcwd())))
+        self.set_dir(ifNone(directory, ifNone(gconf['prev_query_path'], os.getcwd())))
         if gconf['prev_query_mln':self.dir.get()] is not None:
             self.selected_mln.set(gconf['prev_query_mln':self.dir.get()])
                     
-        self.set_window_loc()
+        self.set_window_loc(gconf['window_loc_query'])
         self.initialized = True
 
 
-    def set_window_loc(self):
-        g = self.config["window_loc"]
+    def set_window_loc(self, location):
+        g = location
         if g is None: return
         # this is a hack: since geometry apparently does not work as expected
         # (at least under Ubuntu: the main window is not put at the same position
@@ -328,6 +328,7 @@ class MLNQueryGUI(object):
 
 
     def start(self):
+        window_loc = self.master.winfo_geometry()
         mln = self.selected_mln.get().encode('utf8')
         emln = str(self.selected_emln.get().strip())
         db = str(self.selected_db.get())
@@ -356,15 +357,15 @@ class MLNQueryGUI(object):
         self.config['grammar'] = self.selected_grammar.get()
         self.config['multicore'] = self.multicore.get()
         self.config['save'] = self.save_results.get()
-        self.config["window_loc"] = self.master.winfo_geometry()
         self.config['ignore_unknown_preds'] = self.ignore_unknown_preds.get()
         self.config['verbose'] = self.verbose.get()
-        
+#         self.config['window_loc'] = self.master.winfo_geometry()
 
         # write settings
         logger.debug('writing config...')
         self.gconf['prev_query_path'] = self.dir.get()
         self.gconf['prev_query_mln':self.dir.get()] = self.selected_mln.get()
+        self.gconf['window_loc_query'] = window_loc
         self.gconf.dump()
         self.config.dump()
         
@@ -445,8 +446,7 @@ class MLNQueryGUI(object):
         
         # restore main window
         self.master.deiconify()
-        self.set_window_loc()
-
+        self.set_window_loc(window_loc)
         sys.stdout.flush()
 
 # -- main app --

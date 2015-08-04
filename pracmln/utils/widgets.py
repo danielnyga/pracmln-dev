@@ -27,6 +27,7 @@ from ScrolledText import ScrolledText
 from string import ascii_letters, digits, punctuation
 import re
 from Tkconstants import NONE, INSERT, LEFT, W, END, DISABLED, NORMAL
+from pracmln.mln.util import trace
 try:
     import Pmw  # @UnresolvedImport
     havePMW = True
