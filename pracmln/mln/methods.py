@@ -26,7 +26,7 @@ class Enum(object):
     
 InferenceMethods = Enum(
     {"Exact": "exact inference", 
-     "GibbsSampling": "Gibbs sampling", 
+     "GibbsSampler": "Gibbs sampling",
      "MCSAT": "MC-SAT", 
      "FuzzyMCSAT": "Fuzzy MC-SAT",
      #"ExactLinear": "exact inference (linear space)",  # deprecated, as EnumerationAsk is preferable

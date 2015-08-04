@@ -10,16 +10,14 @@ import subprocess
 from flask import request, session, jsonify, send_from_directory
 
 from webmln.mlninit import mlnApp
-from mln.methods import InferenceMethods
-from mlnQueryTool import MLNInfer
+from pracmln.mln.inference import *
+from pracmln.mln.methods import InferenceMethods
+from pracmln.mln.base import parse_mln
+from pracmln.mln.database import parse_db
+from pracmln.mln.util import parse_queries
 
-
-#
 import logging
 import traceback
-from mln import readMLNFromFile
-from mln.util import balancedParentheses
-from mln.database import readDBFromFile
 from utils import ensure_mln_session, getFileContent, QUERY_CONFIG_PATTERN, \
     GUI_SETTINGS
 
@@ -76,10 +74,7 @@ def change_example():
     mlnsession = ensure_mln_session(session)
     data = json.loads(request.get_data())
     mlnsession.xmplFolder = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], data['folder'])
-    log.info(mlnsession.xmplFolder)
     mlnFiles, dbs = getExampleFiles(mlnsession.xmplFolder)
-    log.info(dbs)
-    log.info(mlnFiles)
 
     return jsonify( {'dbs': dbs, 'mlns': mlnFiles} )
 
@@ -100,7 +95,6 @@ def start_inference():
     log.info('start_inference')
     mlnsession = ensure_mln_session(session)
     data = json.loads(request.get_data())
-    log.info(data)
 
     mln = data['mln'].encode('utf8')
     emln = data['emln'].encode('utf8')
@@ -134,27 +128,32 @@ def start_inference():
     settings['ignore_unknown_preds'] = data['ignore_unknown_preds']
     settings['verbose'] = data['verbose'].encode('utf8')
 
+
     # store settings in session
     mlnsession.settings = settings
 
+    atoms = []
+    formulas = []
+    resultKeys = []
+    resultValues = []
     try:
         # expand the parameters
-        params = settings
+        params = settings.copy()
         if 'params' in params:
             params.update(eval("dict(%s)" % params['params']))
             del params['params']
         # create the MLN and evidence database and the parse the queries
-        modelstr = mln_content + (emln_content if settings['use_emln'] not in (None, '') and emln_content != '' else '')
-        mln = parse_mln(modelstr, searchPath=mlnsession.xmplFolder, logic=settings['logic'], grammar=settings['grammar'])
+        modelstr = mln_content + (emln_content if params['use_emln'] not in (None, '') and emln_content != '' else '')
+        mln = parse_mln(modelstr, searchPath=mlnsession.xmplFolder, logic=params['logic'], grammar=params['grammar'])
         db = parse_db(mln, db_content, ignore_unknown_preds=params.get('ignore_unknown_preds', False))
         if type(db) is list and len(db) > 1:
             raise Exception('Inference can only handle one database at a time')
         else:
             db = db[0]
         # parse non-atomic params
-        queries = parse_queries(mln, str(settings['queries']))
+        queries = parse_queries(mln, str(params['queries']))
         cw_preds = filter(lambda x: x != "", map(str.strip, str(params["cw_preds"].split(",")))) if 'cw_preds' in params else []
-        if settings['cw']:
+        if params['cw']:
             cw_preds = [p.name for p in mln.predicates if p.name not in queries]
 
         # extract and remove all non-algorithm
@@ -170,8 +169,21 @@ def start_inference():
                 mrf.print_evidence_vars()
             inference = eval(InferenceMethods.byName(method))(mrf, queries, **params)
             inference.run()
+
+            # generate output for graph and bar chart
+            atoms =  mrf._gndatoms.keys()
+            formulas = []
+            for i in mrf.itergroundings():
+                formulas.append(str(i))
+            results = {}
+            for gndf, p in mrf.evidence_dicts().iteritems():
+                results[str(gndf)] = p
+
+            resultKeys = results.keys()
+            resultValues = results.values()
+
             log.info('INFERENCE RESULTS')
-            inference.write()
+            inference.write(stream)
             if settings['save']:
                 with open(os.path.join(mlnsession.xmplFolder, output), 'w+') as outFile:
                     inference.write(outFile)
@@ -184,206 +196,9 @@ def start_inference():
         traceback.print_exc()
 
     output = stream.getvalue()
-
     res = {'atoms': atoms, 'formulas': formulas, 'resultkeys': resultKeys, 'resultvalues': resultValues, 'output': output}
     return jsonify( res )
 
-    # if "params" in settings: del settings["params"]
-    # #if saveGeometry:
-    # #    settings["geometry"] = self.master.winfo_geometry()
-    # #self.settings["saveResults"] = save_results.get()
-    # # write query to file
-    # write_query_file = False
-    # if write_query_file:
-    #     query_file = "%s.query" % db
-    #     f = file(query_file, "w")
-    #     f.write(settings["query"])
-    #     f.close()
-    # # write settings
-    # #pickle.dump(settings, file(configname, "w+"))
-    #
-    # # some information
-    # #print "\n--- query ---\n%s" % self.settings["query"]
-    # #print "\n--- evidence (%s) ---\n%s" % (db, db_text.strip())
-    # # MLN input files
-    # input_files = [mln]
-    # if settings["useEMLN"] == 1 and emln != "": # using extended model
-    #     input_files.append(emln)
-    #
-    #     # runinference
-    #
-    # settings_local = settings
-    # #params_local = params
-    # #def worker(q):
-    # #    sys.stdout = q
-    # #results = inference.run(input_files, db, method, settings["query"], params=params, **settings)
-    #
-    # #thread.start_new_thread(worker,(q,))
-    #
-    #
-    # #def generate(mlnFiles, evidenceDB, method, queries, engine="PRACMLNs", output_filename=None, params="", **settings):
-    # def generate():
-    #     log.info('generate')
-    #     atoms = []
-    #     formulas = []
-    #     resultKeys = []
-    #     resultValues = []
-    #     output = ''
-    #
-    #     queue = StdoutQueue()
-    #     sys.stdout = queue
-    #     sys.stderr = queue
-    #
-    #     #while not q.empty():
-	 #    #    temp = q.get()
-	 #    #    temp = temp.replace("\033[1m","")
-	 #    #    temp = temp.replace("\033[0m","")
-    #     #        yield temp
-    #         #key, value = shitfuck.popitem()
-    #         #yield "{:.6f}".format(value) + " " + key + "\n"
-    #     # reload the files (in case they changed)
-    #     #self.selected_mln.reloadFile()
-    #     #self.selected_db.reloadFile()
-    #
-    #     default_settings = {"numChains":"1", "maxSteps":"", "saveResults":False, "openWorld":True} # a minimal set of settings required to run inference
-    #
-    #     settings = dict(default_settings)
-    #     settings.update(settings_local)
-    #     params_local = params
-    #     method_local = method
-    #     input_files_local = input_files
-    #     db_local = db
-    #     query = settings['query']
-    #
-    #     results_suffix = ".results"
-    #     output_base_filename = settings['output_filename']
-    #     if output_base_filename[-len(results_suffix):] == results_suffix:
-    #         output_base_filename = output_base_filename[:-len(results_suffix)]
-    #
-    #     # determine closed-world preds
-    #     cwPreds = []
-    #     if "cwPreds" in settings:
-    #         cwPreds = filter(lambda x: x != "", map(str.strip, settings["cwPreds"].split(",")))
-    #     haveOutFile = False
-    #     results = None
-    #
-    #     # collect inference arguments
-    #     args = {"details":True, "shortOutput":True, "debugLevel":1}
-    #     args.update(eval("dict(%s)" % params_local)) # add additional parameters
-    #     # set the debug level
-    #     logging.getLogger().setLevel(eval('logging.%s' % args.get('debug', 'WARNING').upper()))
-    #
-    #     if settings["numChains"] != "":
-    #         args["numChains"] = int(settings["numChains"])
-    #     if settings["maxSteps"] != "":
-    #         args["maxSteps"] = int(settings["maxSteps"])
-    #     outFile = None
-    #     if settings["saveResults"]:
-    #         haveOutFile = True
-    #         outFile = file(settings['output_filename'], "w")
-    #         args["outFile"] = outFile
-    #     args['useMultiCPU'] = settings.get('useMultiCPU', False)
-    #     args["probabilityFittingResultFileName"] = output_base_filename + "_fitted.mln"
-    #
-    #     # engine-specific handling
-    #     if settings['engine'] in ("internal", "PRACMLNs"):
-    #         try:
-    #             print "\nStarting %s...\n" % method_local
-    #             # create MLN
-    #             mln = readMLNFromFile(input_files_local, logic=settings['logic'], grammar=settings['grammar'])#, verbose=verbose, defaultInferenceMethod=MLN.InferenceMethods.byName(method))
-    #             mln.defaultInferenceMethod = InferenceMethods.byName(method_local)
-    #
-    #             # read queries and check them for correct syntax. collect all the query predicates
-    #             # in case the closedWorld flag is set
-    #             queries = []
-    #             queryPreds = set()
-    #             q = ""
-    #             for s in map(str.strip, query.split(",")):
-    #                 if q != "": q += ','
-    #                 q += s
-    #                 if balancedParentheses(q):
-    #                     try:
-    #                         # try to read it as a formula and update query predicates
-    #                         f = mln.logic.parseFormula(q)
-    #                         literals = f.iterLiterals()
-    #                         predNames = map(lambda l: l.predName, literals)
-    #                         queryPreds.update(predNames)
-    #                     except:
-    #                         # not a formula, must be a pure predicate name
-    #                         queryPreds.add(s)
-    #                     queries.append(q)
-    #                     q = ""
-    #             if q != "": raise Exception("Unbalanced parentheses in queries: " + q)
-    #
-    #             # set closed-world predicates
-    #             if settings.get('closedWorld', False):
-    #                 mln.setClosedWorldPred(*set(mln.predicates.keys()).difference(queryPreds))
-    #             else:
-    #                 mln.setClosedWorldPred(*cwPreds)
-    #
-    #             # parse the database
-    #             dbs = readDBFromFile(mln, db_local)
-    #             if len(dbs) != 1:
-    #                 raise Exception('Only one database is supported for inference.')
-    #             db_local = dbs[0]
-    #
-    #             # create ground MRF
-    #             mln = mln.materializeFormulaTemplates([db_local], args.get('verbose', False))
-    #             mrf = mln.groundMRF(db_local, verbose=args.get('verbose', False), groundingMethod='FastConjunctionGrounding')
-    #
-    #
-    #             atoms = mrf.gndAtoms.keys()
-    #             formulas = [str(i[1]) for i in mrf.getGroundFormulas()]
-    #             #mrf.printGroundAtoms()
-    #             #mrf.printGroundFormulas()
-    #             # check for print/write requests
-    #             if "printGroundAtoms" in args:
-    #                 if args["printGroundAtoms"]:
-    #                     mrf.printGroundAtoms()
-    #             if "printGroundFormulas" in args:
-    #                 if args["printGroundFormulas"]:
-    #                     mrf.printGroundFormulas()
-    #             if "writeGraphML" in args:
-    #                 if args["writeGraphML"]:
-    #                     graphml_filename = output_base_filename + ".graphml"
-    #                     print "writing ground MRF as GraphML to %s..." % graphml_filename
-    #                     mrf.writeGraphML(graphml_filename)
-    #             # invoke inference and retrieve results
-    #             print 'Inference parameters:', args
-    #             mrf.mln.watch.tag('Inference')
-    #             dist = mrf.infer(queries, **args)
-    #             #mrf.printGroundAtoms()
-    #             #mrf.printGroundFormulas()
-    #             results = {}
-    #             fullDist = args.get('fullDist', False)
-    #             if fullDist:
-    #                 pickle.dump(dist, open('%s.dist' % output_base_filename, 'w+'))
-    #             else:
-    #                 for gndFormula, p in mrf.getResultsDict().iteritems():
-    #                     results[str(gndFormula)] = p
-    #
-    #             resultKeys = results.keys()
-    #             resultValues = results.values()
-    #             mrf.mln.watch.printSteps()
-    #             # close output file and open if requested
-    #             if outFile != None:
-    #                 outFile.close()
-    #         except:
-    #             cls, e, tb = sys.exc_info()
-    #             sys.stderr.write("Error: %s\n" % str(e))
-    #             traceback.print_tb(tb)
-    #
-    #     while not queue.empty():
-	 #        temp = queue.get()
-	 #        temp = temp.replace("\033[1m","")
-	 #        temp = temp.replace("\033[0m","")
-    #             output = temp
-    #     return {'atoms': atoms, 'formulas': formulas, 'resultkeys': resultKeys, 'resultvalues': resultValues, 'output': output}
-    # #return Response(stream_with_context(generate(input_files, db, method, settings["query"], params=params, **settings)))
-    # # return Response(generate())
-    # res = generate()
-    # print res
-    # return jsonify( res )
 
 @mlnApp.app.route('/mln/_use_model_ext', methods=['GET', 'OPTIONS'])
 def get_emln():
@@ -405,7 +220,7 @@ def init_options():
     res = { 'infMethods': INFERENCE_METHODS,
             'files':mlnFiles,
             'dbs': dbFiles,
-            'queries': mlnsession.settings['query'],
+            'queries': mlnsession.settings['queries'],
             'maxSteps': mlnsession.settings['maxSteps'],
             'examples': dirs}
     return jsonify( res )
@@ -414,14 +229,14 @@ def init_options():
 def initialize():
     log.info('initialize')
     mlnsession = ensure_mln_session(session)
-    mlnsession.inference = MLNInfer()
     mlnsession.xmplFolder = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
     mlnsession.params = ''
 
     confignames = ["mlnquery.config.dat", "query.config.dat"]
     settings = {}
     for filename in confignames:
-        configname = filename
+        configname = os.path.join(mlnsession.xmplFolder, filename)
+        print configname, os.path.exists(configname)
         if os.path.exists(configname):
             try:
                 settings = pickle.loads("\n".join(map(lambda x: x.strip(

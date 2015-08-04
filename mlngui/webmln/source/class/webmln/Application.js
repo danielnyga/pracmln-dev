@@ -890,7 +890,6 @@ qx.Class.define("webmln.Application",
 
 
         d3BarChart : function(results) {
-            console.log('results', results);
             var bar;
             var xAxis;
             var yAxis;
@@ -936,7 +935,6 @@ qx.Class.define("webmln.Application",
 
             bar = svg.selectAll("g.bar")
                 .data(data,function(d) {
-                console.log('data', data);
                 return d.name; })
                 .enter().append("g")
                 .attr("class", "bar")
