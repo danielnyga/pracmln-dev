@@ -716,7 +716,6 @@ class Logic(object):
         @children.setter
         def children(self, children):
             if len(children) < 2:
-                trace(children)
                 raise Exception('Conjunction needs at least 2 children.')
             self._children = children
     
@@ -736,10 +735,8 @@ class Logic(object):
         def cnf(self, level=0):
             clauses = []
             litSets = []
-            out(self.children)
             for child in self.children:
                 c = child.cnf(level+1)
-                out(child, c)
                 if isinstance(c, Logic.Conjunction): # flatten nested conjunction
                     l = c.children
                 else:
