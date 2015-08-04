@@ -11,7 +11,7 @@ sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
 sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'pyparsing'))
 
 python_apps = [
-    {"name": "webmln", "script": "$SRLDB_HOME/mlngui/runMLN.py"}
+    {"name": "webmln", "script": "$PRACMLN_HOME/mlngui/runMLN.py"},
     {"name": "mlnquery", "script": "$PRACMLN_HOME/pracmln/mlnquery.py"},
     {"name": "mlnlearn", "script": "$PRACMLN_HOME/pracmln/mlnlearn.py"},
     {"name": "xval", "script": "$PRACMLN_HOME/pracmln/xval.py"},
@@ -117,7 +117,7 @@ if __name__ == '__main__':
         if not isWindows: os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
 
     # build qooxdoo
-    generate = adapt("$SRLDB_HOME/mlngui/webmln/generate.py", arch)
+    generate = adapt("$PRACMLN_HOME/mlngui/webmln/generate.py", arch)
     os.system(generate + ' source-all')
     os.system(generate + ' build')
 
@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     # write shell script for environment setup
     appsDir = adapt("$PRACMLN_HOME/apps", arch)
-    guiDir = adapt("$SRLDB_HOME/mlngui", arch)
+    guiDir = adapt("$PRACMLN_HOME/mlngui", arch)
     pyparsingDir = adapt("$PRACMLN_HOME/3rdparty/pyparsing", arch)
     jythonDir = adapt("$PRACMLN_HOME/jython", arch)
     logutilsDir = adapt("$PRACMLN_HOME/3rdparty/logutils-0.3.3", arch)
