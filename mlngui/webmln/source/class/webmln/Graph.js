@@ -261,7 +261,8 @@ qx.Class.define("webmln.Graph",
     /**
      * redraws the graph with the updated nodes and links
      */
-    update : function () {
+    update : function (showLabels) {
+      showLabels = typeof showLabels !== 'undefined' ? showLabels : true;
 
       var path = this.svnContainer.selectAll("path.link")
         .data(this.links, function(d) {
@@ -283,7 +284,7 @@ qx.Class.define("webmln.Graph",
       var edgelabelsEnter = edgelabels.enter().append('text')
           .style("pointer-events", "none")
           .attr('class', 'label')
-          .text(function(d){ return d.value.join(' / '); });
+          .text(function(d){ return showLabels ? d.value.join(' / ') : ''; });
 
       edgelabels.exit().remove();
 
