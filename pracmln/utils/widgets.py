@@ -410,9 +410,9 @@ class FilePickEdit(Frame):
         self.options_frame = Frame(self)
         self.options_frame.grid(row=row, column=0, sticky=W)
         self.rename_on_edit = IntVar()
-        cb = Checkbutton(self.options_frame, text="rename on edit", variable=self.rename_on_edit)
-        cb.pack(side=LEFT)
-        cb.configure(command=self.onChangeRename)
+        self.cb = Checkbutton(self.options_frame, text="rename on edit", variable=self.rename_on_edit)
+        self.cb.pack(side=LEFT)
+        self.cb.configure(command=self.onChangeRename)
         self.rename_on_edit.set(rename_on_edit)
         # filename frame
         row += 1
@@ -424,7 +424,7 @@ class FilePickEdit(Frame):
         self.save_edit = Entry(self.filename_frame, textvariable = self.save_name)
         self.save_edit.grid(row=0, column=0, sticky="WE")
         self.save_name.trace("w", self.onSaveChange)
-        # pick default if applicable
+        # pick default if applicableButton
         self.select(default_file)
         self.row = row
         
@@ -590,6 +590,13 @@ class FilePickEdit(Frame):
     def get_filename(self):
         return self.save_name.get()
 
+    def set_enabled(self, state):
+        self.editor.configure(state=state)
+        self.list.configure(state=state)
+        self.save_button.configure(state=state)
+        self.cb.configure(state=state)
+        self.save_edit.configure(state=state)
+        
 
 class FilePick(Frame):
     def __init__(self, master, file_mask, default_file, user_onChange = None, font = None, dirs = (".", ), allowNone = False):

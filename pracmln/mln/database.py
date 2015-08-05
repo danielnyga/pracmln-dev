@@ -430,13 +430,13 @@ class Database(object):
                     dbs.append(dbobj)
             return dbs
         dbs = []
-        if type(dbfile) == str: 
+        if isinstance(dbfile, basestring): 
             # read file
             f = file(dbfile, "r")
             content = f.read()
             f.close()
         else:
-            content = f.read()
+            content = dbfile.read()
         dbs = parse_db(mln, content, ignore_unknown_preds, db)
         if len(dbs) > 1 and db is not None:
             raise Exception('Cannot attach multiple databases to a single database object. Use Database.load(..., db=None).')

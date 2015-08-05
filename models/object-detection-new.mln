@@ -25,11 +25,12 @@ object(cluster, object)
 //0 scene(+?s) ^ object(?c, +?obj)
 
 
-#unique{+?t1,+?t2}
-0 scene(+?s) ^ object(?c1, +?t1) ^ object(?c2, +?t2) ^ ?c1 =/= ?c2
+//#unique{+?t1,+?t2}
+//0 scene(+?s) ^ object(?c1, +?t1) ^ object(?c2, +?t2) ^ ?c1 =/= ?c2
 
 //#unique{+?t1,+?t2}
 //0 !scene(+?s) ^ object(?c1, +?t1) ^ object(?c2, +?t2) ^ ?c1 =/= ?c2
+
 
 
 

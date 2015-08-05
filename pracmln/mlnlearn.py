@@ -45,11 +45,14 @@ from mln import MLN
 from logic import StandardGrammar, PRACGrammar
 from logic import FirstOrderLogic, FuzzyLogic
 from pracmln.utils import config
-from pracmln.mln.util import ifNone, out
+from pracmln.mln.util import ifNone, out, headline, StopWatch
 from tkMessageBox import showerror, askyesno
 from tkFileDialog import askdirectory
 from pracmln.utils.config import learn_config_pattern, PRACMLNConfig
 from pracmln import praclog
+from tabulate import tabulate
+import pstats
+from pracmln.mln.database import Database
 
 logger = praclog.logger(__name__)
 
@@ -58,101 +61,7 @@ logger = praclog.logger(__name__)
 class MLNLearn:
     
     def run(self, **kwargs):
-        '''
-            required arguments:
-                training databases(s): either one of
-                    "dbs": list of database filenames (or MLN.Database objects for PyMLNs)
-                    "db": database filename
-                    "pattern": file mask pattern from which to generate the list of databases
-                "mln": an MLN filename (or MLN.MLN object for PyMLNs)
-                "method": the learning method name
-                "output_filename": the output filename
-            
-            optional arguments:
-                "engine": either "PRACMLNs" (default) or one of the Alchemy versions defined in the config
-                "initialWts": (true/false)
-                "usePrior": (true/false); default: False
-                "priorStdDev": (float) standard deviation of prior when usePrior=True
-                "addUnitClauses": (true/false) whether to add unit clauses (Alchemy only); default: False
-                "params": (string) additional parameters to pass to the learner; for Alchemy: command-line parameters; for PyMLNs: either dictionary string (e.g. "foo=bar, baz=2") or a dictionary object
-                ...
-        '''
-        defaults = {
-            "engine": "PRACMLNs",
-            "usePrior": False,
-            "priorStdDev": 10.0,
-            "addUnitClauses": False,
-            "params": ""
-        }
-        self.settings = defaults
-        self.settings.update(kwargs)
         
-        
-        # determine training databases(s)
-        if "dbs" in self.settings:
-            dbs = self.settings["dbs"]
-        elif "db" in self.settings and self.settings["db"] != "":
-            dbs = [self.settings["db"]]
-        elif "pattern" in self.settings and self.settings["pattern"] != "":
-            dbs = []
-            pattern = settings["pattern"]
-            dir, mask = os.path.split(os.path.abspath(pattern))
-            for fname in os.listdir(dir):
-                if fnmatch(fname, mask):
-                    dbs.append(os.path.join(dir, fname))
-            if len(dbs) == 0:
-                raise Exception("The pattern '%s' matches no files" % pattern)
-            print "training databases:", ",".join(dbs)
-        else:
-            raise Exception("No training data given; A training database must be selected or a pattern must be specified")        
-        
-        # check if other required arguments are set
-        missingSettings = set(["mln", "method", "output_filename"]).difference(set(self.settings.keys()))
-        if len(missingSettings) > 0:
-            raise Exception("Some required settings are missing: %s" % str(missingSettings))
-
-        params = self.settings["params"]
-        method = self.settings["method"]
-        discriminative = "discriminative" in method
-        
-        #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  
-        #  PRACMLN internal engine
-        #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
-        
-        if self.settings["engine"] in ("PRACMLNs", "internal"): # PyMLNs internal engine
-        
-            # arguments
-            args = {}
-            if type(params) == str:
-                params = eval("dict(%s)" % params)
-            
-            elif type(params) != dict:
-                raise("Argument 'params' must be string or a dictionary")
-            
-            # multiprocessing settings
-            args['useMultiCPU'] = self.settings.get('useMultiCPU', False)
-            args.update(params) # add additional parameters
-            
-            # settings for discriminative learning
-            if discriminative:
-                if settings.get('discrPredicates', MLNLearnGUI.USE_QUERY_PREDS) == MLNLearnGUI.USE_QUERY_PREDS:
-                    args["queryPreds"] = map(str.strip, self.settings["queryPreds"].split(","))
-                else:
-                    args['evidencePreds'] = map(str.strip, self.settings['evidencePreds'].split(','))
-
-            # gaussian prior settings            
-            if self.settings["usePrior"]:
-                args["gaussianPriorSigma"] = float(self.settings["priorStdDev"])
-                args["gaussianPriorMean"] = float(self.settings["priorMean"])
-
-            # incremental learning
-            if self.settings["incremental"]:
-                args["incremental"] = True 
-
-            # shuffle databases
-            if self.settings["shuffle"]:
-                args["shuffle"] = True 
-            
             # learn weights
             if type(self.settings["mln"]) == str:
                 mln = MLN(mlnfile=self.settings["mln"], logic=self.settings['logic'], grammar=self.settings['grammar'])
@@ -204,7 +113,7 @@ class MLNLearnGUI:
         self.initialized = False
         
         self.gconf = gconf
-        
+        self.config = None
         self.learner = MLNLearn()
 
         self.frame = Frame(master)
@@ -245,7 +154,7 @@ class MLNLearnGUI:
         row += 1
         Label(self.frame, text="MLN: ").grid(row=row, column=0, sticky='NE')
         self.selected_mln = FilePickEdit(self.frame, config.learnwts_mln_filemask, '', 22, 
-                                         self.select_mln, rename_on_edit='', 
+                                         self.select_mln, rename_on_edit=0, 
                                          font=config.fixed_width_font, coloring=True)
         self.selected_mln.grid(row=row, column=1, sticky="NWES")
         self.frame.rowconfigure(row, weight=1)
@@ -266,17 +175,20 @@ class MLNLearnGUI:
         
         # use prior
         self.use_prior = IntVar()
+        self.use_prior.trace('w', self.check_prior)
         self.cb_use_prior = Checkbutton(frame, text="use prior with mean of ", variable=self.use_prior)
         self.cb_use_prior.pack(side=LEFT)
         
         # set prior 
         self.priorMean = StringVar(master)        
-        Entry(frame, textvariable = self.priorMean, width=5).pack(side=LEFT)
+        self.en_prior_mean = Entry(frame, textvariable=self.priorMean, width=5)
+        self.en_prior_mean.pack(side=LEFT)
         Label(frame, text=" and std dev of ").pack(side=LEFT)
         
         # std. dev.
         self.priorStdDev = StringVar(master)
-        Entry(frame, textvariable = self.priorStdDev, width=5).pack(side=LEFT)
+        self.en_stdev = Entry(frame, textvariable = self.priorStdDev, width=5)
+        self.en_stdev.pack(side=LEFT)
         
         # use initial weights in MLN 
         self.use_initial_weights = IntVar()
@@ -296,7 +208,7 @@ class MLNLearnGUI:
         # discriminative learning settings
         row += 1
         self.discrPredicates = IntVar()
-        
+        self.discrPredicates.trace('w', self.change_discr_preds)
         frame = Frame(self.frame)        
         frame.grid(row=row, column=1, sticky="NEWS")
         self.rbQueryPreds = Radiobutton(frame, text="Query preds:", variable=self.discrPredicates, value=MLNLearnGUI.USE_QUERY_PREDS)
@@ -318,10 +230,16 @@ class MLNLearnGUI:
         # evidence database selection
         row += 1
         Label(self.frame, text="Training data: ").grid(row=row, column=0, sticky="NE")
-        self.selected_db = FilePickEdit(self.frame, config.learnwts_db_filemask, '', 15, self.changedDB, font=config.fixed_width_font
-                                        )
-        self.selected_db.grid(row=row, column=1, sticky="NEWS")
         self.frame.rowconfigure(row, weight=1)
+        
+        self.selected_db = FilePickEdit(self.frame, config.learnwts_db_filemask, '', 15, self.changedDB, font=config.fixed_width_font)
+        self.selected_db.grid(row=row, column=1, sticky="NEWS")
+        
+        # ignore unknown preds
+        self.ignore_unknown_preds = IntVar(master)
+        self.cb_ignore_unknown_preds = Checkbutton(self.selected_db.options_frame, text='ignore unkown predicates', variable=self.ignore_unknown_preds)
+        self.cb_ignore_unknown_preds.pack(side=LEFT)
+        
 
         # file patterns
         row += 1
@@ -333,6 +251,7 @@ class MLNLearnGUI:
         col += 1
         frame.columnconfigure(col, weight=1)
         self.pattern = StringVar(master)
+        self.pattern.trace('w', self.change_pattern)
         self.entry_pattern = Entry(frame, textvariable=self.pattern)
         self.entry_pattern.grid(row=0, column=col, sticky="NEW")
 
@@ -361,6 +280,10 @@ class MLNLearnGUI:
         self.verbose = IntVar()
         self.cb_verbose = Checkbutton(option_container, text='verbose', variable=self.verbose)
         self.cb_verbose.grid(row=0, column=4, sticky=W)
+        
+        self.ignore_zero_weight_formulas = IntVar()
+        self.cb_ignore_zero_weight_formulas = Checkbutton(option_container, text='remove 0-weight formulas', variable=self.ignore_zero_weight_formulas)
+        self.cb_ignore_zero_weight_formulas.grid(row=0, column=5, sticky=W)
 
         row += 1
         Label(self.frame, text="Output filename: ").grid(row=row, column=0, sticky="E")
@@ -375,26 +298,10 @@ class MLNLearnGUI:
         if gconf['prev_learnwts_mln':self.dir.get()] is not None:
             self.selected_mln.set(gconf['prev_learnwts_mln':self.dir.get()])
         
-        self.set_window_loc(gconf['window_loc_learn'])
+        self.master.geometry(gconf['window_loc_learn'])
         
         self.initialized = True
 
-
-    def set_window_loc(self, location):
-        g = location
-        if g is None: return
-        # this is a hack: since geometry apparently does not work as expected
-        # (at least under Ubuntu: the main window is not put at the same position
-        # where it has been before), do this correction of coordinates.
-        re_pattern = r'([\-0-9]+)x([\-0-9]+)\+([\-0-9]+)\+([\-0-9]+)'
-        (w_old, h_old, x_old, y_old) = map(int, re.search(re_pattern, g).groups())
-        self.master.geometry(g)
-        new_g = self.master.winfo_geometry()
-        (w_new, h_new, x_new, y_new) = map(int, re.search(re_pattern, new_g).groups())
-        (w_diff, h_diff, x_diff, y_diff) = (w_old-w_new, h_old-h_new, x_old-x_new, y_old-y_new)
-        (w_new, h_new, x_new, y_new) = (w_old, h_old, x_new-x_diff, y_new-y_diff)
-        self.master.geometry('%dx%d+%d+%d' % (w_new, h_new, x_new, y_new))
-        
 
     def update_dir(self, e):
         d = self.dir.get()
@@ -419,7 +326,7 @@ class MLNLearnGUI:
     
     def select_mln(self, mlnname):
         confname = os.path.join(self.dir.get(), learn_config_pattern % mlnname)
-        if not self.initialized or os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
+        if self.config is None or not self.initialized or os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
             self.set_config(PRACMLNConfig(confname))
         self.mln_filename = mlnname
         self.setOutputFilename()
@@ -431,7 +338,16 @@ class MLNLearnGUI:
         else:
             self.cb_shuffle.configure(state="disabled")
             self.cb_shuffle.deselect()
+            
+            
+    def change_pattern(self, *args):
+        self.selected_db.set_enabled(state=DISABLED if self.pattern.get() else NORMAL)
                 
+
+    def check_prior(self, *args):
+        self.en_prior_mean.configure(state=NORMAL if self.use_prior.get() else DISABLED)
+        self.en_stdev.configure(state=NORMAL if self.use_prior.get() else DISABLED)
+        
 
     def isFile(self, f):
         return os.path.exists(os.path.join(self.dir.get(), f))
@@ -470,17 +386,42 @@ class MLNLearnGUI:
             self.selected_mln.editor.grammar = grammar        
 
     def onChangeMethod(self):
+        self.change_discr_preds()
+        
+        
+    def change_discr_preds(self, name = None, index = None, mode = None):
         method = self.selected_method.get()
         state = NORMAL if "[discriminative]" in method else DISABLED
-        self.entry_nePreds.configure(state=state)
-        self.entryEvidencePreds.configure(state=state)
-        self.rbQueryPreds.configure(state=state)        
+        self.entry_nePreds.configure(state=state if self.discrPredicates.get() == 0 else DISABLED)
+        self.entryEvidencePreds.configure(state=state if self.discrPredicates.get() == 1 else DISABLED)
         self.rbEvidencePreds.configure(state=state)
-
+        self.rbQueryPreds.configure(state=state)
+        
 
     def changedMethod(self, name, index, mode):
         self.onChangeMethod()
         self.setOutputFilename()
+
+    
+    def get_training_db_paths(self):
+        ''' 
+        determine training databases(s) 
+        '''
+        pattern = self.config["pattern"]
+        if pattern is not None and pattern.strip():
+            dbs = []
+            patternpath = os.path.join(self.dir.get(), pattern)
+            d, mask = os.path.split(os.path.abspath(patternpath))
+            for fname in os.listdir(d):
+                if fnmatch(fname, mask):
+                    dbs.append(os.path.join(d, fname))
+            if len(dbs) == 0:
+                raise Exception("The pattern '%s' matches no files in %s" % (pattern, self.dir.get()))
+            logger.debug('loading training databases from pattern %s:')
+            for p in dbs: logger.debug('  %s' % p)
+        if not dbs:
+            raise Exception("No training data given; A training database must be selected or a pattern must be specified")
+        else: return dbs       
 
 
     def set_config(self, conf):
@@ -488,81 +429,143 @@ class MLNLearnGUI:
 #         self.selected_db.set(ifNone(self.config["db"], ''))
         self.selected_grammar.set(ifNone(conf['grammar'], 'PRACGrammar'))
         self.selected_logic.set(ifNone(conf['logic'], 'FirstOrderLogic'))
+        self.selected_db.select(ifNone(conf['db'], ''))
         self.output_filename.set(ifNone(self.config["output_filename"], ''))
         self.params.set(ifNone(self.config["params"], ''))
-        self.selected_method.set(ifNone(self.config["method"], ''))
+        self.selected_method.set(ifNone(self.config["method"], LearningMethods.getName('BPLL')))
         self.pattern.set(ifNone(self.config["pattern"], ''))
         self.use_prior.set(ifNone(self.config["use_prior"], False))
         self.priorMean.set(ifNone(self.config["prior_mean"], 0))
-        self.priorStdDev.set(ifNone(self.config["prior_stdev"], 0))
+        self.priorStdDev.set(ifNone(self.config["prior_stdev"], 5))
         self.incremental.set(ifNone(self.config["incremental"], False))
         self.shuffle.set(ifNone(self.config["shuffle"], False))
         self.use_initial_weights.set(ifNone(self.config["use_initial_weights"], False))
         self.queryPreds.set(ifNone(self.config["query_preds"], ''))
         self.evidencePreds.set(ifNone(self.config["evidence_preds"], ''))
         self.discrPredicates.set(ifNone(self.config["discr_preds"], 0)) 
-        self.selected_logic.set(ifNone(self.config['logic'], 'FirstOrderLogic')) 
-        self.selected_grammar.set(ifNone(self.config['grammar'], 'PRACGrammar'))
         self.use_multiCPU.set(ifNone(self.config['multicore'], False))
+        self.verbose.set(ifNone(conf['verbose'], 1))
+        self.profile.set(ifNone(conf['profile'], False))
+        self.ignore_unknown_preds.set(ifNone(conf['ignore_unknown_preds'], False))
+        self.ignore_zero_weight_formulas.set(ifNone(conf['ignore_zero_weight_formulas'], False))
 
 
     def learn(self, saveGeometry=True):
-        window_loc = self.master.winfo_geometry()
-        try:
-            # update settings
-            mln = self.selected_mln.get()
+        # update settings
+        mln = self.selected_mln.get()
+        db = self.selected_db.get()
+        if mln == "":
+            raise Exception("No MLN was selected")
+        method = self.selected_method.get()
+        params = self.params.get()
+        output = str(self.output_filename.get())
+        verbose = self.config['verbose']
+        self.config = PRACMLNConfig(os.path.join(self.dir.get(), learn_config_pattern % mln))
+        self.config["mln"] = mln
+        self.config["db"] = db
+        self.config["output_filename"] = self.output_filename.get()
+        self.config["params"] = params
+        self.config["method"] = method
+        self.config["pattern"] = self.pattern.get()
+        self.config["use_prior"] = int(self.use_prior.get())
+        self.config["prior_mean"] = self.priorMean.get()
+        self.config["prior_stdev"] = self.priorStdDev.get()
+        self.config["incremental"] = int(self.incremental.get())
+        self.config["shuffle"] = int(self.shuffle.get())
+        self.config["use_initial_weights"] = int(self.use_initial_weights.get())
+        self.config["query_preds"] = self.queryPreds.get()
+        self.config["evidence_preds"] = self.evidencePreds.get()
+        self.config["discr_preds"] = self.discrPredicates.get()
+        self.config['logic'] = self.selected_logic.get()
+        self.config['grammar'] = self.selected_grammar.get()
+        self.config['multicore'] = self.use_multiCPU.get()
+        self.config['profile'] = self.profile.get()
+        self.config['verbose'] = self.verbose.get()
+        self.config['ignore_unknown_preds'] = self.ignore_unknown_preds.get()
+        self.config['ignore_zero_weight_formulas'] = self.ignore_zero_weight_formulas.get()
+        
+        # write settings
+        logger.debug('writing config...')
+        self.gconf['prev_learnwts_path'] = self.dir.get()
+        self.gconf['prev_learnwts_mln':self.dir.get()] = self.selected_mln.get()
+        self.gconf['window_loc_learn'] = self.master.geometry()
+        self.gconf.dump()
+        self.config.dump()
+        
+        # load the training databases
+        pattern = self.pattern.get().strip()
+        if pattern:
+            dbs = self.get_training_db_paths()
+        else:
             db = self.selected_db.get()
-            if mln == "":
-                raise Exception("No MLN was selected")
-            method = self.selected_method.get()
-            params = self.params.get()
-            
-            self.config = PRACMLNConfig(os.path.join(self.dir.get(), learn_config_pattern % mln))
-            self.config["mln"] = mln
-            self.config["db"] = db
-            self.config["output_filename"] = self.output_filename.get()
-            self.config["params"] = params
-            self.config["method"] = method
-            self.config["pattern"] = self.pattern.get()
-            self.config["use_prior"] = int(self.use_prior.get())
-            # for incremental learning
-            self.config["prior_mean"] = self.priorMean.get()
-            self.config["prior_stdev"] = self.priorStdDev.get()
-            self.config["incremental"] = int(self.incremental.get())
-            self.config["shuffle"] = int(self.shuffle.get())
-            self.config["use_initial_weights"] = int(self.use_initial_weights.get())
+            if db is None or not db:
+                raise Exception('no trainig data given!')
+            dbs = [os.path.join(self.dir.get(), db)]
+        
+        # hide gui
+        self.master.withdraw()
+        
+        # invoke learner
+        try: 
+            watch = StopWatch()
+            print headline('PRACMLN LEARNING TOOL')
+            watch.tag('learning')
+            print
 
-            self.config["query_preds"] = self.queryPreds.get()
-            self.config["evidence_preds"] = self.evidencePreds.get()
-            self.config["discr_preds"] = self.discrPredicates.get()
-            self.config['logic'] = self.selected_logic.get()
-            self.config['grammar'] = self.selected_grammar.get()
-            self.config['multicore'] = self.use_multiCPU.get()
+            params = {}
+            params = dict([(k, self.config[k]) for k in ('multicore', 'query_preds', 'evidence_preds', 'verbose', 'profile', 'ignore_zero_weight_formulas')])
+            # gaussian prior settings            
+            if self.config["use_prior"]:
+                params['prior_mean'] = float(self.config["prior_mean"])
+                params['prior_stdev'] = float(self.config["prior_stdev"])
+            # expand the parameters
+            params.update(eval("dict(%s)" % self.config['params']))
             
-            # write settings
-            logger.debug('writing config...')
-            self.gconf['prev_learnwts_path'] = self.dir.get()
-            self.gconf['prev_learnwts_mln':self.dir.get()] = self.selected_mln.get()
-            self.gconf['window_loc_learn'] = window_loc
-            self.gconf.dump()
-            self.config.dump()
+            print tabulate(sorted(list(params.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
             
-            # hide gui
-            self.master.withdraw()
-            
-            # invoke learner
-#             self.learner.run(params=params, method=method, **self.settings)
+            profile = self.profile.get()
+            if profile:
+                prof = Profile()
+                print 'starting profiler...'
+                prof.enable()
+            # set the debug level
+            olddebug = praclog.level()
+            praclog.level(eval('logging.%s' % params.get('debug', 'WARNING').upper()))
+            try:
+                # load the MLN
+                mlnfile = os.path.join(self.dir.get(), self.config["mln"])
+                mln = MLN(mlnfile=mlnfile, logic=self.config['logic'], grammar=self.config['grammar'])
+                # load the databases
+                dbs = reduce(list.__add__, [Database.load(mln, dbfile, self.config['ignore_unknown_preds']) for dbfile in dbs])
+                if verbose: 'loaded %d database(s).'
+                # run the learner
+                mln = mln.learn(dbs, method, **params)
+                print 
+                print headline('LEARNT MARKOV LOGIC NETWORK')
+                print
+                if self.config['save']:
+                    with open(os.path.join(self.dir.get(), output), 'w+') as outFile:
+                        mln.write(outFile)
+            except SystemExit:
+                print 'Cancelled...'
+            finally:
+                if profile:
+                    prof.disable()
+                    print headline('PROFILER STATISTICS')
+                    ps = pstats.Stats(prof, stream=sys.stdout).sort_stats('cumulative')
+                    ps.print_stats()
+                # reset the debug level
+                praclog.level(olddebug)
+            print
+            watch.finish()
+            watch.printSteps()
             
         except:
-            cls, e, tb = sys.exc_info()
-            logging.exception("%s: %s\n" % (str(e.__class__.__name__), str(e)))
-#             traceback.print_tb(tb)
-#             raise
-        finally:
-            # restore gui
-            self.master.deiconify()
-            self.set_window_loc(window_loc)
-            sys.stdout.flush()
+            traceback.print_exc()
+            #             traceback.print_tb(tb)
+        # restore gui
+        self.master.deiconify()
+        sys.stdout.flush()
 
 # -- main app --
 
@@ -586,7 +589,5 @@ if __name__ == '__main__':
     if options.run:
         app.learn(saveGeometry=False)
     else:
-        out(gconf['window_loc_learn'])
-        app.set_window_loc(gconf['window_loc_learn'])
         root.mainloop()
 

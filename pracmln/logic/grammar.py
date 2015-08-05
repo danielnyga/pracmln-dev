@@ -268,7 +268,7 @@ class PRACGrammar(Grammar):
     def __init__(self, logic):
         # grammar
         
-        identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$' + '~' + '\\'
+        identifierCharacter = alphanums + 'ÄÖÜäöü' + '_' + '-' + "'" + '.' + ':' + ';' + '$' + '~' + '\\' + '!'
         lcCharacter = alphas.lower()
         ucCharacter = alphas.upper()
         lcName = Word(lcCharacter, alphanums + '_')
@@ -347,6 +347,7 @@ if __name__ == '__main__':
     from pracmln.mln.base import MLN
     mln = MLN(grammar='PRACGrammar')
     mln << 'foo(x, y)'
+    mln << 'bar(x)'
     mln << 'numberEats(k,n)'
     mln << 'eats(p,m)'
     mln << 'rel(x,y)'
@@ -358,20 +359,27 @@ if __name__ == '__main__':
     mln << 'g(s)'
     mln << 'f(s)'
     
-    mln.logic.grammar.parse_formula(f).print_structure()
-    
-    test = ['!a(k)',
-            'a(c) ^ b(g)',
-            'b(x) v !a(l) ^ b(x)',
-            '!(a(g)) => ((!(f(x) v b(a))))',
-            "f(h) v (g(?h) <=> !f(?k) ^ d(e))",
-            'f(t) ^ ?x = y'
-            ]
-    for t in test:
-        print t
-        mln.logic.grammar.tree.reset()
-        mln.logic.grammar.parse_formula(t).print_structure()
-        print t
+    f = 'foo(x,x) => (bar(y) <=> bar(x))'
+    f = mln.logic.grammar.parse_formula(f) 
+    f.print_structure()
+    print list(f.literals())
+    print mln.logic.parse_formula('bar(x)') in f.literals()
+    print f
+    cnf = f.cnf()
+    cnf.print_structure()
+    print cnf
+#     test = ['!a(k)',
+#             'a(c) ^ b(g)',
+#             'b(x) v !a(l) ^ b(x)',
+#             '!(a(g)) => ((!(f(x) v b(a))))',
+#             "f(h) v (g(?h) <=> !f(?k) ^ d(e))",
+#             'f(t) ^ ?x = y'
+#             ]
+#     for t in test:
+#         print t
+#         mln.logic.grammar.tree.reset()
+#         mln.logic.grammar.parse_formula(t).print_structure()
+#         print t
 
 
 
