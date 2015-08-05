@@ -303,7 +303,7 @@ qx.Class.define("webmln.Application",
             this.__selectLogic = new qx.ui.form.SelectBox();
             this.__selectMLN = new qx.ui.form.SelectBox();
             this.__folderButton = new com.zenesis.qx.upload.UploadButton("Load File");
-            this.__uploader = new com.zenesis.qx.upload.UploadMgr(this.__folderButton, "/mln/upload");
+            this.__uploader = new com.zenesis.qx.upload.UploadMgr(this.__folderButton, "/mln/mln_file_upload");
                 this.__uploader.setAutoUpload(false);
             this.__textFieldNameMLN = new qx.ui.form.TextField("");
                 this.__textFieldNameMLN.setEnabled(false);
@@ -362,14 +362,14 @@ qx.Class.define("webmln.Application",
             // listeners
             this.__buttonStart.addListener("execute", this._start_inference, this);
             this.__checkBoxUseModelExt.addListener("changeValue", this._showModelExtension, this);
-            this.__checkBoxShowLabels.addListener("changeValue", function(e) {
-                            this._graph.update(e.getData());
-                            }, this);
             this.__selectMLN.addListener("changeSelection", this._update_mln_text, this);
             this.__selectExampleFolder.addListener("changeSelection", this._change_example ,this);
             this.__selectEvidence.addListener("changeSelection", this._update_evidence_text, this);
             this.__uploader.addListener("addFile", this._upload, this);
             this.__textAreaEMLN.addListener("appear", this._update_emln_text, this);
+            this.__checkBoxShowLabels.addListener("changeValue", function(e) {
+                            this._graph.update(e.getData());
+                            }, this);
 
             // add widgets to form
             this.__mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
@@ -486,7 +486,12 @@ qx.Class.define("webmln.Application",
         _upload : function(evt) {
             var file = evt.getData();
             var fileName = file.getFilename();
+            console.log('uploading', fileName);
+            this.__uploader.setAutoUpload(true);
             console.log('uploaded', fileName);
+//            handler.beginUploads();
+//            console.log('handler', handler);
+//            file.setParam("MY_FILE_PARAM", "some-value");
 //            var progressListenerId = file.addListener("changeProgress", function(evt) {
 //                console.log("Upload " + file.getFilename() + ": " +
 //                    evt.getData() + " / " + file.getSize() + " - " +

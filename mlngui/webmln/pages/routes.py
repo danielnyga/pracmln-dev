@@ -34,4 +34,5 @@ def register_routes(mlnapp=None):
     from webmln.pages import mlnSpec
     from webmln.pages import learning
     from webmln.pages import views
+    from webmln.pages import fileupload
     from webmln.pages import utils

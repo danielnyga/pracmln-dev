@@ -62,12 +62,10 @@ def load_filecontent():
 
     if os.path.exists(os.path.join(mlnsession.xmplFolder, filename)):
         text = getFileContent(mlnsession.xmplFolder, filename)
+    elif os.path.exists(os.path.join('/tmp', 'tempupload', filename)):
+        text = getFileContent(os.path.join('/tmp', 'tempupload'), filename)
 
     return jsonify( {'text': text} )
-
-@mlnApp.app.route('/mln/_test', methods=['GET', 'OPTIONS'])
-def test():
-    return "LOL"
 
 @mlnApp.app.route('/mln/_change_example', methods=['POST'])
 def change_example():
@@ -75,8 +73,9 @@ def change_example():
     data = json.loads(request.get_data())
     mlnsession.xmplFolder = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], data['folder'])
     mlnFiles, dbs = getExampleFiles(mlnsession.xmplFolder)
+    userMLNFiles, userDBS = getExampleFiles(os.path.join('/tmp', 'tempupload'))
 
-    return jsonify( {'dbs': dbs, 'mlns': mlnFiles} )
+    return jsonify( {'dbs': dbs + userDBS, 'mlns': mlnFiles + userMLNFiles} )
 
 
 class StdoutQueue(Queue):

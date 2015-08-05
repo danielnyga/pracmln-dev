@@ -3,8 +3,10 @@ import os
 from webmln.mlninit import mlnApp
 from flask import send_from_directory, render_template
 from webmln.app import MLNSession
+import re
 from werkzeug.utils import redirect
 
+FILEDIRS = {'mln':'mln', 'pracmln':'bin', 'db':'db'}
 LEARN_CONFIG_PATTERN = '{}.learn.conf'
 QUERY_CONFIG_PATTERN = '{}.query.conf'
 GLOBAL_CONFIG_FILENAME = '.pracmln.conf'
@@ -60,9 +62,11 @@ def getFileContent(fDir, fName):
     content = ''
     for l in c:
         if '#include' in l:
-            # includefile = re.sub('#include (.*[.].*$)', '\g<1>', l).strip()
             includefile = re.sub('#include ([\w,\s-]+\.[A-Za-z])', '\g<1>', l).strip()
-            content += getFileContent(fDir, includefile)
+            if os.path.isfile(os.path.join(fDir, includefile)):
+                content += getFileContent(fDir, includefile)
+            else:
+                content += l
         else:
             content += l
     return content
