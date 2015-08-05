@@ -116,11 +116,7 @@ qx.Class.define("webmln.Application",
                 width: 1200, height: 500
             });
             var html = new qx.ui.embed.Html("<div id='dia' style='width: 100%; height: 100%;'></div>");
-            //canvas.add(html);
-            //var canvas = new qx.ui.groupbox.GroupBox("Visualization");
-            //var vizLayout = new qx.ui.layout.Grow();
-            //canvas.setLayout(vizLayout);
-            var diaEmbedGrp = new qx.ui.groupbox.GroupBox("bla");
+            var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
             var diaLayout = new qx.ui.layout.Grow();
             diaEmbedGrp.setLayout(diaLayout);
             diaEmbedGrp.add(html);
@@ -142,43 +138,6 @@ qx.Class.define("webmln.Application",
             container.add(splitPane);
             outerContainer.add(splitPane);
             contentIsle.add(outerContainer, {width: "100%", height: "100%"});
-
-            /*
-            html.addListener("appear", function(e) {
-                var div = d3.select('#d3');
-                    var graph = div.append('svg:svg').attr('width', 400).attr('height', 400);
-
-                    var pathinfo = [{x:0, y:60},
-                                    {x:50, y:110},
-                                    {x:90, y:70},
-                                    {x:140, y:100}];
-
-                    var line = d3.svg.line()
-                                .x(function(d){return d.x;})
-                                .y(function(d){return d.y;})
-                                .interpolate('linear');
-
-                    graph.append('svg:path').attr('d', line(pathinfo))
-                            .style('stroke-width', 2)
-                            .style('stroke', 'steelblue')
-                            .style('fill', 'none');
-            });*/
-
-                //d3.json("resource/miserables1.json", function(error, graph) {
-                  /*
-                  var nody = new Object();
-                  nody.name = "Ford";
-                  nody.group = 1;
-                  var nody2 = new Object();
-                  nody2.name = "Opel";
-                  nody2.group = 1;
-                  var linky = new Object();
-                  linky.source = 0;
-                  linky.target = 1;
-                  linky.value = 1;
-                  var nodelist = [nody,nody2];
-                  var linklist = [linky];
-                  */
 
             var svg;
             var color;
@@ -270,488 +229,394 @@ qx.Class.define("webmln.Application",
                      .attr("font-size", "20px")
                      .style("text-anchor", "middle")
                      .text(function(d) { return d.name; });
-                /*
-                force.on("tick", function() {
-                     link.attr("x1", function(d) { return d.source.x; })
-                         .attr("y1", function(d) { return d.source.y; })
-                         .attr("x2", function(d) { return d.target.x; })
-                         .attr("y2", function(d) { return d.target.y; });
-
-                     node.attr("x", function(d) { return d.x-50; })
-                         .attr("y", function(d) { return d.y-25; });
-
-                     text.attr("x", function(d) { return d.x; })
-                         .attr("y", function(d) { return d.y; });
-                });*/
-            }/*
-            function d3Update() {
-                for (var i = 0; i < nodeList.length; i++) {
-                    nodeList[i].group = i;
-                }
-                if (!bogel) {
-                    var nody = new Object();
-                    nody.id = "5";
-                    nody.name = "Fisch";
-                    nody.group = 2;
-                    nodeList.push(nody);
-                    var linky = new Object();
-                    linky.prob = 0.5;
-                    linky.source = nodeList[1];
-                    linky.target = nody;
-                    linkList.push({prob: 0.5, source: 2, target: 5});
-                }
-
-                link = link.data(force.links(), function(d) { return d.source.id + "-" + d.target.id; });
-                        link.enter().insert("line", ".node").attr("class", "link")
-                            .style("stroke-width", function(d) { return Math.sqrt(d.value); });
-                        link.exit().remove();
-
-                node = node.data(force.nodes(), function(d) { return d.id;});
-                        node.enter().append("rect").attr("class", function(d) { return "node " + d.id; })
-                            .attr("width", 100)
-                            .attr("height", 50)
-                            .attr("rx", 5)
-                            .attr("ry", 5)
-                            .style("fill", function(d) { return color(d.group); })
-                            .call(force.drag);
-                        node.exit().remove();
-
-                text = text.data(force.nodes(), function(d) { return d.id;});
-                        text.enter().append("text").attr("class", "nodeLabel").text(function(d) { return d.name; });
-                        text.exit().remove();
-
-                textLabels = text
-                     .attr("x", function(d) { return d.x; })
-                     .attr("y", function(d) { return d.y; })
-                     .attr("font-size", "20px")
-                     .style("text-anchor", "middle");
-        //	         .text(function(d) { return d.name; });
-
-                prob = prob.data(force.links(), function(d) { return d.source.id + "-" + d.target.id; });
-                        prob.enter().append("text").attr("class", "edgeLabel").text(function(d) { return d.prob; });
-                        prob.exit().remove();
-
-                probLabels = prob
-                     .attr("x", function(d) { return 20; })
-                     .attr("y", function(d) { return 20; })
-                     .attr("font-size", "20px")
-                     .style("text-anchor", "middle");
-        //	         .text(function(d) { return d.prob; });
-    /*
-                text = svg.selectAll("text")
-                     .data(nodeList)
-                     .enter().append("text")
-                     .text(function(d) { return d.name; });
-
-                textLabels = text
-                     .attr("x", function(d) { return d.cx; })
-                     .attr("y", function(d) { return d.cy; })
-                     .attr("font-size", "20px")
-                     .style("text-anchor", "middle")
-                     .text(function(d) { return d.name; });*/
-    /*
-                force.start();
-                /*
-                force
-                    .nodes(nodeList)
-                    .links(linkList)
-                    .start();
-
-                link = link.selectAll("line")
-                    .data(linkList)
-                    .enter().append("line")
-                    .attr("class", "link")
-                    .style("stroke-width", function(d) { return Math.sqrt(d.value); });
-
-                //svg.selectAll(".node").data([]).exit().remove()
-
-                node = node.selectAll("rect")
-                    .data(nodeList)
-                    .enter().append("rect")
-                    .attr("class", "node")
-                    .attr("width", 100)
-                    .attr("height", 50)
-                    .attr("rx", 5)
-                    .attr("ry", 5)
-                    .style("fill", function(d) { return color(d.group); })
-                    .call(force.drag);*/
-
-                /*
-                node.append("title")
-                    .text(function(d) { return d.name; });
-
-                text = svg.selectAll("text")
-                     .data(nodeList)
-                     .enter().append("text")
-                     .text(function(d) { return d.name; });
-
-                textLabels = text
-                     .attr("x", function(d) { return d.cx; })
-                     .attr("y", function(d) { return d.cy; })
-                     .attr("font-size", "20px")
-                     .style("text-anchor", "middle")
-                     .text(function(d) { return d.name; });*/
-                /*
-                force.on("tick", function() {
-                     link.attr("x1", function(d) { return d.source.x; })
-                         .attr("y1", function(d) { return d.source.y; })
-                         .attr("x2", function(d) { return d.target.x; })
-                         .attr("y2", function(d) { return d.target.y; });
-
-                     node.attr("x", function(d) { return d.x-50; })
-                         .attr("y", function(d) { return d.y-25; });
-
-                     text.attr("x", function(d) { return d.x; })
-                         .attr("y", function(d) { return d.y; });
-                });*/
-     /*       }
-            function tick() {
-                    link.attr("x1", function(d) { return d.source.x; })
-                         .attr("y1", function(d) { return d.source.y; })
-                         .attr("x2", function(d) { return d.target.x; })
-                         .attr("y2", function(d) { return d.target.y; });
-
-                     node.attr("x", function(d) { return d.x-50; })
-                         .attr("y", function(d) { return d.y-25; });
-
-                     text.attr("x", function(d) { return d.x; })
-                         .attr("y", function(d) { return d.y; });
-
-                     prob.attr("x", function(d) { return d.x; })
-                         .attr("y", function(d) { return d.y; });
-            }*/
-            //graphVizContainer.add(canvas);
-
+            }
         },
 
+        /**
+        * Build the query mln form
+        */
         buildMLNForm : function() {
 
-        var check = false;
+            this.check = false;
+            var mlnFormContainerLayout = new qx.ui.layout.Grid();
+            this.__mlnFormContainerLayout = mlnFormContainerLayout;
+            mlnFormContainerLayout.setRowHeight(4, 200);
+            mlnFormContainerLayout.setRowHeight(12, 100);
+            var mlnFormContainer = new qx.ui.container.Composite(mlnFormContainerLayout).set({
+                    padding: 10
+            });
+            this.__mlnFormContainer = mlnFormContainer;
 
-        var mlnFormContainerLayout = new qx.ui.layout.Grid();
-        mlnFormContainerLayout.setRowHeight(4, 200);
-        mlnFormContainerLayout.setRowHeight(12, 100);
-
-        var mlnFormContainer = new qx.ui.container.Composite(mlnFormContainerLayout).set({
-                padding: 10
+            // labels
+            var exampleFolderLabel = new qx.ui.basic.Label().set({
+                value: this._template('Example:', 'label'),
+                rich : true
+            });
+            var grammarLabel = new qx.ui.basic.Label().set({
+                value: this._template('Grammar:', 'label'),
+                rich : true
+            });
+            var logicLabel = new qx.ui.basic.Label().set({
+                value: this._template('Logic:', 'label'),
+                rich : true
+            });
+            var mlnLabel = new qx.ui.basic.Label().set({
+                value: this._template('MLN:', 'label'),
+                rich : true
+            });
+            this.__emlnLabel = new qx.ui.basic.Label().set({
+                value: this._template('EMLN:', 'label'),
+                rich : true
+            });
+            var evidenceLabel = new qx.ui.basic.Label().set({
+                value: this._template('Evidence:', 'label'),
+                rich : true
+            });
+            var methodLabel = new qx.ui.basic.Label().set({
+                value: this._template('Method:', 'label'),
+                rich : true
+            });
+            var queriesLabel = new qx.ui.basic.Label().set({
+                value: this._template('Queries:', 'label'),
+                rich : true
+            });
+            var verboseStepsLabel = new qx.ui.basic.Label().set({
+                value: this._template('Verbose:', 'label'),
+                rich : true
+            });
+            var addParamsLabel = new qx.ui.basic.Label().set({
+                value: this._template('Params:', 'label'),
+                rich : true
+            });
+            var cwPredsLabel = new qx.ui.basic.Label().set({
+                value: this._template('CW Preds:', 'label'),
+                rich : true
+            });
+            var outputLabel = new qx.ui.basic.Label().set({
+                value: this._template('Output:', 'label'),
+                rich : true
             });
 
-            var grammarLabel = new qx.ui.basic.Label("Grammar");
-            var logicLabel = new qx.ui.basic.Label("Logic");
-            var mlnLabel = new qx.ui.basic.Label("MLN");
-            var exampleFolderLabel = new qx.ui.basic.Label("Example");
-            var evidenceLabel = new qx.ui.basic.Label("Evidence");
-            var methodLabel = new qx.ui.basic.Label("Method");
-            var queriesLabel = new qx.ui.basic.Label("Queries");
-            var verboseStepsLabel = new qx.ui.basic.Label("Verbose");
-            var addParamsLabel = new qx.ui.basic.Label("Add. params");
-            var cwPredsLabel = new qx.ui.basic.Label("CW preds");
-            var outputLabel = new qx.ui.basic.Label("Output");
+            // widgets
+            this.__selectExampleFolder = new qx.ui.form.SelectBox();
+            this.__selectGrammar = new qx.ui.form.SelectBox();
+            this.__selectLogic = new qx.ui.form.SelectBox();
+            this.__selectMLN = new qx.ui.form.SelectBox();
+            this.__folderButton = new com.zenesis.qx.upload.UploadButton("Load File");
+            this.__uploader = new com.zenesis.qx.upload.UploadMgr(this.__folderButton, "/mln/upload");
+                this.__uploader.setAutoUpload(false);
+            this.__textFieldNameMLN = new qx.ui.form.TextField("");
+                this.__textFieldNameMLN.setEnabled(false);
+            this.__buttonSaveMLN = new qx.ui.form.Button("save", null);
+            this.__checkBoxRenameEditMLN = new qx.ui.form.CheckBox("rename on edit");
+            this.__textAreaMLN = new qx.ui.form.TextArea("");
+            this.__checkBoxUseModelExt = new qx.ui.form.CheckBox("use model extension");
+            this.__selectEMLN = new qx.ui.form.SelectBox();
+            this.__buttonSaveEMLN = new qx.ui.form.Button("save",null);
+            this.__checkBoxRenameEditEMLN = new qx.ui.form.CheckBox("rename on edit");
+            this.__textFieldNameEMLN = new qx.ui.form.TextField("");
+            this.__textAreaEMLN = new qx.ui.form.TextArea("");
+            this.__selectEvidence = new qx.ui.form.SelectBox();
+            this.__buttonSaveEvidence = new qx.ui.form.Button("save", null);
+            this.__checkBoxRenameEditEvidence = new qx.ui.form.CheckBox("rename on edit");
+            this.__textFieldDB = new qx.ui.form.TextField("");
+            this.__textAreaEvidence = new qx.ui.form.TextArea("");
+            this.__selectMethod = new qx.ui.form.SelectBox();
+            this.__textFieldQueries = new qx.ui.form.TextField("");
+            this.__textFieldVerbose = new qx.ui.form.TextField("");
+            this.__textFieldCWPreds = new qx.ui.form.TextField("");
+            this.__checkBoxApplyCWOption = new qx.ui.form.CheckBox("Apply CW assumption to all but the query preds");
+            this.__textFieldAddParams = new qx.ui.form.TextField("");
+            this.__textFieldOutput = new qx.ui.form.TextField("");
+                this.__textFieldOutput.setValue("smoking-test-smoking.results");
+            this.__checkBoxSaveOutput = new qx.ui.form.CheckBox("save");
+            this.__checkBoxUseAllCPU = new qx.ui.form.CheckBox("Use all CPUs");
+            this.__checkBoxIgnoreUnknown = new qx.ui.form.CheckBox("Ignore Unknown Predicates");
+            this.__buttonStart = new qx.ui.form.Button("Start Inference", null);
 
-            var buttonStart = new qx.ui.form.Button(">>Start Inference<<", null);
-            var buttonSaveMLN = new qx.ui.form.Button("save", null);
-            var buttonSaveEvidence = new qx.ui.form.Button("save", null);
-            var buttonSaveEMLN = new qx.ui.form.Button("save",null);
+            // add static listitems
+            this.__selectGrammar.add(new qx.ui.form.ListItem("StandardGrammar"));
+            this.__selectGrammar.add(new qx.ui.form.ListItem("PRACGrammar"));
+            this.__selectLogic.add(new qx.ui.form.ListItem("FirstOrderLogic"));
+            this.__selectLogic.add(new qx.ui.form.ListItem("FuzzyLogic"));
 
-            var selectGrammar = new qx.ui.form.SelectBox();
-            var selectLogic = new qx.ui.form.SelectBox();
-            var selectMLN = new qx.ui.form.SelectBox();
-            var selectExampleFolder = new qx.ui.form.SelectBox();
-            this.__selectExampleFolder = selectExampleFolder;
-            var selectEMLN = new qx.ui.form.SelectBox();
-            var selectEvidence = new qx.ui.form.SelectBox();
-            var selectMethod = new qx.ui.form.SelectBox();
+            // listeners
+            this.__buttonStart.addListener("execute", this._start_inference, this);
+            this.__checkBoxUseModelExt.addListener("changeValue", this._showModelExtension, this);
+            this.__selectMLN.addListener("changeSelection", this._update_mln_text, this);
+            this.__selectExampleFolder.addListener("changeSelection", this._change_example ,this);
+            this.__selectEvidence.addListener("changeSelection", this._update_evidence_text, this);
+            this.__uploader.addListener("addFile", this._upload, this);
 
-            var textAreaMLN = new qx.ui.form.TextArea("");
-            this.__textAreaMLN = textAreaMLN;
-            var textAreaEMLN = new qx.ui.form.TextArea("");
-            var textAreaEvidence = new qx.ui.form.TextArea("");
-            this.__textAreaEvidence = textAreaEvidence;
+            // add widgets to form
+            this.__mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
+            this.__mlnFormContainer.add(grammarLabel, {row: 1, column: 0});
+            this.__mlnFormContainer.add(logicLabel, {row: 2, column: 0});
+            this.__mlnFormContainer.add(mlnLabel, {row: 3, column: 0});
+            this.__mlnFormContainer.add(evidenceLabel, {row: 11, column: 0});
+            this.__mlnFormContainer.add(methodLabel, {row: 15, column: 0});
+            this.__mlnFormContainer.add(queriesLabel, {row: 16, column: 0});
+            this.__mlnFormContainer.add(verboseStepsLabel, {row: 17, column: 0});
+            this.__mlnFormContainer.add(addParamsLabel, {row: 19, column: 0});
+            this.__mlnFormContainer.add(cwPredsLabel, {row: 20, column: 0});
+            this.__mlnFormContainer.add(outputLabel, {row: 21, column: 0});
 
-            var textFieldNameMLN = new qx.ui.form.TextField("");
-            textFieldNameMLN.setEnabled(false);
-            var textFieldNameEMLN = new qx.ui.form.TextField("");
-            var textFieldCWPreds = new qx.ui.form.TextField("");
-            var textFieldOutput = new qx.ui.form.TextField("");
-            var textFieldDB = new qx.ui.form.TextField("");
-            var textFieldQueries = new qx.ui.form.TextField("");
-            var textFieldVerbose = new qx.ui.form.TextField("");
-            var textFieldAddParams = new qx.ui.form.TextField("");
+            this.__mlnFormContainer.add(this.__selectExampleFolder, {row: 0, column: 1, colSpan: 3});
+            this.__mlnFormContainer.add(this.__selectGrammar, {row: 1, column: 1, colSpan: 3});
+            this.__mlnFormContainer.add(this.__selectLogic, {row: 2, column: 1, colSpan: 3});
+            this.__mlnFormContainer.add(this.__selectMLN, {row: 3, column: 1, colSpan: 2});
+            this.__mlnFormContainer.add(this.__folderButton, {row: 3, column: 3});
+            this.__mlnFormContainer.add(this.__textAreaMLN, {row: 4, column: 1, colSpan: 3});
+//            this.__mlnFormContainer.add(this.__checkBoxRenameEditMLN, {row: 5, column: 1});
+            this.__mlnFormContainer.add(this.__checkBoxUseModelExt, {row: 5, column: 1});
+//            this.__mlnFormContainer.add(this.__textFieldNameMLN, {row: 6, column: 1, colSpan: 2});
+//            this.__mlnFormContainer.add(this.__buttonSaveMLN, {row: 6, column: 3});
 
-            var checkBoxRenameEditMLN = new qx.ui.form.CheckBox("rename on edit");
-            var checkBoxRenameEditEvidence = new qx.ui.form.CheckBox("rename on edit");
-            var checkBoxRenameEditEMLN = new qx.ui.form.CheckBox("rename on edit");
-            var checkBoxUseModelExt = new qx.ui.form.CheckBox("use model extension");
-            var checkBoxApplyCWOption = new qx.ui.form.CheckBox("Apply CW assumption to all but the query preds");
-            var checkBoxUseAllCPU = new qx.ui.form.CheckBox("Use all CPUs");
-            var checkBoxIgnoreUnknown = new qx.ui.form.CheckBox("Ignore Unknown Predicates");
-            var checkBoxSaveOutput = new qx.ui.form.CheckBox("save");
+            this.__mlnFormContainer.add(this.__selectEvidence, {row: 11, column: 1, colSpan: 3});
+//            this.__mlnFormContainer.add(this.__buttonSaveEvidence, {row: 11, column: 3});
+            this.__mlnFormContainer.add(this.__textAreaEvidence, {row: 12, column: 1, colSpan: 3});
+//            this.__mlnFormContainer.add(this.__checkBoxRenameEditEvidence, {row: 13, column: 1});
+//            this.__mlnFormContainer.add(this.__textFieldDB, {row: 14, column: 1, colSpan: 3});
+            this.__mlnFormContainer.add(this.__selectMethod, {row: 15, column: 1, colSpan: 3});
+            this.__mlnFormContainer.add(this.__textFieldQueries, {row: 16, column: 1, colSpan: 3});
+            this.__mlnFormContainer.add(this.__textFieldVerbose, {row: 17, column: 1, colSpan: 3});
+            this.__mlnFormContainer.add(this.__textFieldAddParams, {row: 19, column: 1, colSpan: 3});
+            this.__mlnFormContainer.add(this.__textFieldCWPreds, {row: 20, column: 1, colSpan: 2});
+            this.__mlnFormContainer.add(this.__checkBoxApplyCWOption, {row: 20, column: 3});
+            this.__mlnFormContainer.add(this.__textFieldOutput, {row: 21, column: 1, colSpan: 2});
+            this.__mlnFormContainer.add(this.__checkBoxSaveOutput, {row: 21, column: 3});
+            this.__mlnFormContainer.add(this.__checkBoxUseAllCPU, {row: 22, column: 1});
+            this.__mlnFormContainer.add(this.__checkBoxIgnoreUnknown, {row: 22, column: 2});
+            this.__mlnFormContainer.add(this.__buttonStart, {row: 23, column: 1, colSpan: 3});
+            this._init();
 
-            textFieldOutput.setValue("smoking-test-smoking.results");
-            buttonStart.addListener("execute",function(e) {
-                                var that = this;
+            return mlnFormContainer;
+        },
 
-                                //req = new qx.io.remote.Request("/_start_inference", "GET", "text/plain");
-                                req = new qx.io.request.Xhr("/mln/_start_inference", "POST");
-                                var mln = (selectMLN.getSelectables().length != 0) ? selectMLN.getSelection()[0].getLabel() : "";
-                                var emln = (selectEMLN.getSelectables().length != 0) ? selectEMLN.getSelection()[0].getLabel() : "";
-                                var db = (selectEvidence.getSelectables().length != 0) ? selectEvidence.getSelection()[0].getLabel() : "";
-                                var method = (selectMethod.getSelectables().length != 0) ? selectMethod.getSelection()[0].getLabel() : "";
-                                var logic = (selectLogic.getSelectables().length != 0) ? selectLogic.getSelection()[0].getLabel() : "";
-                                var grammar = (selectGrammar.getSelectables().length != 0) ? selectGrammar.getSelection()[0].getLabel() : "";
-                                req.setRequestHeader("Content-Type", "application/json");
-                                req.setRequestData({"mln":mln,"emln":emln,
-                                                    "db":db,"method":method,
-                                                    "logic":logic,"grammar":grammar,
-                                                    "mln_text":textAreaMLN.getValue(),
-                                                    "emln_text":textAreaEMLN.getValue(),
-                                                    "db_text":textAreaEvidence.getValue(),
-                                                    "output":textFieldOutput.getValue(),
-                                                    "params":textFieldAddParams.getValue(),
-                                                    "mln_rename_on_edit":checkBoxRenameEditMLN.getValue(),
-                                                    "db_rename_on_edit":checkBoxRenameEditEvidence.getValue(),
-                                                    "query":textFieldQueries.getValue(),
-                                                    "closed_world":checkBoxApplyCWOption.getValue(),
-                                                    "cw_preds":textFieldCWPreds.getValue(),
-                                                    "use_emln":checkBoxUseModelExt.getValue(),
-                                                    "verbose":textFieldVerbose.getValue(),
-                                                    "ignore_unknown_preds":checkBoxIgnoreUnknown.getValue(),
-                                                    "save_results":checkBoxSaveOutput.getValue(),
-                                                    "use_multicpu":checkBoxUseAllCPU.getValue()});
-                                req.addListener("success", function(e) {
-                                        var tar = e.getTarget();
-                                        //response = e.getContent();
-                                        response = tar.getResponse();
+        /**
+        * Update fields when changing the example folder
+        */
+        _change_example : function(e){
+            var exampleFolder = e.getData()[0].getLabel();
+            req = new qx.io.request.Xhr("/mln/_change_example", "POST");
+            req.setRequestHeader("Content-Type", "application/json");
+            req.setRequestData({"folder": exampleFolder});
+            req.addListener("success", function(e) {
+                var tar = e.getTarget();
+                response = tar.getResponse();
 
-                                        var atoms = response.atoms;
-                                        var formulas = response.formulas;
-                                        var keys = response.resultkeys;
-                                        var values = response.resultvalues;
-                                        var resultsMap = new Object();
-                                        for (var i = 0; i < keys.length; i++) {
-                                                resultsMap[keys[i]] = values[i];
-                                        }
-                                        var output = response.output;
-                                        var formulaAtoms = [];
-                                        for (var i = 0; i < formulas.length; i++) {
-                                            formulaAtoms[i] = [];
-                                            for (var j = 0; j < atoms.length; j++) {
-                                                if (formulas[i].indexOf(atoms[j]) > -1 && (formulaAtoms[i].indexOf(atoms[j]) == -1)) {
-                                                    formulaAtoms[i].push(atoms[j]);
-                                                }
-                                            }
-                                        }
-                                        var duplicates = [];
-                                        var splitAtoms = [];
-                                        for (var i = 0; i < atoms.length; i++) {
-                                            splitAtoms[i] = [];
-                                            splitAtoms[i][0] = atoms[i].split("(")[0];
-                                            splitAtoms[i][1] = atoms[i].slice(atoms[i].indexOf("(")+1,atoms[i].indexOf(")")).split(",").sort();
-                                        }
-                                        for (var i = 0; i < splitAtoms.length; i++) {
-                                            var skip = false;
-                                            for (var j = 0; j < splitAtoms[i][1].length; j++) {
-                                                for (var k = 0; k < splitAtoms[i][1].length; k++) {
-                                                    if (j >= k) continue;
-                                                    if (splitAtoms[i][1][j] == splitAtoms[i][1][k]) {
-                                                        duplicates.push(atoms[i]);
-                                                        skip = true;
-                                                        break;
-                                                    }
-                                                }
-                                                if (skip) break;
-                                            }
-                                            for (var j = 0; j < splitAtoms.length; j++) {
-                                                if (i >= j) continue;
+                this.__selectMLN.removeAll();
+                for (var i = 0; i < response.mlns.length; i++) {
+                    this.__selectMLN.add(new qx.ui.form.ListItem(response.mlns[i]));
+                }
 
-                                                if (splitAtoms[i][0] == splitAtoms[j][0] && splitAtoms[i][1].join(",") == splitAtoms[j][1].join(",")) {
-                                                    duplicates.push(atoms[i]);
-                                                }
-                                            }
-                                        }
-                                        var hasDuplicates = []
-                                        for (var i = 0; i < formulaAtoms.length; i++) {
-                                            hasDuplicates[i] = false;
-                                            for (var j = 0; j < duplicates.length; j++) {
-                                                 if (formulaAtoms[i].indexOf(duplicates[j]) > -1) {
-                                                      hasDuplicates[i] = true;
-                                                      break;
-                                                 }
-                                            }
-                                        }
-
-                                        that.loadGraph();
-                                        var addList = [];
-                                        var checkList;
-                                        var link;
-
-                                        for (var i = 0; i < formulaAtoms.length; i++) {
-                                            if (hasDuplicates[i]) continue;
-                                            checkList = [];
-                                            for (var j = 0; j < formulaAtoms[i].length; j++) {
-                                                checkList[j] = [];
-                                                for (var k = 0; k < formulaAtoms[i].length; k++) {
-                                                    if (j != k) {
-                                                        if (j > k && checkList[k].indexOf(j) > -1) {
-                                                            continue;
-                                                        }
-                                                        checkList[j].push(k);
-                                                        link = new Object();
-                                                        link.source = formulaAtoms[i][j];
-                                                        link.target = formulaAtoms[i][k];
-                                                        link.value = formulas[i];
-                                                        link.arcStyle = "strokegreen";
-                                                        addList.push(link);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        that.updateGraph([],addList);
-                                        if (check) {
-                                            that.updateBarChart(resultsMap);
-                                        } else {
-                                            check = true;
-                                            that.d3BarChart(resultsMap);
-                                        }
-                                        //that.updateGraph([],addList);
-                                        //labelResults.setValue(response);
-
-                                        that.__textAreaResults.setValue(output);
-                                        that.__textAreaResults.getContentElement().scrollToY(10000);
-
-                                });
-                                req.send();
-
+                this.__selectEvidence.removeAll();
+                for (var z = 0; z < response.dbs.length; z++) {
+                    this.__selectEvidence.add(new qx.ui.form.ListItem(response.dbs[z]));
+                }
             }, this);
-            buttonSaveMLN.addListener("execute",function(e){
-                                //req = new qx.io.remote.Request("/mln/_test",
-    //						    "GET", "text/plain");
-                                //req.addListener("completed", function(e) {
-                                //		alert(e.getContent());
-                                //});
-                                //req.send();
+            req.send();
+        },
 
-            });
+        /**
+        * Show or hide fields for the mln model extension
+        */
+        _showModelExtension : function(e) {
+            if (e.getData()) {
+                this.__mlnFormContainer.add(this.__emlnLabel, {row: 7, column: 0});
+                this.__mlnFormContainer.add(this.__selectEMLN, {row: 7, column: 1, colSpan: 3});
+//                    this.__mlnFormContainer.add(this.__buttonSaveEMLN, {row: 7, column: 3});
+                this.__mlnFormContainer.add(this.__textAreaEMLN, {row: 8, column: 1, colSpan: 3});
+//                    this.__mlnFormContainer.add(this.__checkBoxRenameEditEMLN, {row: 9, column: 1});
+//                    this.__mlnFormContainer.add(this.__textFieldNameEMLN, {row: 10, column: 1, colSpan: 3});
+                this.__mlnFormContainerLayout.setRowFlex(8, 1);
 
-            checkBoxUseModelExt.addListener("changeValue",function(e) {
-                                        if (Boolean(checkBoxUseModelExt.getValue())) {
-                                            mlnFormContainer.add(selectEMLN, {row: 7, column: 1, colSpan: 2});
-                                            mlnFormContainer.add(buttonSaveEMLN, {row: 7, column: 3});
-                                            mlnFormContainer.add(textAreaEMLN, {row: 8, column: 1, colSpan: 3});
-                                            mlnFormContainer.add(checkBoxRenameEditEMLN, {row: 9, column: 1});
-                                            mlnFormContainer.add(textFieldNameEMLN, {row: 10, column: 1, colSpan: 3});
-                                            mlnFormContainerLayout.setRowFlex(8, 1);
-                                            req = new qx.io.request.Xhr
-                                            ("/mln/_use_model_ext", "GET");
-                                            req.addListener("success", function(e) {
-                                                var tar = e.getTarget();
-                                                response = tar.getResponse().split(",");
-                                                //response = e.getContent().split(",");
-                                                for (var i = 0; i < response.length; i++) {
-                                                    selectEMLN.add(new qx.ui.form.ListItem(response[i]));
-                                                }
-                                            });
-                                            req.send();
-                                        } else {
-                                            mlnFormContainer.remove(selectEMLN);
-                                            mlnFormContainer.remove(buttonSaveEMLN);
-                                            mlnFormContainer.remove(textAreaEMLN);
-                                            mlnFormContainer.remove(checkBoxRenameEditEMLN);
-                                            mlnFormContainer.remove(textFieldNameEMLN);
-                                            mlnFormContainerLayout.setRowFlex(8, 0);
-                                            selectEMLN.removeAll();
-                                            textAreaEMLN.setValue("");
-                                            checkBoxRenameEditEMLN.setValue(Boolean(false));
-                                            textFieldNameEMLN.setValue("");
-                                        }
-                                    });
-            selectMLN.addListener("changeSelection", this._update_mln_text, this);
+                var req = new qx.io.request.Xhr("/mln/_use_model_ext", "GET");
+                req.addListener("success", function(e) {
+                    var tar = e.getTarget();
+                    var that = this;
+                    response = tar.getResponse().split(",");
+                    for (var i = 0; i < response.length; i++) {
+                        that.__selectEMLN.add(new qx.ui.form.ListItem(response[i]));
+                    }
+                }, this);
+                req.send();
+            } else {
+                this.__mlnFormContainer.remove(this.__emlnLabel);
+                this.__mlnFormContainer.remove(this.__selectEMLN);
+//                    this.__mlnFormContainer.remove(this.__buttonSaveEMLN);
+                this.__mlnFormContainer.remove(this.__textAreaEMLN);
+//                    this.__mlnFormContainer.remove(this.__checkBoxRenameEditEMLN);
+//                    this.__mlnFormContainer.remove(this.__textFieldNameEMLN);
+                this.__mlnFormContainerLayout.setRowFlex(8, 0);
+                this.__selectEMLN.removeAll();
+                this.__textAreaEMLN.setValue("");
+                this.__checkBoxRenameEditEMLN.setValue(false);
+                this.__textFieldNameEMLN.setValue("");
+            }
+        },
 
-            selectExampleFolder.addListener("changeSelection",function(e){
-                    var exampleFolder = e.getData()[0].getLabel();
-                    req = new qx.io.request.Xhr("/mln/_change_example", "POST");
-                    req.setRequestHeader("Content-Type", "application/json");
-                    req.setRequestData({"folder": exampleFolder});
-                    req.addListener("success", function(e) {
+        /**
+        * Uploads a file to server and sets its content in the respective textarea
+        */
+        _upload : function(evt) {
+            var file = evt.getData();
+            var fileName = file.getFilename();
+            console.log('uploaded', fileName);
+//            var progressListenerId = file.addListener("changeProgress", function(evt) {
+//                console.log("Upload " + file.getFilename() + ": " +
+//                    evt.getData() + " / " + file.getSize() + " - " +
+//                    Math.round(evt.getData() / file.getSize() * 100) + "%");
+//            }, this);
+        },
+
+        /**
+        * Start the inference process
+        */
+        _start_inference : function(e) {
+                var that = this;
+
+                var mln = (this.__selectMLN.getSelectables().length != 0) ? this.__selectMLN.getSelection()[0].getLabel() : "";
+                var emln = (this.__selectEMLN.getSelectables().length != 0) ? this.__selectEMLN.getSelection()[0].getLabel() : "";
+                var db = (this.__selectEvidence.getSelectables().length != 0) ? this.__selectEvidence.getSelection()[0].getLabel() : "";
+                var method = (this.__selectMethod.getSelectables().length != 0) ? this.__selectMethod.getSelection()[0].getLabel() : "";
+                var logic = (this.__selectLogic.getSelectables().length != 0) ? this.__selectLogic.getSelection()[0].getLabel() : "";
+                var grammar = (this.__selectGrammar.getSelectables().length != 0) ? this.__selectGrammar.getSelection()[0].getLabel() : "";
+
+                req = new qx.io.request.Xhr("/mln/_start_inference", "POST");
+                req.setRequestHeader("Content-Type", "application/json");
+                req.setRequestData({"mln": mln,
+                                    "emln": emln,
+                                    "db": db,
+                                    "method": method,
+                                    "logic":logic,
+                                    "grammar":grammar,
+                                    "mln_text":this.__textAreaMLN.getValue(),
+                                    "emln_text":this.__textAreaEMLN.getValue(),
+                                    "db_text":this.__textAreaEvidence.getValue(),
+                                    "output":this.__textFieldOutput.getValue(),
+                                    "params":this.__textFieldAddParams.getValue(),
+                                    "mln_rename_on_edit":this.__checkBoxRenameEditMLN.getValue(),
+                                    "db_rename_on_edit":this.__checkBoxRenameEditEvidence.getValue(),
+                                    "query":this.__textFieldQueries.getValue(),
+                                    "closed_world":this.__checkBoxApplyCWOption.getValue(),
+                                    "cw_preds":this.__textFieldCWPreds.getValue(),
+                                    "use_emln":this.__checkBoxUseModelExt.getValue(),
+                                    "verbose":this.__textFieldVerbose.getValue(),
+                                    "ignore_unknown_preds":this.__checkBoxIgnoreUnknown.getValue(),
+                                    "save_results":this.__checkBoxSaveOutput.getValue(),
+                                    "use_multicpu":this.__checkBoxUseAllCPU.getValue()});
+                req.addListener("success", function(e) {
+                        var that = this;
                         var tar = e.getTarget();
                         response = tar.getResponse();
 
-                        selectMLN.removeAll();
-                        for (var i = 0; i < response.mlns.length; i++) {
-                            selectMLN.add(new qx.ui.form.ListItem(response.mlns[i]));
+                        var atoms = response.atoms;
+                        var formulas = response.formulas;
+                        var keys = response.resultkeys;
+                        var values = response.resultvalues;
+                        var resultsMap = new Object();
+                        for (var i = 0; i < keys.length; i++) {
+                                resultsMap[keys[i]] = values[i];
+                        }
+                        var output = response.output;
+                        var formulaAtoms = [];
+                        for (var i = 0; i < formulas.length; i++) {
+                            formulaAtoms[i] = [];
+                            for (var j = 0; j < atoms.length; j++) {
+                                if (formulas[i].indexOf(atoms[j]) > -1 && (formulaAtoms[i].indexOf(atoms[j]) == -1)) {
+                                    formulaAtoms[i].push(atoms[j]);
+                                }
+                            }
+                        }
+                        var duplicates = [];
+                        var splitAtoms = [];
+                        for (var i = 0; i < atoms.length; i++) {
+                            splitAtoms[i] = [];
+                            splitAtoms[i][0] = atoms[i].split("(")[0];
+                            splitAtoms[i][1] = atoms[i].slice(atoms[i].indexOf("(")+1,atoms[i].indexOf(")")).split(",").sort();
+                        }
+                        for (var i = 0; i < splitAtoms.length; i++) {
+                            var skip = false;
+                            for (var j = 0; j < splitAtoms[i][1].length; j++) {
+                                for (var k = 0; k < splitAtoms[i][1].length; k++) {
+                                    if (j >= k) continue;
+                                    if (splitAtoms[i][1][j] == splitAtoms[i][1][k]) {
+                                        duplicates.push(atoms[i]);
+                                        skip = true;
+                                        break;
+                                    }
+                                }
+                                if (skip) break;
+                            }
+                            for (var j = 0; j < splitAtoms.length; j++) {
+                                if (i >= j) continue;
+
+                                if (splitAtoms[i][0] == splitAtoms[j][0] && splitAtoms[i][1].join(",") == splitAtoms[j][1].join(",")) {
+                                    duplicates.push(atoms[i]);
+                                }
+                            }
+                        }
+                        var hasDuplicates = []
+                        for (var i = 0; i < formulaAtoms.length; i++) {
+                            hasDuplicates[i] = false;
+                            for (var j = 0; j < duplicates.length; j++) {
+                                 if (formulaAtoms[i].indexOf(duplicates[j]) > -1) {
+                                      hasDuplicates[i] = true;
+                                      break;
+                                 }
+                            }
                         }
 
-                        selectEvidence.removeAll();
-                        for (var z = 0; z < response.dbs.length; z++) {
-                            selectEvidence.add(new qx.ui.form.ListItem(response.dbs[z]));
+                        that.loadGraph();
+                        var addList = [];
+                        var checkList;
+                        var link;
+
+                        for (var i = 0; i < formulaAtoms.length; i++) {
+                            if (hasDuplicates[i]) continue;
+                            checkList = [];
+                            for (var j = 0; j < formulaAtoms[i].length; j++) {
+                                checkList[j] = [];
+                                for (var k = 0; k < formulaAtoms[i].length; k++) {
+                                    if (j != k) {
+                                        if (j > k && checkList[k].indexOf(j) > -1) {
+                                            continue;
+                                        }
+                                        checkList[j].push(k);
+                                        link = new Object();
+                                        link.source = formulaAtoms[i][j];
+                                        link.target = formulaAtoms[i][k];
+                                        link.value = formulas[i];
+                                        link.arcStyle = "strokegreen";
+                                        addList.push(link);
+                                    }
+                                }
+                            }
                         }
-                    }, this);
-                    req.send();
-            }, this);
+                        that.updateGraph([],addList);
+                        if (that.check) {
+                            that.updateBarChart(resultsMap);
+                        } else {
+                            that.check = true;
+                            that.d3BarChart(resultsMap);
+                        }
+                        //that.updateGraph([],addList);
+                        //labelResults.setValue(response);
 
-            selectEvidence.addListener("changeSelection", this._update_evidence_text, this);
-            selectGrammar.add(new qx.ui.form.ListItem("StandardGrammar"));
-            selectGrammar.add(new qx.ui.form.ListItem("PRACGrammar"));
-            selectLogic.add(new qx.ui.form.ListItem("FirstOrderLogic"));
-            selectLogic.add(new qx.ui.form.ListItem("FuzzyLogic"));
+                        that.__textAreaResults.setValue(output);
+                        that.__textAreaResults.getContentElement().scrollToY(10000);
 
-            mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
-            mlnFormContainer.add(grammarLabel, {row: 1, column: 0});
-            mlnFormContainer.add(logicLabel, {row: 2, column: 0});
-            mlnFormContainer.add(mlnLabel, {row: 3, column: 0});
-            mlnFormContainer.add(evidenceLabel, {row: 11, column: 0});
-            mlnFormContainer.add(methodLabel, {row: 15, column: 0});
-            mlnFormContainer.add(queriesLabel, {row: 16, column: 0});
-            mlnFormContainer.add(addParamsLabel, {row: 19, column: 0});
-            mlnFormContainer.add(cwPredsLabel, {row: 20, column: 0});
-            mlnFormContainer.add(outputLabel, {row: 21, column: 0});
-
-            mlnFormContainer.add(selectExampleFolder, {row: 0, column: 1, colSpan: 3});
-            mlnFormContainer.add(selectGrammar, {row: 1, column: 1, colSpan: 3});
-            mlnFormContainer.add(selectLogic, {row: 2, column: 1, colSpan: 3});
-            mlnFormContainer.add(selectEvidence, {row: 11, column: 1, colSpan: 2});
-            mlnFormContainer.add(selectMethod, {row: 15, column: 1, colSpan: 3});
-            mlnFormContainer.add(buttonStart, {row: 23, column: 1, colSpan: 3});
-
-            var folderButton = new com.zenesis.qx.upload.UploadButton("Load File");
-            var uploader = new com.zenesis.qx.upload.UploadMgr(folderButton, "/demoupload");
-            uploader.setAutoUpload(false);
-
-            uploader.addListener("addFile", function(evt) {
-                var file = evt.getData();
-                var fileName = file.getFilename();
-//                var progressListenerId = file.addListener("changeProgress", function(evt) {
-//                    console.log("Upload " + file.getFilename() + ": " +
-//                        evt.getData() + " / " + file.getSize() + " - " +
-//                        Math.round(evt.getData() / file.getSize() * 100) + "%");
-//                }, this);
-            }, this);
-
-            mlnFormContainer.add(selectMLN, {row: 3, column: 1, colSpan: 2});
-            mlnFormContainer.add(folderButton, {row: 3, column: 3});
-            mlnFormContainer.add(buttonSaveEvidence, {row: 11, column: 3});
-
-            mlnFormContainer.add(textAreaMLN, {row: 4, column: 1, colSpan: 3});
-            mlnFormContainer.add(textAreaEvidence, {row: 12, column: 1, colSpan: 3});
-            mlnFormContainer.add(textFieldNameMLN, {row: 6, column: 1, colSpan: 2});
-            mlnFormContainer.add(buttonSaveMLN, {row: 6, column: 3});
-            mlnFormContainer.add(textFieldDB, {row: 14, column: 1, colSpan: 3});
-            mlnFormContainer.add(textFieldQueries, {row: 16, column: 1, colSpan: 3});
-            mlnFormContainer.add(textFieldVerbose, {row: 17, column: 1, colSpan: 3});
-            mlnFormContainer.add(textFieldAddParams, {row: 19, column: 1, colSpan: 3});
-            mlnFormContainer.add(textFieldOutput, {row: 21, column: 1, colSpan: 2});
-
-            mlnFormContainer.add(checkBoxRenameEditMLN, {row: 5, column: 1});
-            mlnFormContainer.add(checkBoxUseModelExt, {row: 5, column: 3});
-            mlnFormContainer.add(checkBoxRenameEditEvidence, {row: 13, column: 1});
-            mlnFormContainer.add(textFieldCWPreds, {row: 20, column: 1, colSpan: 2});
-            mlnFormContainer.add(checkBoxApplyCWOption, {row: 20, column: 3});
-            mlnFormContainer.add(checkBoxUseAllCPU, {row: 22, column: 1});
-            mlnFormContainer.add(checkBoxIgnoreUnknown, {row: 22, column: 2});
-            mlnFormContainer.add(checkBoxSaveOutput, {row: 21, column: 3});
+                }, this);
+                req.send();
+        },
 
 
-            //Fetch options to choose from
+        /**
+        * Fetch options to choose from
+        */
+        _init : function() {
+            console.log('init');
             req = new qx.io.request.Xhr("/mln/_init", "GET");
             req.addListener("success", function(e) {
                     var tar = e.getTarget();
@@ -760,26 +625,41 @@ qx.Class.define("webmln.Application",
                          this.__selectExampleFolder.add(new qx.ui.form.ListItem(response.examples[i]));
                     }
 
-                    textFieldQueries.setValue(response.queries);
+                    this.__textFieldQueries.setValue(response.queries);
 
                     var arr = ['files', 'infMethods', 'dbs'];
                     for (var x = 0; x < arr.length; x++) {
                         for (var i = 0; i < response[arr[x]].length; i++) {
-                            (arr[x] == 'files' ? selectMLN : arr[x] ==
-                             'infMethods' ? selectMethod :
-                             selectEvidence).add(new qx.ui.form.ListItem(response[arr[x]][i]));
+                            (arr[x] == 'files' ? this.__selectMLN : arr[x] ==
+                             'infMethods' ? this.__selectMethod :
+                             this.__selectEvidence).add(new qx.ui.form.ListItem(response[arr[x]][i]));
                         }
                     }
             }, this);
             req.send();
-
-            return mlnFormContainer;
         },
 
+        /**
+        * formatting template for inf settings labels and text
+        */
+        _template : function(val, type) {
+        if (type === 'label')
+            return '<span style="font-size:13px; font-weight:bold">' + val + '</span>'
+        else
+            return '<b>' + val + '</b>';
+        },
+
+
+        /**
+        * trigger graph update
+        */
         updateGraph : function(removeLinks, addLinks) {
           this._graph.updateData(removeLinks, addLinks);
         },
 
+        /**
+        * Creates new instance of graph if not existent, otherwise resets it
+        */
         loadGraph : function() {
           if (typeof this._graph === 'undefined') {
             this._graph = new webmln.Graph();
@@ -787,6 +667,11 @@ qx.Class.define("webmln.Application",
           this._graph.clear();
         },
 
+        /**
+        * Creates new lists of links to be removed and added for redrawing graph
+        * this is only needed for a visible redrawing. To directly update graph,
+        * use replaceData function in graph.
+        */
         _calculateRedrawing : function(oldRes, newRes) {
           var toBeRemoved = [];
           var toBeAdded = [];
@@ -826,7 +711,9 @@ qx.Class.define("webmln.Application",
           return [toBeRemoved, toBeAdded];
         },
 
-
+        /**
+        * Update mln text field
+        */
         _update_mln_text : function(e) {
             if (e.getData().length > 0) {
                 var selection = e.getData()[0].getLabel();
@@ -836,6 +723,9 @@ qx.Class.define("webmln.Application",
             }
         },
 
+        /**
+        * Update evidence text field
+        */
         _update_evidence_text : function(e) {
             if (e.getData().length > 0) {
                  var selection = e.getData()[0].getLabel();
@@ -845,6 +735,9 @@ qx.Class.define("webmln.Application",
             }
         },
 
+        /**
+        * Replace text of given area with filecontent
+        */
         _update_text : function(selection, area) {
             var that = this;
             var folder = this.__selectExampleFolder.getSelection()[0].getLabel();
@@ -962,38 +855,36 @@ qx.Class.define("webmln.Application",
                 .call(yAxis);
         },
 
-
         updateBarChart : function(results) {
 
-                data = [];
-                var data1 = new Object();
-                data1.name = "Franz";
-                data1.value = 0.15;
-                data.push(data1);
-                data1 = new Object();
-                data1.name = "Hans";
-                data1.value = 0.9;
-                data.push(data1);
+            data = [];
+            var data1 = new Object();
+            data1.name = "Franz";
+            data1.value = 0.15;
+            data.push(data1);
+            data1 = new Object();
+            data1.name = "Hans";
+            data1.value = 0.9;
+            data.push(data1);
 
-                y.domain(data.map(function(d) { return d.name; }));
+            y.domain(data.map(function(d) { return d.name; }));
 
-                bar = bar.data(data,function(d) { return d.name; });
-                        bar.enter().append("rect")
-                    .attr("width", function(d) { return x(d.value); })
-                    .attr("height", y.rangeBand())
-                    .attr("transform", function(d) { return "translate(0," + y(d.name) + ")"; });
-                        bar.enter().append("text")
-                    .attr("class", "value")
-                    .attr("x", function(d) { return x(d.value); })
-                    .attr("y", y.rangeBand() / 2)
-                    .attr("dx", -3)
-                    .attr("dy", ".35em")
-                    .attr("text-anchor", "end")
-                    .text(function(d) { return format(d.value); });
-                        bar.exit().remove();
+            bar = bar.data(data,function(d) { return d.name; });
+                    bar.enter().append("rect")
+                .attr("width", function(d) { return x(d.value); })
+                .attr("height", y.rangeBand())
+                .attr("transform", function(d) { return "translate(0," + y(d.name) + ")"; });
+                    bar.enter().append("text")
+                .attr("class", "value")
+                .attr("x", function(d) { return x(d.value); })
+                .attr("y", y.rangeBand() / 2)
+                .attr("dx", -3)
+                .attr("dy", ".35em")
+                .attr("text-anchor", "end")
+                .text(function(d) { return format(d.value); });
+                    bar.exit().remove();
 
-                    //svg.select("g").call(yAxis);
-            }
-
-    }   
+                //svg.select("g").call(yAxis);
+        }
+    }
 });
