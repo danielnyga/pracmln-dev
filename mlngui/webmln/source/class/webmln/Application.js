@@ -51,6 +51,7 @@ qx.Class.define("webmln.Application",
               -------------------------------------------------------------------------
               */
 
+
             var mln_container = document.getElementById("mln_container", true, true);
             var contentIsle = new qx.ui.root.Inline(mln_container,true,true);
             this.__contentIsle = contentIsle;
@@ -77,29 +78,38 @@ qx.Class.define("webmln.Application",
                 contentIsle.setHeight(h);
             }, this);
 
-            var response = null;
-            var req = null;
-            var layout = new qx.ui.layout.HBox();
-            var layout3 = new qx.ui.layout.Grow();
-            var layout4 = new qx.ui.layout.Grow();
-            //layout2.setRowFlex(4, 1);
-            //layout2.setRowFlex(12, 1);
+            var outerContainer = new qx.ui.container.Scroll();
+            var splitPane = this.getSplitPane();
+
+            var tabView = new qx.ui.tabview.TabView();
+            tabView.setWidth(500);
+
+            ////////////////// INFERENCE PAGE ////////////////////
+            var inferencePage = new qx.ui.tabview.Page("Inference");
+            inferencePage.setLayout(new qx.ui.layout.Grow());
+            inferencePage.add(splitPane);
+            tabView.add(inferencePage);
+
+            ////////////////// LEARNING PAGE ////////////////////
+            var learningPage = new qx.ui.tabview.Page("Learning");
+            learningPage.setLayout(new qx.ui.layout.VBox());
+            learningPage.add(new qx.ui.basic.Label("Layout-Settings"));
+            tabView.add(learningPage);
+
+            outerContainer.add(tabView);
+            contentIsle.add(outerContainer, {width: "100%", height: "100%"});
+        },
+
+        /**
+        * Build the outer splitpane containing the mln form and vizualization containers
+        */
+        getSplitPane : function() {
 
             var textAreaResults = new qx.ui.form.TextArea("");
             this.__textAreaResults = textAreaResults;
             textAreaResults.setReadOnly(true);
 
-            var outerContainer = new qx.ui.container.Scroll().set({
-                //width: isNaN(window.innerWidth) ? window.clientWidth : window.innerWidth,
-                //height: isNaN(window.innerHeight) ? window.clientHeight : window.innerHeight
-            });
-
             var mlnFormContainer = this.buildMLNForm();
-
-            var container = new qx.ui.container.Composite(new qx.ui.layout.VBox()).set({
-                padding: 5
-            });
-
             var splitPane = new qx.ui.splitpane.Pane("horizontal");
             var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
@@ -135,101 +145,9 @@ qx.Class.define("webmln.Application",
             innerSplitPane.add(innerMostSplitPane);
 
             splitPane.add(innerSplitPane);
-            container.add(splitPane);
-            outerContainer.add(splitPane);
-            contentIsle.add(outerContainer, {width: "100%", height: "100%"});
 
-            var svg;
-            var color;
-            var force;
-            var node;
-            var link;
-            var text;
-            var textLabels;
-            var prob;
-            var probLabels;
-            var nodeList = [];
-            var linkList = [];
+            return splitPane;
 
-            function diaInit() {
-                var width = 800, height = 100;
-                color = d3.scale.category20();
-                /*
-                force = d3.layout.force()
-                    .charge(-1000)
-                    .linkDistance(200)
-                    .size([width, height]);*/
-
-                svg = d3.select('#dia').append("svg")
-                    .attr("width", width)
-                    .attr("height", height);
-
-                //var linkList = [];
-                var nody = new Object();
-                //var linky;
-                nody.id = 0;
-                nody.name = 'Smokes, Cancer';
-                nody.group = 1;
-                nodeList.push(nody);
-                for (var i = 0; i < resultStrings.length; i++) {
-                    nody = new Object();
-                    nody.id = i+1;
-                    nody.name = resultStrings[i];
-                    nody.group = 2;
-                    /*
-                    linky = new Object();
-                    linky.prob = resultProb[i];
-                    linky.source = nodeList[0];
-                    linky.target = nody;*/
-                    nodeList.push(nody);
-                    //linkList.push(linky);
-
-                }
-                /*
-                force
-                    .nodes(nodeList)
-                    .links(linkList)
-                    .on("tick", tick);*/
-
-                node = svg.selectAll(".node"),
-                //link = svg.selectAll(".link");
-                text = svg.selectAll(".nodeLabel");
-                //prob = svg.selectAll(".edgeLabel");
-
-                //d3Update();
-                /*
-                link = svg.selectAll(".link")
-                    .data(linkList)
-                    .enter().append("line")
-                    .attr("class", "link")
-                    .style("stroke-width", function(d) { return Math.sqrt(d.value); });*/
-
-                node = svg.selectAll(".node")
-                    .data(nodeList)
-                    .enter().append("rect")
-                    .attr("class", "node")
-                    .attr("width", 100)
-                    .attr("height", 50)
-                    .attr("rx", 5)
-                    .attr("ry", 5)
-                    .style("fill", function(d) { return color(d.group); })
-                    //.call(force.drag);
-
-                node.append("title")
-                    .text(function(d) { return d.name; });
-
-                text = svg.selectAll("text")
-                     .data(nodeList)
-                     .enter().append("text")
-                     .text(function(d) { return d.name; });
-
-                textLabels = text
-                     .attr("x", function(d) { return d.cx; })
-                     .attr("y", function(d) { return d.cy; })
-                     .attr("font-size", "20px")
-                     .style("text-anchor", "middle")
-                     .text(function(d) { return d.name; });
-            }
         },
 
         /**
