@@ -23,7 +23,8 @@
 
 from grammar import StandardGrammar, PRACGrammar
 import sys
-from pracmln.mln.util import ifNone, fstr, dict_union, colorize, flip
+from pracmln.mln.util import ifNone, fstr, dict_union, colorize, flip, out,\
+    trace
 from pracmln.mln.errors import NoSuchDomainError, NoSuchPredicateError
 from collections import defaultdict
 import itertools
@@ -33,6 +34,17 @@ import traceback
 
 
 logger = logging.getLogger(__name__)
+
+def latexsym(sym):
+#     import re
+#     sym = re.sub(r'^\w+^[_]', '', sym)
+#     print sym
+#     sym = re.sub(r'_', r'\_', sym)
+#     if len(sym) == 1:
+#         return ' %s' % sym
+#     elif sym.startswith('?'):
+#         return ' '
+    return r'\textit{%s}' % str(sym)
 
 class Logic(object):
     '''
@@ -584,6 +596,9 @@ class Logic(object):
             return self.truth(world)
         
         
+        def __repr__(self):
+            return '<%s: %s>' % (self.__class__.__name__, str(self))
+        
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 
     
@@ -706,12 +721,16 @@ class Logic(object):
     
     
         def __str__(self):
-            return "("+" ^ ".join(map(str, self.children))+")"
+            return ' ^ '.join(map(lambda c: ('(%s)' % str(c)) if isinstance(c, Logic.ComplexFormula) else str(c), self.children))
     
-    
+        
         def cstr(self, color=False):
-            return "(" + " ^ ".join(map(lambda c: c.cstr(color), self.children)) + ")"
+            return ' ^ '.join(map(lambda c:('(%s)' % c.cstr(color)) if isinstance(c, Logic.ComplexFormula) else c.cstr(color), self.children))
     
+            
+        def latex(self):
+            return ' \land '.join(map(lambda c: ('(%s)' % c.latex()) if isinstance(c, Logic.ComplexFormula) else c.latex(), self.children))
+        
             
         def cnf(self, level=0):
             clauses = []
@@ -752,8 +771,10 @@ class Logic(object):
                     if doAdd:
                         clauses.append(clause)
                         litSets.append(litSet)
-            if len(clauses) == 1:
-                return clauses[0]
+            if not clauses:
+                return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
+            elif len(clauses) == 1:
+                return clauses[0].copy()
             return self.mln.logic.conjunction(clauses, mln=self.mln, idx=self.idx)
         
         
@@ -797,16 +818,19 @@ class Logic(object):
     
     
         def __str__(self):
-            return "("+" v ".join(map(str, self.children))+")"
+            return ' v '.join(map(lambda c: ('(%s)' % str(c)) if isinstance(c, Logic.ComplexFormula) else str(c), self.children))
     
         
         def cstr(self, color=False):
-            return "(" + " v ".join(map(lambda c: c.cstr(color), self.children)) + ")"
+            return ' v '.join(map(lambda c:('(%s)' % c.cstr(color)) if isinstance(c, Logic.ComplexFormula) else c.cstr(color), self.children))
     
+    
+        def latex(self):
+            return ' \lor '.join(map(lambda c: ('(%s)' % c.latex()) if isinstance(c, Logic.ComplexFormula) else c.latex(), self.children))
+            
     
         def cnf(self, level=0):
             disj = []
-            str_disj = []
             conj = []
             # convert children to CNF and group by disjunction/conjunction; flatten nested disjunction, remove duplicates, check for tautology
             for child in self.children:
@@ -815,38 +839,31 @@ class Logic(object):
                     conj.append(c)
                 else:
                     if isinstance(c, Logic.Disjunction):
-                        l = c.children
+                        lits = c.children
                     else: # literal or boolean constant
-                        l = [c]
-                    for x in l:
+                        lits = [c]
+                    for l in lits:
                         # if the literal is always true, the disjunction is always true; if it's always false, it can be ignored
-                        if isinstance(c, Logic.TrueFalse):
-                            if x.truth():
+                        if isinstance(l, Logic.TrueFalse):
+                            if l.truth():
                                 return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
-                            else:
-                                continue
+                            else: continue
                         # it's a regular literal: check if the negated literal is already among the disjuncts
-                        s = str(x)
-                        if s[0] == '!':
-                            if s[1:] in str_disj:
-                                return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
-                        else:
-                            if ("!" + s) in str_disj:
-                                return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
+                        l_ = l.copy()
+                        l_.negated = True
+                        if l_ in disj:
+                            return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
                         # check if the literal itself is not already there and if not, add it
-                        if not s in str_disj:
-                            disj.append(x)
-                            str_disj.append(s)
+                        if l not in disj: disj.append(l)
             # if there are no conjunctions, this is a flat disjunction or unit clause
-            if len(conj) == 0: 
+            if not conj: 
                 if len(disj) >= 2:
                     return self.mln.logic.disjunction(disj, mln=self.mln, idx=self.idx)
                 else:
-                    return disj[0]
+                    return disj[0].copy()
             # there are conjunctions among the disjuncts
             # if there is only one conjunction and no additional disjuncts, we are done
-            if len(conj) == 1 and len(disj) == 0:
-                return conj[0]
+            if len(conj) == 1 and not disj: return conj[0].copy()
             # otherwise apply distributivity
             # use the first conjunction to distribute: (C_1 ^ ... ^ C_n) v RD = (C_1 v RD) ^ ... ^  (C_n v RD)
             # - C_i = conjuncts[i]
@@ -856,7 +873,7 @@ class Logic(object):
             # - create disjunctions
             disj = []
             for c in conjuncts:
-                disj.append(Disjunction([c] + remaining_disjuncts, mln=self.mln, idx=self.idx))
+                disj.append(self.mln.logic.disjunction([c] + remaining_disjuncts, mln=self.mln, idx=self.idx))
             return self.mln.logic.conjunction(disj, mln=self.mln, idx=self.idx).cnf(level + 1)
     
     
@@ -916,7 +933,9 @@ class Logic(object):
         @args.setter
         def args(self, args):
             if self.mln is not None and len(args) != len(self.mln.predicate(self.predname).argdoms):
-                raise Exception('Illegal argument length: %s. %s requires %d arguments: %s' % (str(args), self.predname, len(self.mln.predicate(self.predname).argdoms)))
+                raise Exception('Illegal argument length: %s. %s requires %d arguments: %s' % (str(args), self.predname, 
+                                                                                               len(self.mln.predicate(self.predname).argdoms), 
+                                                                                               self.mln.predicate(self.predname).argdoms))
             self._args = args
     
     
@@ -927,6 +946,10 @@ class Logic(object):
         def cstr(self, color=False):
             return {True:"!", False:"", 2:'*'}[self.negated] + colorize(self.predname, predicate_color, color) + "(" + ",".join(self.args) + ")"
     
+    
+        def latex(self):
+            return {True:r'\lnot ', False:'', 2: '*'}[self.negated] + latexsym(self.predname) + "(" + ",".join(map(latexsym, self.args)) + ")"
+            
     
         def vardoms(self, variables=None, constants=None):
             if variables == None: 
@@ -1038,6 +1061,16 @@ class Logic(object):
             else:
                 if self.negated: truth = 1 - truth
                 return self.mln.logic.true_false(truth, mln=self.mln, idx=self.idx)
+            
+            
+        def __eq__(self, other):
+            return str(self) == str(other)
+        
+        
+        def __ne__(self, other):
+            return not self == other
+        
+        
     
     
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -1309,6 +1342,10 @@ class Logic(object):
         
         def cstr(self, color=False):
             return str(self)
+        
+        
+        def latex(self):
+            return "%s%s%s" % (latexsym(self.args[0]), r'\neq ' if self.negated else '=', latexsym(self.args[1]))
 
     
         def ground(self, mrf, assignment, simplify=False, partial=False):
@@ -1416,12 +1453,23 @@ class Logic(object):
     
     
         def __str__(self):
-            return "(" + str(self.children[0]) + " => " + str(self.children[1]) + ")"
+            c1 = self.children[0]
+            c2 = self.children[1]
+            return (str(c1) if not isinstance(c1, Logic.ComplexFormula) \
+                else '(%s)' % str(c1)) + " => " + (str(c2) if not isinstance(c2, Logic.ComplexFormula) else '(%s)' % str(c2))
     
         
         def cstr(self, color=False):
-            return "(" + self.children[0].cstr(color) + " => " + self.children[1].cstr(color) + ")"
+            c1 = self.children[0]
+            c2 = self.children[1]
+            (s1, s2) = (c1.cstr(color), c2.cstr(color))
+            (s1, s2) = (('(%s)' if isinstance(c1, Logic.ComplexFormula) else '%s') % s1, ('(%s)' if isinstance(c2, Logic.ComplexFormula) else '%s') % s2)
+            return '%s => %s' % (s1, s2)
     
+    
+        def latex(self):
+            return self.children[0].latex() + r" \rightarrow " + self.children[1].latex()
+        
     
         def cnf(self, level=0):
             return self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]], mln=self.mln, idx=self.idx), self.children[1]], mln=self.mln, idx=self.idx).cnf(level+1)
@@ -1452,6 +1500,7 @@ class Logic(object):
         @property
         def children(self):
             return self._children
+    
         
         @children.setter
         def children(self, children):
@@ -1459,17 +1508,32 @@ class Logic(object):
                 raise Exception('Biimplication needs exactly 2 children')
             self._children = children
     
+    
         def __str__(self):
-            return "(" + str(self.children[0]) + " <=> " + str(self.children[1]) + ")"
+            c1 = self.children[0]
+            c2 = self.children[1]
+            return (str(c1) if not isinstance(c1, Logic.ComplexFormula) \
+                else '(%s)' % str(c1)) + " <=> " + (str(c2) if not isinstance(c2, Logic.ComplexFormula) else str(c2))
     
         
         def cstr(self, color=False):
-            return "(" + self.children[0].cstr(color) + " <=> " + self.children[1].cstr(color) + ")"
+            c1 = self.children[0]
+            c2 = self.children[1]
+            (s1, s2) = (c1.cstr(color), c2.cstr(color))
+            (s1, s2) = (('(%s)' if isinstance(c1, Logic.ComplexFormula) else '%s') % s1, ('(%s)' if isinstance(c2, Logic.ComplexFormula) else '%s') % s2)
+            return '%s <=> %s' % (s1, s2)
     
+    
+        def latex(self):
+            return r'%s \leftrightarrow %s' % (self.children[0].latex(), self.children[1].latex())
+        
         
         def cnf(self, level=0):
-            return self.mln.logic.conjunction([self.mln.logic.implication([self.children[0], self.children[1]], mln=self.mln, idx=self.idx), 
-                                self.mln.logic.implication([self.children[1], self.children[0]], mln=self.mln, idx=self.idx)], mln=self.mln, idx=self.idx).cnf(level+1)
+            cnf = self.mln.logic.conjunction([self.mln.logic.implication([self.children[0], self.children[1]], mln=self.mln, idx=self.idx), 
+                                self.mln.logic.implication([self.children[1], self.children[0]], mln=self.mln, idx=self.idx)], mln=self.mln, idx=self.idx)
+            cnf.print_structure()
+#             out(cnf)
+            return cnf.cnf(level+1)
         
         
         def nnf(self, level = 0):
@@ -1515,11 +1579,15 @@ class Logic(object):
                
     
         def __str__(self):
-            return "!(" + str(self.children[0]) + ")"
+            return '!(%s)' % str(self.children[0])
     
         
         def cstr(self, color=False):
-            return "!(" + self.children[0].cstr(color) + ")"
+            return '!(%s)' % self.children[0].cstr(color)
+    
+        
+        def latex(self):
+            return r'\lnot (%s)' % self.children[0].latex()
     
     
         def truth(self, world):
@@ -1645,12 +1713,16 @@ class Logic(object):
     
     
         def __str__(self):
-            return "EXIST " + ", ".join(self.vars) + " (" + str(self.formula) + ")"
+            return 'EXIST %s (%s)' % (', '.join(self.vars), str(self.formula))
 
 
         def cstr(self, color=False):
             return colorize('EXIST ', predicate_color, color) + ', '.join(self.vars) + ' (' + self.formula.cstr(color) + ')'
 
+    
+        def latex(self):
+            return '\exists\ %s (%s)' % (', '.join(map(latexsym, self.vars)), self.formula.latex())
+    
     
         def vardoms(self, variables=None, constants=None):
             if variables == None: 

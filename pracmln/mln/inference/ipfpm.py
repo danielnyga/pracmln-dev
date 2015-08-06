@@ -40,7 +40,7 @@ class IPFPM(Inference):
             raise Exception("Application of IPFP-M inappropriate! IPFP-M is a wrapper method for other inference algorithms that allows to fit probability constraints. An application is not sensical if the model contains no such constraints.")
         Inference.__init__(self, mrf)
     
-    def _infer(self, verbose=True, details=False, fittingMethod=InferenceMethods.Exact, fittingThreshold=1e-3, 
+    def _infer(self, verbose=True, details=False, fittingMethod=InferenceMethods.EnumerationAsk, fittingThreshold=1e-3, 
                fittingSteps=100, fittingParams=None, maxThreshold=None, greedy=False, **args):
         # add formulas to the model whose weights we can then fit
         if verbose: logger.info("extending model with %d formulas whose weights will be fit..." % len(self.mrf.getSoftEvidence()))

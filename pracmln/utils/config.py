@@ -40,12 +40,12 @@ global_config_filename = '.pracmln.conf'
 
 learnwts_mln_filemask = "*.mln"
 learnwts_db_filemask = "*.db"
-def learnwts_output_filename(infile, engine, method, dbfile): # formats the output filename
+def learnwts_output_filename(infile, method, dbfile): # formats the output filename
     if infile[:3] == "in.": infile = infile[3:]
     elif infile[:4] == "wts.": infile = infile[4:]
     if infile[-4:] == ".mln": infile = infile[:-4]
     if dbfile[-3:] == ".db": dbfile = dbfile[:-3]
-    return "wts.%s%s.%s-%s.mln" % (engine, method, dbfile, infile)
+    return "learnt.%s.%s-%s.mln" % (method, dbfile, infile)
 learnwts_full_report = True # if True, add all the printed output to the Alchemy output file, otherwise (False) use a short report
 learnwts_report_bottom = True # if True, the comment with the report is appended to the end of the file, otherwise it is inserted at the beginning
 learnwts_edit_outfile_when_done = False # if True, open the learnt output file that is generated in the editor defined in configGUI

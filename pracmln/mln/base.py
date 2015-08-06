@@ -479,61 +479,40 @@ class MLN(object):
         
         :param databases:     list of :class:`mln.database.Database` objects or filenames
         '''
-        log = logging.getLogger(self.__class__.__name__)
-        self.verbose = params.get('verbose', False)
+        verbose = params.get('verbose', False)
+        
         # get a list of database objects
-        if len(databases) == 0:
-            log.exception('At least one database is needed for learning.')
+        if not databases:
+            raise Exception('At least one database is needed for learning.')
         dbs = []
-
         for db in databases:
-            if type(db) == str:
+            if isinstance(db, basestring):
                 db = Database.load(self, db)
-                if type(db) == list:
-                    dbs.extend(db)
-                else:
-                    dbs.append(db)
-            elif type(db) is list:
-                dbs.extend(db)
-            else:
-                dbs.append(db)
-        log.info('Got %s evidence databases for learning:' % len(dbs))
-        log.debug(self.predicates)
-        log.debug(self.domains)
-        formula_templates = list(self.formulas)
-        newMLN = self.materializeFormulaTemplates(dbs, self.verbose)
-        if method == LearningMethods.MLNBoost:
-            newMLN.formulas = formula_templates
-
-        log.debug('MLN predicates:')
-        for p in newMLN.predicates:
-            log.debug(p)
-        log.debug('MLN domains:')
-        for d in newMLN.domains.iteritems():
-            log.debug(d)
-        log.debug('MLN formulas:')
-        for f in newMLN.iterFormulasPrintable():
-            log.debug(f)
-        if len(newMLN.formulas) == 0:
+                if type(db) is list: dbs.extend(db)
+                else: dbs.append(db)
+            elif type(db) is list: dbs.extend(db)
+            else: dbs.append(db)
+        logger.debug('loaded %s evidence databases for learning' % len(dbs))
+        newmln = self.materialize(*dbs)
+        logger.debug('MLN predicates:')
+        for p in newmln.predicates: logger.debug(p)
+        logger.debug('MLN domains:')
+        for d in newmln.domains.iteritems(): logger.debug(d)
+        if not newmln.formulas:
             raise Exception('No formulas in the materialized MLN.')
+        logger.debug('MLN formulas:')
+        for f in newmln.formulas: logger.debug('%s %s' % (str(f.weight).ljust(10, ' '), f))
         # run learner
         if len(dbs) == 1:
-            groundingMethod = eval('%s.groundingMethod' % method)
-            log.info("grounding MRF using %s..." % groundingMethod) 
-            mrf = newMLN.groundMRF(dbs[0], simplify=False, groundingMethod=groundingMethod, cwAssumption=True, **params)  # @UnusedVariable
-            log.debug('Loading %s-Learner' % method)
-            learner = eval("%s(newMLN, mrf, **params)" % method)
-        elif params.get('incremental', False): 
-            learner = IncrementalLearner(newMLN, method, dbs, **params)
+            mrf = newmln.ground(dbs[0], simplify=False, cw=True, **params)  # @UnusedVariable
+            logger.debug('Loading %s-Learner' % method)
+            learner = eval('LearningMethods.%s(mrf, **params)' % method)
         else:
-            learner = MultipleDatabaseLearner(newMLN, method, dbs, **params)
-        log.info("learner: %s" % learner.getName())
+            learner = MultipleDatabaseLearner(newmln, dbs, method, **params)
+        if verbose:
+            "learner: %s" % learner.getName()
         wt = learner.run(**params)
-
-        # create the resulting MLN and set its weights
-        learnedMLN = newMLN.duplicate()
-        learnedMLN.setWeights(wt)
-        
+        newmln.weights = wt
         # fit prior prob. constraints if any available
         if len(self.probreqs) > 0:
             fittingParams = {
@@ -545,17 +524,15 @@ class MLN(object):
             print "fitting with params ", fittingParams
             self._fitProbabilityConstraints(self.probreqs, **fittingParams)
         
-        if params.get('ignoreZeroWeightFormulas', False):
-            for f in list(learnedMLN.formulas):
-                if f.weight == 0:
-                    mln.formulas.remove(f)
-        
-        if self.verbose:
-            learnedMLN.write(sys.stdout, color=True)
-#             print "\n// formulas"
-#             for formula in learnedMLN.formulas:
-#                 print "%f  %s" % (float(eval(str(formula.weight))), strFormula(formula))
-        return learnedMLN
+        if params.get('ignore_zero_weight_formulas', False):
+            formulas = list(newmln.formulas)
+            weights = list(newmln.weights)
+            fix = list(newmln.fixweights)
+            newmln._rmformulas()
+            for f, w in zip(formulas, weights, fix):
+                if f.weight != 0: newmln.formula(f, w)
+        if self.verbose: newmln.write()
+        return newmln
 
 
     def tofile(self, filename):

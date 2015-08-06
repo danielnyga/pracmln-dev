@@ -53,6 +53,7 @@ logger = praclog.logger(__name__)
 
 GUI_SETTINGS = ['window_loc', 'db_rename', 'mln_rename', 'db', 'method', 'use_emln', 'save', 'output_filename', 'grammar', 'queries', 'emln']
 
+
 class MLNQueryGUI(object):
 
     def __init__(self, master, gconf, directory=None):
@@ -61,6 +62,7 @@ class MLNQueryGUI(object):
         master.title("PRACMLN Query Tool")
         
         self.gconf = gconf
+        self.conf = None
         self.master = master
         
         self.frame = Frame(master)
@@ -207,29 +209,13 @@ class MLNQueryGUI(object):
         start_button = Button(self.frame, text=">> Start Inference <<", command=self.start)
         start_button.grid(row=row, column=1, sticky="NEW")
 
-        self.set_dir(ifNone(directory, ifNone(conf['prev_query_path'], os.getcwd())))
+        self.set_dir(ifNone(directory, ifNone(gconf['prev_query_path'], os.getcwd())))
         if gconf['prev_query_mln':self.dir.get()] is not None:
             self.selected_mln.set(gconf['prev_query_mln':self.dir.get()])
-                    
-        self.set_window_loc()
+        
+        self.master.geometry(gconf['window_loc_query'])
         self.initialized = True
 
-
-    def set_window_loc(self):
-        g = self.config["window_loc"]
-        if g is None: return
-        # this is a hack: since geometry apparently does not work as expected
-        # (at least under Ubuntu: the main window is not put at the same position
-        # where it has been before), do this correction of coordinates.
-        re_pattern = r'([\-0-9]+)x([\-0-9]+)\+([\-0-9]+)\+([\-0-9]+)'
-        (w_old, h_old, x_old, y_old) = map(int, re.search(re_pattern, g).groups())
-        self.master.geometry(g)
-        new_g = self.master.winfo_geometry()
-        (w_new, h_new, x_new, y_new) = map(int, re.search(re_pattern, new_g).groups())
-        (w_diff, h_diff, x_diff, y_diff) = (w_old-w_new, h_old-h_new, x_old-x_new, y_old-y_new)
-        (w_new, h_new, x_new, y_new) = (w_old, h_old, x_new-x_diff, y_new-y_diff)
-        self.master.geometry('%dx%d+%d+%d' % (w_new, h_new, x_new, y_new))
-         
 
     def update_dir(self, e):
         d = self.dir.get()
@@ -256,7 +242,7 @@ class MLNQueryGUI(object):
 
     def select_mln(self, mlnname):
         confname = os.path.join(self.dir.get(), query_config_pattern % mlnname)
-        if not self.initialized or os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
+        if self.config is None or not self.initialized or os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
             self.set_config(PRACMLNConfig(confname))
         self.mln_filename = mlnname
         self.setOutputFilename()
@@ -356,15 +342,15 @@ class MLNQueryGUI(object):
         self.config['grammar'] = self.selected_grammar.get()
         self.config['multicore'] = self.multicore.get()
         self.config['save'] = self.save_results.get()
-        self.config["window_loc"] = self.master.winfo_geometry()
         self.config['ignore_unknown_preds'] = self.ignore_unknown_preds.get()
         self.config['verbose'] = self.verbose.get()
-        
+#         self.config['window_loc'] = self.master.winfo_geometry()
 
         # write settings
         logger.debug('writing config...')
         self.gconf['prev_query_path'] = self.dir.get()
         self.gconf['prev_query_mln':self.dir.get()] = self.selected_mln.get()
+        self.gconf['window_loc_query'] = self.master.geometry()
         self.gconf.dump()
         self.config.dump()
         
@@ -445,8 +431,6 @@ class MLNQueryGUI(object):
         
         # restore main window
         self.master.deiconify()
-        self.set_window_loc()
-
         sys.stdout.flush()
 
 # -- main app --
@@ -473,6 +457,7 @@ if __name__ == '__main__':
     if options.noPMW:
         widgets.havePMW = False
     root = Tk()
+    
     conf = PRACMLNConfig()
     app = MLNQueryGUI(root, conf, directory=args[0] if args else None)
     if options.run:

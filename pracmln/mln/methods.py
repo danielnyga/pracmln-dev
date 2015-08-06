@@ -25,46 +25,46 @@ class Enum(object):
         return value
     
 InferenceMethods = Enum(
-    {"Exact": "exact inference", 
+    {"Exact": "exact inference",
      "GibbsSampler": "Gibbs sampling",
-     "MCSAT": "MC-SAT", 
+     "MCSAT": "MC-SAT",
      "FuzzyMCSAT": "Fuzzy MC-SAT",
-     #"ExactLinear": "exact inference (linear space)",  # deprecated, as EnumerationAsk is preferable
-     "IPFPM_exact": "IPFP-M[exact]", 
-     "IPFPM_MCSAT": "IPFP-M[MC-SAT]",
+    "IPFPM_exact": "IPFP-M[exact]", 
+    "IPFPM_MCSAT": "IPFP-M[MC-SAT]",
      "EnumerationAsk": "Enumeration-Ask (exact)",
-     'WCSPInference': 'WCSP (exact MPE with Toulbar2)',
-     'BnB': 'Branch-&-Bound Search (exact MPE)'
+     'WCSPInference': 'WCSP (exact MPE with toulbar2)',
+     'SAMaxWalkSAT': 'Max-Walk-SAT with simulated annealing (approx. MPE)'
+#      'BnB': 'Branch-&-Bound Search (exact MPE)'
     })
 
 
 LearningMethods = Enum(
      {
-    'MLNBoost': 'MLN-BOOST',
-    'WPLL': 'Weighted Pseudo-likelihood',
+#     'MLNBoost': 'MLN-BOOST',
+#     'WPLL': 'Weighted Pseudo-likelihood',
       'CLL': "composite-log-likelihood",
       'DCLL': '[discriminative] composite-log-likelihood',
       "LL": "log-likelihood",
       #"SLL": "sampling-based log-likelihood via direct descent",
       "SLL_DN": "sampling-based log-likelihood via diagonal Newton",
 #      "PLL": "pseudo-log-likelihood (deprecated)",
-      "DPLL": "[discriminative] pseudo-log-likelihood (deprecated)",
+      "DPLL": "[discriminative] pseudo-log-likelihood",
 #      "VP": "[discriminative] Voted Perceptron",
 #      "CD": "[discriminative] Contrastive Divergence",
-    "BPLL": "pseudo-log-likelihood with blocking (deprecated)",
+    "BPLL": "pseudo-log-likelihood",
 #      "DBPLL_CG": "[discriminative] pseudo-log-likelihood with blocking (custom grounding, deprecated)",
-    "BPLL_CG": "pseudo-log-likelihood with blocking (custom grounding, deprecated)",
-      "BPLL_SF": "pseudo-log-likelihood with support for soft-functional constraints",
+#     "BPLL_CG": "pseudo-log-likelihood with blocking (custom grounding, deprecated)",
+#       "BPLL_SF": "pseudo-log-likelihood with support for soft-functional constraints",
       #"BPLLMemoryEfficient": "pseudo-log-likelihood with blocking, memory-efficient", # NOTE: this method has now been merged into BPLL
 #      "PLL_fixed": "pseudo-log-likelihood with fixed unitary clauses [deprecated]",
 #      "BPLL_fixed": "pseudo-log-likelihood with blocking and fixed unitary clauses [deprecated]",
  #     "NPL_fixed": "negative pseudo-likelihood with fixed unitary clauses [deprecated]",
-      "LL_ISE": "[soft evidence] log-likelihood with soft features (independent soft evidence)",
-      "PLL_ISE": "[soft evidence] pseudo-log-likelihood with soft features (independent soft evidence)",
-      "DPLL_ISE": "[soft evidence][discriminative] pseudo-log-likelihood with soft features (indep. soft ev.)",
-      "LL_ISEWW": "[soft evidence] log-likelihood with independent soft evidence and weighting of worlds",
-      "E_ISEWW": "[soft evidence] error with independent soft evidence and weighting of worlds",
+#       "LL_ISE": "[soft evidence] log-likelihood with soft features (independent soft evidence)",
+#       "PLL_ISE": "[soft evidence] pseudo-log-likelihood with soft features (independent soft evidence)",
+#       "DPLL_ISE": "[soft evidence][discriminative] pseudo-log-likelihood with soft features (indep. soft ev.)",
+#       "LL_ISEWW": "[soft evidence] log-likelihood with independent soft evidence and weighting of worlds",
+#       "E_ISEWW": "[soft evidence] error with independent soft evidence and weighting of worlds",
       #"SLL_ISE": "[soft evidence] sampling-based log-likelihood with soft features (independent soft evidence)", 
-      "SLL_SE": "[soft evidence] sampling-based log-likelihood",
-      "SLL_SE_DN": "[soft evidence] sampling-based log-likelihood via diagonal Newton" 
+#       "SLL_SE": "[soft evidence] sampling-based log-likelihood",
+#       "SLL_SE_DN": "[soft evidence] sampling-based log-likelihood via diagonal Newton" 
     })

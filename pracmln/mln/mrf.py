@@ -641,7 +641,7 @@ class MRF(object):
             print "%f %s" % (sums[i] / totals[i], str(formula))
 
 
-    def apply_prob_constraints(self, constraints, method=InferenceMethods.Exact, 
+    def apply_prob_constraints(self, constraints, method=InferenceMethods.EnumerationAsk, 
                                    thr=1.0e-3, steps=20, fittingMCSATSteps=5000, 
                                    fittingParams=None, given=None, queries=None, 
                                    maxThreshold=None, greedy=False, probabilityFittingResultFileName=None, **args):
