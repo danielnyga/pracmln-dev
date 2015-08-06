@@ -1,57 +1,79 @@
+from pracmln.mln.inference.gibbs import GibbsSampler
+from pracmln.mln.inference.mcsat import MCSAT, FuzzyMCSAT
+from pracmln.mln.inference.ipfpm import IPFPM
+from pracmln.mln.inference.exact import EnumerationAsk
+from pracmln.mln.inference.wcspinfer import WCSPInference
+from pracmln.mln.inference.maxwalk import SAMaxWalkSAT
+from pracmln.mln.learning.cll import CLL, DCLL
+from pracmln.mln.learning.ll import LL
+from pracmln.mln.learning.sll import SLL_DN
+from pracmln.mln.learning.bpll import BPLL, DPLL
 
 class Enum(object):
-    def __init__(self, d):
-        self.value2name = d
-        self.name2value = dict([(y,x) for (x,y) in self.value2name.iteritems()])
     
-    def __getattr__(self, attr):
-        if attr in self.value2name:
-            return attr
-        raise Exception("Enum does not define %s, only %s" % (attr, self.value2name.keys()))
+    def __init__(self, items):
+        self.id2name = dict([(clazz.__name__, name) for (clazz, name) in items])
+        self.name2id = dict([(name, clazz.__name__) for (clazz, name) in items])
+        self.id2clazz = dict([(clazz.__name__, clazz) for (clazz, _) in items])
     
-    def byShortName(self, shortName):
-        return shortName
     
-    def byName(self, name):
-        return self.name2value[name]
+    def __getattr__(self, id_):
+        if id_ in self.id2clazz:
+            return self.id2clazz[id_]
+        raise KeyError('Enum does not define %s, only %s' % (id_, self.id2clazz.keys()))
     
-    def getName(self, value):
-        return self.value2name[value]
     
-    def getNames(self):
-        return self.value2name.values()
+    def clazz(self, key):
+        if type(key).__name__ == 'type':
+            key = key.__name__ 
+        if key in self.id2clazz:
+            return self.id2clazz[str(key)]
+        else:
+            return self.id2clazz[self.name2id[key]]
+        raise KeyError('No such element "%s"' % key)
     
-    def getShortName(self, value):
-        return value
+    def id(self, key):
+        if type(key).__name__ == 'type':
+            return key.__name__
+        if key in self.name2id: 
+            return self.name2id[key]
+        raise KeyError('No such element "%s"' % key)
+    
+    def name(self, id_):
+        if id_ in self.id2name:
+            return self.id2name[id_]
+        raise KeyError('No element with id "%s"' % id_)
+    
+    def names(self):
+        return self.id2name.values()
+    
     
 InferenceMethods = Enum(
-    {
-     "GibbsSampling": "Gibbs sampling", 
-     "MCSAT": "MC-SAT", 
-     "FuzzyMCSAT": "Fuzzy MC-SAT",
-    "IPFPM_exact": "IPFP-M[exact]", 
-    "IPFPM_MCSAT": "IPFP-M[MC-SAT]",
-     "EnumerationAsk": "Enumeration-Ask (exact)",
-     'WCSPInference': 'WCSP (exact MPE with toulbar2)',
-     'SAMaxWalkSAT': 'Max-Walk-SAT with simulated annealing (approx. MPE)'
-#      'BnB': 'Branch-&-Bound Search (exact MPE)'
-    })
+    (
+     (GibbsSampler, 'Gibbs sampling'), 
+     (MCSAT, 'MC-SAT'), 
+     (FuzzyMCSAT,  'Fuzzy MC-SAT'),
+     (IPFPM, 'IPFP-M'), 
+     (EnumerationAsk, 'Enumeration-Ask (exact)'),
+     (WCSPInference, 'WCSP (exact MPE with toulbar2)'),
+     (SAMaxWalkSAT, 'Max-Walk-SAT with simulated annealing (approx. MPE)')
+    ))
 
 
 LearningMethods = Enum(
-     {
+     (
+      (CLL, 'composite-log-likelihood'),
+      (DCLL, '[discriminative] composite-log-likelihood'),
+      (LL, "log-likelihood"),
+      (SLL_DN, 'sampling-based log-likelihood via diagonal Newton'),
+      (DPLL, '[discriminative] pseudo-log-likelihood'),
+      (BPLL, 'pseudo-log-likelihood')
 #     'MLNBoost': 'MLN-BOOST',
 #     'WPLL': 'Weighted Pseudo-likelihood',
-      'CLL': "composite-log-likelihood",
-      'DCLL': '[discriminative] composite-log-likelihood',
-      "LL": "log-likelihood",
       #"SLL": "sampling-based log-likelihood via direct descent",
-      "SLL_DN": "sampling-based log-likelihood via diagonal Newton",
 #      "PLL": "pseudo-log-likelihood (deprecated)",
-      "DPLL": "[discriminative] pseudo-log-likelihood",
 #      "VP": "[discriminative] Voted Perceptron",
 #      "CD": "[discriminative] Contrastive Divergence",
-    "BPLL": "pseudo-log-likelihood",
 #      "DBPLL_CG": "[discriminative] pseudo-log-likelihood with blocking (custom grounding, deprecated)",
 #     "BPLL_CG": "pseudo-log-likelihood with blocking (custom grounding, deprecated)",
 #       "BPLL_SF": "pseudo-log-likelihood with support for soft-functional constraints",
@@ -67,4 +89,15 @@ LearningMethods = Enum(
       #"SLL_ISE": "[soft evidence] sampling-based log-likelihood with soft features (independent soft evidence)", 
 #       "SLL_SE": "[soft evidence] sampling-based log-likelihood",
 #       "SLL_SE_DN": "[soft evidence] sampling-based log-likelihood via diagonal Newton" 
-    })
+    ))
+
+
+if __name__ =='__main__':
+    
+    print InferenceMethods.id2clazz
+    print InferenceMethods.id2name
+    print InferenceMethods.name2id
+    print LearningMethods.names()
+    print InferenceMethods.clazz(MCSAT)
+    print InferenceMethods.name('WCSPInference')
+    

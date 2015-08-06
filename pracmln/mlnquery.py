@@ -62,7 +62,7 @@ class MLNQueryGUI(object):
         master.title("PRACMLN Query Tool")
         
         self.gconf = gconf
-        self.conf = None
+        self.config = None
         self.master = master
         
         self.frame = Frame(master)
@@ -134,8 +134,8 @@ class MLNQueryGUI(object):
         self.list_methods_row = row
         Label(self.frame, text="Method: ").grid(row=row, column=0, sticky=E)
         self.selected_method = StringVar(master)
-        methods = InferenceMethods.getNames()
-        self.list_methods = apply(OptionMenu, (self.frame, self.selected_method) + tuple(methods))
+        methodnames = sorted(InferenceMethods.names())
+        self.list_methods = apply(OptionMenu, (self.frame, self.selected_method) + tuple(methodnames))
         self.list_methods.grid(row=self.list_methods_row, column=1, sticky="NWE")
 
         # queries
@@ -232,6 +232,8 @@ class MLNQueryGUI(object):
         self.selected_emln.setDirectory(dirpath)
         self.selected_db.setDirectory(dirpath)
         self.dir.set(dirpath)
+        mln = self.gconf['prev_query_mln':dirpath]
+        if mln: self.selected_mln.set(mln)
         
 
     def select_dir(self):
@@ -287,7 +289,7 @@ class MLNQueryGUI(object):
         self.selected_mln.rename_on_edit.set(ifNone(conf['mln_rename'], 0))
         self.selected_db.select(ifNone(conf['db'], ''))
         self.selected_db.rename_on_edit.set(ifNone(conf['db_rename'], False))
-        self.selected_method.set(ifNone(conf['method'], 'MC-SAT'))
+        self.selected_method.set(ifNone(self.config["method"], InferenceMethods.name('MCSAT'), transform=InferenceMethods.name))
         self.selected_emln.set(ifNone(conf['emln'], ''))
         self.multicore.set(ifNone(conf['multicore'], False))
         self.profile.set(ifNone(conf['profile'], False))
@@ -321,7 +323,7 @@ class MLNQueryGUI(object):
         db_content = str(self.selected_db.get_text().strip())
         emln_content = str(self.selected_emln.get_text().strip())
         output = str(self.output_filename.get())
-        method = str(self.selected_method.get())
+        methodname = str(self.selected_method.get())
         params = str(self.params.get())
         
         # update settings
@@ -329,7 +331,7 @@ class MLNQueryGUI(object):
         self.config["mln_rename"] = self.selected_mln.rename_on_edit.get()
         self.config["db"] = db
         self.config["db_rename"] = self.selected_db.rename_on_edit.get()
-        self.config["method"] = method
+        self.config["method"] = InferenceMethods.id(methodname)
         self.config["params"] = params
         self.config["queries"] = self.query.get()
         self.config['emln'] = self.selected_emln.get()
@@ -403,7 +405,7 @@ class MLNQueryGUI(object):
                     print headline('EVIDENCE VARIABLES')
                     print
                     mrf.print_evidence_vars()
-                inference = eval(InferenceMethods.byName(method))(mrf, queries, **params)
+                inference = InferenceMethods.clazz(method)(mrf, queries, **params)
                 inference.run()
                 print 
                 print headline('INFERENCE RESULTS')
@@ -436,7 +438,7 @@ class MLNQueryGUI(object):
 # -- main app --
 
 if __name__ == '__main__':
-    praclog.level(praclog.WARNING)
+    praclog.level(praclog.DEBUG)
     
     # read command-line options
     from optparse import OptionParser

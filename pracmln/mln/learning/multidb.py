@@ -98,7 +98,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         
     def _f(self, w):
         # it turned out that it doesn't pay off to evaluate the function  
-        # i separate processes, su we turn it off 
+        # in separate processes, so we turn it off 
         if False:#self.multicore:
             likelihood = 0
             pool = Pool()
@@ -116,7 +116,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         grad = numpy.zeros(len(self.mln.formulas), numpy.float64)
         if False:#self.multicore:
             # it turned out that it doesn't pay off to evaluate the gradient  
-            # i separate processes, su we turn it off 
+            # in separate processes, so we turn it off 
             pool = Pool()
             for i, (grad_, d_) in enumerate(pool.imap(with_tracing(_methodcaller('_grad', sideeffects=True)), map(lambda l: (l, w), self.learners))):
                 self.learners[i].__dict__ = d_

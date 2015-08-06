@@ -142,7 +142,7 @@ class BPLL(AbstractLearner):
         '''
         self._stat = {}
         self._varidx2fidx = defaultdict(set)
-        grounder = DefaultGroundingFactory(self.mrf, verbose=False, cache=1000)
+        grounder = DefaultGroundingFactory(self.mrf, verbose=False)
         for f in grounder.itergroundings(simplify=False, unsatfailure=True):
             for gndatom in f.gndatoms():
                 var = self.mrf.variable(gndatom)
@@ -152,181 +152,35 @@ class BPLL(AbstractLearner):
                         self._varidx2fidx[var.idx].add(f.idx)
                         self._addstat(f.idx, var.idx, validx, truth)
                 
-        
-class BPLL_CG(BPLL):
-    '''
-        BPLL learner variant that uses a custom grounding procedure to increase
-        efficiency.
-    '''
-    
-    groundingMethod = 'BPLLGroundingFactory'
-    
-    def __init__(self, mln, mrf, **params):
-        BPLL.__init__(self, mln, mrf, **params)
-    
-    def _prepareOpt(self):
-        if len(filter(lambda b: isinstance(b, SoftMutexVariable), self.mrf.variables)) > 0:
-            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
-        log = logging.getLogger(self.__class__.__name__)
-        log.info("constructing blocks...")
-        self.mrf._getPllBlocks()
-        self.mrf._getAtom2BlockIdx()
-        start = time.time()
-        self.mrf.groundingMethod._computeStatistics()
-        log.info('Total time: %.2f' % (time.time() - start))
-        self.fcounts = self.mrf.groundingMethod.fcounts
-        self.blockRelevantFormulas = self.mrf.groundingMethod.blockRelevantFormulas
-        self.evidenceIndices = self.mrf.groundingMethod.evidenceIndices
-            
-            
-            
-class BPLL_SF(BPLL):
-    '''
-    BPLL learner variant that uses the new representation of 
-    ground atoms and block variables supporting soft functional constraints.
-    '''
-    
-    groundingMethod = 'DefaultGroundingFactory'
-    
-    def __init__(self, mln, mrf, **params):
-        BPLL.__init__(self, mln, mrf, **params)
-    
-    def _prepareOpt(self):
-        log = logging.getLogger(self.__class__.__name__)
-        log.info("constructing blocks...") 
-        self._computeStatistics()
-        # remove data that is now obsolete
-        self.mrf.removeGroundFormulaData()
-        log.info('Total time: %.2f' % (self.mrf.groundingMethod.gndTime + self.statTime))
-    
-    
-    def _f(self, wt):
-        self._calculateBlockProbsMB(wt)
+                
+class DPLL(BPLL, DiscriminativeLearner):
+    ''' 
+    Discriminative pseudo-log-likelihood learning.
+    '''    
+
+    def _f(self, w, **params):
+        self._compute_pls(w)
         probs = []
-        for idxVar in xrange(len(self.mrf.variables)):
-            p = self.blockProbsMB[idxVar][self.evidenceIndices[idxVar]]
+        for var in self.mrf.variables:
+            if var.predicate.name in self.epreds: continue
+            p = self._pls[var.idx][var.evidence_value_index()]
             if p == 0: p = 1e-10 # prevent 0 probabilities
             probs.append(p)
         return fsum(map(log, probs))
-        
-    
-    def _calculateBlockProbsMB(self, wt):
-        if ('wtsLastBlockProbMBComputation' not in dir(self)) or self.wtsLastBlockProbMBComputation != list(wt):
-            #print "recomputing block probabilities...",
-            self.blockProbsMB = [self._getBlockProbMB(i, wt) for i in xrange(len(self.mrf.variables))]
-#             print self.blockProbsMB
-            self.wtsLastBlockProbMBComputation = list(wt)    
-    
-        
-    def _getBlockProbMB(self, blockidx, wt):        
-        atomicBlock = self.mrf.variable_by_idx[blockidx]
-        numValues = atomicBlock.getNumberOfValues()
-        
-        relevantFormulas = self.blockRelevantFormulas.get(blockidx, None)
-        if relevantFormulas is None: # no list was saved, so the truth of all formulas is unaffected by the variable's value
-            # uniform distribution applies
-            p = 1.0 / numValues
-            return [p] * numValues
-        
-        sums = numpy.zeros(numValues)
-        for idxFormula in relevantFormulas:
-            for idxValue, n in enumerate(self.fcounts[idxFormula][blockidx]):
-                sums[idxValue] += n * wt[idxFormula]
-        sum_min = numpy.min(sums)
-        sums -= sum_min
-        sum_max = numpy.max(sums)
-        sums -= sum_max
-        expsums = numpy.sum(numpy.exp(sums))
-        s = numpy.log(expsums)
-        return numpy.exp(sums - s)
-    
-        
-    def _computeStatistics(self):
-        '''
-        computes the statistics upon which the optimization is based
-        '''
-        debug = False
-        log = logging.getLogger(self.__class__.__name__)
-        log.info("computing statistics...")
-        self.statTime = time.time()
-        # get evidence indices
-        self.evidenceIndices = [None] * len(self.mrf.variables)
-        for atomicBlock in self.mrf.variables.values():
-            self.evidenceIndices[atomicBlock.blockidx] = atomicBlock.getEvidenceIndex(self.mrf.evidence)
-        
-        # compute actual statistics
-        self.fcounts = {}
-        self.blockRelevantFormulas = defaultdict(set) # maps from variable/pllBlock index to a list of relevant formula indices
-        for gndFormula in self.mrf.gndFormulas:
-            # get the set of block indices that the variables appearing in the formula correspond to
-            atomicBlocks = set()
-            for idxGA in gndFormula.idxGroundAtoms():
-                atomicBlocks.add(self.mrf.gndatom2variable[idxGA])
-            
-            for atomicBlock in atomicBlocks:
-                blocksize = atomicBlock.getNumberOfValues()
-                for valueIdx, value in enumerate(atomicBlock.generateValueTuples()):
-                    self.mrf.setTemporaryEvidence(atomicBlock.valueTuple2EvidenceDict(value))
-                    truth = self.mrf._isTrueGndFormulaGivenEvidence(gndFormula)
-                    self._addMBCount(atomicBlock.idx, blocksize, valueIdx, gndFormula.idxFormula, truth)
-                    self.mrf._removeTemporaryEvidence()
-                    
-        self.statTime = time.time() - self.statTime
 
-
-class DBPLL_CG(BPLL_CG, DiscriminativeLearner):
-    '''
-    Discriminative Pseudo-likelihood with custom grounding.
-    '''
     
-    def __init__(self, mln, mrf, **params):
-        BPLL_CG.__init__(self, mln, mrf, **params)
-        self.queryPreds = self._getQueryPreds(params)
-        
-
-    def _f(self, wt):
-        self._calculateBlockProbsMB(wt)
-        probs = []
-        for idxVar, block in enumerate(self.mrf.pllBlocks):
-            predName = self._getPredNameForPllBlock(block)
-            if not self._isQueryPredicate(predName):
-                continue
-            p = self.blockProbsMB[idxVar][self.evidenceIndices[idxVar]]
-            if p == 0: p = 1e-10 # prevent 0 probabilities
-            probs.append(p)
-        return fsum(map(log, probs))
-   
-    def _grad(self, wt):
-        self._calculateBlockProbsMB(wt)
+    def _grad(self, w, **params):        
+        self._compute_pls(w)
         grad = numpy.zeros(len(self.mrf.formulas), numpy.float64)        
-        #print "gradient calculation"
-        for idxFormula, d in self.fcounts.iteritems():
-            for idxVar, counts in d.iteritems():
-                block = self.mrf.pllBlocks[idxVar]
-                predName = self._getPredNameForPllBlock(block)
-                if not self._isQueryPredicate(predName):
-                    continue
-                val = self.evidenceIndices[idxVar]
-                v = counts[val]
-                for i in xrange(len(counts)):
-                    v -= counts[i] * self.blockProbsMB[idxVar][i]
-                grad[idxFormula] += v
-        #print "wts =", wt
-        #print "grad =", grad
+        for fidx, varval in self._stat.iteritems():
+            for varidx, counts in varval.iteritems():
+                if self.mrf.variable(varidx).predicate.name in self.epreds: continue
+                evidx = self.mrf.variable(varidx).evidence_value_index()
+                g = counts[evidx]
+                for i, val in enumerate(counts):
+                    g -= val * self._pls[varidx][i]
+                grad[fidx] += g
         self.grad_opt_norm = float(sqrt(fsum(map(lambda x: x * x, grad))))
         return numpy.array(grad)
-    
-    
-    
-    def _getPredNameForPllBlock(self, block):
-        '''
-        block being a (gaIdx, [gaIdx, ...]) tuple. 
-        '''
-        (idxGA, block) = block
-        if idxGA is None:
-            if len(block) == 0:
-                raise Exception('Encountered empty block.')
-            else:
-                return self.mrf.gndAtomsByIdx[block[0]].predName
-        else:
-            return self.mrf.gndAtomsByIdx[idxGA].predName
+
+

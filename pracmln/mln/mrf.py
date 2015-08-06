@@ -25,7 +25,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import logging
-from database import Database
+from pracmln.mln.database import Database
 from util import mergedom
 import copy
 import sys
@@ -42,7 +42,7 @@ from pracmln.mln.mrfvars import MutexVariable, SoftMutexVariable, FuzzyVariable,
     BinaryVariable
 from pracmln.mln.errors import MRFValueException, NoSuchDomainError,\
     NoSuchPredicateError
-from pracmln.mln.util import CallByRef, Interval, trace
+from pracmln.mln.util import CallByRef, Interval, trace, out
 from pracmln.mln.methods import InferenceMethods
 from math import *
 import traceback
@@ -92,7 +92,6 @@ class MRF(object):
 
 
     def __init__(self, mln, db=None):
-        log = logging.getLogger(self.__class__.__name__)
         self.mln = mln.materialize(db)
         self._evidence = []
 #         self.evidenceBackup = {}
@@ -115,10 +114,10 @@ class MRF(object):
 #         self.gndAtomsByIdx = {}
 #         self.gndFormulas = []
 #         self.gndAtomOccurrencesInGFs = []
-        
-        if type(db) == str:
-            db = Database.load(self.mln, db)
-        elif isinstance(db, Database): pass
+        if isinstance(db, basestring):
+            db = Database.load(self.mln, dbfile=db)
+        elif isinstance(db, Database): 
+            pass
         elif db is None:
             db = Database(self.mln)
         else:

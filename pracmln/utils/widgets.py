@@ -390,7 +390,7 @@ class FilePickEdit(Frame):
         self.picked_name = StringVar(self)
         self.makelist()
         # refresh button
-        self.refresh_button = Button(self.list_frame, text='<- refresh', command=self.makelist, height=1)
+        self.refresh_button = Button(self.list_frame, text='<- refresh', command=self.refresh, height=1)
         self.refresh_button.grid(row=0, column=1, sticky='E')        
         # save button
         self.save_button = Button(self.list_frame, text="save", command=self.save, height=1)
@@ -434,12 +434,19 @@ class FilePickEdit(Frame):
     def setDirectory(self, directory):
         self.directory = directory
         self.updateList()
-        menu = self.list["menu"] 
-        menu.delete(0, 'end')
+        self.makelist()
+#         menu = self.list["menu"] scrolledlist
+#         menu = self.list.listbox#["scrolledlist"]
+#         menu.delete(0, 'end')
         # add the new ones
-        for filename in self.files:
-            menu.add_command(label=filename, command=_setit(self.picked_name, filename, None))
+#         for filename in self.files:
+#             menu.add_command(label=filename, command=_setit(self.picked_name, filename, None))
         self.select("")
+    
+    def refresh(self):
+        sel = self.get()
+        self.updateList()
+        self.select(sel)
     
     def reloadFile(self):
         self.editor.delete("1.0", END)
@@ -542,6 +549,9 @@ class FilePickEdit(Frame):
             else:
                 self.list.selectitem(self.files.index(filename))
                 self.onSelChange(filename)
+        else:
+            self.editor.delete("1.0", END)
+                
 
     def makelist(self):
         if havePMW:
@@ -595,7 +605,12 @@ class FilePickEdit(Frame):
 
     def set_enabled(self, state):
         self.editor.configure(state=state)
-        self.list.configure(state=state)
+        if havePMW:
+            self.list.component('entryfield_entry').configure(state=state)
+#             self.list.component('arrowbutton').configure(state=state)
+            self.list.component('arrowbutton').bind('<1>', (lambda a: 'break') if state==DISABLED else self.list._postList)
+        else:
+            self.list.configure(state=state)
         self.save_button.configure(state=state)
         self.cb.configure(state=state)
         self.save_edit.configure(state=state)

@@ -24,9 +24,6 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import optimize
-from pracmln.mln.methods import LearningMethods
-import multiprocessing
-from multiprocessing import Process
 import logging
 import sys
 from numpy.ma.core import exp
@@ -282,15 +279,22 @@ class DiscriminativeLearner(AbstractLearner):
         for the discriminative learner. Eitehr the 'qpreds' or 'epreds'
         parameters must be given, both are lists of predicate names.
         '''
-        qpreds = self._params.get('qpreds', [])
-        if 'epreds' in self._params:
-            epreds = self._params['epreds']
-            qpreds.extend([p for p in self.mrf.predicates if p not in epreds])
-            if not set(qpreds).isdisjoint(epreds):
-                raise Exception('Query predicates and evidence predicates must be disjoint.')
-        if len(qpreds) == 0:
-            raise Exception("For discriminative Learning, query or evidence predicates must be provided.")        
-        return qpreds
+        if not hasattr(self, '_preds'):
+            qpreds = self._params.get('qpreds', [])
+            if 'epreds' in self._params:
+                epreds = self._params['epreds']
+                qpreds.extend([p for p in self.mrf.predicates if p not in epreds])
+                if not set(qpreds).isdisjoint(epreds):
+                    raise Exception('Query predicates and evidence predicates must be disjoint.')
+            if len(qpreds) == 0:
+                raise Exception("For discriminative Learning, query or evidence predicates must be provided.")
+            self._qpreds = qpreds
+        return self._qpreds
+    
+    
+    @property
+    def epreds(self):
+        return [p.name for p in self.mrf.predicates if p.name not in self.qpreds]
     
     
     def _qpred(self, predname):
@@ -299,7 +303,7 @@ class DiscriminativeLearner(AbstractLearner):
     
     @property
     def name(self):
-        return self.__class__.__name__ + "[queryPreds:%s]" % ",".join(self.qpreds)
+        return self.__class__.__name__ + "[query predicates: %s]" % ",".join(self.qpreds)
     
     
 class SoftEvidenceLearner(AbstractLearner):
