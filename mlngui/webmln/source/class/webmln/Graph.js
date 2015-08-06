@@ -31,8 +31,8 @@ qx.Class.define("webmln.Graph",
 
     //this.w = window.innerWidth;
     //this.h = window.innerHeight;
-    this.w = 1200;
-    this.h = 500;
+    this.w = document.getElementById("viz", true, true).offsetWidth;
+    this.h = document.getElementById("viz", true, true).offsetHeight;
 
     this.svnContainer = this.d3.select('#viz').select("svg").select("g");
     /*
@@ -111,13 +111,13 @@ qx.Class.define("webmln.Graph",
     replaceData : function (data) {
       this.clear();
       for (var dataIndex = 0; dataIndex < data.length; dataIndex++) {
-        if (t.findNodeIndex(data[dataIndex].source) === -1) {
-              t.addNode(data[dataIndex].source);
+        if (this.findNodeIndex(data[dataIndex].source) === -1) {
+              this.addNode(data[dataIndex].source);
             }
-            if (t.findNodeIndex(data[dataIndex].target) === -1) {
-              t.addNode(data[dataIndex].target);
+            if (this.findNodeIndex(data[dataIndex].target) === -1) {
+              this.addNode(data[dataIndex].target);
             }
-        t.links.push({"source": t.findNode(data[dataIndex].source),"target": t.findNode(data[dataIndex].target),"value": newVal, "arcStyle":data[dataIndex].arcStyle});
+        this.links.push({"source": this.findNode(data[dataIndex].source),"target": this.findNode(data[dataIndex].target),"value": data[dataIndex].value, "arcStyle":data[dataIndex].arcStyle});
       }
       this.update();
     },        
@@ -257,11 +257,22 @@ qx.Class.define("webmln.Graph",
       audioClone.play();
     },*/
 
+    /**
+     * hides or shows arc labels by setting the visibility attribute accordingly
+     */
+    showLabels : function(showLabels) {
+        var cols = document.getElementsByClassName('label');
+        for(i=0; i<cols.length; i++) {
+            var visibility = showLabels ? 'visible' : 'hidden';
+            cols[i].style.visibility = visibility;
+        }
+    },
+
 
     /**
      * redraws the graph with the updated nodes and links
      */
-    update : function (showLabels) {
+    update : function () {
       showLabels = typeof showLabels !== 'undefined' ? showLabels : true;
 
       var path = this.svnContainer.selectAll("path.link")
@@ -283,6 +294,7 @@ qx.Class.define("webmln.Graph",
 
       var edgelabelsEnter = edgelabels.enter().append('text')
           .style("pointer-events", "none")
+          .style("visibility", "hidden")
           .attr('class', 'label')
           .text(function(d){ return showLabels ? d.value.join(' / ') : ''; });
 
@@ -392,12 +404,11 @@ qx.Class.define("webmln.Graph",
       };
 
       this.force
-        //.size([.8*window.innerWidth, .8*window.innerHeight])
-        .size([.8*1200, .8*500])
+        .size([this.w, this.h])
         .linkDistance( this.h/2 )
-        .charge(-2000)
+        .charge(-1000)
         .on("tick", tick)
-        //.gravity( .025 )
+        .gravity( .05 )
         .distance( 250 )
         .start();
     }

@@ -286,8 +286,8 @@ qx.Class.define("webmln.Application",
             this.__uploader.addListener("addFile", this._upload, this);
             this.__textAreaEMLN.addListener("appear", this._update_emln_text, this);
             this.__checkBoxShowLabels.addListener("changeValue", function(e) {
-                            this._graph.update(e.getData());
-                            }, this);
+                            this._graph.showLabels(e.getData());
+                        }, this);
 
             // add widgets to form
             this.__mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
@@ -534,10 +534,10 @@ qx.Class.define("webmln.Application",
                                             continue;
                                         }
                                         checkList[j].push(k);
-                                        link = new Object();
+                                        var link = new Object();
                                         link.source = formulaAtoms[i][j];
                                         link.target = formulaAtoms[i][k];
-                                        link.value = formulas[i];
+                                        link.value = [formulas[i]];
                                         link.arcStyle = "strokegreen";
                                         addList.push(link);
                                     }
