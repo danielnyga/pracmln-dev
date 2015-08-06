@@ -5,11 +5,30 @@ import stat
 import sys
 import platform
 import shutil
+import imp
 
-sys.path.append(os.path.join(os.getcwd(), 'python'))
+sys.path.append(os.path.join(os.getcwd(), 'pracmln'))
 sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
 sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'pyparsing'))
 
+from pracmln.mln.util import colorize
+
+packages = [('numpy', 'numpy'), ('Pmw', 'pmw')]
+
+def check_package(pkg):
+    try:
+        sys.stdout.write('checking dependency %s...' % pkg[0]) 
+        imp.find_module(pkg[0])
+        sys.stdout.write(colorize('OK', (None, 'green', True), True))
+        print
+    except ImportError: 
+        print
+        print colorize('%s was not found. Please install by "sudo apt-get install python-%s"' % (pkg[0], pkg[1]), (None, 'yellow', True), True)
+    
+# check the package dependecies
+for pkg in packages:
+    check_package(pkg)
+    
 python_apps = [
     {"name": "mlnquery", "script": "$PRACMLN_HOME/pracmln/mlnquery.py"},
     {"name": "mlnlearn", "script": "$PRACMLN_HOME/pracmln/mlnlearn.py"},
