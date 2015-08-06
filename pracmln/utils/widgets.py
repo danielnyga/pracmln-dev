@@ -389,9 +389,12 @@ class FilePickEdit(Frame):
         # create list
         self.picked_name = StringVar(self)
         self.makelist()
+        # refresh button
+        self.refresh_button = Button(self.list_frame, text='<- refresh', command=self.makelist, height=1)
+        self.refresh_button.grid(row=0, column=1, sticky='E')        
         # save button
         self.save_button = Button(self.list_frame, text="save", command=self.save, height=1)
-        self.save_button.grid(row=0, column=1, sticky="E")
+        self.save_button.grid(row=0, column=2, sticky="E")
         # editor
         row += 1
         if coloring:
