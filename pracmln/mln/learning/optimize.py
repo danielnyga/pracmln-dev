@@ -195,7 +195,7 @@ class SciPyOpt(object):
         
         # negate for minimization
         neg_f = lambda wt: -f(wt)
-        neg_grad = lambda wt: -grad(wt)
+        neg_grad = lambda wt: grad(wt)
         #if not useGrad or not p.useGrad(): neg_grad = None
         if not p.usef: 
             neg_f = lambda wt: -p._fDummy(wt)

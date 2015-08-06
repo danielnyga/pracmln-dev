@@ -31,9 +31,10 @@ from pracmln.mln.mrfvars import FuzzyVariable
 from pracmln.mln.constants import auto, HARD
 from pracmln.mln.errors import SatisfiabilityException
 from pracmln.mln.grounding.fastconj import FastConjunctionGrounding
-from pracmln.mln.util import Interval, ProgressBar
+from pracmln.mln.util import Interval, ProgressBar, colorize, out
 from numpy.ma.core import exp
 from pracmln.mln.inference.infer import Inference
+from pracmln.mln.grounding.default import DefaultGroundingFactory
 
 # this readonly global is for multiprocessing to exploit copy-on-write
 # on linux systems
@@ -74,8 +75,8 @@ class EnumerationAsk(Inference):
     
     def __init__(self, mrf, queries, **params):
         Inference.__init__(self, mrf, queries, **params)
-        self.grounder = FastConjunctionGrounding(mrf, formulas=mrf.formulas, cache=auto, verbose=False, multicore=self.multicore)
-#         self.grounder = DefaultGroundingFactory(mrf, formulas=formulas, cache=auto, verbose=False)
+#         self.grounder = FastConjunctionGrounding(mrf, formulas=mrf.formulas, cache=auto, verbose=False, multicore=self.multicore)
+        self.grounder = DefaultGroundingFactory(mrf, formulas=mrf.formulas, cache=auto, verbose=False)
         # check consistency of fuzzy and functional variables
         for variable in self.mrf.variables:
             variable.consistent(self.mrf.evidence, strict=isinstance(variable, FuzzyVariable))
@@ -98,6 +99,8 @@ class EnumerationAsk(Inference):
         denominator = 0.
         # start summing
         logger.debug("Summing over %d possible worlds..." % worlds)
+        if worlds > 500000 and self.verbose:
+            print colorize('!!! %d WORLDS WILL BE ENUMERATED !!!', (None, 'red', True), True)
         k = 0
         self._watch.tag('enumerating worlds', verbose=self.verbose)
         global global_enumAsk

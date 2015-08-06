@@ -26,7 +26,7 @@ nan = float('NaN')
 auto = -1
 infty = float('inf')
 inherit = -2
-ALL = -1
+ALL = ''
 
 
 # this defines the formats in (bg, fg, bold)

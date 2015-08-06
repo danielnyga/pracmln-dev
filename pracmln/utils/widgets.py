@@ -446,7 +446,7 @@ class FilePickEdit(Frame):
     def refresh(self):
         sel = self.get()
         self.updateList()
-        self.select(sel)
+        self.select(sel, notify=False)
     
     def reloadFile(self):
         self.editor.delete("1.0", END)
@@ -541,14 +541,14 @@ class FilePickEdit(Frame):
         if len(self.files) == 0 and not self.allowNone: self.files.append("(no %s files found)" % str(self.file_mask    ))
         
 
-    def select(self, filename):
+    def select(self, filename, notify=True):
         ''' selects the item given by filename '''
         if filename in self.files:
             if not havePMW:
                 self.picked_name.set(filename)
             else:
                 self.list.selectitem(self.files.index(filename))
-                self.onSelChange(filename)
+                if notify: self.onSelChange(filename)
         else:
             self.editor.delete("1.0", END)
                 
@@ -583,17 +583,19 @@ class FilePickEdit(Frame):
             f.write(self.editor.get("1.0", END).encode('utf-8'))
             f.close()
             # add it to the list of files
-            if not filename in self.files:
-                self.files.append(filename)
-                self.files.sort()
-                self.list.destroy()
-                self.makelist()
+#             if not filename in self.files:
+#                 self.files.append(filename)
+#                 self.files.sort()
+#                 self.list.destroy()
+#                 self.makelist()
             # set it as the new pick
             #if havePMW:
             #    self.picked_name.selectitem(self.files.index(filename), 1)
             #else:
             #    self.picked_name.set(filename)
-            self.select(filename)
+#             self.select(filename)
+            self.refresh()
+            self.select(filename, notify=False)
             self.save_edit.configure(state=DISABLED)
         return filename
 

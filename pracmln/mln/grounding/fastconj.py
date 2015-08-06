@@ -98,6 +98,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             t = 'conj'
         else:
             raise Exception('Unexpected formula: %s' % fstr(formula))
+        out(formula)
         children = [formula] if  not hasattr(formula, 'children') else formula.children
         # make equality constraints access their variable domains
         # this is a _really_ dirty hack but it does the job ;-)
@@ -127,7 +128,9 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         if truthpivot == 1 and typ == 'disj':
             return
         if not lits:
-            if typ == 'conj':
+            if len(gndlits) == 1:
+                gf = gndlits[0].simplify(self.mrf)
+            elif typ == 'conj':
                 gf = self.mrf.mln.logic.conjunction(gndlits, mln=self.mrf.mln, idx=formula.idx).simplify(self.mrf)
             elif typ == 'disj':
                 gf = self.mrf.mln.logic.disjunction(gndlits, mln=self.mrf.mln, idx=formula.idx).simplify(self.mrf)

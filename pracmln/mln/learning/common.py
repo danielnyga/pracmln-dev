@@ -27,6 +27,7 @@ import optimize
 import logging
 import sys
 from numpy.ma.core import exp
+from pracmln.mln.util import out
 
 
 try:
@@ -45,8 +46,8 @@ class AbstractLearner(object):
     def __init__(self, mrf=None, **params):
         self.mrf = mrf
         self._params = params
-        self.mrf.consistent(strict=True)
-
+        self.mrf.apply_cw()
+        self._w = None
 
     @property
     def prior_stdev(self):
@@ -159,14 +160,15 @@ class AbstractLearner(object):
     
         
     def grad(self, weights):
-        self._w = self._fullweights(weights)
+#         self._w = self._fullweights(weights)
         grad = self._grad(self._w)
         self._grad_ = grad
         # add gaussian prior
         if self.prior_stdev is not None:
             for i, weight in enumerate(self._w):
                 grad[i] -= 1./(self.prior_stdev ** 2) * weight
-        return self._remove_fixweights(grad)
+        return grad
+#         return self._remove_fixweights(grad)
 
     
     def _remove_fixweights(self, v):
@@ -190,9 +192,9 @@ class AbstractLearner(object):
             raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
         # initial parameter vector: all zeros or weights from formulas
         self._w = [0] * len(self.mrf.formulas)
-        for f in self.mrf.formulas:
-            if self.mrf.mln.fixweights[f.idx] or self.use_init_weights:
-                self._w[f.idx] = f.weight
+#         for f in self.mrf.formulas:
+#             if self.mrf.mln.fixweights[f.idx] or self.use_init_weights:
+#                 self._w[f.idx] = f.weight
         self._prepare()
         self._optimize(**self._params)
         self._cleanup()
@@ -208,15 +210,15 @@ class AbstractLearner(object):
 
     
     def _optimize(self, optimizer='bfgs', **params):
-        w = self._varweights()
+#         w = self._varweights()
         if optimizer == "directDescent":
             opt = optimize.DirectDescent(w, self, **params)        
         elif optimizer == "diagonalNewton":
             opt = optimize.DiagonalNewton(w, self, **params)  
         else:
-            opt = optimize.SciPyOpt(optimizer, w, self, **params)        
-        w = opt.run()
-        self._w = self._fullweights(w)
+            opt = optimize.SciPyOpt(optimizer, self._w, self, **params)        
+        self._w = opt.run()
+#         self._w = self._fullweights(w)
         
         
     def hessian(self, wt):

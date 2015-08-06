@@ -50,32 +50,6 @@ import traceback
 
 logger = logging.getLogger(__name__)
 
-class temporary_evidence():
-    '''
-    Context guard class for enabling convenient handling of temporary evidence in
-    MRFs using the python `with` statement. This guarantees that the evidence
-    is set back to the original whatever happens in the `with` block.
-    
-    :Example:
-    
-    >> with temporary_evidence(mrf, [0, 0, 0, 1, 0, None, None]) as mrf_:
-    '''
-    
-    
-    def __init__(self, mrf, evidence=None):
-        self.mrf = mrf
-        self.evidence_backup = list(mrf.evidence)
-        if evidence is not None:
-            self.mrf.evidence = evidence 
-        
-    def __enter__(self):
-        return self.mrf
-    
-    def __exit__(self, *args):
-        self.mrf.evidence = self.evidence_backup
-        return True
-        
-
 
 class MRF(object):
     '''
@@ -107,7 +81,6 @@ class MRF(object):
                                                         # soft evidence and can be handled in exactly the same way
         # ground members
         self.formulas = list(self.mln.formulas)
-         
 #         self.gndAtoms = {}
 #         self.gndBlockLookup = {}
 #         self.gndBlocks = {}

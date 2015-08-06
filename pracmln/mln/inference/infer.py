@@ -27,8 +27,9 @@ from pracmln.praclog import logging
 from pracmln.mln.database import Database
 from pracmln.mln.constants import ALL
 from pracmln.mln.mrfvars import MutexVariable, SoftMutexVariable
-from pracmln.mln.util import StopWatch, barstr, colorize, elapsed_time_str
+from pracmln.mln.util import StopWatch, barstr, colorize, elapsed_time_str, out
 import sys
+from pracmln.mln.errors import NoSuchPredicateError
 
 
 class Inference(object):
@@ -36,19 +37,46 @@ class Inference(object):
     Represents a super class for all inference methods.
     Also provides some convenience methods for collecting statistics
     about the inference process and nicely outputting results.
+    
+    :param mrf:        the MRF inference is being applied to.
+    :param queries:    a query or list of queries, can be either instances of
+                       :class:`pracmln.logic.common.Logic` or string representations of them,
+                       or predicate names that get expanded to all of their ground atoms.
+                       If `ALL`, all ground atoms are subject to inference.
+                       
+    Additional keyword parameters:
+    
+    :param cw:         (bool) if `True`, the closed-world assumption will be applied 
+                       to all but the query atoms.
     '''
     
     def __init__(self, mrf, queries=ALL, **params):
         self.mrf = mrf
         self.mln = mrf.mln 
         self._params = params
-        if queries == ALL:
+        if not queries:
             self.queries = [self.mln.logic.gnd_lit(ga, negated=False, mln=self.mln) for ga in self.mrf.gndatoms if self.mrf.evidence[ga.idx] is None]
         else:
             # check for single/multiple query and expand
             if type(queries) is not list:
                 queries = [queries]
             self.queries = self._expand_queries(queries)
+        # apply the closed world assumptions to the explicitly specified predicates
+        if self.cwpreds:
+            for pred in self.cwpreds:
+                for gndatom in self.mrf.gndatoms:
+                    if gndatom.predname != pred: continue
+                    if self.mrf.evidence[gndatom.idx] is None:
+                        self.mrf.evidence[gndatom.idx] = 0
+        # apply the closed world assumption to all remaining ground atoms that are not in the queries
+        if self.closedworld:
+            qatoms = set()
+            for q in self.queries:
+                qatoms.update(q.gndatom_indices())
+            out(qatoms)
+            for gndatom in self.mrf.gndatoms:
+                if gndatom.idx not in qatoms and self.mrf.evidence[gndatom.idx] is None:
+                    self.mrf.evidence[gndatom.idx] = 0
         self._watch = StopWatch()
     
     
@@ -81,9 +109,14 @@ class Inference(object):
         return db
     
 
-#     @property
-#     def closedworld(self):
-#         self._params.get('closedworld', None)
+    @property
+    def closedworld(self):
+        return self._params.get('cw', False)
+        
+        
+    @property
+    def cwpreds(self):
+        return self._params.get('cw_preds', [])
         
 
     def _expand_queries(self, queries):
@@ -102,7 +135,7 @@ class Inference(object):
                         equeries.append(gf)
                 else: # just a predicate name
                     if query not in self.mln.prednames:
-                        logger.warning('Unsupported query: %s is not among the admissible predicates.' % (query))
+                        raise NoSuchPredicateError('Unsupported query: %s is not among the admissible predicates.' % (query))
                         continue
                     for gndatom in self.mln.predicate(query).groundatoms(self.mln, self.mrf.domains):
                         equeries.append(self.mln.logic.gnd_lit(self.mrf.gndatom(gndatom), negated=False, mln=self.mln))

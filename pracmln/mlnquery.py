@@ -64,6 +64,7 @@ class MLNQueryGUI(object):
         self.gconf = gconf
         self.config = None
         self.master = master
+        self.master.bind('<Return>', self.start)
         
         self.frame = Frame(master)
         self.frame.pack(fill=BOTH, expand=1)
@@ -210,8 +211,8 @@ class MLNQueryGUI(object):
         start_button.grid(row=row, column=1, sticky="NEW")
 
         self.set_dir(ifNone(directory, ifNone(gconf['prev_query_path'], os.getcwd())))
-        if gconf['prev_query_mln':self.dir.get()] is not None:
-            self.selected_mln.set(gconf['prev_query_mln':self.dir.get()])
+#         if gconf['prev_query_mln':self.dir.get()] is not None:
+#             self.selected_mln.set(gconf['prev_query_mln':self.dir.get()])
         
         self.master.geometry(gconf['window_loc_query'])
         self.initialized = True
@@ -244,7 +245,8 @@ class MLNQueryGUI(object):
 
     def select_mln(self, mlnname):
         confname = os.path.join(self.dir.get(), query_config_pattern % mlnname)
-        if self.config is None or not self.initialized or os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
+        if self.config is None or not self.initialized or not os.path.exists(confname) \
+            or os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
             self.set_config(PRACMLNConfig(confname))
         self.mln_filename = mlnname
         self.setOutputFilename()
@@ -315,7 +317,7 @@ class MLNQueryGUI(object):
         self.output_filename.set(fn)
 
 
-    def start(self):
+    def start(self, *args):
         mln = self.selected_mln.get().encode('utf8')
         emln = str(self.selected_emln.get().strip())
         db = str(self.selected_db.get())
@@ -380,11 +382,8 @@ class MLNQueryGUI(object):
                 db = db[0]
             # parse non-atomic params
             queries = parse_queries(mln, str(self.config['queries']))
-            cw_preds = filter(lambda x: x != "", map(str.strip, str(params["cw_preds"].split(",")))) if 'cw_preds' in params else []
+            params['cw_preds'] = filter(lambda x: bool(x), map(str.strip, params["cw_preds"].split(","))) if 'cw_preds' in params else []
             profile = ifNone(self.config['profile'], False)
-            if self.config['cw']:
-                cw_preds = [p.name for p in mln.predicates if p.name not in queries]
-            
             # extract and remove all non-algorithm
             method = params.get('method', 'MC-SAT')
             for s in GUI_SETTINGS:
@@ -399,7 +398,7 @@ class MLNQueryGUI(object):
             praclog.level(eval('logging.%s' % params.get('debug', 'WARNING').upper()))
             try:
                 mln_ = mln.materialize(db)
-                mrf = mln_.ground(db, cwpreds=cw_preds)
+                mrf = mln_.ground(db)
                 if params.get('verbose', False):
                     print
                     print headline('EVIDENCE VARIABLES')

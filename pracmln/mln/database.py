@@ -528,7 +528,7 @@ def parse_db(mln, content, ignore_unknown_preds=False, db=None):
     allow_multiple = True
     if db is None:
         allow_multiple = True
-        db = Database(mln)
+        db = Database(mln, ignore_unknown_preds=ignore_unknown_preds)
     dbs = []
     # expand domains with dbtext constants and save evidence
     for line, l in enumerate(content.split("\n")):
