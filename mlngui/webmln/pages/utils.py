@@ -11,6 +11,8 @@ LEARN_CONFIG_PATTERN = '{}.learn.conf'
 QUERY_CONFIG_PATTERN = '{}.query.conf'
 GLOBAL_CONFIG_FILENAME = '.pracmln.conf'
 GUI_SETTINGS = ['db_rename', 'mln_rename', 'db', 'method', 'use_emln', 'save', 'output', 'grammar', 'queries', 'emln']
+DEFAULT_EXAMPLE = 'smokers'
+
 
 def ensure_mln_session(session):
     log = logging.getLogger(__name__)
@@ -18,6 +20,7 @@ def ensure_mln_session(session):
     if mln_session is None:
         session['id'] = os.urandom(24)
         mln_session = MLNSession(session)
+        mln_session.xmplFolder = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
         log.info('created new MLN session %s' % str(mln_session.id.encode(
             'base-64')))
         mlnApp.session_store.put(mln_session)

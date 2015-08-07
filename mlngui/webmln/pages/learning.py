@@ -27,7 +27,6 @@ USERNAME = 'admin'
 PASSWORD = 'default'
 
 INFERENCE_METHODS = InferenceMethods.getNames()
-DEFAULT_EXAMPLE = 'smokers'
 
 # separate logger for user statistics
 stream = StringIO()
@@ -214,6 +213,7 @@ def get_emln():
 def init_options():
     log.info('_init/ init_options')
     mlnsession = ensure_mln_session(session)
+    initialize()
     mlnFiles, dbFiles = getExampleFiles(mlnsession.xmplFolder)
     dirs = [x for x in os.listdir(mlnApp.app.config['EXAMPLES_FOLDER']) if os.path.isdir(os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'],x))]
     res = { 'infMethods': INFERENCE_METHODS,
@@ -228,14 +228,12 @@ def init_options():
 def initialize():
     log.info('initialize')
     mlnsession = ensure_mln_session(session)
-    mlnsession.xmplFolder = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
     mlnsession.params = ''
 
     confignames = ["mlnquery.config.dat", "query.config.dat"]
     settings = {}
     for filename in confignames:
         configname = os.path.join(mlnsession.xmplFolder, filename)
-        print configname, os.path.exists(configname)
         if os.path.exists(configname):
             try:
                 settings = pickle.loads("\n".join(map(lambda x: x.strip(

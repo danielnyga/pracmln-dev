@@ -24,9 +24,6 @@ qx.Class.define("webmln.Application",
   	members :
   	{
 
-
-
-
         /**
          * This method contains the initial application code and gets called
          * during startup of the application
@@ -45,12 +42,18 @@ qx.Class.define("webmln.Application",
                 qx.log.appender.Console;
             }
 
-              /*
-              -------------------------------------------------------------------------
-            Below is your actual application code...
-              -------------------------------------------------------------------------
-              */
-
+            // destroy the session before leaving MLN
+            window.onbeforeunload = function () {
+            var req = new qx.io.request.Xhr();
+            req.setUrl("/mln/_destroy_session");
+            req.setMethod("POST");
+            req.addListener("success", function(e) {
+                var tar = e.getTarget();
+                var response = tar.getResponse();
+                sessionname = response;
+            });
+            req.send();
+            };
 
             var mln_container = document.getElementById("mln_container", true, true);
             var contentIsle = new qx.ui.root.Inline(mln_container,true,true);
@@ -95,9 +98,9 @@ qx.Class.define("webmln.Application",
             learningPage.setLayout(new qx.ui.layout.VBox());
             learningPage.add(new qx.ui.basic.Label("Layout-Settings"));
             tabView.add(learningPage);
-
             outerContainer.add(tabView);
             contentIsle.add(outerContainer, {width: "100%", height: "100%"});
+            this._init();
         },
 
         /**
@@ -330,7 +333,6 @@ qx.Class.define("webmln.Application",
             this.__mlnFormContainer.add(this.__checkBoxIgnoreUnknown, {row: 22, column: 2});
             this.__mlnFormContainer.add(this.__checkBoxShowLabels, {row: 22, column: 3});
             this.__mlnFormContainer.add(this.__buttonStart, {row: 23, column: 1, colSpan: 3});
-            this._init();
 
             return mlnFormContainer;
         },
@@ -422,7 +424,7 @@ qx.Class.define("webmln.Application",
         */
         _start_inference : function(e) {
                 var that = this;
-
+                this.loadGraph();
                 var mln = (this.__selectMLN.getSelectables().length != 0) ? this.__selectMLN.getSelection()[0].getLabel() : "";
                 var emln = (this.__selectEMLN.getSelectables().length != 0) ? this.__selectEMLN.getSelection()[0].getLabel() : "";
                 var db = (this.__selectEvidence.getSelectables().length != 0) ? this.__selectEvidence.getSelection()[0].getLabel() : "";
@@ -518,7 +520,6 @@ qx.Class.define("webmln.Application",
                             }
                         }
 
-                        that.loadGraph();
                         var addList = [];
                         var checkList;
                         var link;
@@ -545,12 +546,7 @@ qx.Class.define("webmln.Application",
                             }
                         }
                         that.updateGraph([],addList);
-                        if (that.check) {
-                            that.updateBarChart(resultsMap);
-                        } else {
-                            that.check = true;
-                            that.d3BarChart(resultsMap);
-                        }
+                        that.updateBarChart(resultsMap);
                         that.__textAreaResults.setValue(output);
                         that.__textAreaResults.getContentElement().scrollToY(10000);
 
@@ -581,6 +577,7 @@ qx.Class.define("webmln.Application",
                              this.__selectEvidence).add(new qx.ui.form.ListItem(response[arr[x]][i]));
                         }
                     }
+                    this.loadBarChart();
             }, this);
             req.send();
         },
@@ -612,6 +609,14 @@ qx.Class.define("webmln.Application",
           }
           this._graph.clear();
         },
+
+        /**
+        * Creates new instance of graph if not existent, otherwise resets it
+        */
+        loadBarChart : function() {
+            this._barChart = this.d3BarChart();
+        },
+
 
         /**
         * Creates new lists of links to be removed and added for redrawing graph
@@ -746,33 +751,36 @@ qx.Class.define("webmln.Application",
         },
 
 
-        d3BarChart : function(results) {
-            var bar;
-            var xAxis;
-            var yAxis;
-            var x;
-            var y;
-            var format;
-            var data = [];
+        d3BarChart : function() {
+            this.w = .8*document.getElementById("dia", true, true).offsetWidth;
+            this.h = .8*document.getElementById("dia", true, true).offsetHeight;
 
-            var m = [30, 10, 10, 250],
-            w = 960 - m[1] - m[3],
-            h = 130 - m[0] - m[2];
-
-            format = d3.format(".4f");
-
-            x = d3.scale.linear().range([0, w]),
-            y = d3.scale.ordinal().rangeRoundBands([0, h], .1);
-
-            xAxis = d3.svg.axis().scale(x).orient("top").tickSize(-h);
-            yAxis = d3.svg.axis().scale(y).orient("left").tickSize(0);
-
-            svg = d3.select("#dia").append("svg")
-              .attr("width", w + m[1] + m[3])
-              .attr("height", h + m[0] + m[2])
+            var barChartSVG = d3.select("#dia").append("svg")
+              .attr("class", "chart")
+              .attr("width", "95%")
+              .attr("height", "95%")
               .append("g")
-              .attr("transform", "translate(" + m[3] + "," + m[0] + ")");
+              .attr("transform", "translate(" + 100 + "," + 20 + ")");
 
+            var x = d3.scale.linear()
+                .range([0, this.w])
+                .domain([0,1]);
+
+            var xAxis = d3.svg.axis()
+                .scale(x)
+                .orient("top")
+                .tickSize(-this.h);
+
+            barChartSVG.append("g")
+                .attr("class", "x axis")
+                .call(xAxis);
+
+            return barChartSVG;
+        },
+
+
+        updateBarChart : function(results) {
+            var data = [];
             for (var key in results) {
                 if (results.hasOwnProperty(key)) {
                     var data1 = new Object();
@@ -781,74 +789,92 @@ qx.Class.define("webmln.Application",
                     data.push(data1);
                 }
             }
+
             // Parse numbers, and sort by value.
-            //data.forEach(function(d) { d.value = +d.value; });
             data.sort(function(a, b) { return b.value - a.value; });
 
-            // Set the scale domain.
-            //x.domain([0, d3.max(data, function(d) { return d.value; })]);
-            x.domain([0,1]);
-            y.domain(data.map(function(d) { return d.name; }));
+            var format = d3.format(".4f");
+            var x = d3.scale.linear()
+                .range([0, this.w])
+                .domain([0,1]);
 
-            bar = svg.selectAll("g.bar")
-                .data(data,function(d) {
-                return d.name; })
-                .enter().append("g")
+            var y = d3.scale.ordinal()
+                .rangeRoundBands([0, this.h], .1)
+                .domain(data.map(function(d) { return d.name; }));
+
+            var yAxis = d3.svg.axis()
+                .scale(y)
+                .orient("left")
+                .tickSize(0);
+
+            // Set the scale domain.
+
+            for (var d = 0; d < data.length; d++){
+                console.log('name, y(name), yaxis', data[d].name, y(data[d].name));
+                console.log('value, x(va;ie)', data[d].value, x(data[d].value));
+            }
+            console.log('update bar chart', data);
+
+            // selection for bars
+            var barSelection = this._barChart.selectAll("g.bar")
+                .data(data,function(d) { console.log('d.name',d.name, d);return d.name; });
+
+            // create elements (bars)
+            var barItems = barSelection.enter()
+                .append("g")
                 .attr("class", "bar")
                 .attr("transform", function(d) { return "translate(0," + y(d.name) + ")"; });
 
-            bar.append("rect")
-                .attr("width", function(d) { return x(d.value); })
-                .attr("height", y.rangeBand());
+                // create bars and texts
+                barItems.append("rect")
+                    .attr("width", function(d) { return x(d.value); })
+                    .attr("height", y.rangeBand());
 
-            bar.append("text")
-                .attr("class", "value")
-                .attr("x", function(d) { return x(d.value); })
-                .attr("y", y.rangeBand() / 2)
-                .attr("dx", -3)
-                .attr("dy", ".35em")
-                .attr("text-anchor", "end")
-                .text(function(d) { return format(d.value); });
+                barItems.append("text")
+                    .attr("class", "value")
+                    .attr("x", function(d) { return x(d.value); })
+                    .attr("y", y.rangeBand() / 2)
+                    .attr("dx", -3)
+                    .attr("dy", ".35em")
+                    .attr("text-anchor", "end")
+                    .text(function(d) { return format(d.value); });
 
-            svg.append("g")
-                .attr("class", "x axis")
-                .call(xAxis);
+//
+//            // update elements
+//            barSelection.select( "rect" )
+//                .attr("width", function(d) { return x(d.value); })
+//                .attr("height", y.rangeBand());
+//
+//            barSelection.select( "text" )
+//                .attr("class", "value")
+//                .attr("x", function(d) { return x(d.value); })
+//                .attr("y", y.rangeBand() / 2)
+//                .attr("dx", -3)
+//                .attr("dy", ".35em")
+//                .attr("text-anchor", "end")
+//                .text(function(d) { return format(d.value); });
 
-            svg.append("g")
+            // remove elements
+            barSelection.exit().remove();
+
+
+            // selection for y-axis
+            var axisSelection = this._barChart.selectAll("g.y axis")
+                .data([0], function(d) { return d; });
+
+            // create element
+            var axisItems = axisSelection.enter()
+                .append("g")
                 .attr("class", "y axis")
                 .call(yAxis);
-        },
 
-        updateBarChart : function(results) {
+            // update axis elements
+            axisSelection.select( "g.y axis" )
+                .attr("class", "y axis")
+                .call(yAxis);
 
-            data = [];
-            var data1 = new Object();
-            data1.name = "Franz";
-            data1.value = 0.15;
-            data.push(data1);
-            data1 = new Object();
-            data1.name = "Hans";
-            data1.value = 0.9;
-            data.push(data1);
-
-            y.domain(data.map(function(d) { return d.name; }));
-
-            bar = bar.data(data,function(d) { return d.name; });
-                    bar.enter().append("rect")
-                .attr("width", function(d) { return x(d.value); })
-                .attr("height", y.rangeBand())
-                .attr("transform", function(d) { return "translate(0," + y(d.name) + ")"; });
-                    bar.enter().append("text")
-                .attr("class", "value")
-                .attr("x", function(d) { return x(d.value); })
-                .attr("y", y.rangeBand() / 2)
-                .attr("dx", -3)
-                .attr("dy", ".35em")
-                .attr("text-anchor", "end")
-                .text(function(d) { return format(d.value); });
-                    bar.exit().remove();
-
-                //svg.select("g").call(yAxis);
+            // remove axis
+            axisSelection.exit().remove();
         }
     }
 });

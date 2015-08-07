@@ -10,7 +10,7 @@ from webmln.pages.learning import initialize
 
 @mlnApp.app.route('/mln/')
 def mln():
-    initialize()
+    ensure_mln_session(session)
     return render_template('learn.html', **locals())
 
 
