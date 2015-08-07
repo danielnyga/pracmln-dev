@@ -26,7 +26,7 @@ SECRET_KEY = 'secret'
 USERNAME = 'admin'
 PASSWORD = 'default'
 
-INFERENCE_METHODS = InferenceMethods.getNames()
+INFERENCE_METHODS = InferenceMethods.names()
 
 # separate logger for user statistics
 stream = StringIO()
@@ -165,7 +165,7 @@ def start_inference():
             if params.get('verbose', False):
                 log.info('EVIDENCE VARIABLES')
                 mrf.print_evidence_vars()
-            inference = eval(InferenceMethods.byName(method))(mrf, queries, **params)
+            inference = InferenceMethods.clazz(method)(mrf, queries, **params)
             inference.run()
 
             # generate output for graph and bar chart
