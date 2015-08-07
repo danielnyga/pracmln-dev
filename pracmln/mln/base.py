@@ -28,7 +28,7 @@ from pracmln.logic import FirstOrderLogic, FuzzyLogic
 
 from string import whitespace
 
-# from learning import *
+import learning
 # from inference import *
 
 import platform
@@ -56,11 +56,10 @@ logger = logging.getLogger(__name__)
 
 if platform.architecture()[0] == '32bit':
     try:
-        if not DEBUG:
-            import psyco # Don't use Psyco when debugging! @UnresolvedImport
-            psyco.full()
+        import psyco # Don't use Psyco when debugging! @UnresolvedImport
+        psyco.full()
     except:
-        logger.warning("Note: Psyco (http://psyco.sourceforge.net) was not loaded. On 32bit systems, it is recommended to install it for improved performance.\n")
+        logger.warning("Note: Psyco (http://psyco.sourceforge.net) was not loaded. On 32bit systems, it is recommended to install it for improved performance.")
 
 
 
@@ -82,11 +81,10 @@ class MLN(object):
     
 
     def __init__(self, logic='FirstOrderLogic', grammar='PRACGrammar', mlnfile=None):
-        log = logging.getLogger(self.__class__.__name__)
         # instantiate the logic and grammar
         logic_str = '%s("%s", self)' % (logic, grammar)
         self.logic = eval(logic_str)
-        log.debug('Creating MLN with %s syntax and %s semantics' % (grammar, logic))
+        logger.debug('Creating MLN with %s syntax and %s semantics' % (grammar, logic))
         
         self._predicates = {} # maps from predicate name to the predicate instance
         self.domains = {}    # maps from domain names to list of values
@@ -115,11 +113,11 @@ class MLN(object):
 
         self.posteriorProbReqs = []
 #         self.parameterType = parameterType
-        self.probabilityFittingInferenceMethod = InferenceMethods.Exact
-        self.probabilityFittingThreshold = 0.002 # maximum difference between desired and computed probability
-        self.probabilityFittingMaxSteps = 20 # maximum number of steps to run iterative proportional fitting
+#         self.probabilityFittingInferenceMethod = InferenceMethods.Exact
+#         self.probabilityFittingThreshold = 0.002 # maximum difference between desired and computed probability
+#         self.probabilityFittingMaxSteps = 20 # maximum number of steps to run iterative proportional fitting
 #         self.defaultInferenceMethod = defaultInferenceMethod
-        self.allSoft = False
+#         self.allSoft = False
         self.watch = StopWatch()
 
 
@@ -510,7 +508,7 @@ class MLN(object):
         else:
             learner = MultipleDatabaseLearner(newmln, dbs, method, **params)
         if verbose:
-            "learner: %s" % learner.getName()
+            "learner: %s" % learner.name
         wt = learner.run(**params)
         newmln.weights = wt
         # fit prior prob. constraints if any available
@@ -531,7 +529,6 @@ class MLN(object):
             newmln._rmformulas()
             for f, w in zip(formulas, weights, fix):
                 if f.weight != 0: newmln.formula(f, w)
-        if self.verbose: newmln.write()
         return newmln
 
 

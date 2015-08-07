@@ -53,52 +53,10 @@ from pracmln import praclog
 from tabulate import tabulate
 import pstats
 from pracmln.mln.database import Database
+from pracmln.mln.learning.common import DiscriminativeLearner
 
 logger = praclog.logger(__name__)
 
-# --- generic learning interface ---
-
-class MLNLearn:
-    
-    def run(self, **kwargs):
-        
-            # learn weights
-            if type(self.settings["mln"]) == str:
-                mln = MLN(mlnfile=self.settings["mln"], logic=self.settings['logic'], grammar=self.settings['grammar'])
-                
-            elif type(self.settings["mln"] == mln.MLN):
-                mln = self.settings["mln"]
-            else:
-                raise Exception("Argument 'mln' must be either string or MLN object")
-            
-            print args
-            
-            # set the debug level
-            logging.getLogger().setLevel(eval('logging.%s' % args.get('debug', 'WARNING').upper()))
-            
-            if args.get('profile', False):
-                prof = Profile()
-                try:
-                    print 'Profiling ON...'
-                    cmd = 'mln.learnWeights(dbs, method=LearningMethods.byName(method), **args)'
-                    prof = prof.runctx(cmd, globals(), locals())
-                except SystemExit:
-                    print 'Cancelled...'
-                finally:
-                    print 'Profiler Statistics:'
-                    prof.print_stats(-1)
-            else:
-                learnedMLN = mln.learnWeights(dbs, method=LearningMethods.byName(method), **args)
-            
-            # determine output filename
-            fname = self.settings["output_filename"]
-            learnedMLN.write(file(fname, "w"))
-            print "\nWROTE %s\n\n" % fname
-            if args.get('output', False):
-                learnedMLN.write(sys.stdout, color=True)
-            
-            
-# --- gui class ---
 
 class MLNLearnGUI:
 
@@ -114,7 +72,6 @@ class MLNLearnGUI:
         
         self.gconf = gconf
         self.config = None
-        self.learner = MLNLearn()
 
         self.frame = Frame(master)
         self.frame.pack(fill=BOTH, expand=1)
@@ -163,8 +120,8 @@ class MLNLearnGUI:
         row += 1
         Label(self.frame, text="Method: ").grid(row=row, column=0, sticky=E)
         self.selected_method = StringVar(master)
-        methods = sorted(LearningMethods.getNames())
-        self.list_methods = apply(OptionMenu, (self.frame, self.selected_method) + tuple(methods))
+        methodnames = sorted(LearningMethods.names())
+        self.list_methods = apply(OptionMenu, (self.frame, self.selected_method) + tuple(methodnames))
         self.list_methods.grid(row=row, column=1, sticky="NWE")
         self.selected_method.trace("w", self.changedMethod)
         
@@ -360,9 +317,9 @@ class MLNLearnGUI:
         db = self.db_filename
         if "" in (mln, db): return
         if self.selected_method.get():
-            method = LearningMethods.byName(self.selected_method.get())
-            method = LearningMethods.getShortName(method).lower()
-            filename = config.learnwts_output_filename(mln, method, db)
+            method = LearningMethods.clazz(self.selected_method.get())
+            methodid = LearningMethods.id(method)
+            filename = config.learnwts_output_filename(mln, methodid.lower(), db)
             self.output_filename.set(filename)
         
 
@@ -390,8 +347,9 @@ class MLNLearnGUI:
         
         
     def change_discr_preds(self, name = None, index = None, mode = None):
-        method = self.selected_method.get()
-        state = NORMAL if "[discriminative]" in method else DISABLED
+        methodname = self.selected_method.get()
+        method = LearningMethods.clazz(methodname)
+        state = NORMAL if issubclass(method, DiscriminativeLearner) else DISABLED
         self.entry_nePreds.configure(state=state if self.discrPredicates.get() == 0 else DISABLED)
         self.entryEvidencePreds.configure(state=state if self.discrPredicates.get() == 1 else DISABLED)
         self.rbEvidencePreds.configure(state=state)
@@ -432,7 +390,7 @@ class MLNLearnGUI:
         self.selected_db.select(ifNone(conf['db'], ''))
         self.output_filename.set(ifNone(self.config["output_filename"], ''))
         self.params.set(ifNone(self.config["params"], ''))
-        self.selected_method.set(ifNone(self.config["method"], LearningMethods.getName('BPLL')))
+        self.selected_method.set(ifNone(self.config["method"], LearningMethods.name('BPLL'), transform=LearningMethods.name))
         self.pattern.set(ifNone(self.config["pattern"], ''))
         self.use_prior.set(ifNone(self.config["use_prior"], False))
         self.priorMean.set(ifNone(self.config["prior_mean"], 0))
@@ -440,8 +398,8 @@ class MLNLearnGUI:
         self.incremental.set(ifNone(self.config["incremental"], False))
         self.shuffle.set(ifNone(self.config["shuffle"], False))
         self.use_initial_weights.set(ifNone(self.config["use_initial_weights"], False))
-        self.queryPreds.set(ifNone(self.config["query_preds"], ''))
-        self.evidencePreds.set(ifNone(self.config["evidence_preds"], ''))
+        self.queryPreds.set(ifNone(self.config["qpreds"], ''))
+        self.evidencePreds.set(ifNone(self.config["epreds"], ''))
         self.discrPredicates.set(ifNone(self.config["discr_preds"], 0)) 
         self.use_multiCPU.set(ifNone(self.config['multicore'], False))
         self.verbose.set(ifNone(conf['verbose'], 1))
@@ -451,21 +409,21 @@ class MLNLearnGUI:
 
 
     def learn(self, saveGeometry=True):
-        # update settings
-        mln = self.selected_mln.get()
-        db = self.selected_db.get()
+        # update settings;
+        mln = self.selected_mln.get().encode('utf8')
+        db = self.selected_db.get().encode('utf8')
         if mln == "":
             raise Exception("No MLN was selected")
-        method = self.selected_method.get()
-        params = self.params.get()
-        output = str(self.output_filename.get())
+        methodname = self.selected_method.get().encode('utf8')
+        params = self.params.get().encode('utf8')
+        output = str(self.output_filename.get()).encode('utf8')
         verbose = self.config['verbose']
         self.config = PRACMLNConfig(os.path.join(self.dir.get(), learn_config_pattern % mln))
         self.config["mln"] = mln
         self.config["db"] = db
         self.config["output_filename"] = self.output_filename.get()
         self.config["params"] = params
-        self.config["method"] = method
+        self.config["method"] = LearningMethods.id(methodname)
         self.config["pattern"] = self.pattern.get()
         self.config["use_prior"] = int(self.use_prior.get())
         self.config["prior_mean"] = self.priorMean.get()
@@ -473,8 +431,8 @@ class MLNLearnGUI:
         self.config["incremental"] = int(self.incremental.get())
         self.config["shuffle"] = int(self.shuffle.get())
         self.config["use_initial_weights"] = int(self.use_initial_weights.get())
-        self.config["query_preds"] = self.queryPreds.get()
-        self.config["evidence_preds"] = self.evidencePreds.get()
+        self.config["qpreds"] = self.queryPreds.get().encode('utf8')
+        self.config["epreds"] = self.evidencePreds.get().encode('utf8')
         self.config["discr_preds"] = self.discrPredicates.get()
         self.config['logic'] = self.selected_logic.get()
         self.config['grammar'] = self.selected_grammar.get()
@@ -512,8 +470,24 @@ class MLNLearnGUI:
             watch.tag('learning')
             print
 
+            # get the method class
+            method = LearningMethods.clazz(self.config['method'])
+
+            if verbose:
+                conf = dict(self.config.config)
+                conf.update(self.config['params'])
+                print tabulate(sorted(list(conf.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
+
             params = {}
-            params = dict([(k, self.config[k]) for k in ('multicore', 'query_preds', 'evidence_preds', 'verbose', 'profile', 'ignore_zero_weight_formulas')])
+            params = dict([(k, self.config[k]) for k in ('multicore', 'verbose', 'profile', 'ignore_zero_weight_formulas')])
+            
+            # for discriminative learning
+            if issubclass(method, DiscriminativeLearner):
+                if self.config['discr_preds'] == 0: # use query preds
+                    params['qpreds'] = self.config['qpreds'].split(',')
+                elif self.config['discr_preds'] == 1: # use evidence preds
+                    params['epreds'] = self.config['epreds'].split(',')
+            
             # gaussian prior settings            
             if self.config["use_prior"]:
                 params['prior_mean'] = float(self.config["prior_mean"])
@@ -521,7 +495,6 @@ class MLNLearnGUI:
             # expand the parameters
             params.update(eval("dict(%s)" % self.config['params']))
             
-            print tabulate(sorted(list(params.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
             
             profile = self.profile.get()
             if profile:
@@ -538,14 +511,17 @@ class MLNLearnGUI:
                 # load the databases
                 dbs = reduce(list.__add__, [Database.load(mln, dbfile, self.config['ignore_unknown_preds']) for dbfile in dbs])
                 if verbose: 'loaded %d database(s).'
+                   
                 # run the learner
-                mln = mln.learn(dbs, method, **params)
-                print 
-                print headline('LEARNT MARKOV LOGIC NETWORK')
-                print
+                mlnlearnt = mln.learn(dbs, method, **params)
+                if verbose:
+                    print 
+                    print headline('LEARNT MARKOV LOGIC NETWORK')
+                    print
+                    mlnlearnt.write()
                 if self.config['save']:
                     with open(os.path.join(self.dir.get(), output), 'w+') as outFile:
-                        mln.write(outFile)
+                        mlnlearnt.write(outFile)
             except SystemExit:
                 print 'Cancelled...'
             finally:

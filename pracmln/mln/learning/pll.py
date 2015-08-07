@@ -263,41 +263,6 @@ class PLL(AbstractLearner):
         
         
         
-class DPLL(PLL, DiscriminativeLearner):
-    ''' 
-    Discriminative pseudo-log-likelihood learning.
-    '''    
-
-    def __init__(self, mln, mrf, **params):
-        PLL.__init__(self, mln, mrf, **params)
-        self.queryPreds = self._getQueryPreds(params)
-        
-                
-    def _f(self, wt, **params):
-        self._calculateAtomProbsMB(wt)
-#         probs = map(lambda x: x if x > 0 else 1e-10, self.atomProbsMB) # prevent 0 probs
-        probs = self.atomProbsMB
-        pll = 0
-        for i, prob in enumerate(probs):
-            if self._isQueryPredicate(self.mrf.gndAtomsByIdx[i].predName):
-                pll += log(prob)            
-        print "discriminative pseudo-log-likelihood:", pll
-        return pll
-
-    
-    def _grad(self, wt, **params):        
-        grad = numpy.zeros(len(self.mln.formulas), numpy.float64)
-        fullWt = wt
-        self._calculateAtomProbsMB(fullWt)
-        for (idxFormula, idxGndAtom), diff in self.diffs.iteritems():
-            print 'queryPred ', self.mrf.gndAtomsByIdx[idxGndAtom].predName,':', self._isQueryPredicate(self.mrf.gndAtomsByIdx[idxGndAtom].predName) 
-            if self._isQueryPredicate(self.mrf.gndAtomsByIdx[idxGndAtom].predName):
-                v = diff * (self.atomProbsMB[idxGndAtom] - 1)
-                grad[idxFormula] += v
-        print grad 
-        return grad
-
-
 class PLL_ISE(SoftEvidenceLearner, PLL):
     
     def __init__(self, mln, **params):
