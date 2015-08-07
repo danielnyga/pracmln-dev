@@ -82,7 +82,8 @@ qx.Class.define("webmln.Application",
             }, this);
 
             var outerContainer = new qx.ui.container.Scroll();
-            var splitPane = this.getSplitPane();
+            var splitPaneInference = this.getsplitPaneInference();
+            var splitPaneLearning = this.getsplitPaneLearning();
 
             var tabView = new qx.ui.tabview.TabView();
             tabView.setWidth(500);
@@ -90,13 +91,13 @@ qx.Class.define("webmln.Application",
             ////////////////// INFERENCE PAGE ////////////////////
             var inferencePage = new qx.ui.tabview.Page("Inference");
             inferencePage.setLayout(new qx.ui.layout.Grow());
-            inferencePage.add(splitPane);
+            inferencePage.add(splitPaneInference);
             tabView.add(inferencePage);
 
             ////////////////// LEARNING PAGE ////////////////////
             var learningPage = new qx.ui.tabview.Page("Learning");
             learningPage.setLayout(new qx.ui.layout.VBox());
-            learningPage.add(new qx.ui.basic.Label("Layout-Settings"));
+            learningPage.add(splitPaneLearning);
             tabView.add(learningPage);
             outerContainer.add(tabView);
             contentIsle.add(outerContainer, {width: "100%", height: "100%"});
@@ -106,13 +107,14 @@ qx.Class.define("webmln.Application",
         /**
         * Build the outer splitpane containing the mln form and vizualization containers
         */
-        getSplitPane : function() {
+        getsplitPaneInference : function() {
 
             var textAreaResults = new qx.ui.form.TextArea("");
             this.__textAreaResults = textAreaResults;
             textAreaResults.setReadOnly(true);
 
             var mlnFormContainer = this.buildMLNForm();
+            this.__mlnFormContainer = mlnFormContainer;
             var splitPane = new qx.ui.splitpane.Pane("horizontal");
             var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
@@ -154,6 +156,58 @@ qx.Class.define("webmln.Application",
         },
 
         /**
+        * Build the outer splitpane containing the mln form and vizualization containers
+        */
+        getsplitPaneLearning : function() {
+
+            var textAreaResults = new qx.ui.form.TextArea("");
+            this.__textAreaResults_Learning = textAreaResults;
+            textAreaResults.setReadOnly(true);
+
+            var mlnFormContainer = this.buildMLNLearningForm();
+            this.__mlnFormContainer_L = mlnFormContainer;
+            var splitPane = new qx.ui.splitpane.Pane("horizontal");
+            var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
+            var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
+            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow()).set({
+                minHeight: 500, minWidth: 1200
+            });
+
+            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow()).set({
+                minHeight: 200, minWidth: 1200
+            });
+            splitPane.add(mlnFormContainer);
+
+            var canvas = new qx.ui.container.Composite(new qx.ui.layout.Grow()).set({
+                width: 1200, height: 500
+            });
+            var html = new qx.ui.embed.Html("<div id='diaL' style='width: 100%; height: 100%;'></div>");
+            var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
+            var diaLayout = new qx.ui.layout.Grow();
+            diaEmbedGrp.setLayout(diaLayout);
+            diaEmbedGrp.add(html);
+            //var html = new qx.ui.embed.Html('<div id="viz" style="width: 100%; height: 100%;"></div>');
+            var vizEmbedGrp = new qx.ui.groupbox.GroupBox("Visualization");
+            var vizLayout = new qx.ui.layout.Grow();
+            vizEmbedGrp.setLayout(vizLayout);
+            var vizHTML = "<div id='vizL' style='width: 100%; height: 100%;'></div>";
+            var vizEmbed = new qx.ui.embed.Html(vizHTML);
+            vizEmbedGrp.add(vizEmbed);
+            graphVizContainer.add(vizEmbedGrp);
+            diaContainer.add(diaEmbedGrp);
+            innerMostSplitPane.add(diaContainer);
+            innerMostSplitPane.add(textAreaResults);
+            innerSplitPane.add(graphVizContainer);
+            innerSplitPane.add(innerMostSplitPane);
+
+            splitPane.add(innerSplitPane);
+
+            return splitPane;
+
+        },
+
+
+        /**
         * Build the query mln form
         */
         buildMLNForm : function() {
@@ -166,7 +220,6 @@ qx.Class.define("webmln.Application",
             var mlnFormContainer = new qx.ui.container.Composite(mlnFormContainerLayout).set({
                     padding: 10
             });
-            this.__mlnFormContainer = mlnFormContainer;
 
             // labels
             var exampleFolderLabel = new qx.ui.basic.Label().set({
@@ -199,10 +252,6 @@ qx.Class.define("webmln.Application",
             });
             var queriesLabel = new qx.ui.basic.Label().set({
                 value: this._template('Queries:', 'label'),
-                rich : true
-            });
-            var verboseStepsLabel = new qx.ui.basic.Label().set({
-                value: this._template('Verbose:', 'label'),
                 rich : true
             });
             var addParamsLabel = new qx.ui.basic.Label().set({
@@ -262,7 +311,7 @@ qx.Class.define("webmln.Application",
 
             this.__selectMethod = new qx.ui.form.SelectBox();
             this.__textFieldQueries = new qx.ui.form.TextField("");
-            this.__textFieldVerbose = new qx.ui.form.TextField("");
+            this.__checkBoxVerbose = new qx.ui.form.CheckBox("verbose");
             this.__textFieldCWPreds = new qx.ui.form.TextField("");
             this.__checkBoxApplyCWOption = new qx.ui.form.CheckBox("Apply CW assumption to all but the query preds");
             this.__textFieldAddParams = new qx.ui.form.TextField("");
@@ -293,46 +342,247 @@ qx.Class.define("webmln.Application",
                         }, this);
 
             // add widgets to form
-            this.__mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
-            this.__mlnFormContainer.add(grammarLabel, {row: 1, column: 0});
-            this.__mlnFormContainer.add(logicLabel, {row: 2, column: 0});
-            this.__mlnFormContainer.add(mlnLabel, {row: 3, column: 0});
-            this.__mlnFormContainer.add(evidenceLabel, {row: 11, column: 0});
-            this.__mlnFormContainer.add(methodLabel, {row: 15, column: 0});
-            this.__mlnFormContainer.add(queriesLabel, {row: 16, column: 0});
-            this.__mlnFormContainer.add(verboseStepsLabel, {row: 17, column: 0});
-            this.__mlnFormContainer.add(addParamsLabel, {row: 19, column: 0});
-            this.__mlnFormContainer.add(cwPredsLabel, {row: 20, column: 0});
-            this.__mlnFormContainer.add(outputLabel, {row: 21, column: 0});
+            mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
+            mlnFormContainer.add(grammarLabel, {row: 1, column: 0});
+            mlnFormContainer.add(logicLabel, {row: 2, column: 0});
+            mlnFormContainer.add(mlnLabel, {row: 3, column: 0});
+            mlnFormContainer.add(evidenceLabel, {row: 11, column: 0});
+            mlnFormContainer.add(methodLabel, {row: 15, column: 0});
+            mlnFormContainer.add(queriesLabel, {row: 16, column: 0});
+            mlnFormContainer.add(addParamsLabel, {row: 19, column: 0});
+            mlnFormContainer.add(cwPredsLabel, {row: 20, column: 0});
+            mlnFormContainer.add(outputLabel, {row: 21, column: 0});
 
-            this.__mlnFormContainer.add(this.__selectExampleFolder, {row: 0, column: 1, colSpan: 3});
-            this.__mlnFormContainer.add(this.__selectGrammar, {row: 1, column: 1, colSpan: 3});
-            this.__mlnFormContainer.add(this.__selectLogic, {row: 2, column: 1, colSpan: 3});
-            this.__mlnFormContainer.add(this.__selectMLN, {row: 3, column: 1, colSpan: 2});
-            this.__mlnFormContainer.add(this.__folderButton, {row: 3, column: 3});
-            this.__mlnFormContainer.add(this.__mlnAreaContainer, {row: 4, column: 1, colSpan: 3});
-//            this.__mlnFormContainer.add(this.__checkBoxRenameEditMLN, {row: 5, column: 1});
-            this.__mlnFormContainer.add(this.__checkBoxUseModelExt, {row: 5, column: 1});
-//            this.__mlnFormContainer.add(this.__textFieldNameMLN, {row: 6, column: 1, colSpan: 2});
-//            this.__mlnFormContainer.add(this.__buttonSaveMLN, {row: 6, column: 3});
+            mlnFormContainer.add(this.__selectExampleFolder, {row: 0, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__selectGrammar, {row: 1, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__selectLogic, {row: 2, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__selectMLN, {row: 3, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__folderButton, {row: 3, column: 3});
+            mlnFormContainer.add(this.__mlnAreaContainer, {row: 4, column: 1, colSpan: 3});
+//            mlnFormContainer.add(this.__checkBoxRenameEditMLN, {row: 5, column: 1});
+            mlnFormContainer.add(this.__checkBoxUseModelExt, {row: 5, column: 1});
+//            mlnFormContainer.add(this.__textFieldNameMLN, {row: 6, column: 1, colSpan: 2});
+//            mlnFormContainer.add(this.__buttonSaveMLN, {row: 6, column: 3});
 
-            this.__mlnFormContainer.add(this.__selectEvidence, {row: 11, column: 1, colSpan: 3});
-//            this.__mlnFormContainer.add(this.__buttonSaveEvidence, {row: 11, column: 3});
-            this.__mlnFormContainer.add(this.__evidenceContainer, {row: 12, column: 1, colSpan: 3});
-//            this.__mlnFormContainer.add(this.__checkBoxRenameEditEvidence, {row: 13, column: 1});
-//            this.__mlnFormContainer.add(this.__textFieldDB, {row: 14, column: 1, colSpan: 3});
-            this.__mlnFormContainer.add(this.__selectMethod, {row: 15, column: 1, colSpan: 3});
-            this.__mlnFormContainer.add(this.__textFieldQueries, {row: 16, column: 1, colSpan: 3});
-            this.__mlnFormContainer.add(this.__textFieldVerbose, {row: 17, column: 1, colSpan: 3});
-            this.__mlnFormContainer.add(this.__textFieldAddParams, {row: 19, column: 1, colSpan: 3});
-            this.__mlnFormContainer.add(this.__textFieldCWPreds, {row: 20, column: 1, colSpan: 2});
-            this.__mlnFormContainer.add(this.__checkBoxApplyCWOption, {row: 20, column: 3});
-            this.__mlnFormContainer.add(this.__textFieldOutput, {row: 21, column: 1, colSpan: 2});
-            this.__mlnFormContainer.add(this.__checkBoxSaveOutput, {row: 21, column: 3});
-            this.__mlnFormContainer.add(this.__checkBoxUseAllCPU, {row: 22, column: 1});
-            this.__mlnFormContainer.add(this.__checkBoxIgnoreUnknown, {row: 22, column: 2});
-            this.__mlnFormContainer.add(this.__checkBoxShowLabels, {row: 22, column: 3});
-            this.__mlnFormContainer.add(this.__buttonStart, {row: 23, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__selectEvidence, {row: 11, column: 1, colSpan: 3});
+//            mlnFormContainer.add(this.__buttonSaveEvidence, {row: 11, column: 3});
+            mlnFormContainer.add(this.__evidenceContainer, {row: 12, column: 1, colSpan: 3});
+//            mlnFormContainer.add(this.__checkBoxRenameEditEvidence, {row: 13, column: 1});
+//            mlnFormContainer.add(this.__textFieldDB, {row: 14, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__selectMethod, {row: 15, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__textFieldQueries, {row: 16, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__checkBoxVerbose, {row: 17, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__textFieldAddParams, {row: 19, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__textFieldCWPreds, {row: 20, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__checkBoxApplyCWOption, {row: 20, column: 3});
+            mlnFormContainer.add(this.__textFieldOutput, {row: 21, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__checkBoxSaveOutput, {row: 21, column: 3});
+            mlnFormContainer.add(this.__checkBoxUseAllCPU, {row: 22, column: 1});
+            mlnFormContainer.add(this.__checkBoxIgnoreUnknown, {row: 22, column: 2});
+            mlnFormContainer.add(this.__checkBoxShowLabels, {row: 22, column: 3});
+            mlnFormContainer.add(this.__buttonStart, {row: 23, column: 1, colSpan: 3});
+
+            return mlnFormContainer;
+        },
+
+        /**
+        * Build the learning mln form
+        */
+        buildMLNLearningForm : function() {
+            this.check = false;
+            var mlnFormContainerLayout = new qx.ui.layout.Grid();
+            mlnFormContainerLayout.setRowHeight(4, 200);
+            mlnFormContainerLayout.setRowHeight(12, 100);
+            var mlnFormContainer = new qx.ui.container.Composite(mlnFormContainerLayout).set({
+                    padding: 10
+            });
+
+            // labels
+            var grammarLabel = new qx.ui.basic.Label().set({
+                value: this._template('Grammar:', 'label'),
+                rich : true
+            });
+            var logicLabel = new qx.ui.basic.Label().set({
+                value: this._template('Logic:', 'label'),
+                rich : true
+            });
+            var mlnLabel = new qx.ui.basic.Label().set({
+                value: this._template('MLN:', 'label'),
+                rich : true
+            });
+            var trainingDataLabel = new qx.ui.basic.Label().set({
+                value: this._template('Training<br>Data:', 'label'),
+                rich : true
+            });
+            var methodLabel = new qx.ui.basic.Label().set({
+                value: this._template('Method:', 'label'),
+                rich : true
+            });
+            var addParamsLabel = new qx.ui.basic.Label().set({
+                value: this._template('Params:', 'label'),
+                rich : true
+            });
+            var cwPredsLabel = new qx.ui.basic.Label().set({
+                value: this._template('CW Preds:', 'label'),
+                rich : true
+            });
+            var outputLabel = new qx.ui.basic.Label().set({
+                value: this._template('Output:', 'label'),
+                rich : true
+            });
+            var directoryLabel = new qx.ui.basic.Label().set({
+                value: this._template('Directory:', 'label'),
+                rich : true
+            });
+
+            // widgets
+            this.__selectGrammar_L = new qx.ui.form.SelectBox();
+            this.__selectLogic_L = new qx.ui.form.SelectBox();
+            this.__textFieldLMLNDirectory = new qx.ui.form.TextField("");
+            this.__browseLButton = new qx.ui.form.Button("Browse...", null);
+            this.__selectMLN_L = new qx.ui.form.SelectBox();
+            this.__buttonRefreshLMLN = new qx.ui.form.Button("<- refresh", null);
+            this.__buttonSaveLMLN = new qx.ui.form.Button("save", null);
+            this.__folderLButton = new com.zenesis.qx.upload.UploadButton("Load File");
+            this.__uploaderL = new com.zenesis.qx.upload.UploadMgr(this.__folderLButton, "/mln/mln_file_upload");
+                this.__uploaderL.setAutoUpload(false);
+
+            var mlnAreaContainerLayout = new qx.ui.layout.Grow();
+            this.__mlnAreaLContainer = new qx.ui.container.Composite(mlnAreaContainerLayout);
+            this.__textAreaLMLN = new qx.ui.form.TextArea("");
+            this.__textAreaLMLN.getContentElement().setAttribute("id", 'mlnLArea');
+            this.__mlnAreaLContainer.add(this.__textAreaLMLN);
+            this.__checkBoxRenameEditLMLN = new qx.ui.form.CheckBox("rename on edit");
+            this.__textFieldLMLNNewName = new qx.ui.form.TextField("");
+
+            this.__selectLMethod = new qx.ui.form.SelectBox();
+            this.__checkBoxUsePrior = new qx.ui.form.CheckBox("use prior with mean of");
+            this.__textFieldLMLNNewName = new qx.ui.form.TextField("");
+            this.__textFieldLMean = new qx.ui.form.TextField("");
+            var stdDevLabel = new qx.ui.basic.Label("and std dev of");
+            this.__textFieldLStdDev = new qx.ui.form.TextField("");
+            this.__checkBoxUseInitWeights = new qx.ui.form.CheckBox("use initial weights");
+            this.__checkBoxLearnIncrem = new qx.ui.form.CheckBox("learn incrementally");
+            this.__checkBoxShuffleDB = new qx.ui.form.CheckBox("shuffle databases");
+            this.__checkBoxShuffleDB.setEnabled(false);
+
+            this.__radioQueryPreds = new qx.ui.form.RadioButton("Query preds:");
+            this.__textFieldLQueryPreds = new qx.ui.form.TextField("");
+            this.__radioEvidencePreds = new qx.ui.form.RadioButton("Evidence preds:");
+            this.__textFieldLEvidencePreds = new qx.ui.form.TextField("");
+
+            var radioBoxQueryPreds = new qx.ui.groupbox.RadioGroupBox("Query preds:");
+            radioBoxQueryPreds.setContentPadding(0,0,0,0);
+            radioBoxQueryPreds.setPadding(0,0,0,0);
+            radioBoxQueryPreds.getChildControl("legend").setMarginTop(0);
+            radioBoxQueryPreds.getChildControl("legend").setPaddingTop(0);
+            radioBoxQueryPreds.getChildControl("legend").setTextColor('black');
+            radioBoxQueryPreds.getChildControl("frame").setMarginTop(0);
+            radioBoxQueryPreds.setLayout(new qx.ui.layout.VBox(0));
+            radioBoxQueryPreds.add(this.__textFieldLQueryPreds);
+
+            var radioBoxEvidencePreds = new qx.ui.groupbox.RadioGroupBox("Evidence preds:");
+            radioBoxEvidencePreds.setPadding(0,0,0,0);
+            radioBoxEvidencePreds.getChildControl("legend").setMargin(0);
+            radioBoxEvidencePreds.getChildControl("legend").setPadding(0);
+            radioBoxEvidencePreds.getChildControl("legend").setTextColor('black');
+            radioBoxEvidencePreds.getChildControl("legend").getContentElement().setAttribute('font-weight','normal');
+            radioBoxEvidencePreds.getChildControl("frame").setMargin(0);
+            radioBoxEvidencePreds.getChildControl("frame").setPadding(0);
+            radioBoxEvidencePreds.setLayout(new qx.ui.layout.VBox(0));
+            radioBoxEvidencePreds.add(this.__textFieldLEvidencePreds);
+
+            new qx.ui.form.RadioGroup(radioBoxQueryPreds, radioBoxEvidencePreds);
+
+            //todo add listeners for radiogroup (enable/disable respective textfields
+
+            this.__selectTData = new qx.ui.form.SelectBox();
+            this.__buttonRefreshLTData = new qx.ui.form.Button("<- refresh", null);
+            this.__buttonSaveTData = new qx.ui.form.Button("save", null);
+
+            var tDataContainerLayout = new qx.ui.layout.Grow();
+            this.__tDataContainer = new qx.ui.container.Composite(tDataContainerLayout);
+            this.__textAreaTData = new qx.ui.form.TextArea("");
+            this.__textAreaTData.getContentElement().setAttribute("id", 'tDataArea');
+            this.__tDataContainer.add(this.__textAreaTData);
+            this.__checkBoxRenameEditTData = new qx.ui.form.CheckBox("rename on edit");
+            this.__checkBoxLIgnoreUnknown = new qx.ui.form.CheckBox("Ignore Unknown Predicates");
+            this.__textFieldTDataNewName = new qx.ui.form.TextField("");
+
+            this.__textFieldIDK = new qx.ui.form.TextField("");
+            var orFilePatternLabel = new qx.ui.basic.Label("OR file pattern:");
+            this.__textFieldORFilePattern = new qx.ui.form.TextField("");
+            this.__textFieldLAddParams = new qx.ui.form.TextField("");
+
+            this.__checkBoxUseAllCPU = new qx.ui.form.CheckBox("Use all CPUs");
+            this.__checkBoxLVerbose = new qx.ui.form.CheckBox("verbose");
+            this.__checkBoxLRemoveFormulas = new qx.ui.form.CheckBox("remove 0-weight formulas");
+
+            this.__textFieldLOutput = new qx.ui.form.TextField("");
+            this.__buttonStartLearning = new qx.ui.form.Button("Learn", null);
+
+            // add static listitems
+            this.__selectGrammar_L.add(new qx.ui.form.ListItem("StandardGrammar"));
+            this.__selectGrammar_L.add(new qx.ui.form.ListItem("PRACGrammar"));
+            this.__selectLogic_L.add(new qx.ui.form.ListItem("FirstOrderLogic"));
+            this.__selectLogic_L.add(new qx.ui.form.ListItem("FuzzyLogic"));
+
+            // listeners
+            this.__buttonStartLearning.addListener("execute", this._start_Learning, this);
+            this.__selectMLN_L.addListener("changeSelection", this._update_mlnL_text, this);
+            this.__selectTData.addListener("changeSelection", this._update_tData_text, this);
+            this.__uploaderL.addListener("addFile", this._uploadL, this);
+            this.__checkBoxShowLabels.addListener("changeValue", function(e) {
+                            this._graph.showLabels(e.getData());
+                        }, this);
+
+            // add widgets to form
+            mlnFormContainer.add(grammarLabel, {row: 0, column: 0});
+            mlnFormContainer.add(logicLabel, {row: 1, column: 0});
+            mlnFormContainer.add(directoryLabel, {row: 2, column: 0});
+            mlnFormContainer.add(mlnLabel, {row: 3, column: 0});
+            mlnFormContainer.add(methodLabel, {row: 7, column: 0});
+            mlnFormContainer.add(trainingDataLabel, {row: 12, column: 0});
+            mlnFormContainer.add(addParamsLabel, {row: 17, column: 0});
+            mlnFormContainer.add(outputLabel, {row: 19, column: 0});
+
+            mlnFormContainer.add(this.__selectGrammar_L, {row: 0, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__selectLogic_L, {row: 1, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__textFieldLMLNDirectory, {row: 2, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__browseLButton, {row: 2, column: 4});
+            mlnFormContainer.add(this.__selectMLN_L, {row: 3, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__buttonRefreshLMLN, {row: 3, column: 3});
+            mlnFormContainer.add(this.__buttonSaveLMLN, {row: 3, column: 4});
+            mlnFormContainer.add(this.__mlnAreaLContainer, {row: 4, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__checkBoxRenameEditLMLN, {row: 5, column: 1});
+            mlnFormContainer.add(this.__textFieldNameMLN, {row: 6, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__selectLMethod, {row: 7, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__checkBoxUsePrior, {row: 8, column: 1});
+            mlnFormContainer.add(this.__textFieldLMean, {row: 8, column: 2});
+            mlnFormContainer.add(stdDevLabel, {row: 8, column: 3});
+            mlnFormContainer.add(this.__textFieldLStdDev, {row: 8, column: 4});
+            mlnFormContainer.add(this.__checkBoxUseInitWeights, {row: 9, column: 1});
+            mlnFormContainer.add(this.__checkBoxLearnIncrem, {row: 9, column: 2});
+            mlnFormContainer.add(this.__checkBoxShuffleDB, {row: 9, column: 3});
+            mlnFormContainer.add(radioBoxQueryPreds, {row: 10, column: 1, colSpan: 4});
+            mlnFormContainer.add(radioBoxEvidencePreds, {row: 11, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__selectTData, {row: 12, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__buttonRefreshLTData, {row: 12, column: 3});
+            mlnFormContainer.add(this.__buttonSaveTData, {row: 12, column: 4});
+            mlnFormContainer.add(this.__tDataContainer, {row: 13, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__checkBoxRenameEditTData, {row: 14, column: 1});
+            mlnFormContainer.add(this.__checkBoxLIgnoreUnknown, {row: 14, column: 2});
+
+
+            mlnFormContainer.add(this.__textFieldTDataNewName, {row: 15, column: 1, colSpan: 4});
+            mlnFormContainer.add(orFilePatternLabel, {row: 16, column: 1});
+            mlnFormContainer.add(this.__textFieldORFilePattern, {row: 16, column: 2, colSpan: 3});
+            mlnFormContainer.add(this.__textFieldLAddParams, {row: 17, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__checkBoxUseAllCPU, {row: 18, column: 1});
+            mlnFormContainer.add(this.__checkBoxLVerbose, {row: 18, column: 2});
+            mlnFormContainer.add(this.__checkBoxLRemoveFormulas, {row: 18, column: 4});
+            mlnFormContainer.add(this.__textFieldLOutput, {row: 19, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__buttonStartLearning, {row: 20, column: 1, colSpan: 4});
 
             return mlnFormContainer;
         },
@@ -454,7 +704,7 @@ qx.Class.define("webmln.Application",
                                     "closed_world": this.__checkBoxApplyCWOption.getValue(),
                                     "cw_preds": this.__textFieldCWPreds.getValue(),
                                     "use_emln": this.__checkBoxUseModelExt.getValue(),
-                                    "verbose": this.__textFieldVerbose.getValue(),
+                                    "verbose": this.__checkBoxVerbose.getValue(),
                                     "ignore_unknown_preds": this.__checkBoxIgnoreUnknown.getValue(),
                                     "save_results": this.__checkBoxSaveOutput.getValue(),
                                     "use_multicpu": this.__checkBoxUseAllCPU.getValue()});
