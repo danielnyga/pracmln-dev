@@ -59,7 +59,7 @@ class BPLL(AbstractLearner):
     def _prepare(self):
         logger.debug("computing statistics...") 
         self._compute_statistics()
-    
+        
     
     def _pl(self, varidx, w):
         '''
@@ -96,13 +96,12 @@ class BPLL(AbstractLearner):
     
     
     def _compute_pls(self, w):
-        out(w)
-        out(self._lastw)
-        out(self._lastw != list(w))
         if self._pls is None or self._lastw is None or self._lastw != list(w):
-            out(w)
+#             self.mrf.mln.weights = w
+#             self.mrf.mln.write()
             self._pls = [self._pl(var.idx, w) for var in self.mrf.variables]
-            self.write_pls()
+#             out(w)
+#             self.write_pls()
             self._lastw = list(w)
     
     
@@ -145,16 +144,23 @@ class BPLL(AbstractLearner):
         '''
         self._stat = {}
         self._varidx2fidx = defaultdict(set)
+#         out('before')
+#         self.mrf.print_evidence_atoms()
         grounder = DefaultGroundingFactory(self.mrf, verbose=False)
         for f in grounder.itergroundings(simplify=False, unsatfailure=True):
             for gndatom in f.gndatoms():
                 var = self.mrf.variable(gndatom)
                 with temporary_evidence(self.mrf):
                     for validx, value in var.itervalues():
-                        truth = f(var.setval(value, self.mrf.evidence)) 
+                        world = var.setval(value, self.mrf.evidence)
+#                         self.mrf.print_world_atoms(world)
+#                         f.print_structure(world)
+                        truth = f(world) 
                         if truth != 0:
                             self._varidx2fidx[var.idx].add(f.idx)
                             self._addstat(f.idx, var.idx, validx, truth)
+#         out('after')
+#         self.mrf.print_evidence_atoms()
                 
                 
 class DPLL(BPLL, DiscriminativeLearner):

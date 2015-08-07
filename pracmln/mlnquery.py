@@ -65,6 +65,7 @@ class MLNQueryGUI(object):
         self.config = None
         self.master = master
         self.master.bind('<Return>', self.start)
+        self.master.bind('<Escape>', lambda a: self.master.quit())
         
         self.frame = Frame(master)
         self.frame.pack(fill=BOTH, expand=1)
@@ -245,8 +246,8 @@ class MLNQueryGUI(object):
 
     def select_mln(self, mlnname):
         confname = os.path.join(self.dir.get(), query_config_pattern % mlnname)
-        if self.config is None or not self.initialized or not os.path.exists(confname) \
-            or os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
+        if self.config is None or not self.initialized or \
+                os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
             self.set_config(PRACMLNConfig(confname))
         self.mln_filename = mlnname
         self.setOutputFilename()
@@ -430,9 +431,9 @@ class MLNQueryGUI(object):
         except:
             traceback.print_exc()
         
+        sys.stdout.flush()
         # restore main window
         self.master.deiconify()
-        sys.stdout.flush()
 
 # -- main app --
 

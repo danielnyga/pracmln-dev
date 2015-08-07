@@ -129,11 +129,11 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             return
         if not lits:
             if len(gndlits) == 1:
-                gf = gndlits[0].simplify(self.mrf)
+                gf = gndlits[0].simplify(self.mrf.evidence)
             elif typ == 'conj':
-                gf = self.mrf.mln.logic.conjunction(gndlits, mln=self.mrf.mln, idx=formula.idx).simplify(self.mrf)
+                gf = self.mrf.mln.logic.conjunction(gndlits, mln=self.mrf.mln, idx=formula.idx).simplify(self.mrf.evidence)
             elif typ == 'disj':
-                gf = self.mrf.mln.logic.disjunction(gndlits, mln=self.mrf.mln, idx=formula.idx).simplify(self.mrf)
+                gf = self.mrf.mln.logic.disjunction(gndlits, mln=self.mrf.mln, idx=formula.idx).simplify(self.mrf.evidence)
             if isinstance(gf, Logic.TrueFalse): 
                 if gf.weight == HARD and gf.value < 1:
                     raise SatisfiabilityException('MLN is unsatisfiable given evidence due to hard constraint violation: %s' % fstr(formula))

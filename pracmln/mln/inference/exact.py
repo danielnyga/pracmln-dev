@@ -48,7 +48,7 @@ def eval_queries(world):
     numerators = [0] * len(global_enumAsk.queries)
     denominator = 0
     expsum = 0
-    for gf in global_enumAsk.grounder.itergroundings(simplify=True):
+    for gf in global_enumAsk.grounder.itergroundings():
         if global_enumAsk.soft_evidence_formula(gf):                
             expsum += gf.noisyor(world) * gf.weight
         else:

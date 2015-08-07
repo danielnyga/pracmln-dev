@@ -71,6 +71,7 @@ class MLNLearnGUI:
         self.initialized = False
         
         self.master.bind('<Return>', self.learn)
+        self.master.bind('<Escape>', lambda a: self.master.quit())
         
         self.gconf = gconf
         self.config = None
@@ -294,7 +295,7 @@ class MLNLearnGUI:
     
     def select_mln(self, mlnname):
         confname = os.path.join(self.dir.get(), learn_config_pattern % mlnname)
-        if self.config is None or not self.initialized or not os.path.exists(confname) or \
+        if self.config is None or not self.initialized or \
             os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
             self.set_config(PRACMLNConfig(confname))
         self.mln_filename = mlnname
@@ -554,10 +555,9 @@ class MLNLearnGUI:
             
         except:
             traceback.print_exc()
-            #             traceback.print_tb(tb)
         # restore gui
-        self.master.deiconify()
         sys.stdout.flush()
+        self.master.deiconify()
 
 # -- main app --
 

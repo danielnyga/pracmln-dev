@@ -27,7 +27,7 @@ import optimize
 import logging
 import sys
 from numpy.ma.core import exp
-from pracmln.mln.util import out
+from pracmln.mln.util import out, stop
 
 
 try:
@@ -102,14 +102,14 @@ class AbstractLearner(object):
     
     def f(self, weights):
         # reconstruct full weight vector
-        self._w = self._fullweights(weights) 
+        w = self._fullweights(weights) 
         # compute prior
         prior = 0
         if self.prior_stdev is not None:
-            for w in self._w: # we have to use the log of the prior here
-                prior -= 1. / (2. * (self.prior_stdev ** 2)) * w ** 2 
+            for w_ in w: # we have to use the log of the prior here
+                prior -= 1. / (2. * (self.prior_stdev ** 2)) * w_ ** 2 
         # compute log likelihood
-        likelihood = self._f(self._w)
+        likelihood = self._f(w)
         if self.verbose:
             sys.stdout.write('                                           \r')
             if self.prior_stdev is not None:
@@ -118,6 +118,17 @@ class AbstractLearner(object):
                 sys.stdout.write('  log P(D|w) = %f\r' % likelihood)
             sys.stdout.flush()
         return likelihood + prior
+
+        
+    def grad(self, weights):
+        w = self._fullweights(weights)
+        grad = self._grad(w)
+        self._grad_ = grad
+        # add gaussian prior
+        if self.prior_stdev is not None:
+            for i, weight in enumerate(w):
+                grad[i] -= 1./(self.prior_stdev ** 2) * weight
+        return self._remove_fixweights(grad)
         
         
     def __call__(self, weights):
@@ -159,16 +170,6 @@ class AbstractLearner(object):
         return self.dummyFValue
     
         
-    def grad(self, weights):
-#         self._w = self._fullweights(weights)
-        grad = self._grad(self._w)
-        self._grad_ = grad
-        # add gaussian prior
-        if self.prior_stdev is not None:
-            for i, weight in enumerate(self._w):
-                grad[i] -= 1./(self.prior_stdev ** 2) * weight
-        return grad
-#         return self._remove_fixweights(grad)
 
     
     def _remove_fixweights(self, v):
@@ -192,9 +193,9 @@ class AbstractLearner(object):
             raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
         # initial parameter vector: all zeros or weights from formulas
         self._w = [0] * len(self.mrf.formulas)
-#         for f in self.mrf.formulas:
-#             if self.mrf.mln.fixweights[f.idx] or self.use_init_weights:
-#                 self._w[f.idx] = f.weight
+        for f in self.mrf.formulas:
+            if self.mrf.mln.fixweights[f.idx] or self.use_init_weights:
+                self._w[f.idx] = f.weight
         self._prepare()
         self._optimize(**self._params)
         self._cleanup()
@@ -210,15 +211,15 @@ class AbstractLearner(object):
 
     
     def _optimize(self, optimizer='bfgs', **params):
-#         w = self._varweights()
+        w = self._varweights()
         if optimizer == "directDescent":
             opt = optimize.DirectDescent(w, self, **params)        
         elif optimizer == "diagonalNewton":
             opt = optimize.DiagonalNewton(w, self, **params)  
         else:
-            opt = optimize.SciPyOpt(optimizer, self._w, self, **params)        
-        self._w = opt.run()
-#         self._w = self._fullweights(w)
+            opt = optimize.SciPyOpt(optimizer, w, self, **params)        
+        w = opt.run()
+        self._w = self._fullweights(w)
         
         
     def hessian(self, wt):

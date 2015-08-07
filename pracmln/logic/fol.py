@@ -155,11 +155,11 @@ class FirstOrderLogic(Logic):
             return maxtruth
         
         
-        def simplify(self, mrf):
+        def simplify(self, world):
             sf_children = []
             for child in self.children:
-                child = child.simplify(mrf)
-                t = child.truth(mrf.evidence)
+                child = child.simplify(world)
+                t = child.truth(world)
                 if t == 1:
                     return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
                 elif t == 0: continue
@@ -220,11 +220,11 @@ class FirstOrderLogic(Logic):
             return maxtruth
         
         
-        def simplify(self, mrf):
+        def simplify(self, world):
             sf_children = []
             for child in self.children:
-                child = child.simplify(mrf)
-                t = child.truth(mrf.evidence)
+                child = child.simplify(world)
+                t = child.truth(world)
                 if t == 0:
                     return self.mln.logic.true_false(0, mln=self.mln, idx=self.idx)
                 elif t == 1: pass

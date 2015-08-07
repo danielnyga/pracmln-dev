@@ -7,7 +7,7 @@ from pracmln.mln.inference.maxwalk import SAMaxWalkSAT
 from pracmln.mln.learning.cll import CLL, DCLL
 from pracmln.mln.learning.ll import LL
 from pracmln.mln.learning.sll import SLL_DN
-from pracmln.mln.learning.bpll import BPLL, DPLL
+from pracmln.mln.learning.bpll import BPLL, DPLL 
 
 class Enum(object):
     

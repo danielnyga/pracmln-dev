@@ -647,7 +647,7 @@ class Logic(object):
                 children.append(gndchild)
             gndformula = self.mln.logic.create(type(self), children, mln=self.mln, idx=self.idx)
             if simplify:
-                gndformula = gndformula.simplify(mrf)
+                gndformula = gndformula.simplify(mrf.evidence)
             gndformula.idx = self.idx
             return gndformula
     
@@ -1051,17 +1051,17 @@ class Logic(object):
             return constants
         
         
-        def simplify(self, mrf, level=0):
-            if any(map(self.mln.logic.isvar, self.args)):
-                return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
-            s = "%s(%s)" % (self.predname, ",".join(self.args))
-            truth = mrf.gndatom(s).truth(mrf.evidence)
-            if truth is None:
-                return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
-            else:
-                if self.negated: truth = 1 - truth
-                return self.mln.logic.true_false(truth, mln=self.mln, idx=self.idx)
-            
+#         def simplify(self, world):
+#             if any(map(self.mln.logic.isvar, self.args)):
+#                 return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
+#             s = "%s(%s)" % (self.predname, ",".join(self.args))
+#             truth = mrf.gndatom(s).truth(evidence)
+#             if truth is None:
+#                 return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
+#             else:
+#                 if self.negated: truth = 1 - truth
+#                 return self.mln.logic.true_false(truth, mln=self.mln, idx=self.idx)
+#             
             
         def __eq__(self, other):
             return str(self) == str(other)
@@ -1168,8 +1168,8 @@ class Logic(object):
             return self.mln.logic.gnd_lit(self.gndatom, self.negated, mln=ifNone(mln, self.mln), idx=self.idx if idx is inherit else idx)
             
     
-        def simplify(self, mrf):
-            truth = self.truth(mrf.evidence)
+        def simplify(self, world):
+            truth = self.truth(world)
             if truth is not None:
                 return self.mln.logic.true_false(truth, mln=self.mln, idx=self.idx)
             return self.mln.logic.gnd_lit(self.gndatom, self.negated, mln=self.mln, idx=self.idx)
@@ -1422,8 +1422,8 @@ class Logic(object):
             else: return truth 
         
         
-        def simplify(self, mrf):
-            truth = self.truth(mrf.evidence) 
+        def simplify(self, world):
+            truth = self.truth(world) 
             if truth != None: return self.logic.true_false(truth)
             return self.mln.logic.equality(list(self.args), negated=self.negated, mln=self.mln, idx=self.idx)
         
@@ -1479,8 +1479,8 @@ class Logic(object):
             return self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]], mln=self.mln, idx=self.idx), self.children[1]], mln=self.mln, idx=self.idx).nnf(level+1)
         
         
-        def simplify(self, mrf):
-            return self.mln.logic.disjunction([Negation([self.children[0]], mln=self.mln, idx=self.idx), self.children[1]], mln=self.mln, idx=self.idx).simplify(mrf)
+        def simplify(self, world):
+            return self.mln.logic.disjunction([Negation([self.children[0]], mln=self.mln, idx=self.idx), self.children[1]], mln=self.mln, idx=self.idx).simplify(world)
     
     
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -1541,10 +1541,10 @@ class Logic(object):
                                 self.mln.logic.implication([self.children[1], self.children[0]], mln=self.mln, idx=self.idx)], mln=self.mln, idx=self.idx).nnf(level+1)
     
         
-        def simplify(self, mrf):
+        def simplify(self, world):
             c1 = self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]], mln=self.mln, idx=self.idx), self.children[1]])
             c2 = self.mln.logic.disjunction([self.children[0], Negation([self.children[1]], mln=self.mln, idx=self.idx)], mln=self.mln, idx=self.idx)
-            return self.mln.logic.conjunction([c1,c2], mln=self.mln, idx=self.idx).simplify(mrf)
+            return self.mln.logic.conjunction([c1,c2], mln=self.mln, idx=self.idx).simplify(world)
     
 
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -1661,8 +1661,8 @@ class Logic(object):
                 raise Exception("NNF conversion of '%s' failed (type:%s)" % (str(self), str(type(child))))
     
     
-        def simplify(self, mrf):
-            f = self.children[0].simplify(mrf)
+        def simplify(self, world):
+            f = self.children[0].simplify(world)
             if isinstance(f, Logic.TrueFalse):
                 return f.invert()
             else:
@@ -1753,7 +1753,7 @@ class Logic(object):
                 return gndings[0]
             disj = self.mln.logic.disjunction(gndings, mln=self.mln, idx=self.idx)
             if simplify:
-                return disj.simplify(mrf)
+                return disj.simplify(mrf.evidence)
             else:
                 return disj
 
@@ -1815,7 +1815,7 @@ class Logic(object):
         def invert(self):
             return self.mln.logic.true_false(1 - self.truth(), mln=self.mln, idx=self.idx)
         
-        def simplify(self, mrf):
+        def simplify(self, world):
             return self.copy()
         
         def vardoms(self, variables=None, constants=None):
