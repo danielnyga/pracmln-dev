@@ -535,6 +535,11 @@ qx.Class.define("webmln.Application",
             this.__checkBoxShowLabels.addListener("changeValue", function(e) {
                             this._graph.showLabels(e.getData());
                         }, this);
+            this.__checkBoxUsePrior.addListener("changeValue", function(e) {
+                            this.__textFieldLMean.setEnabled(e.getData());
+                            this.__textFieldLStdDev.setEnabled(e.getData());
+                        }, this);
+
 
             // add widgets to form
             mlnFormContainer.add(grammarLabel, {row: 0, column: 0});
