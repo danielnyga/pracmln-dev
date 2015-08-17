@@ -122,13 +122,12 @@ def dump(path, config):
 
 def change_example(task, folder):
     mlnsession = ensure_mln_session(session)
-
+    f = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], folder)
     if task == 'inference':
-        mlnsession.xmplFolder = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], folder)
-        mlnFiles, dbs = getExampleFiles(mlnsession.xmplFolder)
+        mlnsession.xmplFolder = f
     else:
-        mlnsession.xmplFolderLearning = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], folder)
-        mlnFiles, dbs = getExampleFiles(mlnsession.xmplFolderLearning)
+        mlnsession.xmplFolderLearning = f
+    mlnFiles, dbs = getExampleFiles(f)
     userMLNFiles, userDBS = getExampleFiles(os.path.join('/tmp', 'tempupload'))
     res = {'dbs': dbs + userDBS, 'mlns': mlnFiles + userMLNFiles}
     return jsonify( res )

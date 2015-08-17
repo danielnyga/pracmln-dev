@@ -68,6 +68,8 @@ def load_filecontent():
 
     if os.path.exists(os.path.join(mlnsession.xmplFolder, filename)):
         text = getFileContent(mlnsession.xmplFolder, filename)
+    elif os.path.exists(os.path.join(mlnsession.xmplFolderLearning, filename)):
+        text = getFileContent(mlnsession.xmplFolderLearning, filename)
     elif os.path.exists(os.path.join('/tmp', 'tempupload', filename)):
         text = getFileContent(os.path.join('/tmp', 'tempupload'), filename)
 
