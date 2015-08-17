@@ -91,13 +91,13 @@ qx.Class.define("webmln.Application",
             ////////////////// INFERENCE PAGE ////////////////////
             var inferencePage = new qx.ui.tabview.Page("Inference");
             inferencePage.setLayout(new qx.ui.layout.Grow());
-            inferencePage.add(splitPaneInference);
+            inferencePage.add(splitPaneInference, {width: "100%", height: "100%"});
             tabView.add(inferencePage);
 
             ////////////////// LEARNING PAGE ////////////////////
             var learningPage = new qx.ui.tabview.Page("Learning");
             learningPage.setLayout(new qx.ui.layout.VBox());
-            learningPage.add(splitPaneLearning);
+            learningPage.add(splitPaneLearning, {width: "100%", height: "100%"});
             tabView.add(learningPage);
             outerContainer.add(tabView);
             contentIsle.add(outerContainer, {width: "100%", height: "100%"});
@@ -215,8 +215,7 @@ qx.Class.define("webmln.Application",
             this.check = false;
             var mlnFormContainerLayout = new qx.ui.layout.Grid();
             this.__mlnFormContainerLayout = mlnFormContainerLayout;
-            mlnFormContainerLayout.setRowHeight(4, 200);
-            mlnFormContainerLayout.setRowHeight(12, 100);
+            mlnFormContainerLayout.setColumnWidth(0, 100);
             var mlnFormContainer = new qx.ui.container.Composite(mlnFormContainerLayout).set({
                     padding: 10
             });
@@ -359,6 +358,7 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__selectMLN, {row: 3, column: 1, colSpan: 2});
             mlnFormContainer.add(this.__folderButton, {row: 3, column: 3});
             mlnFormContainer.add(this.__mlnAreaContainer, {row: 4, column: 1, colSpan: 3});
+            mlnFormContainerLayout.setRowHeight(4, 200);
 //            mlnFormContainer.add(this.__checkBoxRenameEditMLN, {row: 5, column: 1});
             mlnFormContainer.add(this.__checkBoxUseModelExt, {row: 5, column: 1});
 //            mlnFormContainer.add(this.__textFieldNameMLN, {row: 6, column: 1, colSpan: 2});
@@ -367,6 +367,7 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__selectEvidence, {row: 11, column: 1, colSpan: 3});
 //            mlnFormContainer.add(this.__buttonSaveEvidence, {row: 11, column: 3});
             mlnFormContainer.add(this.__evidenceContainer, {row: 12, column: 1, colSpan: 3});
+            mlnFormContainerLayout.setRowHeight(12, 100);
 //            mlnFormContainer.add(this.__checkBoxRenameEditEvidence, {row: 13, column: 1});
 //            mlnFormContainer.add(this.__textFieldDB, {row: 14, column: 1, colSpan: 3});
             mlnFormContainer.add(this.__selectMethod, {row: 15, column: 1, colSpan: 3});
@@ -391,8 +392,7 @@ qx.Class.define("webmln.Application",
         buildMLNLearningForm : function() {
             this.check = false;
             var mlnFormContainerLayout = new qx.ui.layout.Grid();
-            mlnFormContainerLayout.setRowHeight(4, 200);
-            mlnFormContainerLayout.setRowHeight(12, 100);
+            mlnFormContainerLayout.setColumnWidth(0, 100);
             var mlnFormContainer = new qx.ui.container.Composite(mlnFormContainerLayout).set({
                     padding: 10
             });
@@ -411,7 +411,7 @@ qx.Class.define("webmln.Application",
                 rich : true
             });
             var trainingDataLabel = new qx.ui.basic.Label().set({
-                value: this._template('Training<br>Data:', 'label'),
+                value: this._template('Training Data:', 'label'),
                 rich : true
             });
             var methodLabel = new qx.ui.basic.Label().set({
@@ -554,6 +554,7 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__buttonRefreshLMLN, {row: 3, column: 3});
             mlnFormContainer.add(this.__buttonSaveLMLN, {row: 3, column: 4});
             mlnFormContainer.add(this.__mlnAreaLContainer, {row: 4, column: 1, colSpan: 4});
+            mlnFormContainerLayout.setRowHeight(4, 200);
             mlnFormContainer.add(this.__checkBoxRenameEditLMLN, {row: 5, column: 1});
             mlnFormContainer.add(this.__textFieldNameMLN, {row: 6, column: 1, colSpan: 4});
             mlnFormContainer.add(this.__selectLMethod, {row: 7, column: 1, colSpan: 4});
@@ -570,6 +571,7 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__buttonRefreshLTData, {row: 12, column: 3});
             mlnFormContainer.add(this.__buttonSaveTData, {row: 12, column: 4});
             mlnFormContainer.add(this.__tDataContainer, {row: 13, column: 1, colSpan: 4});
+            mlnFormContainerLayout.setRowHeight(13, 200);
             mlnFormContainer.add(this.__checkBoxRenameEditTData, {row: 14, column: 1});
             mlnFormContainer.add(this.__checkBoxLIgnoreUnknown, {row: 14, column: 2});
 
@@ -837,7 +839,7 @@ qx.Class.define("webmln.Application",
         */
         _template : function(val, type) {
         if (type === 'label')
-            return '<span style="font-size:13px; font-weight:bold">' + val + '</span>'
+            return '<span style="font-size:13px; font-weight:bold;">' + val + '</span>'
         else
             return '<b>' + val + '</b>';
         },
