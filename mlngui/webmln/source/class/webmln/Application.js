@@ -96,6 +96,13 @@ qx.Class.define("webmln.Application",
 
             ////////////////// LEARNING PAGE ////////////////////
             var learningPage = new qx.ui.tabview.Page("Learning");
+            learningPage.addListener("appear", function(e) {
+                                // todo prettify. this is a dirty hack for the
+                                // highlighting, which does not work as the textareas
+                                // will only be created on first tab selection
+                                this._highlight('tDataArea');
+                                this._highlight('mlnLArea');
+                            }, this);
             learningPage.setLayout(new qx.ui.layout.VBox());
             learningPage.add(splitPaneLearning, {width: "100%", height: "100%"});
             tabView.add(learningPage);
@@ -332,7 +339,7 @@ qx.Class.define("webmln.Application",
             this.__buttonStart.addListener("execute", this._start_inference, this);
             this.__checkBoxUseModelExt.addListener("changeValue", this._showModelExtension, this);
             this.__selectMLN.addListener("changeSelection", this._update_mln_text, this);
-            this.__selectExampleFolder.addListener("changeSelection", this._change_example ,this);
+            this.__selectExampleFolder.addListener("changeSelection", this._change_example_inf ,this);
             this.__selectEvidence.addListener("changeSelection", this._update_evidence_text, this);
             this.__uploader.addListener("addFile", this._upload, this);
             this.__textAreaEMLN.addListener("appear", this._update_emln_text, this);
@@ -398,6 +405,10 @@ qx.Class.define("webmln.Application",
             });
 
             // labels
+            var exampleFolderLabel = new qx.ui.basic.Label().set({
+                value: this._template('Example:', 'label'),
+                rich : true
+            });
             var grammarLabel = new qx.ui.basic.Label().set({
                 value: this._template('Grammar:', 'label'),
                 rich : true
@@ -430,16 +441,12 @@ qx.Class.define("webmln.Application",
                 value: this._template('Output:', 'label'),
                 rich : true
             });
-            var directoryLabel = new qx.ui.basic.Label().set({
-                value: this._template('Directory:', 'label'),
-                rich : true
-            });
 
             // widgets
+            this.__selectExampleFolder_L = new qx.ui.form.SelectBox();
+            this.__browseLButton = new qx.ui.form.Button("Browse...", null);
             this.__selectGrammar_L = new qx.ui.form.SelectBox();
             this.__selectLogic_L = new qx.ui.form.SelectBox();
-            this.__textFieldLMLNDirectory = new qx.ui.form.TextField("");
-            this.__browseLButton = new qx.ui.form.Button("Browse...", null);
             this.__selectMLN_L = new qx.ui.form.SelectBox();
             this.__buttonRefreshLMLN = new qx.ui.form.Button("<- refresh", null);
             this.__buttonSaveLMLN = new qx.ui.form.Button("save", null);
@@ -457,10 +464,11 @@ qx.Class.define("webmln.Application",
 
             this.__selectLMethod = new qx.ui.form.SelectBox();
             this.__checkBoxUsePrior = new qx.ui.form.CheckBox("use prior with mean of");
-            this.__textFieldLMLNNewName = new qx.ui.form.TextField("");
             this.__textFieldLMean = new qx.ui.form.TextField("");
-            var stdDevLabel = new qx.ui.basic.Label("and std dev of");
+            this.__textFieldLMean.setEnabled(false);
+            var stdDevLabel = new qx.ui.basic.Label("and std dev of").set({alignX:'right', alignY:'middle',allowGrowX: false});
             this.__textFieldLStdDev = new qx.ui.form.TextField("");
+            this.__textFieldLStdDev.setEnabled(false);
             this.__checkBoxUseInitWeights = new qx.ui.form.CheckBox("use initial weights");
             this.__checkBoxLearnIncrem = new qx.ui.form.CheckBox("learn incrementally");
             this.__checkBoxShuffleDB = new qx.ui.form.CheckBox("shuffle databases");
@@ -494,8 +502,6 @@ qx.Class.define("webmln.Application",
 
             new qx.ui.form.RadioGroup(radioBoxQueryPreds, radioBoxEvidencePreds);
 
-            //todo add listeners for radiogroup (enable/disable respective textfields
-
             this.__selectTData = new qx.ui.form.SelectBox();
             this.__buttonRefreshLTData = new qx.ui.form.Button("<- refresh", null);
             this.__buttonSaveTData = new qx.ui.form.Button("save", null);
@@ -514,7 +520,7 @@ qx.Class.define("webmln.Application",
             this.__textFieldORFilePattern = new qx.ui.form.TextField("");
             this.__textFieldLAddParams = new qx.ui.form.TextField("");
 
-            this.__checkBoxUseAllCPU = new qx.ui.form.CheckBox("Use all CPUs");
+            this.__checkBoxUseAllCPU_L = new qx.ui.form.CheckBox("Use all CPUs");
             this.__checkBoxLVerbose = new qx.ui.form.CheckBox("verbose");
             this.__checkBoxLRemoveFormulas = new qx.ui.form.CheckBox("remove 0-weight formulas");
 
@@ -528,13 +534,11 @@ qx.Class.define("webmln.Application",
             this.__selectLogic_L.add(new qx.ui.form.ListItem("FuzzyLogic"));
 
             // listeners
-            this.__buttonStartLearning.addListener("execute", this._start_Learning, this);
+            this.__selectExampleFolder_L.addListener("changeSelection", this._change_example_lrn ,this);
+            this.__buttonStartLearning.addListener("execute", this._start_learning, this);
             this.__selectMLN_L.addListener("changeSelection", this._update_mlnL_text, this);
             this.__selectTData.addListener("changeSelection", this._update_tData_text, this);
             this.__uploaderL.addListener("addFile", this._uploadL, this);
-            this.__checkBoxShowLabels.addListener("changeValue", function(e) {
-                            this._graph.showLabels(e.getData());
-                        }, this);
             this.__checkBoxUsePrior.addListener("changeValue", function(e) {
                             this.__textFieldLMean.setEnabled(e.getData());
                             this.__textFieldLStdDev.setEnabled(e.getData());
@@ -542,19 +546,18 @@ qx.Class.define("webmln.Application",
 
 
             // add widgets to form
-            mlnFormContainer.add(grammarLabel, {row: 0, column: 0});
-            mlnFormContainer.add(logicLabel, {row: 1, column: 0});
-            mlnFormContainer.add(directoryLabel, {row: 2, column: 0});
+            mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
+            mlnFormContainer.add(grammarLabel, {row: 1, column: 0});
+            mlnFormContainer.add(logicLabel, {row: 2, column: 0});
             mlnFormContainer.add(mlnLabel, {row: 3, column: 0});
             mlnFormContainer.add(methodLabel, {row: 7, column: 0});
             mlnFormContainer.add(trainingDataLabel, {row: 12, column: 0});
             mlnFormContainer.add(addParamsLabel, {row: 17, column: 0});
             mlnFormContainer.add(outputLabel, {row: 19, column: 0});
 
-            mlnFormContainer.add(this.__selectGrammar_L, {row: 0, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__selectLogic_L, {row: 1, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__textFieldLMLNDirectory, {row: 2, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__browseLButton, {row: 2, column: 4});
+            mlnFormContainer.add(this.__selectExampleFolder_L, {row: 0, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__selectGrammar_L, {row: 1, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__selectLogic_L, {row: 2, column: 1, colSpan: 4});
             mlnFormContainer.add(this.__selectMLN_L, {row: 3, column: 1, colSpan: 2});
             mlnFormContainer.add(this.__buttonRefreshLMLN, {row: 3, column: 3});
             mlnFormContainer.add(this.__buttonSaveLMLN, {row: 3, column: 4});
@@ -594,12 +597,13 @@ qx.Class.define("webmln.Application",
             return mlnFormContainer;
         },
 
+
         /**
-        * Update fields when changing the example folder
+        * Update fields when changing the example folder for inference
         */
-        _change_example : function(e){
+        _change_example_inf : function(e){
             var exampleFolder = e.getData()[0].getLabel();
-            req = new qx.io.request.Xhr("/mln/_change_example", "POST");
+            req = new qx.io.request.Xhr("/mln/inference/_change_example", "POST");
             req.setRequestHeader("Content-Type", "application/json");
             req.setRequestData({"folder": exampleFolder});
             req.addListener("success", function(e) {
@@ -620,6 +624,32 @@ qx.Class.define("webmln.Application",
         },
 
         /**
+        * Update fields when changing the example folder for learning
+        */
+        _change_example_lrn : function(e){
+            var exampleFolder = e.getData()[0].getLabel();
+            req = new qx.io.request.Xhr("/mln/learning/_change_example", "POST");
+            req.setRequestHeader("Content-Type", "application/json");
+            req.setRequestData({"folder": exampleFolder});
+            console.log(exampleFolder);
+            req.addListener("success", function(e) {
+                var tar = e.getTarget();
+                response = tar.getResponse();
+                console.log(response);
+                this.__selectMLN_L.removeAll();
+                for (var i = 0; i < response.mlns.length; i++) {
+                    this.__selectMLN_L.add(new qx.ui.form.ListItem(response.mlns[i]));
+                }
+
+                this.__selectTData.removeAll();
+                for (var z = 0; z < response.dbs.length; z++) {
+                    this.__selectTData.add(new qx.ui.form.ListItem(response.dbs[z]));
+                }
+            }, this);
+            req.send();
+        },
+
+        /**
         * Show or hide fields for the mln model extension
         */
         _showModelExtension : function(e) {
@@ -632,7 +662,7 @@ qx.Class.define("webmln.Application",
 //                    this.__mlnFormContainer.add(this.__textFieldNameEMLN, {row: 10, column: 1, colSpan: 3});
                 this.__mlnFormContainerLayout.setRowFlex(8, 1);
 
-                var req = new qx.io.request.Xhr("/mln/_use_model_ext", "GET");
+                var req = new qx.io.request.Xhr("/mln/inference/_use_model_ext", "GET");
                 req.addListener("success", function(e) {
                     var tar = e.getTarget();
                     var that = this;
@@ -692,18 +722,16 @@ qx.Class.define("webmln.Application",
                 var emlnText = this.codeMirroremlnArea ? this.codeMirroremlnArea.doc.getValue() : "";
                 var dbText = this.codeMirrordbArea ? this.codeMirrordbArea.doc.getValue() : "";
 
-                req = new qx.io.request.Xhr("/mln/_start_inference", "POST");
+                req = new qx.io.request.Xhr("/mln/inference/_start_inference", "POST");
                 req.setRequestHeader("Content-Type", "application/json");
                 req.setRequestData({"mln": mln,
                                     "emln": emln,
                                     "db": db,
-                                    "method": method,
-                                    "logic": logic,
-                                    "grammar": grammar,
                                     "mln_text": mlnText,
-                                    "emln_text": emlnText,
                                     "db_text": dbText,
+                                    "emln_text": emlnText,
                                     "output": this.__textFieldOutput.getValue(),
+                                    "method": method,
                                     "params": this.__textFieldAddParams.getValue(),
                                     "mln_rename_on_edit": this.__checkBoxRenameEditMLN.getValue(),
                                     "db_rename_on_edit": this.__checkBoxRenameEditEvidence.getValue(),
@@ -711,10 +739,12 @@ qx.Class.define("webmln.Application",
                                     "closed_world": this.__checkBoxApplyCWOption.getValue(),
                                     "cw_preds": this.__textFieldCWPreds.getValue(),
                                     "use_emln": this.__checkBoxUseModelExt.getValue(),
-                                    "verbose": this.__checkBoxVerbose.getValue(),
-                                    "ignore_unknown_preds": this.__checkBoxIgnoreUnknown.getValue(),
+                                    "logic": logic,
+                                    "grammar": grammar,
+                                    "use_multicpu": this.__checkBoxUseAllCPU.getValue(),
                                     "save_results": this.__checkBoxSaveOutput.getValue(),
-                                    "use_multicpu": this.__checkBoxUseAllCPU.getValue()});
+                                    "ignore_unknown_preds": this.__checkBoxIgnoreUnknown.getValue(),
+                                    "verbose": this.__checkBoxVerbose.getValue()});
                 req.addListener("success", function(e) {
                         var that = this;
                         var tar = e.getTarget();
@@ -812,6 +842,61 @@ qx.Class.define("webmln.Application",
         },
 
 
+
+        /**
+        * Start the learning process
+        */
+        _start_learning : function(e) {
+                var that = this;
+                var that = this;
+                this.loadGraph();
+                var mln = (this.__selectMLN_L.getSelectables().length != 0) ? this.__selectMLN_L.getSelection()[0].getLabel() : "";
+                var db = (this.__selectTData.getSelectables().length != 0) ? this.__selectTData.getSelection()[0].getLabel() : "";
+                var method = (this.__selectLMethod.getSelectables().length != 0) ? this.__selectLMethod.getSelection()[0].getLabel() : "";
+                var logic = (this.__selectLogic_L.getSelectables().length != 0) ? this.__selectLogic_L.getSelection()[0].getLabel() : "";
+                var grammar = (this.__selectGrammar_L.getSelectables().length != 0) ? this.__selectGrammar_L.getSelection()[0].getLabel() : "";
+                var mlnText = this.codemirrormlnLArea ? this.codemirrormlnLArea.doc.getValue() : "";
+                var dbText = this.codeMirrortDataArea ? this.codeMirrortDataArea.doc.getValue() : "";
+
+                req = new qx.io.request.Xhr("/mln/learning/_start_learning", "POST");
+                req.setRequestHeader("Content-Type", "application/json");
+                req.setRequestData({"mln": mln,
+                                    "db": db,
+                                    "mln_text": mlnText,
+                                    "db_text": dbText,
+                                    "output": this.__textFieldLOutput.getValue(),
+                                    "method": method,
+                                    "params": this.__textFieldLAddParams.getValue(),
+                                    "verbose": this.__checkBoxLVerbose.getValue(),
+                                    "pattern": this.__textFieldORFilePattern.getValue(),
+                                    "use_prior": this.__checkBoxUsePrior.getValue(),
+                                    "prior_mean": this.__textFieldLMean.getValue(),
+                                    "prior_stdev": this.__textFieldLStdDev.getValue(),
+                                    "incremental": this.__checkBoxLearnIncrem.getValue(),
+                                    "shuffle": this.__checkBoxShuffleDB.getValue(),
+                                    "init_weights": this.__checkBoxUseInitWeights.getValue(),
+                                    "qpreds": this.__textFieldLQueryPreds.getValue(),
+                                    "epreds": this.__textFieldLEvidencePreds.getValue(),
+                                    "discr_preds": this.__radioQueryPreds.getValue(),
+                                    "logic": logic,
+                                    "grammar": grammar,
+                                    "multicore": this.__checkBoxUseAllCPU_L.getValue(),
+                                    "ignore_unknown_preds": this.__checkBoxLIgnoreUnknown.getValue(),
+                                    "ignore_zero_weight_formulas": this.__checkBoxLRemoveFormulas.getValue()
+                                    });
+                req.addListener("success", function(e) {
+                        var that = this;
+                        var tar = e.getTarget();
+                        response = tar.getResponse();
+                        var output = response.output;
+                        that.__textAreaResults_Learning.setValue(output);
+                        console.log(response);
+
+                }, this);
+                req.send();
+        },
+
+
         /**
         * Fetch options to choose from
         */
@@ -822,15 +907,16 @@ qx.Class.define("webmln.Application",
                     var response = tar.getResponse();
                     for (var i = 0; i < response.examples.length; i++) {
                          this.__selectExampleFolder.add(new qx.ui.form.ListItem(response.examples[i]));
+                         this.__selectExampleFolder_L.add(new qx.ui.form.ListItem(response.examples[i]));
                     }
 
                     this.__textFieldQueries.setValue(response.queries);
 
-                    var arr = ['files', 'infMethods', 'dbs'];
+                    var arr = ['files', 'infMethods', 'dbs', 'lrnMethods'];
                     for (var x = 0; x < arr.length; x++) {
                         for (var i = 0; i < response[arr[x]].length; i++) {
                             (arr[x] == 'files' ? this.__selectMLN : arr[x] ==
-                             'infMethods' ? this.__selectMethod :
+                             'infMethods' ? this.__selectMethod : arr[x] == 'lrnMethods' ? this.__selectLMethod :
                              this.__selectEvidence).add(new qx.ui.form.ListItem(response[arr[x]][i]));
                         }
                     }
@@ -923,12 +1009,14 @@ qx.Class.define("webmln.Application",
         * Syntax highlighting
         */
         _highlight : function(id) {
-            var code = CodeMirror.fromTextArea(document.getElementById(id), {
-                lineNumbers: true
-            });
+            if (document.getElementById(id)) {
+                var code = CodeMirror.fromTextArea(document.getElementById(id), {
+                    lineNumbers: true
+                });
 
-            // save codemirror to be able to get the content later
-            this['codeMirror' + id] = code;
+                // save codemirror to be able to get the content later
+                this['codeMirror' + id] = code;
+            }
         },
 
         /**
@@ -959,6 +1047,30 @@ qx.Class.define("webmln.Application",
                  this._update_text(selection, this.__textAreaEvidence);
             } else {
                 this.__textAreaEvidence.setValue('');
+            }
+        },
+
+        /**
+        * Update mln text field for learning
+        */
+        _update_mlnL_text : function(e) {
+            if (e.getData().length > 0) {
+                var selection = e.getData()[0].getLabel();
+                this._update_text(selection, this.__textAreaLMLN);
+            } else {
+                this.__textAreaLMLN.setValue('');
+            }
+        },
+
+        /**
+        * Update training data text field for learning
+        */
+        _update_tData_text : function(e) {
+            if (e.getData().length > 0) {
+                var selection = e.getData()[0].getLabel();
+                this._update_text(selection, this.__textAreaTData);
+            } else {
+                this.__textAreaTData.setValue('');
             }
         },
 
