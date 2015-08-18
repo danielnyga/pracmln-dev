@@ -81,18 +81,19 @@ qx.Class.define("webmln.Application",
                 contentIsle.setHeight(h);
             }, this);
 
+
             var outerContainer = new qx.ui.container.Scroll();
             var splitPaneInference = this.getsplitPaneInference();
             var splitPaneLearning = this.getsplitPaneLearning();
 
             var tabView = new qx.ui.tabview.TabView();
-            tabView.setWidth(500);
+            tabView.setContentPadding(2,2,2,2);
 
             ////////////////// INFERENCE PAGE ////////////////////
             var inferencePage = new qx.ui.tabview.Page("Inference");
             inferencePage.setLayout(new qx.ui.layout.Grow());
             inferencePage.add(splitPaneInference, {width: "100%", height: "100%"});
-            tabView.add(inferencePage);
+            tabView.add(inferencePage, {width: "100%", height: "100%"});
 
             ////////////////// LEARNING PAGE ////////////////////
             var learningPage = new qx.ui.tabview.Page("Learning");
@@ -102,19 +103,42 @@ qx.Class.define("webmln.Application",
                                 // will only be created on first tab selection
                                 this._highlight('tDataArea');
                                 this._highlight('mlnLArea');
+                                this.loadBarChart("diaL");
                             }, this);
-            learningPage.setLayout(new qx.ui.layout.VBox());
+            learningPage.setLayout(new qx.ui.layout.Grow());
             learningPage.add(splitPaneLearning, {width: "100%", height: "100%"});
-            tabView.add(learningPage);
-            outerContainer.add(tabView);
+            tabView.add(learningPage, {width: "100%", height: "100%"});
+
+            outerContainer.add(tabView, {width: "100%", height: "100%"});
             contentIsle.add(outerContainer, {width: "100%", height: "100%"});
             this._init();
+        },
+
+        /**
+         * show or hide animated wait logo
+         */
+        _show_wait_animation : function(task, wait) {
+            if (wait){
+                this["_waitImage" + task].show();
+            } else {
+                this["_waitImage" + task].hide();
+            }
         },
 
         /**
         * Build the outer splitpane containing the mln form and vizualization containers
         */
         getsplitPaneInference : function() {
+            var waitImage = new qx.ui.basic.Image();
+            waitImage.setSource('/mln/static/images/wait.gif');
+            waitImage.getContentElement().setAttribute('id', 'waitImg');
+            waitImage.setWidth(300);
+            waitImage.setHeight(225);
+            waitImage.setMarginLeft(-150);
+            waitImage.setMarginTop(-125);
+            waitImage.setScale(1);
+            waitImage.hide();
+            this._waitImageInf = waitImage;
 
             var textAreaResults = new qx.ui.form.TextArea("");
             this.__textAreaResults = textAreaResults;
@@ -125,18 +149,9 @@ qx.Class.define("webmln.Application",
             var splitPane = new qx.ui.splitpane.Pane("horizontal");
             var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
-            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow()).set({
-                minHeight: 500, minWidth: 1200
-            });
+            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow())
+            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow())
 
-            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow()).set({
-                minHeight: 200, minWidth: 1200
-            });
-            splitPane.add(mlnFormContainer);
-
-            var canvas = new qx.ui.container.Composite(new qx.ui.layout.Grow()).set({
-                width: 1200, height: 500
-            });
             var html = new qx.ui.embed.Html("<div id='dia' style='width: 100%; height: 100%;'></div>");
             var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
             var diaLayout = new qx.ui.layout.Grow();
@@ -149,13 +164,15 @@ qx.Class.define("webmln.Application",
             var vizHTML = "<div id='viz' style='width: 100%; height: 100%;'></div>";
             var vizEmbed = new qx.ui.embed.Html(vizHTML);
             vizEmbedGrp.add(vizEmbed);
-            graphVizContainer.add(vizEmbedGrp);
+            graphVizContainer.add(vizEmbedGrp, {width: "100%", height: "100%"});
+            graphVizContainer.add(waitImage, { left: "50%", top: "50%"});
             diaContainer.add(diaEmbedGrp);
             innerMostSplitPane.add(diaContainer);
             innerMostSplitPane.add(textAreaResults);
             innerSplitPane.add(graphVizContainer);
             innerSplitPane.add(innerMostSplitPane);
 
+            splitPane.add(mlnFormContainer, {width: "30%"});
             splitPane.add(innerSplitPane);
 
             return splitPane;
@@ -166,6 +183,17 @@ qx.Class.define("webmln.Application",
         * Build the outer splitpane containing the mln form and vizualization containers
         */
         getsplitPaneLearning : function() {
+
+            var waitImage = new qx.ui.basic.Image();
+            waitImage.setSource('/mln/static/images/wait.gif');
+            waitImage.getContentElement().setAttribute('id', 'waitImg');
+            waitImage.setWidth(300);
+            waitImage.setHeight(225);
+            waitImage.setMarginLeft(-150);
+            waitImage.setMarginTop(-125);
+            waitImage.setScale(1);
+            waitImage.hide();
+            this._waitImageLrn = waitImage;
 
             var textAreaResults = new qx.ui.form.TextArea("");
             this.__textAreaResults_Learning = textAreaResults;
@@ -201,6 +229,7 @@ qx.Class.define("webmln.Application",
             var vizEmbed = new qx.ui.embed.Html(vizHTML);
             vizEmbedGrp.add(vizEmbed);
             graphVizContainer.add(vizEmbedGrp);
+            graphVizContainer.add(waitImage, { left: "50%", top: "50%"});
             diaContainer.add(diaEmbedGrp);
             innerMostSplitPane.add(diaContainer);
             innerMostSplitPane.add(textAreaResults);
@@ -224,7 +253,7 @@ qx.Class.define("webmln.Application",
             this.__mlnFormContainerLayout = mlnFormContainerLayout;
             mlnFormContainerLayout.setColumnWidth(0, 100);
             var mlnFormContainer = new qx.ui.container.Composite(mlnFormContainerLayout).set({
-                    padding: 10
+                    padding: 5
             });
 
             // labels
@@ -631,11 +660,9 @@ qx.Class.define("webmln.Application",
             req = new qx.io.request.Xhr("/mln/learning/_change_example", "POST");
             req.setRequestHeader("Content-Type", "application/json");
             req.setRequestData({"folder": exampleFolder});
-            console.log(exampleFolder);
             req.addListener("success", function(e) {
                 var tar = e.getTarget();
                 response = tar.getResponse();
-                console.log(response);
                 this.__selectMLN_L.removeAll();
                 for (var i = 0; i < response.mlns.length; i++) {
                     this.__selectMLN_L.add(new qx.ui.form.ListItem(response.mlns[i]));
@@ -833,7 +860,7 @@ qx.Class.define("webmln.Application",
                             }
                         }
                         that.updateGraph([],addList);
-                        that.updateBarChart(resultsMap);
+                        that.updateBarChart("dia", resultsMap);
                         that.__textAreaResults.setValue(output);
                         that.__textAreaResults.getContentElement().scrollToY(10000);
 
@@ -847,6 +874,7 @@ qx.Class.define("webmln.Application",
         * Start the learning process
         */
         _start_learning : function(e) {
+                this._show_wait_animation("Lrn", true);
                 var that = this;
                 var that = this;
                 this.loadGraph();
@@ -886,6 +914,7 @@ qx.Class.define("webmln.Application",
                                     });
                 req.addListener("success", function(e) {
                         var that = this;
+                        this._show_wait_animation("Lrn", false);
                         var tar = e.getTarget();
                         response = tar.getResponse();
                         var output = response.output;
@@ -920,7 +949,7 @@ qx.Class.define("webmln.Application",
                              this.__selectEvidence).add(new qx.ui.form.ListItem(response[arr[x]][i]));
                         }
                     }
-                    this.loadBarChart();
+                    this.loadBarChart("dia");
             }, this);
             req.send();
         },
@@ -956,8 +985,8 @@ qx.Class.define("webmln.Application",
         /**
         * Creates new instance of graph if not existent, otherwise resets it
         */
-        loadBarChart : function() {
-            this._barChart = this.d3BarChart();
+        loadBarChart : function(id) {
+            this['_barChart' + id] = this.d3BarChart(id);
         },
 
 
@@ -1120,11 +1149,11 @@ qx.Class.define("webmln.Application",
         },
 
 
-        d3BarChart : function() {
-            this.w = .8*document.getElementById("dia", true, true).offsetWidth;
-            this.h = .8*document.getElementById("dia", true, true).offsetHeight;
+        d3BarChart : function(id) {
+            this.w = .8*document.getElementById(id, true, true).offsetWidth;
+            this.h = .8*document.getElementById(id, true, true).offsetHeight;
 
-            var barChartSVG = d3.select("#dia").append("svg")
+            var barChartSVG = d3.select("#" + id).append("svg")
               .attr("class", "chart")
               .attr("width", "95%")
               .attr("height", "95%")
@@ -1148,7 +1177,7 @@ qx.Class.define("webmln.Application",
         },
 
 
-        updateBarChart : function(results) {
+        updateBarChart : function(id, results) {
             var data = [];
             for (var key in results) {
                 if (results.hasOwnProperty(key)) {
@@ -1176,17 +1205,10 @@ qx.Class.define("webmln.Application",
                 .orient("left")
                 .tickSize(0);
 
-            // Set the scale domain.
-
-            for (var d = 0; d < data.length; d++){
-                console.log('name, y(name), yaxis', data[d].name, y(data[d].name));
-                console.log('value, x(va;ie)', data[d].value, x(data[d].value));
-            }
-            console.log('update bar chart', data);
 
             // selection for bars
-            var barSelection = this._barChart.selectAll("g.bar")
-                .data(data,function(d) { console.log('d.name',d.name, d);return d.name; });
+            var barSelection = this['_barChart' + id].selectAll("g.bar")
+                .data(data,function(d) { return d.name; });
 
             // create elements (bars)
             var barItems = barSelection.enter()
@@ -1228,7 +1250,7 @@ qx.Class.define("webmln.Application",
 
 
             // selection for y-axis
-            var axisSelection = this._barChart.selectAll("g.y axis")
+            var axisSelection = this['_barChart' + id].selectAll("g.y axis")
                 .data([0], function(d) { return d; });
 
             // create element

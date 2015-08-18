@@ -1,4 +1,7 @@
+from StringIO import StringIO
+from fnmatch import fnmatch
 import json
+import logging
 import os
 import subprocess
 
@@ -13,7 +16,7 @@ from pracmln.mln.util import parse_queries
 
 import traceback
 from utils import ensure_mln_session, getFileContent, QUERY_CONFIG_PATTERN, \
-    GUI_SETTINGS, log, stream, handler, initialize, INFERENCE_METHODS, LEARNING_METHODS, change_example, \
+    GUI_SETTINGS, initialize, INFERENCE_METHODS, LEARNING_METHODS, change_example, \
     getExampleFiles
 
 DEBUG = False
@@ -38,6 +41,16 @@ def change_example_inf():
 
 @mlnApp.app.route('/mln/inference/_start_inference', methods=['POST'])
 def start_inference():
+
+    # initialize logger
+    stream = StringIO()
+    handler = logging.StreamHandler(stream)
+    # sformatter = logging.Formatter("%(message)s\n")
+    sformatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler.setFormatter(sformatter)
+    log = logging.getLogger('streamlog')
+    log.setLevel(logging.INFO)
+    log.addHandler(handler)
 
     log.info('start_inference')
     mlnsession = ensure_mln_session(session)
@@ -149,6 +162,7 @@ def start_inference():
 
 @mlnApp.app.route('/mln/inference/_use_model_ext', methods=['GET', 'OPTIONS'])
 def get_emln():
+    log = logging.getLogger(__name__)
     log.info('_use_model_ext')
     emlns = []
     for filename in os.listdir('.'):
@@ -161,6 +175,7 @@ def get_emln():
 
 @mlnApp.app.route('/mln/_init', methods=['GET', 'OPTIONS'])
 def init_options():
+    log = logging.getLogger(__name__)
     log.info('init_options')
     mlnsession = ensure_mln_session(session)
     initialize()

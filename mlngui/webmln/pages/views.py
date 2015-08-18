@@ -69,8 +69,8 @@ def load_filecontent():
         text = getFileContent(mlnsession.xmplFolder, filename)
     elif os.path.exists(os.path.join(mlnsession.xmplFolderLearning, filename)):
         text = getFileContent(mlnsession.xmplFolderLearning, filename)
-    elif os.path.exists(os.path.join('/tmp', 'tempupload', filename)):
-        text = getFileContent(os.path.join('/tmp', 'tempupload'), filename)
+    elif os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], filename)):
+        text = getFileContent(os.path.join(mlnApp.app.config['UPLOAD_FOLDER']), filename)
 
     return jsonify( {'text': text} )
 

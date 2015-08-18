@@ -1,10 +1,12 @@
+from StringIO import StringIO
+import logging
 import os
 import traceback
 from webmln.mlninit import mlnApp
 from flask import json, request, session, jsonify
 import sys
-from mlngui.webmln.pages.utils import ensure_mln_session, log, dump, \
-    change_example, stream, handler, get_training_db_paths
+from mlngui.webmln.pages.utils import ensure_mln_session, dump, \
+    change_example, get_training_db_paths
 from pracmln import MLN, Database
 from pracmln.mln.learning import DiscriminativeLearner
 from pracmln.mln.methods import LearningMethods
@@ -14,6 +16,17 @@ from tabulate import tabulate
 
 @mlnApp.app.route('/mln/learning/_start_learning', methods=['POST'])
 def start_learning(saveGeometry=True):
+
+    # initialize logger
+    stream = StringIO()
+    handler = logging.StreamHandler(stream)
+    # sformatter = logging.Formatter("%(message)s\n")
+    sformatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler.setFormatter(sformatter)
+    log = logging.getLogger('streamlog')
+    log.setLevel(logging.INFO)
+    log.addHandler(handler)
+
     # update settings;
     log.info('start_learning')
     mlnsession = ensure_mln_session(session)
@@ -34,9 +47,9 @@ def start_learning(saveGeometry=True):
         raise Exception("No MLN was selected")
     params = params
     verbose = data['verbose']
-    if not os.path.exists(os.path.join('/tmp', 'tempupload')):
-        os.mkdir(os.path.join('/tmp', 'tempupload'))
-    settings = PRACMLNConfig(os.path.join('/tmp', 'tempupload', learn_config_pattern % mln))
+    if not os.path.exists(mlnApp.app.config['UPLOAD_FOLDER']):
+        os.mkdir(mlnApp.app.config['UPLOAD_FOLDER'])
+    settings = PRACMLNConfig(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], learn_config_pattern % mln))
     settings["mln"] = mln
     settings["db"] = db
     settings["output_filename"] = output
@@ -61,7 +74,7 @@ def start_learning(saveGeometry=True):
 
     # write settings
     log.info('writing config...')
-    # dump(os.path.join(mlnsession.xmplFolderLearning, settings))#TODO
+    settings.dump()
 
     # load the training databases
     pattern = settings["pattern"].strip()
@@ -70,7 +83,13 @@ def start_learning(saveGeometry=True):
     else:
         if db is None or not db:
             raise Exception('no trainig data given!')
-        dbs = [os.path.join(mlnsession.xmplFolderLearning, db)]
+        if os.path.exists(os.path.join(mlnsession.xmplFolderLearning, db)):
+            dbs = [os.path.join(mlnsession.xmplFolderLearning, db)]
+        elif os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], db)):
+            dbs = [os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], db)]
+
+
+    mlnsession.settingsL = settings
 
     # invoke learner
     try:
@@ -104,14 +123,21 @@ def start_learning(saveGeometry=True):
 
         try:
             # load the MLN
-            mlnfile = os.path.join(mlnsession.xmplFolderLearning, settings["mln"])
+            if os.path.exists(os.path.join(mlnsession.xmplFolderLearning, settings["mln"])):
+                mlnfile = os.path.join(mlnsession.xmplFolderLearning, settings["mln"])
+            elif os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], settings["mln"])):
+                mlnfile = os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], settings["mln"])
             mln = MLN(mlnfile=mlnfile, logic=settings['logic'], grammar=settings['grammar'])
             # load the databases
+
+            for db in dbs:
+                print db
             dbs = reduce(list.__add__, [Database.load(mln, dbfile, settings['ignore_unknown_preds']) for dbfile in dbs])
             if verbose: 'loaded %d database(s).'
 
             # run the learner
             mlnlearnt = mln.learn(dbs, method, **params)
+            mlnlearnt.write(stream)
             if verbose:
                 print
                 print headline('LEARNT MARKOV LOGIC NETWORK')

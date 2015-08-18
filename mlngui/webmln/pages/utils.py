@@ -24,15 +24,6 @@ DEFAULT_EXAMPLE = 'smokers'
 INFERENCE_METHODS = InferenceMethods.names()
 LEARNING_METHODS = sorted(LearningMethods.names())
 
-# separate logger for user statistics
-stream = StringIO()
-handler = logging.StreamHandler(stream)
-# sformatter = logging.Formatter("%(message)s\n")
-sformatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-handler.setFormatter(sformatter)
-log = logging.getLogger('streamlog')
-log.setLevel(logging.INFO)
-log.addHandler(handler)
 
 class StdoutQueue(Queue):
     def __init__(self,*args,**kwargs):
@@ -86,6 +77,7 @@ def getFileContent(fDir, fName):
 
 
 def initialize():
+    log = logging.getLogger(__name__)
     log.info('initialize')
     mlnsession = ensure_mln_session(session)
     mlnsession.params = ''
@@ -128,7 +120,7 @@ def change_example(task, folder):
     else:
         mlnsession.xmplFolderLearning = f
     mlnFiles, dbs = getExampleFiles(f)
-    userMLNFiles, userDBS = getExampleFiles(os.path.join('/tmp', 'tempupload'))
+    userMLNFiles, userDBS = getExampleFiles(mlnApp.app.config['UPLOAD_FOLDER'])
     res = {'dbs': dbs + userDBS, 'mlns': mlnFiles + userMLNFiles}
     return jsonify( res )
 
@@ -155,6 +147,7 @@ def get_training_db_paths(pattern):
     '''
     determine training databases(s)
     '''
+    log = logging.getLogger(__name__)
     mlnsession = ensure_mln_session(session)
     if pattern is not None and pattern.strip():
         dbs = []

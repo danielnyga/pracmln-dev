@@ -551,17 +551,18 @@ def parse_db(mln, content, ignore_unknown_preds=False, db=None):
             value = float(l[:s])
             if value < 0 or value > 1:
                 raise Exception('Valued evidence must be in [0,1]') 
-            if db.evidence(gndatom) is not None:
-                raise log.exception("Duplicate soft evidence for '%s'" % gndatom)
+            if gndatom  in db.evidence:
+                raise Exception("Duplicate soft evidence for '%s'" % gndatom)
             positive, predname, constants =   mln.logic.parse_literal(gndatom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
             out(positive, predname, constants)
-            if mln.predicates(predname) is None:
+            if predname not in mln.prednames:
+            # if mln.predicates(predname) is None:
                 if ignore_unknown_preds:
                     log.debug('Predicate "%s" is undefined.' % predname)
                     continue
                 else: 
                     raise Exception('Predicate "%s" is undefined.' % predname)
-            domnames = mln.predicates(predname).argdoms
+            domnames = mln.predicate(predname).argdoms
             db << (gndatom, value)
         # literal
         else:
