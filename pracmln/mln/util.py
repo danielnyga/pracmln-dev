@@ -30,7 +30,7 @@ import sys
 import os
 import traceback
 from pracmln.praclog.logformat import RainbowLoggingHandler
-
+from collections import defaultdict
 
 # math functions
 
@@ -88,7 +88,8 @@ def out(*args):
 
 
 def stop(*args):
-    out(*args)
+    rv = caller()
+    print '%s: l.%d: %s' % (os.path.basename(rv[0]), rv[1], ' '.join(map(str, args)))
     print '<press enter to continue>'
     raw_input()
     
@@ -96,7 +97,20 @@ def stop(*args):
 def trace(*args):
     print '=== STACK TRACE ==='
     traceback.print_stack()
-    stop(*args)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    rv = caller()
+    print '%s: l.%d: %s' % (os.path.basename(rv[0]), rv[1], ' '.join(map(str, args)))
+    
+def stoptrace(*args):
+    print '=== STACK TRACE ==='
+    traceback.print_stack()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    rv = caller()
+    print '%s: l.%d: %s' % (os.path.basename(rv[0]), rv[1], ' '.join(map(str, args)))
+    print '<press enter to continue>'
+    raw_input()
     
 
 
@@ -109,7 +123,7 @@ def flip(value):
     if type(value) is bool:
         return True if value is False else False
     elif type(value) is int:
-        return 1 - v
+        return 1 - value
     else:
         TypeError('type %s not allowed' % type(value))
 
@@ -148,6 +162,7 @@ def parse_queries(mln, query_str):
     query_preds = set()
     q = ''
     for s in map(str.strip, query_str.split(',')):
+        if not s: continue
         if q != '': q += ','
         q += s
         if balancedParentheses(q):
@@ -551,20 +566,56 @@ def dict_subset(subset, superset):
     '''
     return all(item in superset.items() for item in subset.items())
 
+
+class edict(dict):
+    
+    def __add__(self, d):
+        return dict_union(self, d)
+    
+    def __sub__(self, d):
+        if type(d) in (dict, defaultdict):
+            ret = dict(self)
+            for k in d:
+                del ret[k]
+        else:
+            ret = dict(self)
+            del ret[d]
+        return ret
+    
+
+class temporary_evidence():
+    '''
+    Context guard class for enabling convenient handling of temporary evidence in
+    MRFs using the python `with` statement. This guarantees that the evidence
+    is set back to the original whatever happens in the `with` block.
+    
+    :Example:
+    
+    >> with temporary_evidence(mrf, [0, 0, 0, 1, 0, None, None]) as mrf_:
+    '''
+    
+    
+    def __init__(self, mrf, evidence=None):
+        self.mrf = mrf
+        self.evidence_backup = list(mrf.evidence)
+        if evidence is not None:
+            self.mrf.evidence = evidence 
+        
+    def __enter__(self):
+        return self.mrf
+    
+    def __exit__(self, *args):
+        self.mrf.evidence = self.evidence_backup
+        return True
+        
     
 if __name__ == '__main__':
     
-    for c in combinations([]):
-        print c
-
-
-if __name__ == '__main__':
+    d = edict({1:2,2:3,'hi':'world'})
+    print d
+    print d + {'bla': 'blub'}
+    print d
+    print d - 1
+    print d - {'hi': 'bla'}
+    print d
     
-#     m = re.findall(r'(\(|\[)([-+]?\d*\.\d+|\d+),([-+]?\d*\.\d+|\d+)(\)|\])', '(5.2,1]')
-#     for g in m:
-#         print g
-    values = [1., .99, .876, .632, .543, .474, .2313, .023]
-    bar = ProgressBar(50, color='green')
-    for v in reversed(values):
-        bar.update(v)
-        time.sleep(.2)

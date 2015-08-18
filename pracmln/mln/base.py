@@ -41,7 +41,8 @@ from pracmln.mln.constants import HARD, comment_color, predicate_color, weight_c
 import copy
 import os
 import logging
-from pracmln.mln.util import StopWatch, fstr, mergedom, colorize, stripComments, out
+from pracmln.mln.util import StopWatch, fstr, mergedom, colorize, stripComments, out,\
+    trace
 from pracmln.mln.mlnpreds import Predicate, FuzzyPredicate, SoftFunctionalPredicate,\
     FunctionalPredicate
 from pracmln.mln.database import Database
@@ -49,6 +50,7 @@ from pracmln.mln.learning.multidb import MultipleDatabaseLearner
 import sys
 import re
 import traceback
+from pracmln.mln.learning.bpll import BPLL
 
 
 logger = logging.getLogger(__name__)
@@ -435,7 +437,7 @@ class MLN(object):
         return self
 
 
-    def ground(self, db, cw=False, cwpreds=None, **params):
+    def ground(self, db, **params):#cw=False, cwpreds=None, **params):
         '''
         Creates and returns a ground Markov Random Field for the given database.
         
@@ -451,11 +453,12 @@ class MLN(object):
                 mrf.gndatom(gndatom.predname, *gndatom.args)
         evidence = dict([(atom, value) for atom, value in db.evidence.iteritems() if mrf.gndatom(atom) is not None])
         mrf.set_evidence(evidence, erase=False)
-        if cw and cwpreds is not None:
-            raise Exception('Conflicting parameters: cw and cwpreds are both given.')
-        if cw: mrf.apply_cw()
-        elif cwpreds is not None:
-            mrf.apply_cw(*cwpreds)
+        # application of closed world was moved to the inference and learning classes 
+#         if cw and cwpreds is not None:
+#             raise Exception('Conflicting parameters: cw and cwpreds are both given.')
+#         if cw: mrf.apply_cw()
+#         elif cwpreds is not None:
+#             mrf.apply_cw(*cwpreds)
         return mrf
 
 
@@ -470,7 +473,7 @@ class MLN(object):
             self.constant(domname, value)
 
 
-    def learn(self, databases, method=LearningMethods.BPLL, **params):
+    def learn(self, databases, method=BPLL, **params):
         '''
         Triggers the learning parameter learning process for a given set of databases.
         Returns a new MLN object with the learned parameters.
@@ -502,9 +505,9 @@ class MLN(object):
         for f in newmln.formulas: logger.debug('%s %s' % (str(f.weight).ljust(10, ' '), f))
         # run learner
         if len(dbs) == 1:
-            mrf = newmln.ground(dbs[0], simplify=False, cw=True, **params)  # @UnusedVariable
-            logger.debug('Loading %s-Learner' % method)
-            learner = eval('LearningMethods.%s(mrf, **params)' % method)
+            mrf = newmln.ground(dbs[0], simplify=False, cw=True, **params)
+            logger.debug('Loading %s-Learner' % method.__name__)
+            learner = method(mrf, **params)
         else:
             learner = MultipleDatabaseLearner(newmln, dbs, method, **params)
         if verbose:

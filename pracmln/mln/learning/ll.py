@@ -27,6 +27,8 @@ import sys
 
 from common import *
 from pracmln.mln.mrfvars import SoftMutexVariable
+from pracmln.mln.grounding.default import DefaultGroundingFactory
+from pracmln.mln.util import ProgressBar
 
 
 class LL(AbstractLearner):
@@ -34,310 +36,67 @@ class LL(AbstractLearner):
     Exact Log-Likelihood learner.
     '''
     
-    def __init__(self, mln, mrf, **params):
-        AbstractLearner.__init__(self, mln, mrf, **params)
-        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
-            raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
-    
-    def _computeCounts(self):
-        ''' 
-        Computes the number of true groundings of each formula in each 
-        possible world (sufficient statistics)
-        '''
-        self.counts = {}
-        # for each possible world, count how many true groundings there are for each formula
-        for i, world in enumerate(self.mrf.worlds):
-            for gf in self.mrf.gndFormulas:
-                key = (i, gf.idxFormula)
-                self.counts[key] = self.counts.get(key, 0) + gf.isTrue(world['values'])
-    
-    
-    def _calculateWorldValues(self, wts):
-        if hasattr(self, 'wtsLastWorldValueComputation') and self.wtsLastWorldValueComputation == list(wts): # avoid computing the values we already have
-            return
-        self.expsums = [0] * len(self.mrf.worlds)
-        for ((idxWorld, idxFormula), count) in self.counts.iteritems():
-            self.expsums[idxWorld] += wts[idxFormula] * count
-        #for worldIndex, world in enumerate(self.worlds):
-            #world["sum"] = exp(world["sum"])
-            #if allSoft == False, we added a new world for training (duplicated, but with soft evidence)  
-            #  exclude this new one from the normalization (partition_function)
-            #if self.learnWtsMode != 'LL_ISE' or self.allSoft == True or worldIndex != self.idxTrainingDB:
-            #   total += world["sum"]
-        self.expsums = map(exp, self.expsums)
-        self.partition_function = fsum(self.expsums)
-        self.wtsLastWorldValueComputation = list(wts)
+    def __init__(self, mrf, **params):
+        AbstractLearner.__init__(self, mrf, **params)
+        self._stat = None
+        self._ls = None
+        self._eworld_idx = None
+        self._lastw = None
 
-    def _grad(self, wt, **params):
+    
+    def _prepare(self):
+        self._compute_statistics()
+        
+
+    def _l(self, w):
         '''
-        Computes the gradient of the log-likelihood given the weight vector wt
+        computes the likelihoods of all possible worlds under weights w
         '''
-        idxTrainDB = self.idxTrainingDB
-        self._calculateWorldValues(wt) # TODO move the calculation based on counts to this class
+        if self._lastw is None or list(w) != self._lastw:
+            self._lastw = list(w)
+            expsums = []
+            for fvalues in self._stat:
+                s = 0
+                for fidx, val in fvalues.iteritems():
+                    s += val * w[fidx]
+                expsums.append(exp(s))
+            z = sum(expsums)
+            self._ls = map(lambda v: v / z, expsums) 
+        return self._ls 
+            
+
+    def _f(self, w):
+        ls = self._l(w)
+        return numpy.log(ls[self._eworld_idx])
+                
+    
+    def _grad(self, w):
+        ls = self._l(w)
         grad = numpy.zeros(len(self.mrf.formulas), numpy.float64)
-        for ((idxWorld, idxFormula), count) in self.counts.iteritems():
-            if idxTrainDB == idxWorld:                
-                grad[idxFormula] += count
-            #TODO if self.learnWtsMode != 'LL_ISE' or self.allSoft == True or idxTrainDB != idxWorld:
-            n = count * self.expsums[idxWorld] / self.partition_function
-            grad[idxFormula] -= n
-        print "wts =", wt
-        print "grad =", grad
-        print
-        return grad
-
-    def _f(self, wt, **params):
-        self._calculateWorldValues(wt)
-        #ll = log(self.expsums[self.idxTrainingDB] / (self.partition_function / (len(self.mrf.worlds))))
-        ll = log(self.expsums[self.idxTrainingDB] / self.partition_function)
-        print "ll =", ll
-        return ll
-    
-    def _getEvidenceWorldIndex(self):
-        code = 0
-        bit = 1
-        for i in range(len(self.mrf.gndAtoms)):
-            if self.mrf._getEvidence(i):
-                code += bit
-            bit *= 2
-        return self.mrf.worldCode2Index[code]
-        
-    def _prepareOpt(self):
-        # create possible worlds if neccessary
-        if not hasattr(self.mrf, 'worlds'):
-            print "creating possible worlds (%d ground atoms)..." % len(self.mrf.gndAtoms)
-            self.mrf._createPossibleWorlds()
-            print "  %d worlds created." % len(self.mrf.worlds)
-        # get the possible world index of the training database
-        self.idxTrainingDB = self._getEvidenceWorldIndex()
-        # compute counts
-        print "computing counts...",
-        self._computeCounts()
-        print "  %d counts recorded." % len(self.counts)
-#         self.mrf.printWorlds()
-
-from softeval import truthDegreeGivenSoftEvidence
+        for widx, values in enumerate(self._stat):
+            for fidx, count in values.iteritems():
+                if widx == self._eworld_idx:
+                    grad[fidx] += count
+                grad[fidx] -= count * ls[widx]
+        return grad 
 
 
-class LL_ISE(SoftEvidenceLearner, LL):
-    def __init__(self, mrf, **params):
-        LL.__init__(self, mrf, **params)
-        SoftEvidenceLearner.__init__(self, mrf, **params)
-
-    def _prepareOpt(self):
-        # HACK set soft evidence variables to true in evidence
-        # TODO allsoft currently unsupported
-        for se in self.mrf.softEvidence:
-            self.mrf._setEvidence(self.mrf.gndAtoms[se["expr"]].idx, True)
-
-        LL._prepareOpt(self)
-        
-    def _computeCounts(self):
-        ''' compute soft counts (assuming independence) '''
-        allSoft = self.params.get("allSoft", False)
-        if allSoft == False:
-            # compute regular counts for all "normal" possible worlds
-            LL._computeCounts(self)
-            # add another world for soft beliefs            
-            baseWorld = self.mrf.worlds[self.idxTrainingDB]
-            self.mrf.worlds.append({"values": baseWorld["values"]})
-            self.idxTrainingDB = len(self.mrf.worlds) - 1
-            # and compute soft counts only for that world
-            softCountWorldIndices = [self.idxTrainingDB]
-        else:
-            # compute soft counts for all possible worlds
-            self.counts = {}
-            softCountWorldIndices = xrange(len(self.mrf.worlds))
+    def _compute_statistics(self):
+        self._stat = []
+        grounder = DefaultGroundingFactory(self.mrf)
+        eworld = list(self.mrf.evidence)
+        if self.verbose:
+            bar = ProgressBar(width=100, steps=self.mrf.countworlds(), color='green')
+        for widx, world in self.mrf.iterallworlds():
+            if self.verbose:
+                bar.label(str(widx))
+                bar.inc()
+            values = {}
+            self._stat.append(values)
+            if self._eworld_idx is None and world == eworld:
+                self._eworld_idx = widx  
+            for gf in grounder.itergroundings(unsatfailure=True):
+                truth = gf(world)
+                if truth != 0: values[gf.idx] = values.get(gf.idx, 0) + truth
+                
             
-        # compute soft counts      
-        for i in softCountWorldIndices:
-            world = self.mrf.worlds[i]     
-            if i == self.idxTrainingDB:
-                print "TrainingDB: prod, groundformula"       
-            for gf in self.mrf.gndFormulas:
-                prod = truthDegreeGivenSoftEvidence(gf, world["values"], self.mrf)
-                key = (i, gf.idxFormula)
-                cnt = self.counts.get(key, 0)
-                cnt += prod
-                self.counts[key] = cnt
-                if i == self.idxTrainingDB:
-                    print "%f gf: %s" % (prod, str(gf))
-            
-            
-            
-        print "worlds len: ", len(self.mrf.worlds)    
-        #    if i == self.idxTrainingDB:
-        #        print "TrainingDB: softCounts, formula"
-        #        for j, f in enumerate(self.mrf.formulas):
-        #            print "  %f %s" % (self.counts[(i, j)], strFormula(f))
-        #    else:
-        #        for j,f in enumerate(self.formulas):
-        #            normalizationWorldsMeanCounts[j] += self.counts[(i,j)]
-        #            print "xx", self.counts[(i,j)]
-        #    
-        #normalizationWorldsMeanCounts = numpy.zeros(len(self.mrf.formulas)) 
-        #normalizationWorldCounter = 0   
-        #for i in xrange(len(self.mrf.worlds)):
-        #    if allSoft == True or i != self.idxTrainingDB:
-        #        normalizationWorldCounter += 1
-        #        print "world", i
-        #        for j, f in enumerate(self.mrf.formulas):
-        #            if (i, j) in self.counts:
-        #                normalizationWorldsMeanCounts[j] += self.counts[(i, j)]
-        #                print "  count", self.counts[(i, j)], strFormula(f)
-        #    
-        #print "normalizationWorldsMeanCounts:"
-        #normalizationWorldsMeanCounts /= normalizationWorldCounter
-        #for j, f in enumerate(self.mrf.formulas):
-        #    print " %f %s" % (normalizationWorldsMeanCounts[j], strFormula(self.mrf.formulas[j]))        
-    
-    
-class Abstract_ISEWW(SoftEvidenceLearner, LL):
-    def __init__(self, mrf, **params):
-        LL.__init__(self, mrf, **params)
-        SoftEvidenceLearner.__init__(self, mrf, **params)     
-        
-    def _calculateWorldProbabilities(self):  
-        #calculate only once as they do not change
-        if False == hasattr(self, 'worldProbabilities'):
-            self.worldProbabilities = {}
-            #TODO: or (opimized) generate only world by flipping the soft evidences
-            #discard all world where at least one non-soft evidence is different from the generated
-            for idxWorld, world in enumerate(self.mrf.worlds):
-                worldProbability = 1
-                discardWorld = False
-                for gndAtom in self.mrf.gndAtoms.values():
-                    if world["values"][gndAtom.idx] != self.mrf.worlds[self.idxTrainingDB]["values"][gndAtom.idx]:
-                        
-                        #check if it is soft:
-                        isSoft = False
-                        s = strFormula(gndAtom)
-                        for se in self.mrf.softEvidence:
-                            if se["expr"] == s:
-                                isSoft = True
-                                break
-                            
-                        if False == isSoft:
-                            discardWorld = True
-                            break
-                if discardWorld: 
-                    print "discarded world", s, idxWorld#, world["values"][gndAtom.idx] , self.worlds[self.idxTrainingDB]["values"][gndAtom.idx]
-                    continue
-                
-                for se in self.mrf.softEvidence:
-                    evidenceValue = self.mrf._getEvidenceTruthDegreeCW(self.mrf.gndAtoms[se["expr"]], world["values"]) 
-                    
-                    worldProbability *= evidenceValue    
-                    print "  ", "evidence, gndAtom", evidenceValue, se["expr"]#, self.evidence, world["values"]
-                    
-                if worldProbability > 0:
-                    self.worldProbabilities[idxWorld] = worldProbability
-                    
-    def _grad(self, wt, **params):
-        raise Exception("Mode LL_ISEWW: gradient function is not implemented")
-    
-    def useGrad(self):
-        return False   
-
-
-class LL_ISEWW(Abstract_ISEWW):
-    def __init__(self, mrf, **params):
-        Abstract_ISEWW.__init__(self, mrf, **params)
-    
-    def _f(self, wt, **params):
-        self._calculateWorldValues(wt) #only to calculate partition function here:
-        #print "worlds[idxTrainDB][\"sum\"] / Z", self.worlds[idxTrainDB]["sum"] , self.partition_function
-        self._calculateWorldProbabilities()
-
-        #old code, maximizes most probable world (see notes on paper)
-        evidenceWorldSum = 0
-        for idxWorld, world in enumerate(self.mrf.worlds):
-                
-            if idxWorld in self.worldProbabilities:
-                print "world:", idxWorld, "exp(worldWeights)", self.expsums[idxWorld], "worldProbability", self.worldProbabilities[idxWorld]
-                evidenceWorldSum += self.expsums[idxWorld] * self.worldProbabilities[idxWorld]
-                  
-        print "wt =", wt
-        print "evidenceWorldSum, self.partition_function", evidenceWorldSum, self.partition_function
-        ll = log(evidenceWorldSum / self.partition_function)    
-        
-        print 
-        return ll
-
-    
-class E_ISEWW(Abstract_ISEWW):    
-    def __init__(self, mrf, **params):
-        Abstract_ISEWW.__init__(self, mrf, **params)
-        self.countsByWorld = {}
-        self.softCountsEvidenceWorld = {}
-        
-    def _f(self, wt, **params):
-        self._calculateWorldValues(wt) #only to calculate partition function here:
-
-        #self._calculateWorldProbabilities()
-        
-        #new idea: minimize squared error of world prob. given by weights and world prob given by soft evidence
-        error = 0
-
-        #old method (does not work with mixed hard and soft evidence)
-        if True:
-            for idxWorld, world in enumerate(self.mrf.worlds):
-                if idxWorld in self.worldProbabilities: #lambda_x
-                    worldProbability = self.worldProbabilities[idxWorld]
-                else: 
-                    worldProbability = 0
-                    
-                worldProbGivenWeights = self.expsums[idxWorld] / self.partition_function
-                error += abs(worldProbGivenWeights - worldProbability)
-                #print "worldProbGivenWeights - worldProbability ", worldProbGivenWeights, "-", worldProbability
-    
-    #        for idxWorld, worldProbability  in self.worldProbabilities.iteritems(): #lambda_x
-    #            worldProbGivenWeights = self.expsums[idxWorld] / self.partition_function
-    #            error += abs(worldProbGivenWeights - worldProbability)
-    #            #print "world:", self.mrf.worlds[idxWorld]
-    #            print "worldProbGivenWeights - worldProbability ", worldProbGivenWeights, "-", worldProbability
-      
-        if False:#new try, doesn't work...
-            for idxWorld, world in enumerate(self.mrf.worlds):
-                worldProbGivenWeights = self.expsums[idxWorld] / self.partition_function
-                
-                #compute countDiffSum:
-                #for i, world in enumerate(self.mrf.worlds):  
-                if idxWorld not in self.countsByWorld:
-                    print "computing counts for:", idxWorld
-                    counts = {} #n         
-                    for gf in self.mrf.gndFormulas:                
-                        if self.mrf._isTrue(gf, self.mrf.worlds[idxWorld]["values"]):
-                            key = gf.idxFormula
-                            cnt = counts.get(key, 0)
-                            cnt += 1
-                            counts[key] = cnt
-                    self.countsByWorld[idxWorld] = counts
-                
-                #� (soft counts for evidence)
-                if len(self.softCountsEvidenceWorld) == 0:
-                    print "computing evidence soft counts"
-                    self.softCountsEvidenceWorld = {}
-                    for gf in self.mrf.gndFormulas: 
-                        prod = truthDegreeGivenSoftEvidence(gf, self.mrf.evidence, self.mrf)
-                        key = gf.idxFormula
-                        cnt = self.softCountsEvidenceWorld.get(key, 0)
-                        cnt += prod
-                        self.softCountsEvidenceWorld[key] = cnt
-                            #if i == self.idxTrainingDB:
-                            #    print "%f gf: %s" % (prod, str(gf))
-                    
-                countDiffSum = 0
-                for idxFormula, count in self.countsByWorld[idxWorld].iteritems():
-                    countDiffSum += abs(count - self.softCountsEvidenceWorld[idxFormula])
-                
-                #print "countDiffSum", countDiffSum, "worldProbability", worldProbGivenWeights
-                error += worldProbGivenWeights * ((countDiffSum)**2)
-      
-        print "wt =", wt
-        print "error:", error
-        ll = -error 
-        
-        print 
-        return ll
-

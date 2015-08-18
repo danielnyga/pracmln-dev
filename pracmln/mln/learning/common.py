@@ -27,6 +27,7 @@ import optimize
 import logging
 import sys
 from numpy.ma.core import exp
+from pracmln.mln.util import out, stop
 
 
 try:
@@ -45,8 +46,8 @@ class AbstractLearner(object):
     def __init__(self, mrf=None, **params):
         self.mrf = mrf
         self._params = params
-        self.mrf.consistent(strict=True)
-
+        self.mrf.apply_cw()
+        self._w = None
 
     @property
     def prior_stdev(self):
@@ -101,14 +102,14 @@ class AbstractLearner(object):
     
     def f(self, weights):
         # reconstruct full weight vector
-        self._w = self._fullweights(weights) 
+        w = self._fullweights(weights) 
         # compute prior
         prior = 0
         if self.prior_stdev is not None:
-            for w in self._w: # we have to use the log of the prior here
-                prior -= 1. / (2. * (self.prior_stdev ** 2)) * w ** 2 
+            for w_ in w: # we have to use the log of the prior here
+                prior -= 1. / (2. * (self.prior_stdev ** 2)) * w_ ** 2 
         # compute log likelihood
-        likelihood = self._f(self._w)
+        likelihood = self._f(w)
         if self.verbose:
             sys.stdout.write('                                           \r')
             if self.prior_stdev is not None:
@@ -117,6 +118,17 @@ class AbstractLearner(object):
                 sys.stdout.write('  log P(D|w) = %f\r' % likelihood)
             sys.stdout.flush()
         return likelihood + prior
+
+        
+    def grad(self, weights):
+        w = self._fullweights(weights)
+        grad = self._grad(w)
+        self._grad_ = grad
+        # add gaussian prior
+        if self.prior_stdev is not None:
+            for i, weight in enumerate(w):
+                grad[i] -= 1./(self.prior_stdev ** 2) * weight
+        return self._remove_fixweights(grad)
         
         
     def __call__(self, weights):
@@ -158,15 +170,6 @@ class AbstractLearner(object):
         return self.dummyFValue
     
         
-    def grad(self, weights):
-        self._w = self._fullweights(weights)
-        grad = self._grad(self._w)
-        self._grad_ = grad
-        # add gaussian prior
-        if self.prior_stdev is not None:
-            for i, weight in enumerate(self._w):
-                grad[i] -= 1./(self.prior_stdev ** 2) * weight
-        return self._remove_fixweights(grad)
 
     
     def _remove_fixweights(self, v):

@@ -22,7 +22,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from common import AbstractLearner
 import sys
-from pracmln.mln.util import StopWatch, ProgressBar
+from pracmln.mln.util import StopWatch, ProgressBar, edict
 from multiprocessing import Pool
 import logging
 from pracmln.utils.multicore import with_tracing, _methodcaller
@@ -54,7 +54,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         '''
         
         self.dbs = dbs
-        self._params = params
+        self._params = edict(params)
         if not mln_._materialized:
             self.mln = mln_.materialize(*dbs)
         else:
@@ -76,7 +76,7 @@ class MultipleDatabaseLearner(AbstractLearner):
             pool.join()
         else:
             for i, db in enumerate(self.dbs):
-                _, learner = _setup_learner((i, self.mln, db, method, params))
+                _, learner = _setup_learner((i, self.mln, db, method, self._params))
                 self.learners[i] = learner 
                 if self.verbose:
                     bar.label('Database %d, %s' % ((i+1), learner.name)) 
@@ -88,7 +88,7 @@ class MultipleDatabaseLearner(AbstractLearner):
 
     def _iterdbs(self, method):
         for i, db in enumerate(self.dbs):
-            yield i, self.mln, db, method, self._params
+            yield i, self.mln, db, method, self._params + {'verbose': not self.multicore} 
         
     
     @property

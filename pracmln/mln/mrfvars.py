@@ -21,7 +21,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from pracmln.mln.errors import MRFValueException
-from pracmln.mln.util import Interval, ifNone
+from pracmln.mln.util import Interval, ifNone, out
 
 class MRFVariable(object):
     '''

@@ -42,39 +42,13 @@ from pracmln.mln.mrfvars import MutexVariable, SoftMutexVariable, FuzzyVariable,
     BinaryVariable
 from pracmln.mln.errors import MRFValueException, NoSuchDomainError,\
     NoSuchPredicateError
-from pracmln.mln.util import CallByRef, Interval, trace, out
+from pracmln.mln.util import CallByRef, Interval, trace, out, temporary_evidence
 from pracmln.mln.methods import InferenceMethods
 from math import *
 import traceback
 
 
 logger = logging.getLogger(__name__)
-
-class temporary_evidence():
-    '''
-    Context guard class for enabling convenient handling of temporary evidence in
-    MRFs using the python `with` statement. This guarantees that the evidence
-    is set back to the original whatever happens in the `with` block.
-    
-    :Example:
-    
-    >> with temporary_evidence(mrf, [0, 0, 0, 1, 0, None, None]) as mrf_:
-    '''
-    
-    
-    def __init__(self, mrf, evidence=None):
-        self.mrf = mrf
-        self.evidence_backup = list(mrf.evidence)
-        if evidence is not None:
-            self.mrf.evidence = evidence 
-        
-    def __enter__(self):
-        return self.mrf
-    
-    def __exit__(self, *args):
-        self.mrf.evidence = self.evidence_backup
-        return True
-        
 
 
 class MRF(object):
@@ -107,7 +81,6 @@ class MRF(object):
                                                         # soft evidence and can be handled in exactly the same way
         # ground members
         self.formulas = list(self.mln.formulas)
-         
 #         self.gndAtoms = {}
 #         self.gndBlockLookup = {}
 #         self.gndBlocks = {}
@@ -497,6 +470,22 @@ class MRF(object):
         return d
 
 
+    def countworlds(self, withevidence=False):
+        '''
+        Computes the number of possible worlds this MRF can take.
+        
+        :param withevidence:    (bool) if True, takes into account the evidence which is currently set in the MRF.
+                                if False, computes the total number of possible worlds.
+        
+        .. note:: this method does not enumerate the possible worlds.
+        '''
+        worlds = 1
+        ev = self.evidence_dicti if withevidence else {}
+        for var in self.variables:
+            worlds *= var.valuecount(ev)
+        return worlds
+    
+
     def iterworlds(self):
         '''
         Iterates over the possible worlds of this MRF taking into account the evidence vector of truth values.
@@ -514,24 +503,35 @@ class MRF(object):
             return
         variable = variables[0]
         if isinstance(variable, FuzzyVariable):
-            value = variable.evidence_value()
-            for res in self._iterworlds(variables[1:], variable.setval(value, list(world)), worldidx, evidence):
+            value = variable.evidence_value(evidence)
+            for res in self._iterworlds(variables[1:], variable.setval(value, world), worldidx, evidence):
                 yield res 
         else:
-            for _, value in variable.itervalues(self.evidence_dicti()):
-                for res in self._iterworlds(variables[1:], variable.setval(value, list(world)), worldidx, evidence):
+            for _, value in variable.itervalues(evidence):
+                for res in self._iterworlds(variables[1:], variable.setval(value, world), worldidx, evidence):
                     yield res 
 
 
     def worlds(self):
         '''
-        Iterates over all possible worlds.
+        Iterates over all possible worlds (taking evidence into account).
         
         :returns:    a generator of possible worlds.
         '''
         for _, world in self.iterworlds():
             yield world
 
+
+    def iterallworlds(self):
+        '''
+        Iterates over all possible worlds (without) taking evidence into account).
+        
+        :returns:    a generator of possible worlds.
+        '''
+        world = [None] * len(self.evidence)
+        for i, w in self._iterworlds(self.variables, world, CallByRef(0), {}):
+            yield i, w
+                 
 
     def itergroundings(self, simplify=False, grounding_factory='DefaultGroundingFactory'):
         '''

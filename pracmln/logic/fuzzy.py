@@ -100,8 +100,8 @@ class FuzzyLogic(Logic):
             return None if val is None else 1. - val
         
         
-        def simplify(self, mrf):
-            f = self.children[0].simplify(mrf)
+        def simplify(self, world):
+            f = self.children[0].simplify(world)
             if isinstance(f, Logic.TrueFalse):
                 return f.invert()
             else:
@@ -119,11 +119,11 @@ class FuzzyLogic(Logic):
             return FuzzyLogic.min_undef(*truthChildren)
         
         
-        def simplify(self, mrf):
+        def simplify(self, world):
             sf_children = []
             minTruth = None
             for child_ in self.children:
-                child = child_.simplify(mrf)
+                child = child_.simplify(world)
                 if isinstance(child, Logic.TrueFalse):
                     truth = child.truth()
                     if truth == 0:
@@ -152,11 +152,11 @@ class FuzzyLogic(Logic):
             return FuzzyLogic.max_undef(*map(lambda a: a.truth(world), self.children))
     
     
-        def simplify(self, mrf):
+        def simplify(self, world):
             sf_children = []
             maxTruth = None
             for child in self.children:
-                child = child.simplify(mrf)
+                child = child.simplify(world)
                 if isinstance(child, Logic.TrueFalse):
                     truth = child.truth()
                     if truth == 1:
@@ -184,8 +184,8 @@ class FuzzyLogic(Logic):
             ant = self.children[0].truth(world)
             return FuzzyLogic.max_undef(None if ant is None else 1. - ant, self.children[1].truth(world))
     
-        def simplify(self, mrf):
-            return self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]]), self.children[1]]).simplify(mrf)
+        def simplify(self, world):
+            return self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]]), self.children[1]]).simplify(world)
         
         
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -196,10 +196,10 @@ class FuzzyLogic(Logic):
         def truth(self, world):
             return FuzzyLogic.min_undef(self.children[0].truth(world), self.children[1].truth(world))
     
-        def simplify(self, mrf):
+        def simplify(self, world):
             c1 = self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]]), self.children[1]])
             c2 = self.mln.logic.disjunction([self.children[0], self.mln.logic.negation([self.children[1]])])
-            return self.mln.logic.conjunction([c1,c2]).simplify(mrf)
+            return self.mln.logic.conjunction([c1,c2]).simplify(world)
         
 
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -213,8 +213,8 @@ class FuzzyLogic(Logic):
             equals = 1. if (self.args[0] == self.args[1]) else 0.
             return (1. - equals) if self.negated else equals
         
-        def simplify(self, mrf):
-            truth = self.truth(mrf.evidence) 
+        def simplify(self, world):
+            truth = self.truth(world) 
             if truth != None: return self.mln.logic.true_false(truth)
             return self.mln.logic.equality(list(self.args), negated=self.negated)
 

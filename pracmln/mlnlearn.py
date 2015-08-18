@@ -45,7 +45,7 @@ from mln import MLN
 from logic import StandardGrammar, PRACGrammar
 from logic import FirstOrderLogic, FuzzyLogic
 from pracmln.utils import config
-from pracmln.mln.util import ifNone, out, headline, StopWatch
+from pracmln.mln.util import ifNone, out, headline, StopWatch, stop
 from tkMessageBox import showerror, askyesno
 from tkFileDialog import askdirectory
 from pracmln.utils.config import learn_config_pattern, PRACMLNConfig
@@ -69,6 +69,9 @@ class MLNLearnGUI:
         self.master.title("PRACMLN Learning Tool")
         
         self.initialized = False
+        
+        self.master.bind('<Return>', self.learn)
+        self.master.bind('<Escape>', lambda a: self.master.quit())
         
         self.gconf = gconf
         self.config = None
@@ -243,10 +246,19 @@ class MLNLearnGUI:
         self.cb_ignore_zero_weight_formulas.grid(row=0, column=5, sticky=W)
 
         row += 1
+        output_cont = Frame(self.frame)
+        output_cont.grid(row=row, column=1, sticky='NEWS')
+        output_cont.columnconfigure(0, weight=1)
+        
         Label(self.frame, text="Output filename: ").grid(row=row, column=0, sticky="E")
         self.output_filename = StringVar(master)
-        Entry(self.frame, textvariable = self.output_filename).grid(row=row, column=1, sticky="EW")
-
+        
+        Entry(output_cont, textvariable = self.output_filename).grid(row=0, column=0, sticky="EW")
+        
+        self.save = IntVar(self.master)
+        self.cb_save = Checkbutton(output_cont, text='save', variable=self.save)
+        self.cb_save.grid(row=0, column=1, sticky='W')
+        
         row += 1
         learn_button = Button(self.frame, text=" >> Learn << ", command=self.learn)
         learn_button.grid(row=row, column=1, sticky="EW")
@@ -283,7 +295,8 @@ class MLNLearnGUI:
     
     def select_mln(self, mlnname):
         confname = os.path.join(self.dir.get(), learn_config_pattern % mlnname)
-        if self.config is None or not self.initialized or os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
+        if self.config is None or not self.initialized or \
+            os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
             self.set_config(PRACMLNConfig(confname))
         self.mln_filename = mlnname
         self.setOutputFilename()
@@ -389,6 +402,7 @@ class MLNLearnGUI:
         self.selected_logic.set(ifNone(conf['logic'], 'FirstOrderLogic'))
         self.selected_db.select(ifNone(conf['db'], ''))
         self.output_filename.set(ifNone(self.config["output_filename"], ''))
+        self.save.set(ifNone(self.config['save'], 1))
         self.params.set(ifNone(self.config["params"], ''))
         self.selected_method.set(ifNone(self.config["method"], LearningMethods.name('BPLL'), transform=LearningMethods.name))
         self.pattern.set(ifNone(self.config["pattern"], ''))
@@ -408,7 +422,7 @@ class MLNLearnGUI:
         self.ignore_zero_weight_formulas.set(ifNone(conf['ignore_zero_weight_formulas'], False))
 
 
-    def learn(self, saveGeometry=True):
+    def learn(self, *args):
         # update settings;
         mln = self.selected_mln.get().encode('utf8')
         db = self.selected_db.get().encode('utf8')
@@ -417,7 +431,6 @@ class MLNLearnGUI:
         methodname = self.selected_method.get().encode('utf8')
         params = self.params.get().encode('utf8')
         output = str(self.output_filename.get()).encode('utf8')
-        verbose = self.config['verbose']
         self.config = PRACMLNConfig(os.path.join(self.dir.get(), learn_config_pattern % mln))
         self.config["mln"] = mln
         self.config["db"] = db
@@ -441,6 +454,7 @@ class MLNLearnGUI:
         self.config['verbose'] = self.verbose.get()
         self.config['ignore_unknown_preds'] = self.ignore_unknown_preds.get()
         self.config['ignore_zero_weight_formulas'] = self.ignore_zero_weight_formulas.get()
+        self.config['save'] = self.save.get()
         
         # write settings
         logger.debug('writing config...')
@@ -450,6 +464,7 @@ class MLNLearnGUI:
         self.gconf.dump()
         self.config.dump()
         
+        verbose = self.config['verbose']
         # load the training databases
         pattern = self.pattern.get().strip()
         if pattern:
@@ -475,7 +490,7 @@ class MLNLearnGUI:
 
             if verbose:
                 conf = dict(self.config.config)
-                conf.update(self.config['params'])
+                conf.update(eval("dict(%s)" % self.config['params']))
                 print tabulate(sorted(list(conf.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
 
             params = {}
@@ -509,9 +524,11 @@ class MLNLearnGUI:
                 mlnfile = os.path.join(self.dir.get(), self.config["mln"])
                 mln = MLN(mlnfile=mlnfile, logic=self.config['logic'], grammar=self.config['grammar'])
                 # load the databases
-                dbs = reduce(list.__add__, [Database.load(mln, dbfile, self.config['ignore_unknown_preds']) for dbfile in dbs])
-                if verbose: 'loaded %d database(s).'
-                   
+                dbpaths = dbs
+                dbs = []
+                for p in dbpaths:
+                    dbs.extend(Database.load(mln, p, self.config['ignore_unknown_preds']))
+                if verbose: print 'loaded %d database(s).'
                 # run the learner
                 mlnlearnt = mln.learn(dbs, method, **params)
                 if verbose:
@@ -538,10 +555,9 @@ class MLNLearnGUI:
             
         except:
             traceback.print_exc()
-            #             traceback.print_tb(tb)
         # restore gui
-        self.master.deiconify()
         sys.stdout.flush()
+        self.master.deiconify()
 
 # -- main app --
 

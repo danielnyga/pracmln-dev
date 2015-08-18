@@ -122,11 +122,12 @@ class MCMCSampler(object):
     def getCovariance(self):
         return -self.getHessian()
 
+
 class SLL(AbstractLearner):
     '''
         sample-based log-likelihood
     '''
-    
+     
     def __init__(self, mrf, **params):
         AbstractLearner.__init__(self, mrf, **params)
         if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
@@ -136,10 +137,10 @@ class SLL(AbstractLearner):
                                   doProbabilityFitting=False,
                                   verbose=False, details=False, infoInterval=100, resultsInterval=100)
         self.samplerConstructionParams = dict(discardDuplicateWorlds=False, keepTopWorldCounts=False)
-        
+         
     def _sample(self, wt, caller):
         self.normSampler.sample(wt)
-        
+         
     def _f(self, wt, **params):
         # although this function corresponds to the gradient, it cannot soundly be applied to
         # the problem, because the set of samples is drawn only from the set of worlds that
@@ -147,221 +148,221 @@ class SLL(AbstractLearner):
         # i.e. it would optimize the world's probability relative to the worlds that have
         # non-zero probability rather than all worlds, which is problematic in the presence of
         # hard constraints that need to be learned as being hard
-        
+         
         self._sample(wt, "f")        
         ll = numpy.sum(self.formulaCountsTrainingDB * wt) - numpy.sum(self.normSampler.globalFormulaCounts * wt) / self.normSampler.numSamples
-        
+         
         return ll
-    
+     
     def _grad(self, wt, **params):
         self._sample(wt, "grad")
         grad = self.formulaCountsTrainingDB - self.normSampler.globalFormulaCounts / self.normSampler.numSamples
         return grad
-    
+     
     def _initSampler(self):
         self.normSampler = MCMCSampler(self.mrf,
                                        self.samplerParams,
                                        **self.samplerConstructionParams)
-    
+     
     def _prepareOpt(self):
         # compute counts
         print "computing counts for training database..."
         self.formulaCountsTrainingDB = self.mrf.countTrueGroundingsInWorld(self.mrf.evidence)
-        
+         
         # initialise sampler
         self._initSampler()        
-        
+         
         # collect some uniform sample data for shrinkage correction
         #self.numUniformSamples = 5000
         #self.totalFormulaCountsUni = numpy.zeros(len(self.mrf.formulas))        
         #for i in xrange(self.numUniformSamples):
         #    world = self.mrf.getRandomWorld()
         #    self.totalFormulaCountsUni += self.mrf.countTrueGroundingsInWorld(world)
-
-
+ 
+ 
 class SLL_DN(SLL):
     '''
         sample-based log-likelihood via diagonal Newton
     '''
-    
+     
     def __init__(self, mrf, **params):
         SLL.__init__(self, mrf, **params)
         self.samplerConstructionParams["computeHessian"] = True
-    
+     
     def _f(self, wt, **params):
         raise Exception("Objective function not implemented; use e.g. diagonal Newton to optimize")
-    
+     
     def _hessian(self, wt):
         self._sample(wt, "hessian")
         return self.normSampler.getHessian()
-    
+     
     def getAssociatedOptimizerName(self):
         return "diagonalNewton"
-        
-
+         
+ 
 from softeval import truthDegreeGivenSoftEvidence
-
-
-class SLL_ISE(LL_ISE):
-    '''
-        Uses soft features to compute counts for a fictitious soft world (assuming independent soft evidence)
-        Uses MCMC sampling to approximate the normalisation constant
-    '''    
-    
-    def __init__(self, mrf, **params):
-        LL_ISE.__init__(self, mrf, **params)
-    
-    def _f(self, wt, **params):
-        idxTrainDB = self.idxTrainingDB
-        self._calculateWorldValues(wt) # (calculates sum for evidence world only)
-        self.normSampler.sample(wt)
-
-        partition_function = self.normSampler.Z / self.normSampler.numSamples
-            
-        #print self.worlds
-        print "worlds[idxTrainDB][\"sum\"] / Z", self.expsums[idxTrainDB], partition_function
-        ll = log(self.expsums[idxTrainDB]) - log(partition_function)
-        print "ll =", ll
-        print 
-        return ll
-    
-    def _grad(self, wt, **params):
-        idxTrainDB = self.idxTrainingDB
-
-        self.normSampler.sample(wt)
-        
-        #calculate gradient
-        grad = numpy.zeros(len(self.mrf.formulas), numpy.float64)
-        for ((idxWorld, idxFormula), count) in self.counts.iteritems():
-            if idxTrainDB == idxWorld:                
-                grad[idxFormula] += count
-        grad = grad - self.normSampler.globalFormulaCounts / self.normSampler.numSamples
-
-        # HACK: gradient gets too large, reduce it
-        if numpy.any(numpy.abs(grad) > 1):
-            print "gradient values too large:", numpy.max(numpy.abs(grad))
-            grad = grad / (numpy.max(numpy.abs(grad)) / 1)
-            print "scaling down to:", numpy.max(numpy.abs(grad))
-        
-        return grad
-    
-    def _prepareOpt(self):
-        # create just one possible worlds (for our training database)
-        self.mrf.worlds = []
-        self.mrf.worlds.append({"values": self.mrf.evidence}) # HACK
-        self.idxTrainingDB = 0 
-        # compute counts
-        print "computing counts..."
-        self._computeCounts()
-        print "  %d counts recorded." % len(self.counts)
-    
-        # init sampler
-        self.mcsatSteps = self.params.get("mcsatSteps", 2000)
-        self.normSampler = MCMCSampler(self.mrf,
-                                       dict(given="", softEvidence={}, maxSteps=self.mcsatSteps, 
-                                            doProbabilityFitting=False,
-                                            verbose=True, details =True, infoInterval=100, resultsInterval=100),
-                                       discardDuplicateWorlds=True)
-
-
-class SLL_SE(SoftEvidenceLearner):
-    '''
-        NOTE: SLL_SE_DN should usually be preferred to this
-    
-        sampling-based maximum likelihood with soft evidence (SMLSE):
-        uses MC-SAT-PC to sample soft evidence worlds
-        uses MC-SAT to sample worlds in order to approximate Z
-    '''
-    
-    def __init__(self, mrf, **params):
-        SoftEvidenceLearner.__init__(self, mrf, **params)        
-        
-    def _sample(self, wt):
-        self.normSampler.sample(wt)
-        self.seSampler.sample(wt)
-    
-    def _grad(self, wt, **params):
-        self._sample()
-        
-        grad = (self.seSampler.scaledGlobalFormulaCounts / self.seSampler.Z) - (self.normSampler.scaledGlobalFormulaCounts / self.normSampler.Z)
-
-        #HACK: gradient gets too large, reduce it
-        if numpy.any(numpy.abs(grad) > 1):
-            print "gradient values too large:", numpy.max(numpy.abs(grad))
-            grad = grad / (numpy.max(numpy.abs(grad)) / 1)
-            print "scaling down to:", numpy.max(numpy.abs(grad))        
-        
-        print "SLL_SE: _grad:", grad
-        return grad    
-   
-    def _f(self, wt, **params):        
-        self._sample()
-        
-        numerator = self.seSampler.Z / self.seSampler.numSamples
-                
-        partition_function = self.normSampler.Z / self.normSampler.numSamples 
-        
-        ll = log(numerator) - log(partition_function)
-        print "ll =", ll
-        print 
-        return ll
-    
-    def _prepareOpt(self):
-        self.mcsatStepsEvidence = self.params.get("mcsatStepsEvidenceWorld", 1000)
-        self.mcsatSteps = self.params.get("mcsatSteps", 2000)        
-        self.normSampler = MCMCSampler(self.mrf,
-                                       dict(given="", softEvidence={}, maxSteps=self.mcsatSteps, 
-                                            doProbabilityFitting=False,
-                                            verbose=True, details =True, infoInterval=100, resultsInterval=100))
-        evidenceString = evidence2conjunction(self.mrf.getEvidenceDatabase())
-        self.seSampler = MCMCSampler(self.mrf,
-                                     dict(given=evidenceString, softEvidence=self.mrf.softEvidence, maxSteps=self.mcsatStepsEvidence, 
-                                          doProbabilityFitting=False,
-                                          verbose=True, details =True, infoInterval=1000, resultsInterval=1000,
-                                          maxSoftEvidenceDeviation=0.05))
-
-
-class SLL_SE_DN(SoftEvidenceLearner):
-    '''
-        sample-based log-likelihood with soft evidence via diagonal Newton
-    '''
-    
-    def __init__(self, mrf, **params):
-        print "init soft ev learner"
-        SoftEvidenceLearner.__init__(self, mrf, **params)
-
-    def _f(self, wt, **paramss):
-        raise Exception("Objective function not implemented; use e.g. diagonal Newton to optimize")
-    
-    def _sample(self, wt):
-        self.normSampler.sample(wt)
-        self.seSampler.sample(wt)
-    
-    def _grad(self, wt, **params):
-        self._sample(wt)
-        grad = (self.seSampler.globalFormulaCounts / self.seSampler.numSamples) - (self.normSampler.globalFormulaCounts / self.normSampler.numSamples)
-        return grad
-
-    def _hessian(self, wt):
-        self._sample(wt)
-        #return self.seSampler.getCovariance() - self.normSampler.getCovariance()
-        return self.normSampler.getHessian()
-    
-    def getAssociatedOptimizerName(self):
-        return "diagonalNewton"
-    
-    def _prepareOpt(self):
-        self.mcsatStepsEvidence = self.params.get("mcsatStepsEvidenceWorld", 2000)
-        self.mcsatSteps = self.params.get("mcsatSteps", 2000)
-        evidenceString = evidence2conjunction(self.mrf.getEvidenceDatabase())
-        self.normSampler = MCMCSampler(self.mrf,
-                                       dict(given="", softEvidence={}, maxSteps=self.mcsatSteps,
-                                            doProbabilityFitting=False,
-                                            verbose=False, details=False, infoInterval=100, resultsInterval=100),
-                                       computeHessian=True)
-        self.seSampler = MCMCSampler(self.mrf,
-                                     dict(given=evidenceString, softEvidence=self.mrf.softEvidence, maxSteps=self.mcsatStepsEvidence, 
-                                          doProbabilityFitting=False,
-                                          verbose=False, details=False, infoInterval=1000, resultsInterval=1000,
-                                          maxSoftEvidenceDeviation=0.05),
-                                     computeHessian=True)
+ 
+ 
+# class SLL_ISE(LL_ISE):
+#     '''
+#         Uses soft features to compute counts for a fictitious soft world (assuming independent soft evidence)
+#         Uses MCMC sampling to approximate the normalisation constant
+#     '''    
+#      
+#     def __init__(self, mrf, **params):
+#         LL_ISE.__init__(self, mrf, **params)
+#      
+#     def _f(self, wt, **params):
+#         idxTrainDB = self.idxTrainingDB
+#         self._calculateWorldValues(wt) # (calculates sum for evidence world only)
+#         self.normSampler.sample(wt)
+#  
+#         partition_function = self.normSampler.Z / self.normSampler.numSamples
+#              
+#         #print self.worlds
+#         print "worlds[idxTrainDB][\"sum\"] / Z", self.expsums[idxTrainDB], partition_function
+#         ll = log(self.expsums[idxTrainDB]) - log(partition_function)
+#         print "ll =", ll
+#         print 
+#         return ll
+#      
+#     def _grad(self, wt, **params):
+#         idxTrainDB = self.idxTrainingDB
+#  
+#         self.normSampler.sample(wt)
+#          
+#         #calculate gradient
+#         grad = numpy.zeros(len(self.mrf.formulas), numpy.float64)
+#         for ((idxWorld, idxFormula), count) in self.counts.iteritems():
+#             if idxTrainDB == idxWorld:                
+#                 grad[idxFormula] += count
+#         grad = grad - self.normSampler.globalFormulaCounts / self.normSampler.numSamples
+#  
+#         # HACK: gradient gets too large, reduce it
+#         if numpy.any(numpy.abs(grad) > 1):
+#             print "gradient values too large:", numpy.max(numpy.abs(grad))
+#             grad = grad / (numpy.max(numpy.abs(grad)) / 1)
+#             print "scaling down to:", numpy.max(numpy.abs(grad))
+#          
+#         return grad
+#      
+#     def _prepareOpt(self):
+#         # create just one possible worlds (for our training database)
+#         self.mrf.worlds = []
+#         self.mrf.worlds.append({"values": self.mrf.evidence}) # HACK
+#         self.idxTrainingDB = 0 
+#         # compute counts
+#         print "computing counts..."
+#         self._computeCounts()
+#         print "  %d counts recorded." % len(self.counts)
+#      
+#         # init sampler
+#         self.mcsatSteps = self.params.get("mcsatSteps", 2000)
+#         self.normSampler = MCMCSampler(self.mrf,
+#                                        dict(given="", softEvidence={}, maxSteps=self.mcsatSteps, 
+#                                             doProbabilityFitting=False,
+#                                             verbose=True, details =True, infoInterval=100, resultsInterval=100),
+#                                        discardDuplicateWorlds=True)
+#  
+#  
+# class SLL_SE(SoftEvidenceLearner):
+#     '''
+#         NOTE: SLL_SE_DN should usually be preferred to this
+#      
+#         sampling-based maximum likelihood with soft evidence (SMLSE):
+#         uses MC-SAT-PC to sample soft evidence worlds
+#         uses MC-SAT to sample worlds in order to approximate Z
+#     '''
+#      
+#     def __init__(self, mrf, **params):
+#         SoftEvidenceLearner.__init__(self, mrf, **params)        
+#          
+#     def _sample(self, wt):
+#         self.normSampler.sample(wt)
+#         self.seSampler.sample(wt)
+#      
+#     def _grad(self, wt, **params):
+#         self._sample()
+#          
+#         grad = (self.seSampler.scaledGlobalFormulaCounts / self.seSampler.Z) - (self.normSampler.scaledGlobalFormulaCounts / self.normSampler.Z)
+#  
+#         #HACK: gradient gets too large, reduce it
+#         if numpy.any(numpy.abs(grad) > 1):
+#             print "gradient values too large:", numpy.max(numpy.abs(grad))
+#             grad = grad / (numpy.max(numpy.abs(grad)) / 1)
+#             print "scaling down to:", numpy.max(numpy.abs(grad))        
+#          
+#         print "SLL_SE: _grad:", grad
+#         return grad    
+#     
+#     def _f(self, wt, **params):        
+#         self._sample()
+#          
+#         numerator = self.seSampler.Z / self.seSampler.numSamples
+#                  
+#         partition_function = self.normSampler.Z / self.normSampler.numSamples 
+#          
+#         ll = log(numerator) - log(partition_function)
+#         print "ll =", ll
+#         print 
+#         return ll
+#      
+#     def _prepareOpt(self):
+#         self.mcsatStepsEvidence = self.params.get("mcsatStepsEvidenceWorld", 1000)
+#         self.mcsatSteps = self.params.get("mcsatSteps", 2000)        
+#         self.normSampler = MCMCSampler(self.mrf,
+#                                        dict(given="", softEvidence={}, maxSteps=self.mcsatSteps, 
+#                                             doProbabilityFitting=False,
+#                                             verbose=True, details =True, infoInterval=100, resultsInterval=100))
+#         evidenceString = evidence2conjunction(self.mrf.getEvidenceDatabase())
+#         self.seSampler = MCMCSampler(self.mrf,
+#                                      dict(given=evidenceString, softEvidence=self.mrf.softEvidence, maxSteps=self.mcsatStepsEvidence, 
+#                                           doProbabilityFitting=False,
+#                                           verbose=True, details =True, infoInterval=1000, resultsInterval=1000,
+#                                           maxSoftEvidenceDeviation=0.05))
+#  
+# 
+# class SLL_SE_DN(SoftEvidenceLearner):
+#     '''
+#         sample-based log-likelihood with soft evidence via diagonal Newton
+#     '''
+#     
+#     def __init__(self, mrf, **params):
+#         print "init soft ev learner"
+#         SoftEvidenceLearner.__init__(self, mrf, **params)
+# 
+#     def _f(self, wt, **paramss):
+#         raise Exception("Objective function not implemented; use e.g. diagonal Newton to optimize")
+#     
+#     def _sample(self, wt):
+#         self.normSampler.sample(wt)
+#         self.seSampler.sample(wt)
+#     
+#     def _grad(self, wt, **params):
+#         self._sample(wt)
+#         grad = (self.seSampler.globalFormulaCounts / self.seSampler.numSamples) - (self.normSampler.globalFormulaCounts / self.normSampler.numSamples)
+#         return grad
+# 
+#     def _hessian(self, wt):
+#         self._sample(wt)
+#         #return self.seSampler.getCovariance() - self.normSampler.getCovariance()
+#         return self.normSampler.getHessian()
+#     
+#     def getAssociatedOptimizerName(self):
+#         return "diagonalNewton"
+#     
+#     def _prepareOpt(self):
+#         self.mcsatStepsEvidence = self.params.get("mcsatStepsEvidenceWorld", 2000)
+#         self.mcsatSteps = self.params.get("mcsatSteps", 2000)
+#         evidenceString = evidence2conjunction(self.mrf.getEvidenceDatabase())
+#         self.normSampler = MCMCSampler(self.mrf,
+#                                        dict(given="", softEvidence={}, maxSteps=self.mcsatSteps,
+#                                             doProbabilityFitting=False,
+#                                             verbose=False, details=False, infoInterval=100, resultsInterval=100),
+#                                        computeHessian=True)
+#         self.seSampler = MCMCSampler(self.mrf,
+#                                      dict(given=evidenceString, softEvidence=self.mrf.softEvidence, maxSteps=self.mcsatStepsEvidence, 
+#                                           doProbabilityFitting=False,
+#                                           verbose=False, details=False, infoInterval=1000, resultsInterval=1000,
+#                                           maxSoftEvidenceDeviation=0.05),
+#                                      computeHessian=True)
