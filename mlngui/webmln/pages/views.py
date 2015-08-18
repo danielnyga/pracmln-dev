@@ -41,7 +41,6 @@ def _mln():
     container_name = ''
     ensure_mln_session(session)
     time.sleep(2)
-    # return render_template('mln.html', **locals()) // for openEASE integration
     return redirect('/mln/mlninfer')
 
 
@@ -86,8 +85,7 @@ def resource_file(filename):
 def mlnlog_(filename):
     if os.path.isfile(os.path.join(mlnApp.app.config['LOG_FOLDER'], filename)):
         return send_from_directory(mlnApp.app.config['LOG_FOLDER'], filename)
-    elif os.path.isfile(os.path.join(mlnApp.app.config['LOG_FOLDER'],
-                                     '{}.json'.format(filename))):
+    elif os.path.isfile(os.path.join(mlnApp.app.config['LOG_FOLDER'], '{}.json'.format(filename))):
         return send_from_directory(mlnApp.app.config['LOG_FOLDER'], '{}.json'.format(filename))
     else:
         return render_template('log.html', **locals())

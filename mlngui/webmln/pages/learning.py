@@ -117,6 +117,7 @@ def start_learning(saveGeometry=True):
                 print headline('LEARNT MARKOV LOGIC NETWORK')
                 print
                 mlnlearnt.write()
+                mlnlearnt.write(stream)
             if settings['save']:
                 with open(os.path.join(mlnsession.xmplFolderLearning, output), 'w+') as outFile:
                     mlnlearnt.write(outFile)
