@@ -557,7 +557,7 @@ qx.Class.define("webmln.Application",
             this.__textAreaTData.getContentElement().setAttribute("id", 'tDataArea');
             this.__tDataContainer.add(this.__textAreaTData);
             this.__checkBoxRenameEditTData = new qx.ui.form.CheckBox("rename on edit");
-            this.__checkBoxLIgnoreUnknown = new qx.ui.form.CheckBox("Ignore Unknown Predicates");
+            this.__checkBoxLIgnoreUnknown = new qx.ui.form.CheckBox("ignore unknown predicates");
             this.__textFieldTDataNewName = new qx.ui.form.TextField("");
 
             this.__textFieldIDK = new qx.ui.form.TextField("");
@@ -565,7 +565,7 @@ qx.Class.define("webmln.Application",
             this.__textFieldORFilePattern = new qx.ui.form.TextField("");
             this.__textFieldLAddParams = new qx.ui.form.TextField("");
 
-            this.__checkBoxUseAllCPU_L = new qx.ui.form.CheckBox("Use all CPUs");
+            this.__checkBoxUseAllCPU_L = new qx.ui.form.CheckBox("use all CPUs");
             this.__checkBoxLVerbose = new qx.ui.form.CheckBox("verbose");
             this.__checkBoxLRemoveFormulas = new qx.ui.form.CheckBox("remove 0-weight formulas");
 
@@ -634,7 +634,7 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__textFieldLAddParams, {row: 17, column: 1, colSpan: 4});
             mlnFormContainer.add(this.__checkBoxUseAllCPU, {row: 18, column: 1});
             mlnFormContainer.add(this.__checkBoxLVerbose, {row: 18, column: 2});
-            mlnFormContainer.add(this.__checkBoxLRemoveFormulas, {row: 18, column: 4});
+            mlnFormContainer.add(this.__checkBoxLRemoveFormulas, {row: 18, column: 3, colSpan:2});
             mlnFormContainer.add(this.__textFieldLOutput, {row: 19, column: 1, colSpan: 4});
             mlnFormContainer.add(this.__buttonStartLearning, {row: 20, column: 1, colSpan: 4});
 
