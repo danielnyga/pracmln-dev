@@ -88,15 +88,18 @@ qx.Class.define("webmln.Application",
 
             var tabView = new qx.ui.tabview.TabView();
             tabView.setContentPadding(2,2,2,2);
+            this.__tabView = tabView;
 
             ////////////////// INFERENCE PAGE ////////////////////
             var inferencePage = new qx.ui.tabview.Page("Inference");
+            this.__inferencePage = inferencePage;
             inferencePage.setLayout(new qx.ui.layout.Grow());
             inferencePage.add(splitPaneInference, {width: "100%", height: "100%"});
             tabView.add(inferencePage, {width: "100%", height: "100%"});
 
             ////////////////// LEARNING PAGE ////////////////////
             var learningPage = new qx.ui.tabview.Page("Learning");
+            this.__learningPage = learningPage;
             learningPage.addListener("appear", function(e) {
                                 // todo prettify. this is a dirty hack for the
                                 // highlighting, which does not work as the textareas
@@ -108,6 +111,11 @@ qx.Class.define("webmln.Application",
             learningPage.setLayout(new qx.ui.layout.Grow());
             learningPage.add(splitPaneLearning, {width: "100%", height: "100%"});
             tabView.add(learningPage, {width: "100%", height: "100%"});
+
+            ////////////////// LEARNING PAGE ////////////////////
+            var aboutPage = new qx.ui.tabview.Page("About");
+            this.__aboutPage = aboutPage;
+            aboutPage.setLayout(new qx.ui.layout.Grow());
 
             outerContainer.add(tabView, {width: "100%", height: "100%"});
             contentIsle.add(outerContainer, {width: "100%", height: "100%"});
@@ -141,7 +149,7 @@ qx.Class.define("webmln.Application",
             this._waitImageInf = waitImage;
 
             var textAreaResults = new qx.ui.form.TextArea("");
-            this.__textAreaResults = textAreaResults;
+            this.__txtAResults = textAreaResults;
             textAreaResults.setReadOnly(true);
 
             var mlnFormContainer = this.buildMLNForm();
@@ -197,7 +205,7 @@ qx.Class.define("webmln.Application",
             this._waitImageLrn = waitImage;
 
             var textAreaResults = new qx.ui.form.TextArea("");
-            this.__textAreaResults_Learning = textAreaResults;
+            this.__txtAResults_Learning = textAreaResults;
             textAreaResults.setReadOnly(true);
 
             var mlnFormContainer = this.buildMLNLearningForm();
@@ -301,92 +309,108 @@ qx.Class.define("webmln.Application",
             });
 
             // widgets
-            this.__selectExampleFolder = new qx.ui.form.SelectBox();
-            this.__selectGrammar = new qx.ui.form.SelectBox();
-            this.__selectLogic = new qx.ui.form.SelectBox();
-            this.__selectMLN = new qx.ui.form.SelectBox();
-            this.__buttonUploadMLNFile = new com.zenesis.qx.upload.UploadButton("Upload MLN File");
-            this.__buttonUploadMLNFile.setParam("SOURCE_PARAM", "mlnuploadinf");
-            this.__uploader = new com.zenesis.qx.upload.UploadMgr(this.__buttonUploadMLNFile, "/mln/file_upload");
+            this.__slctXmplFldr = new qx.ui.form.SelectBox();
+            this.__slctGrammar = new qx.ui.form.SelectBox();
+            this.__slctLogic = new qx.ui.form.SelectBox();
+            this.__slctMLN = new qx.ui.form.SelectBox();
+            this.__btnRefreshMLN = new qx.ui.form.Button("<- refresh", null);
+            this.__btnUploadMLNFile = new com.zenesis.qx.upload.UploadButton("Upload MLN File");
+            this.__btnUploadMLNFile.setParam("SOURCE_PARAM", "mlnuploadinf");
+            this.__uploader = new com.zenesis.qx.upload.UploadMgr(this.__btnUploadMLNFile, "/mln/file_upload");
             this.__uploader.setAutoUpload(false);
-            this.__textFieldNameMLN = new qx.ui.form.TextField("");
-            this.__textFieldNameMLN.setEnabled(false);
-            this.__buttonSaveMLN = new qx.ui.form.Button("save", null);
-            this.__checkBoxRenameEditMLN = new qx.ui.form.CheckBox("rename on edit");
+            this.__chkbxRenameEditMLN = new qx.ui.form.CheckBox("rename on edit");
+            this.__txtFNameMLN = new qx.ui.form.TextField("");
+            this.__txtFNameMLN.setEnabled(false);
+            this.__btnSaveMLN = new qx.ui.form.Button("save", null);
 
             var mlnAreaContainerLayout = new qx.ui.layout.Grow();
             this.__mlnAreaContainer = new qx.ui.container.Composite(mlnAreaContainerLayout);
-            this.__textAreaMLN = new qx.ui.form.TextArea("");
-            this.__textAreaMLN.getContentElement().setAttribute("id", 'mlnArea');
-            this.__mlnAreaContainer.add(this.__textAreaMLN);
+            this.__txtAMLN = new qx.ui.form.TextArea("");
+            this.__txtAMLN.getContentElement().setAttribute("id", 'mlnArea');
+            this.__mlnAreaContainer.add(this.__txtAMLN);
 
-            this.__checkBoxUseModelExt = new qx.ui.form.CheckBox("use model extension");
-            this.__selectEMLN = new qx.ui.form.SelectBox();
-            this.__buttonSaveEMLN = new qx.ui.form.Button("save",null);
-            this.__checkBoxRenameEditEMLN = new qx.ui.form.CheckBox("rename on edit");
-            this.__textFieldNameEMLN = new qx.ui.form.TextField("");
-            this.__textFieldNameEMLN.setEnabled(false);
+            this.__chkbxUseModelExt = new qx.ui.form.CheckBox("use model extension");
+            this.__slctEMLN = new qx.ui.form.SelectBox();
+            this.__chkbxRenameEditEMLN = new qx.ui.form.CheckBox("rename on edit");
+            this.__txtFNameEMLN = new qx.ui.form.TextField("");
+            this.__txtFNameEMLN.setEnabled(false);
+            this.__btnSaveEMLN = new qx.ui.form.Button("save",null);
 
             var emlnAreaContainerLayout = new qx.ui.layout.Grow();
             this.__emlnAreaContainer = new qx.ui.container.Composite(emlnAreaContainerLayout);
-            this.__textAreaEMLN = new qx.ui.form.TextArea("");
-            this.__textAreaEMLN.getContentElement().setAttribute("id", 'emlnArea');
-            this.__emlnAreaContainer.add(this.__textAreaEMLN);
+            this.__txtAEMLN = new qx.ui.form.TextArea("");
+            this.__txtAEMLN.getContentElement().setAttribute("id", 'emlnArea');
+            this.__emlnAreaContainer.add(this.__txtAEMLN);
 
-            this.__selectEvidence = new qx.ui.form.SelectBox();
-            this.__buttonUploadDBFileInf = new com.zenesis.qx.upload.UploadButton("Upload DB File");
-            this.__buttonUploadDBFileInf.setParam("SOURCE_PARAM", "dbuploadinf");
-            this.__uploader.addWidget(this.__buttonUploadDBFileInf)
-            this.__checkBoxRenameEditEvidence = new qx.ui.form.CheckBox("rename on edit");
-            this.__textFieldNameDB = new qx.ui.form.TextField("");
-            this.__textFieldNameDB.setEnabled(false);
+            this.__slctEvidence = new qx.ui.form.SelectBox();
+            this.__btnRefreshDB = new qx.ui.form.Button("<- refresh", null);
+            this.__btnUploadDBFileInf = new com.zenesis.qx.upload.UploadButton("Upload DB File");
+            this.__btnUploadDBFileInf.setParam("SOURCE_PARAM", "dbuploadinf");
+            this.__uploader.addWidget(this.__btnUploadDBFileInf)
+            this.__chkbxRenameEditEvidence = new qx.ui.form.CheckBox("rename on edit");
+            this.__txtFNameDB = new qx.ui.form.TextField("");
+            this.__txtFNameDB.setEnabled(false);
+            this.__btnSaveDB = new qx.ui.form.Button("save",null);
 
             var evidenceContainerLayout = new qx.ui.layout.Grow();
             this.__evidenceContainer = new qx.ui.container.Composite(evidenceContainerLayout);
-            this.__textAreaEvidence = new qx.ui.form.TextArea("");
-            this.__textAreaEvidence.getContentElement().setAttribute("id", 'dbArea');
-            this.__evidenceContainer.add(this.__textAreaEvidence);
+            this.__txtAEvidence = new qx.ui.form.TextArea("");
+            this.__txtAEvidence.getContentElement().setAttribute("id", 'dbArea');
+            this.__evidenceContainer.add(this.__txtAEvidence);
 
-            this.__selectMethod = new qx.ui.form.SelectBox();
-            this.__textFieldQueries = new qx.ui.form.TextField("");
-            this.__checkBoxVerbose = new qx.ui.form.CheckBox("verbose");
-            this.__textFieldCWPreds = new qx.ui.form.TextField("");
-            this.__checkBoxApplyCWOption = new qx.ui.form.CheckBox("Apply CW assumption to all but the query preds");
-            this.__textFieldAddParams = new qx.ui.form.TextField("");
-            this.__textFieldOutput = new qx.ui.form.TextField("");
-            this.__textFieldOutput.setValue("smoking-test-smoking.results");
-            this.__checkBoxSaveOutput = new qx.ui.form.CheckBox("save");
-            this.__checkBoxUseAllCPU = new qx.ui.form.CheckBox("Use all CPUs");
-            this.__checkBoxIgnoreUnknown = new qx.ui.form.CheckBox("Ignore Unknown Predicates");
-            this.__checkBoxShowLabels = new qx.ui.form.CheckBox("Show Formulas");
-            this.__buttonStart = new qx.ui.form.Button("Start Inference", null);
+            this.__slctMethod = new qx.ui.form.SelectBox();
+            this.__txtFQueries = new qx.ui.form.TextField("");
+            this.__chkbxVerbose = new qx.ui.form.CheckBox("verbose");
+            this.__txtFCWPreds = new qx.ui.form.TextField("");
+            this.__chkbxApplyCWOption = new qx.ui.form.CheckBox("Apply CW assumption to all but the query preds");
+            this.__txtFAddParams = new qx.ui.form.TextField("");
+            this.__txtFOutput = new qx.ui.form.TextField("");
+            this.__txtFOutput.setValue("smoking-test-smoking.results");
+            this.__chkbxSaveOutput = new qx.ui.form.CheckBox("save");
+            this.__chkbxUseAllCPU = new qx.ui.form.CheckBox("Use all CPUs");
+            this.__chkbxIgnoreUnknown = new qx.ui.form.CheckBox("Ignore Unknown Predicates");
+            this.__chkbxShowLabels = new qx.ui.form.CheckBox("Show Formulas");
+            this.__btnStart = new qx.ui.form.Button("Start Inference", null);
 
             // add static listitems
-            this.__selectGrammar.add(new qx.ui.form.ListItem("StandardGrammar"));
-            this.__selectGrammar.add(new qx.ui.form.ListItem("PRACGrammar"));
-            this.__selectLogic.add(new qx.ui.form.ListItem("FirstOrderLogic"));
-            this.__selectLogic.add(new qx.ui.form.ListItem("FuzzyLogic"));
+            this.__slctGrammar.add(new qx.ui.form.ListItem("StandardGrammar"));
+            this.__slctGrammar.add(new qx.ui.form.ListItem("PRACGrammar"));
+            this.__slctLogic.add(new qx.ui.form.ListItem("FirstOrderLogic"));
+            this.__slctLogic.add(new qx.ui.form.ListItem("FuzzyLogic"));
 
             // listeners
-            this.__buttonStart.addListener("execute", this._start_inference, this);
-            this.__checkBoxUseModelExt.addListener("changeValue", this._showModelExtension, this);
-            this.__selectMLN.addListener("changeSelection", this._update_mln_text, this);
-            this.__selectExampleFolder.addListener("changeSelection", this._change_example_inf ,this);
-            this.__selectEvidence.addListener("changeSelection", this._update_evidence_text, this);
+            this.__btnStart.addListener("execute", this._start_inference, this);
+            this.__chkbxUseModelExt.addListener("changeValue", this._showModelExtension, this);
+            this.__slctMLN.addListener("changeSelection", this._update_mln_text, this);
+            this.__slctXmplFldr.addListener("changeSelection", this._change_example_inf ,this);
+            this.__slctEvidence.addListener("changeSelection", this._update_evidence_text, this);
             this.__uploader.addListener("addFile", this._upload, this);
-            this.__textAreaEMLN.addListener("appear", this._update_emln_text, this);
-            this.__checkBoxShowLabels.addListener("changeValue", function(e) {
+            this.__txtAEMLN.addListener("appear", this._update_emln_text, this);
+            this.__chkbxShowLabels.addListener("changeValue", function(e) {
                             this._graph.showLabels(e.getData());
                         }, this);
-            this.__checkBoxRenameEditMLN.addListener("changeValue", function(e) {
-                            this.__textFieldNameMLN.setEnabled(e.getData());
+            this.__chkbxRenameEditMLN.addListener("changeValue", function(e) {
+                            this.__txtFNameMLN.setEnabled(e.getData());
                         }, this);
-            this.__checkBoxRenameEditEMLN.addListener("changeValue", function(e) {
-                            this.__textFieldNameEMLN.setEnabled(e.getData());
+            this.__chkbxRenameEditEMLN.addListener("changeValue", function(e) {
+                            this.__txtFNameEMLN.setEnabled(e.getData());
                         }, this);
-            this.__checkBoxRenameEditEvidence.addListener("changeValue", function(e) {
-                            this.__textFieldNameDB.setEnabled(e.getData());
+            this.__chkbxRenameEditEvidence.addListener("changeValue", function(e) {
+                            this.__txtFNameDB.setEnabled(e.getData());
                         }, this);                        
+            this.__btnSaveMLN.addListener("execute", function(e) {
+                            var name = this.__slctMLN.getSelection()[0].getLabel();
+                            var newName = this.__chkbxRenameEditMLN ? this.__txtFNameMLN.getValue() : null;
+                            var content = this.codeMirrormlnArea ? this.codeMirrormlnArea.doc.getValue() : "";
+                            this._save_file(name, newName, content);
+                        }, this);
+            this.__btnSaveDB.addListener("execute", function(e) {
+                            var name = this.__slctEvidence.getSelection()[0].getLabel();
+                            var newName = this.__chkbxRenameEditEvidence ? this.__txtFNameDB.getValue() : null;
+                            var content = this.codeMirrordbArea ? this.codeMirrordbArea.doc.getValue() : "";
+                            this._save_file(name, newName, content);
+                        }, this);
+
 
             // add widgets to form
             mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
@@ -400,36 +424,39 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(cwPredsLabel, {row: 20, column: 0});
             mlnFormContainer.add(outputLabel, {row: 21, column: 0});
 
-            mlnFormContainer.add(this.__selectExampleFolder, {row: 0, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__selectGrammar, {row: 1, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__selectLogic, {row: 2, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__selectMLN, {row: 3, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__buttonUploadMLNFile, {row: 3, column: 4});
+            mlnFormContainer.add(this.__slctXmplFldr, {row: 0, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__slctGrammar, {row: 1, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__slctLogic, {row: 2, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__slctMLN, {row: 3, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__btnRefreshMLN, {row: 3, column: 3});
+            mlnFormContainer.add(this.__btnUploadMLNFile, {row: 3, column: 4});
             mlnFormContainer.add(this.__mlnAreaContainer, {row: 4, column: 1, colSpan: 4});
             mlnFormContainerLayout.setRowHeight(4, 200);
-            mlnFormContainer.add(this.__checkBoxRenameEditMLN, {row: 5, column: 1});
-            mlnFormContainer.add(this.__checkBoxUseModelExt, {row: 5, column: 2});
-            mlnFormContainer.add(this.__textFieldNameMLN, {row: 6, column: 1, colSpan: 4});
-//            mlnFormContainer.add(this.__buttonSaveMLN, {row: 6, column: 4});
+            mlnFormContainer.add(this.__chkbxRenameEditMLN, {row: 5, column: 1});
+            mlnFormContainer.add(this.__chkbxUseModelExt, {row: 5, column: 2});
+            mlnFormContainer.add(this.__txtFNameMLN, {row: 6, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__btnSaveMLN, {row: 6, column: 4});
 
-            mlnFormContainer.add(this.__selectEvidence, {row: 11, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__buttonUploadDBFileInf, {row: 11, column: 4});
+            mlnFormContainer.add(this.__slctEvidence, {row: 11, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__btnRefreshDB, {row: 11, column: 3});
+            mlnFormContainer.add(this.__btnUploadDBFileInf, {row: 11, column: 4});
             mlnFormContainer.add(this.__evidenceContainer, {row: 12, column: 1, colSpan: 4});
             mlnFormContainerLayout.setRowHeight(12, 100);
-            mlnFormContainer.add(this.__checkBoxRenameEditEvidence, {row: 13, column: 1});
-            mlnFormContainer.add(this.__textFieldNameDB, {row: 14, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__selectMethod, {row: 15, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__textFieldQueries, {row: 16, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__textFieldAddParams, {row: 19, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__textFieldCWPreds, {row: 20, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__checkBoxApplyCWOption, {row: 20, column: 3, colSpan:2});
-            mlnFormContainer.add(this.__textFieldOutput, {row: 21, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__checkBoxSaveOutput, {row: 21, column: 3, colSpan: 2});
-            mlnFormContainer.add(this.__checkBoxUseAllCPU, {row: 22, column: 1});
-            mlnFormContainer.add(this.__checkBoxVerbose, {row: 22, column: 1});
-            mlnFormContainer.add(this.__checkBoxShowLabels, {row: 22, column: 2});
-            mlnFormContainer.add(this.__checkBoxIgnoreUnknown, {row: 22, column: 3, colSpan:2});
-            mlnFormContainer.add(this.__buttonStart, {row: 23, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__chkbxRenameEditEvidence, {row: 13, column: 1});
+            mlnFormContainer.add(this.__txtFNameDB, {row: 14, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__btnSaveDB, {row: 14, column: 4});
+            mlnFormContainer.add(this.__slctMethod, {row: 15, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__txtFQueries, {row: 16, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__txtFAddParams, {row: 19, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__txtFCWPreds, {row: 20, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__chkbxApplyCWOption, {row: 20, column: 3, colSpan:2});
+            mlnFormContainer.add(this.__txtFOutput, {row: 21, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__chkbxSaveOutput, {row: 21, column: 3, colSpan: 2});
+            mlnFormContainer.add(this.__chkbxUseAllCPU, {row: 22, column: 1});
+            mlnFormContainer.add(this.__chkbxVerbose, {row: 22, column: 1});
+            mlnFormContainer.add(this.__chkbxShowLabels, {row: 22, column: 2});
+            mlnFormContainer.add(this.__chkbxIgnoreUnknown, {row: 22, column: 3, colSpan:2});
+            mlnFormContainer.add(this.__btnStart, {row: 23, column: 1, colSpan: 4});
 
             return mlnFormContainer;
         },
@@ -488,106 +515,131 @@ qx.Class.define("webmln.Application",
             });
 
             // widgets
-            this.__selectExampleFolder_L = new qx.ui.form.SelectBox();
-            this.__browseLButton = new qx.ui.form.Button("Browse...", null);
-            this.__selectGrammar_L = new qx.ui.form.SelectBox();
-            this.__selectLogic_L = new qx.ui.form.SelectBox();
-            this.__selectMLN_L = new qx.ui.form.SelectBox();
-            this.__buttonRefreshLMLN = new qx.ui.form.Button("<- refresh", null);
-            this.__buttonSaveLMLN = new qx.ui.form.Button("save", null);
-            this.__buttonUploadMLNFileLrn = new com.zenesis.qx.upload.UploadButton("Upload MLN File");
-            this.__buttonUploadMLNFileLrn.setParam("SOURCE_PARAM", "mlnuploadlrn");
-            this.__uploader.addWidget(this.__buttonUploadMLNFileLrn);
+            this.__slctXmplFldrLrn = new qx.ui.form.SelectBox();
+            this.__btnUploadMLNFileLrn = new qx.ui.form.Button("Browse...", null);
+            this.__slctGrammarLrn = new qx.ui.form.SelectBox();
+            this.__slctLogicLrn = new qx.ui.form.SelectBox();
+            this.__slctMLNLrn = new qx.ui.form.SelectBox();
+            this.__btnRefreshMLNLrn = new qx.ui.form.Button("<- refresh", null);
+            this.__btnUploadMLNFileLrn = new com.zenesis.qx.upload.UploadButton("Upload MLN File");
+            this.__btnUploadMLNFileLrn.setParam("SOURCE_PARAM", "mlnuploadlrn");
+            this.__uploader.addWidget(this.__btnUploadMLNFileLrn);
+            this.__btnSaveMLNLrn = new qx.ui.form.Button("save", null);
 
             var mlnAreaContainerLayout = new qx.ui.layout.Grow();
-            this.__mlnAreaLContainer = new qx.ui.container.Composite(mlnAreaContainerLayout);
-            this.__textAreaLMLN = new qx.ui.form.TextArea("");
-            this.__textAreaLMLN.getContentElement().setAttribute("id", 'mlnLArea');
-            this.__mlnAreaLContainer.add(this.__textAreaLMLN);
-            this.__checkBoxRenameEditLMLN = new qx.ui.form.CheckBox("rename on edit");
-            this.__textFieldLMLNNewName = new qx.ui.form.TextField("");
+            this.__containerMLNAreaLrn = new qx.ui.container.Composite(mlnAreaContainerLayout);
+            this.__txtAMLNLrn = new qx.ui.form.TextArea("");
+            this.__txtAMLNLrn.getContentElement().setAttribute("id", 'mlnLArea');
+            this.__containerMLNAreaLrn.add(this.__txtAMLNLrn);
+            this.__chkbxRenameEditMLNLrn = new qx.ui.form.CheckBox("rename on edit");
+            this.__txtFMLNNewNameLrn = new qx.ui.form.TextField("");
+            this.__txtFMLNNewNameLrn.setEnabled(false);
 
-            this.__selectLMethod = new qx.ui.form.SelectBox();
-            this.__checkBoxUsePrior = new qx.ui.form.CheckBox("use prior with mean of");
-            this.__textFieldLMean = new qx.ui.form.TextField("");
-            this.__textFieldLMean.setEnabled(false);
+            this.__slctMethodLrn = new qx.ui.form.SelectBox();
+            this.__chkbxUsePrior = new qx.ui.form.CheckBox("use prior with mean of");
+            this.__txtFMeanLrn = new qx.ui.form.TextField("");
+            this.__txtFMeanLrn.setEnabled(false);
             var stdDevLabel = new qx.ui.basic.Label("and std dev of").set({alignX:'right', alignY:'middle',allowGrowX: false});
-            this.__textFieldLStdDev = new qx.ui.form.TextField("");
-            this.__textFieldLStdDev.setEnabled(false);
-            this.__checkBoxUseInitWeights = new qx.ui.form.CheckBox("use initial weights");
-            this.__checkBoxLearnIncrem = new qx.ui.form.CheckBox("learn incrementally");
-            this.__checkBoxShuffleDB = new qx.ui.form.CheckBox("shuffle databases");
-            this.__checkBoxShuffleDB.setEnabled(false);
+            this.__txtFStdDevLrn = new qx.ui.form.TextField("");
+            this.__txtFStdDevLrn.setEnabled(false);
+            this.__chkbxUseInitWeights = new qx.ui.form.CheckBox("use initial weights");
+            this.__chkbxLearnIncrem = new qx.ui.form.CheckBox("learn incrementally");
+            this.__chkbxShuffleDB = new qx.ui.form.CheckBox("shuffle databases");
+            this.__chkbxShuffleDB.setEnabled(false);
 
-            this.__radioQueryPreds = new qx.ui.form.RadioButton("Query preds:");
-            this.__textFieldLQueryPreds = new qx.ui.form.TextField("");
-            this.__radioEvidencePreds = new qx.ui.form.RadioButton("Evidence preds:");
-            this.__textFieldLEvidencePreds = new qx.ui.form.TextField("");
+            this.__radioQPreds = new qx.ui.form.RadioButton("Query preds:");
+            this.__txtFQPredsLrn = new qx.ui.form.TextField("");
+            this.__radioEPreds = new qx.ui.form.RadioButton("Evidence preds:");
+            this.__txtFEPredsLrn = new qx.ui.form.TextField("");
 
-            var radioBoxQueryPreds = new qx.ui.groupbox.RadioGroupBox("Query preds:");
-            radioBoxQueryPreds.setContentPadding(0,0,0,0);
-            radioBoxQueryPreds.setPadding(0,0,0,0);
-            radioBoxQueryPreds.getChildControl("legend").setMarginTop(0);
-            radioBoxQueryPreds.getChildControl("legend").setPaddingTop(0);
-            radioBoxQueryPreds.getChildControl("legend").setTextColor('black');
-            radioBoxQueryPreds.getChildControl("frame").setMarginTop(0);
-            radioBoxQueryPreds.setLayout(new qx.ui.layout.VBox(0));
-            radioBoxQueryPreds.add(this.__textFieldLQueryPreds);
+            var radioBoxQPreds = new qx.ui.groupbox.RadioGroupBox("Query preds:");
+            radioBoxQPreds.setContentPadding(0,0,0,0);
+            radioBoxQPreds.setPadding(0,0,0,0);
+            radioBoxQPreds.getChildControl("legend").setMarginTop(0);
+            radioBoxQPreds.getChildControl("legend").setPaddingTop(0);
+            radioBoxQPreds.getChildControl("legend").setTextColor('black');
+            radioBoxQPreds.getChildControl("frame").setMarginTop(0);
+            radioBoxQPreds.setLayout(new qx.ui.layout.VBox(0));
+            radioBoxQPreds.add(this.__txtFQPredsLrn);
 
-            var radioBoxEvidencePreds = new qx.ui.groupbox.RadioGroupBox("Evidence preds:");
-            radioBoxEvidencePreds.setPadding(0,0,0,0);
-            radioBoxEvidencePreds.getChildControl("legend").setMargin(0);
-            radioBoxEvidencePreds.getChildControl("legend").setPadding(0);
-            radioBoxEvidencePreds.getChildControl("legend").setTextColor('black');
-            radioBoxEvidencePreds.getChildControl("legend").getContentElement().setAttribute('font-weight','normal');
-            radioBoxEvidencePreds.getChildControl("frame").setMargin(0);
-            radioBoxEvidencePreds.getChildControl("frame").setPadding(0);
-            radioBoxEvidencePreds.setLayout(new qx.ui.layout.VBox(0));
-            radioBoxEvidencePreds.add(this.__textFieldLEvidencePreds);
+            var radioBoxEPreds = new qx.ui.groupbox.RadioGroupBox("Evidence preds:");
+            radioBoxEPreds.setPadding(0,0,0,0);
+            radioBoxEPreds.getChildControl("legend").setMargin(0);
+            radioBoxEPreds.getChildControl("legend").setPadding(0);
+            radioBoxEPreds.getChildControl("legend").setTextColor('black');
+            radioBoxEPreds.getChildControl("legend").getContentElement().setAttribute('font-weight','normal');
+            radioBoxEPreds.getChildControl("frame").setMargin(0);
+            radioBoxEPreds.getChildControl("frame").setPadding(0);
+            radioBoxEPreds.setLayout(new qx.ui.layout.VBox(0));
+            radioBoxEPreds.add(this.__txtFEPredsLrn);
 
-            new qx.ui.form.RadioGroup(radioBoxQueryPreds, radioBoxEvidencePreds);
+            new qx.ui.form.RadioGroup(radioBoxQPreds, radioBoxEPreds);
 
-            this.__selectTData = new qx.ui.form.SelectBox();
-            this.__buttonRefreshLTData = new qx.ui.form.Button("<- refresh", null);
-            this.__buttonSaveTData = new qx.ui.form.Button("save", null);
+            this.__slctTDataLrn = new qx.ui.form.SelectBox();
+            this.__btnRefreshTDataLrn = new qx.ui.form.Button("<- refresh", null);
+            this.__btnUploadTDataFileLrn = new com.zenesis.qx.upload.UploadButton("Upload DB File");
+            this.__btnUploadTDataFileLrn.setParam("SOURCE_PARAM", "tdatauploadlrn");
+            this.__uploader.addWidget(this.__btnUploadTDataFileLrn);
+            this.__btnSaveTData = new qx.ui.form.Button("save", null);
 
             var tDataContainerLayout = new qx.ui.layout.Grow();
             this.__tDataContainer = new qx.ui.container.Composite(tDataContainerLayout);
-            this.__textAreaTData = new qx.ui.form.TextArea("");
-            this.__textAreaTData.getContentElement().setAttribute("id", 'tDataArea');
-            this.__tDataContainer.add(this.__textAreaTData);
-            this.__checkBoxRenameEditTData = new qx.ui.form.CheckBox("rename on edit");
-            this.__checkBoxLIgnoreUnknown = new qx.ui.form.CheckBox("ignore unknown predicates");
-            this.__textFieldTDataNewName = new qx.ui.form.TextField("");
+            this.__txtATDataLrn = new qx.ui.form.TextArea("");
+            this.__txtATDataLrn.getContentElement().setAttribute("id", 'tDataArea');
+            this.__tDataContainer.add(this.__txtATDataLrn);
+            this.__chkbxRenameEditTData = new qx.ui.form.CheckBox("rename on edit");
+            this.__chkbxIgnoreUnknownLrn = new qx.ui.form.CheckBox("ignore unknown predicates");
+            this.__txtFTDATANewNameLrn = new qx.ui.form.TextField("");
+            this.__txtFTDATANewNameLrn.setEnabled(false);
 
-            this.__textFieldIDK = new qx.ui.form.TextField("");
             var orFilePatternLabel = new qx.ui.basic.Label("OR file pattern:");
-            this.__textFieldORFilePattern = new qx.ui.form.TextField("");
-            this.__textFieldLAddParams = new qx.ui.form.TextField("");
+            this.__txtFORFilePattern = new qx.ui.form.TextField("");
+            this.__txtFLAddParams = new qx.ui.form.TextField("");
 
-            this.__checkBoxUseAllCPU_L = new qx.ui.form.CheckBox("use all CPUs");
-            this.__checkBoxLVerbose = new qx.ui.form.CheckBox("verbose");
-            this.__checkBoxLRemoveFormulas = new qx.ui.form.CheckBox("remove 0-weight formulas");
+            this.__chkbxUseAllCPU_L = new qx.ui.form.CheckBox("use all CPUs");
+            this.__chkbxLVerbose = new qx.ui.form.CheckBox("verbose");
+            this.__chkbxLRemoveFormulas = new qx.ui.form.CheckBox("remove 0-weight formulas");
 
-            this.__textFieldLOutput = new qx.ui.form.TextField("");
-            this.__buttonStartLearning = new qx.ui.form.Button("Learn", null);
+            this.__txtFOutputLrn = new qx.ui.form.TextField("");
+            this.__btnStartLrn = new qx.ui.form.Button("Learn", null);
 
             // add static listitems
-            this.__selectGrammar_L.add(new qx.ui.form.ListItem("StandardGrammar"));
-            this.__selectGrammar_L.add(new qx.ui.form.ListItem("PRACGrammar"));
-            this.__selectLogic_L.add(new qx.ui.form.ListItem("FirstOrderLogic"));
-            this.__selectLogic_L.add(new qx.ui.form.ListItem("FuzzyLogic"));
+            this.__slctGrammarLrn.add(new qx.ui.form.ListItem("StandardGrammar"));
+            this.__slctGrammarLrn.add(new qx.ui.form.ListItem("PRACGrammar"));
+            this.__slctLogicLrn.add(new qx.ui.form.ListItem("FirstOrderLogic"));
+            this.__slctLogicLrn.add(new qx.ui.form.ListItem("FuzzyLogic"));
 
             // listeners
-            this.__selectExampleFolder_L.addListener("changeSelection", this._change_example_lrn ,this);
-            this.__buttonStartLearning.addListener("execute", this._start_learning, this);
-            this.__selectMLN_L.addListener("changeSelection", this._update_mlnL_text, this);
-            this.__selectTData.addListener("changeSelection", this._update_tData_text, this);
-            this.__checkBoxUsePrior.addListener("changeValue", function(e) {
-                            this.__textFieldLMean.setEnabled(e.getData());
-                            this.__textFieldLStdDev.setEnabled(e.getData());
+            this.__slctXmplFldrLrn.addListener("changeSelection", this._change_example_lrn ,this);
+            this.__btnStartLrn.addListener("execute", this._start_learning, this);
+            this.__slctMLNLrn.addListener("changeSelection", this._update_mlnL_text, this);
+            this.__slctTDataLrn.addListener("changeSelection", this._update_tData_text, this);
+            this.__chkbxUsePrior.addListener("changeValue", function(e) {
+                            this.__txtFMeanLrn.setEnabled(e.getData());
+                            this.__txtFStdDevLrn.setEnabled(e.getData());
                         }, this);
-
+            this.__chkbxRenameEditMLNLrn.addListener("changeValue", function(e) {
+                            this.__txtFMLNNewNameLrn.setEnabled(e.getData());
+                        }, this);
+            this.__chkbxRenameEditTData.addListener("changeValue", function(e) {
+                            this.__txtFTDATANewNameLrn.setEnabled(e.getData());
+                        }, this);
+            this.__btnSaveMLNLrn.addListener("execute", function(e) {
+                            var name = this.__slctMLNLrn.getSelection()[0].getLabel();
+                            var newName = this.__chkbxRenameEditMLNLrn ? this.__txtFMLNNewNameLrn.getValue() : null;
+                            var content = this.codemirrormlnLArea ? this.codemirrormlnLArea.doc.getValue() : "";
+                            this._save_file(name, newName, content);
+                        }, this);
+            this.__btnSaveTData.addListener("execute", function(e) {
+                            var name = this.__slctTDataLrn.getSelection()[0].getLabel();
+                            var newName = this.__chkbxRenameEditTData ? this.__txtFTDATANewNameLrn.getValue() : null;
+                            var content = this.codeMirrortDataArea ? this.codeMirrortDataArea.doc.getValue() : "";
+                            this._save_file(name, newName, content);
+                        }, this);
+            this.__btnRefreshMLNLrn.addListener("execute", function(e) {
+                        console.log('opening /mln/docs/index.html');
+                        window.open("/mln/doc/_build/html/index.html", '__new');
+                        },this);
 
             // add widgets to form
             mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
@@ -599,46 +651,65 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(addParamsLabel, {row: 17, column: 0});
             mlnFormContainer.add(outputLabel, {row: 19, column: 0});
 
-            mlnFormContainer.add(this.__selectExampleFolder_L, {row: 0, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__selectGrammar_L, {row: 1, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__selectLogic_L, {row: 2, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__selectMLN_L, {row: 3, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__buttonRefreshLMLN, {row: 3, column: 3});
-            mlnFormContainer.add(this.__buttonSaveLMLN, {row: 3, column: 4});
-            mlnFormContainer.add(this.__mlnAreaLContainer, {row: 4, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__slctXmplFldrLrn, {row: 0, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__slctGrammarLrn, {row: 1, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__slctLogicLrn, {row: 2, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__slctMLNLrn, {row: 3, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__btnRefreshMLNLrn, {row: 3, column: 3});
+            mlnFormContainer.add(this.__btnUploadMLNFileLrn, {row: 3, column: 4});
+            mlnFormContainer.add(this.__containerMLNAreaLrn, {row: 4, column: 1, colSpan: 4});
             mlnFormContainerLayout.setRowHeight(4, 200);
-            mlnFormContainer.add(this.__checkBoxRenameEditLMLN, {row: 5, column: 1});
-            mlnFormContainer.add(this.__textFieldLMLNNewName, {row: 6, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__selectLMethod, {row: 7, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__checkBoxUsePrior, {row: 8, column: 1});
-            mlnFormContainer.add(this.__textFieldLMean, {row: 8, column: 2});
+            mlnFormContainer.add(this.__chkbxRenameEditMLNLrn, {row: 5, column: 1});
+            mlnFormContainer.add(this.__txtFMLNNewNameLrn, {row: 6, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__btnSaveMLNLrn, {row: 6, column: 4});
+            mlnFormContainer.add(this.__slctMethodLrn, {row: 7, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__chkbxUsePrior, {row: 8, column: 1});
+            mlnFormContainer.add(this.__txtFMeanLrn, {row: 8, column: 2});
             mlnFormContainer.add(stdDevLabel, {row: 8, column: 3});
-            mlnFormContainer.add(this.__textFieldLStdDev, {row: 8, column: 4});
-            mlnFormContainer.add(this.__checkBoxUseInitWeights, {row: 9, column: 1});
-            mlnFormContainer.add(this.__checkBoxLearnIncrem, {row: 9, column: 2});
-            mlnFormContainer.add(this.__checkBoxShuffleDB, {row: 9, column: 3});
-            mlnFormContainer.add(radioBoxQueryPreds, {row: 10, column: 1, colSpan: 2});
-            mlnFormContainer.add(radioBoxEvidencePreds, {row: 10, column: 3, colSpan: 2});
-            mlnFormContainer.add(this.__selectTData, {row: 12, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__buttonRefreshLTData, {row: 12, column: 3});
-            mlnFormContainer.add(this.__buttonSaveTData, {row: 12, column: 4});
+            mlnFormContainer.add(this.__txtFStdDevLrn, {row: 8, column: 4});
+            mlnFormContainer.add(this.__chkbxUseInitWeights, {row: 9, column: 1});
+            mlnFormContainer.add(this.__chkbxLearnIncrem, {row: 9, column: 2});
+            mlnFormContainer.add(this.__chkbxShuffleDB, {row: 9, column: 3});
+            mlnFormContainer.add(radioBoxQPreds, {row: 10, column: 1, colSpan: 2});
+            mlnFormContainer.add(radioBoxEPreds, {row: 10, column: 3, colSpan: 2});
+            mlnFormContainer.add(this.__slctTDataLrn, {row: 12, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__btnRefreshTDataLrn, {row: 12, column: 3});
+            mlnFormContainer.add(this.__btnUploadTDataFileLrn, {row: 12, column: 4});
             mlnFormContainer.add(this.__tDataContainer, {row: 13, column: 1, colSpan: 4});
             mlnFormContainerLayout.setRowHeight(13, 200);
-            mlnFormContainer.add(this.__checkBoxRenameEditTData, {row: 14, column: 1});
-            mlnFormContainer.add(this.__checkBoxLIgnoreUnknown, {row: 14, column: 2});
-
-
-            mlnFormContainer.add(this.__textFieldTDataNewName, {row: 15, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__chkbxRenameEditTData, {row: 14, column: 1});
+            mlnFormContainer.add(this.__chkbxIgnoreUnknownLrn, {row: 14, column: 2});
+            mlnFormContainer.add(this.__txtFTDATANewNameLrn, {row: 15, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__btnSaveTData, {row: 15, column: 4});
             mlnFormContainer.add(orFilePatternLabel, {row: 16, column: 1});
-            mlnFormContainer.add(this.__textFieldORFilePattern, {row: 16, column: 2, colSpan: 3});
-            mlnFormContainer.add(this.__textFieldLAddParams, {row: 17, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__checkBoxUseAllCPU, {row: 18, column: 1});
-            mlnFormContainer.add(this.__checkBoxLVerbose, {row: 18, column: 2});
-            mlnFormContainer.add(this.__checkBoxLRemoveFormulas, {row: 18, column: 3, colSpan:2});
-            mlnFormContainer.add(this.__textFieldLOutput, {row: 19, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__buttonStartLearning, {row: 20, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__txtFORFilePattern, {row: 16, column: 2, colSpan: 3});
+            mlnFormContainer.add(this.__txtFLAddParams, {row: 17, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__chkbxUseAllCPU, {row: 18, column: 1});
+            mlnFormContainer.add(this.__chkbxLVerbose, {row: 18, column: 2});
+            mlnFormContainer.add(this.__chkbxLRemoveFormulas, {row: 18, column: 3, colSpan:2});
+            mlnFormContainer.add(this.__txtFOutputLrn, {row: 19, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__btnStartLrn, {row: 20, column: 1, colSpan: 4});
 
             return mlnFormContainer;
+        },
+
+        /**
+        * Save edited file
+        */
+        _save_file : function(fname, newname, fcontent) {
+            var isInfPage = this.__tabView.isSelected(this.__inferencePage);
+            var xmplFldrSlctn = (isInfPage ? this.__slctXmplFldr : this.__slctXmplFldrLrn).getSelection()[0].getLabel();
+            console.log('save file', fname, xmplFldrSlctn, newname, fcontent);
+
+            req = new qx.io.request.Xhr("/mln/save_edited_file", "POST");
+            req.setRequestHeader("Content-Type", "application/json");
+            req.setRequestData({"folder": xmplFldrSlctn, "fname": fname, "newfname": newname, "content": fcontent});
+            req.addListener("success", function(e) {
+                var tar = e.getTarget();
+                response = tar.getResponse();
+                console.log('saved file as', response.fname);
+            }, this);
+            req.send();
         },
 
 
@@ -654,14 +725,14 @@ qx.Class.define("webmln.Application",
                 var tar = e.getTarget();
                 response = tar.getResponse();
 
-                this.__selectMLN.removeAll();
+                this.__slctMLN.removeAll();
                 for (var i = 0; i < response.mlns.length; i++) {
-                    this.__selectMLN.add(new qx.ui.form.ListItem(response.mlns[i]));
+                    this.__slctMLN.add(new qx.ui.form.ListItem(response.mlns[i]));
                 }
 
-                this.__selectEvidence.removeAll();
+                this.__slctEvidence.removeAll();
                 for (var z = 0; z < response.dbs.length; z++) {
-                    this.__selectEvidence.add(new qx.ui.form.ListItem(response.dbs[z]));
+                    this.__slctEvidence.add(new qx.ui.form.ListItem(response.dbs[z]));
                 }
             }, this);
             req.send();
@@ -678,14 +749,14 @@ qx.Class.define("webmln.Application",
             req.addListener("success", function(e) {
                 var tar = e.getTarget();
                 response = tar.getResponse();
-                this.__selectMLN_L.removeAll();
+                this.__slctMLNLrn.removeAll();
                 for (var i = 0; i < response.mlns.length; i++) {
-                    this.__selectMLN_L.add(new qx.ui.form.ListItem(response.mlns[i]));
+                    this.__slctMLNLrn.add(new qx.ui.form.ListItem(response.mlns[i]));
                 }
 
-                this.__selectTData.removeAll();
+                this.__slctTDataLrn.removeAll();
                 for (var z = 0; z < response.dbs.length; z++) {
-                    this.__selectTData.add(new qx.ui.form.ListItem(response.dbs[z]));
+                    this.__slctTDataLrn.add(new qx.ui.form.ListItem(response.dbs[z]));
                 }
             }, this);
             req.send();
@@ -697,11 +768,11 @@ qx.Class.define("webmln.Application",
         _showModelExtension : function(e) {
             if (e.getData()) {
                 this.__mlnFormContainer.add(this.__emlnLabel, {row: 7, column: 0});
-                this.__mlnFormContainer.add(this.__selectEMLN, {row: 7, column: 1, colSpan: 3});
-                this.__mlnFormContainer.add(this.__buttonSaveEMLN, {row: 7, column: 4});
+                this.__mlnFormContainer.add(this.__slctEMLN, {row: 7, column: 1, colSpan: 4});
                 this.__mlnFormContainer.add(this.__emlnAreaContainer, {row: 8, column: 1, colSpan: 4});
-                this.__mlnFormContainer.add(this.__checkBoxRenameEditEMLN, {row: 9, column: 1});
-                this.__mlnFormContainer.add(this.__textFieldNameEMLN, {row: 10, column: 1, colSpan: 4});
+                this.__mlnFormContainer.add(this.__chkbxRenameEditEMLN, {row: 9, column: 1});
+                this.__mlnFormContainer.add(this.__txtFNameEMLN, {row: 10, column: 1, colSpan: 3});
+                this.__mlnFormContainer.add(this.__btnSaveEMLN, {row: 10, column: 4});
                 this.__mlnFormContainerLayout.setRowFlex(8, 1);
 
                 var req = new qx.io.request.Xhr("/mln/inference/_use_model_ext", "GET");
@@ -710,22 +781,22 @@ qx.Class.define("webmln.Application",
                     var that = this;
                     response = tar.getResponse().split(",");
                     for (var i = 0; i < response.length; i++) {
-                        that.__selectEMLN.add(new qx.ui.form.ListItem(response[i]));
+                        that.__slctEMLN.add(new qx.ui.form.ListItem(response[i]));
                     }
                 }, this);
                 req.send();
             } else {
                 this.__mlnFormContainer.remove(this.__emlnLabel);
-                this.__mlnFormContainer.remove(this.__selectEMLN);
-                this.__mlnFormContainer.remove(this.__buttonSaveEMLN);
+                this.__mlnFormContainer.remove(this.__slctEMLN);
+                this.__mlnFormContainer.remove(this.__btnSaveEMLN);
                 this.__mlnFormContainer.remove(this.__emlnAreaContainer);
-                this.__mlnFormContainer.remove(this.__checkBoxRenameEditEMLN);
-                this.__mlnFormContainer.remove(this.__textFieldNameEMLN);
+                this.__mlnFormContainer.remove(this.__chkbxRenameEditEMLN);
+                this.__mlnFormContainer.remove(this.__txtFNameEMLN);
                 this.__mlnFormContainerLayout.setRowFlex(8, 0);
-                this.__selectEMLN.removeAll();
-                this.__textAreaEMLN.setValue("");
-                this.__checkBoxRenameEditEMLN.setValue(false);
-                this.__textFieldNameEMLN.setValue("");
+                this.__slctEMLN.removeAll();
+                this.__txtAEMLN.setValue("");
+                this.__chkbxRenameEditEMLN.setValue(false);
+                this.__txtFNameEMLN.setValue("");
             }
         },
 
@@ -754,12 +825,12 @@ qx.Class.define("webmln.Application",
         _start_inference : function(e) {
                 var that = this;
                 this.loadGraph();
-                var mln = (this.__selectMLN.getSelectables().length != 0) ? this.__selectMLN.getSelection()[0].getLabel() : "";
-                var emln = (this.__selectEMLN.getSelectables().length != 0) ? this.__selectEMLN.getSelection()[0].getLabel() : "";
-                var db = (this.__selectEvidence.getSelectables().length != 0) ? this.__selectEvidence.getSelection()[0].getLabel() : "";
-                var method = (this.__selectMethod.getSelectables().length != 0) ? this.__selectMethod.getSelection()[0].getLabel() : "";
-                var logic = (this.__selectLogic.getSelectables().length != 0) ? this.__selectLogic.getSelection()[0].getLabel() : "";
-                var grammar = (this.__selectGrammar.getSelectables().length != 0) ? this.__selectGrammar.getSelection()[0].getLabel() : "";
+                var mln = (this.__slctMLN.getSelectables().length != 0) ? this.__slctMLN.getSelection()[0].getLabel() : "";
+                var emln = (this.__slctEMLN.getSelectables().length != 0) ? this.__slctEMLN.getSelection()[0].getLabel() : "";
+                var db = (this.__slctEvidence.getSelectables().length != 0) ? this.__slctEvidence.getSelection()[0].getLabel() : "";
+                var method = (this.__slctMethod.getSelectables().length != 0) ? this.__slctMethod.getSelection()[0].getLabel() : "";
+                var logic = (this.__slctLogic.getSelectables().length != 0) ? this.__slctLogic.getSelection()[0].getLabel() : "";
+                var grammar = (this.__slctGrammar.getSelectables().length != 0) ? this.__slctGrammar.getSelection()[0].getLabel() : "";
                 var mlnText = this.codeMirrormlnArea ? this.codeMirrormlnArea.doc.getValue() : "";
                 var emlnText = this.codeMirroremlnArea ? this.codeMirroremlnArea.doc.getValue() : "";
                 var dbText = this.codeMirrordbArea ? this.codeMirrordbArea.doc.getValue() : "";
@@ -772,21 +843,21 @@ qx.Class.define("webmln.Application",
                                     "mln_text": mlnText,
                                     "db_text": dbText,
                                     "emln_text": emlnText,
-                                    "output": this.__textFieldOutput.getValue(),
+                                    "output": this.__txtFOutput.getValue(),
                                     "method": method,
-                                    "params": this.__textFieldAddParams.getValue(),
-                                    "mln_rename_on_edit": this.__checkBoxRenameEditMLN.getValue(),
-                                    "db_rename_on_edit": this.__checkBoxRenameEditEvidence.getValue(),
-                                    "query": this.__textFieldQueries.getValue(),
-                                    "closed_world": this.__checkBoxApplyCWOption.getValue(),
-                                    "cw_preds": this.__textFieldCWPreds.getValue(),
-                                    "use_emln": this.__checkBoxUseModelExt.getValue(),
+                                    "params": this.__txtFAddParams.getValue(),
+                                    "mln_rename_on_edit": this.__chkbxRenameEditMLN.getValue(),
+                                    "db_rename_on_edit": this.__chkbxRenameEditEvidence.getValue(),
+                                    "query": this.__txtFQueries.getValue(),
+                                    "closed_world": this.__chkbxApplyCWOption.getValue(),
+                                    "cw_preds": this.__txtFCWPreds.getValue(),
+                                    "use_emln": this.__chkbxUseModelExt.getValue(),
                                     "logic": logic,
                                     "grammar": grammar,
-                                    "use_multicpu": this.__checkBoxUseAllCPU.getValue(),
-                                    "save_results": this.__checkBoxSaveOutput.getValue(),
-                                    "ignore_unknown_preds": this.__checkBoxIgnoreUnknown.getValue(),
-                                    "verbose": this.__checkBoxVerbose.getValue()});
+                                    "use_multicpu": this.__chkbxUseAllCPU.getValue(),
+                                    "save_results": this.__chkbxSaveOutput.getValue(),
+                                    "ignore_unknown_preds": this.__chkbxIgnoreUnknown.getValue(),
+                                    "verbose": this.__chkbxVerbose.getValue()});
                 req.addListener("success", function(e) {
                         var that = this;
                         var tar = e.getTarget();
@@ -876,8 +947,8 @@ qx.Class.define("webmln.Application",
                         }
                         that.updateGraph([],addList);
                         that.updateBarChart("dia", resultsMap);
-                        that.__textAreaResults.setValue(output);
-                        that.__textAreaResults.getContentElement().scrollToY(10000);
+                        that.__txtAResults.setValue(output);
+                        that.__txtAResults.getContentElement().scrollToY(10000);
 
                 }, this);
                 req.send();
@@ -893,11 +964,11 @@ qx.Class.define("webmln.Application",
                 var that = this;
                 var that = this;
                 this.loadGraph();
-                var mln = (this.__selectMLN_L.getSelectables().length != 0) ? this.__selectMLN_L.getSelection()[0].getLabel() : "";
-                var db = (this.__selectTData.getSelectables().length != 0) ? this.__selectTData.getSelection()[0].getLabel() : "";
-                var method = (this.__selectLMethod.getSelectables().length != 0) ? this.__selectLMethod.getSelection()[0].getLabel() : "";
-                var logic = (this.__selectLogic_L.getSelectables().length != 0) ? this.__selectLogic_L.getSelection()[0].getLabel() : "";
-                var grammar = (this.__selectGrammar_L.getSelectables().length != 0) ? this.__selectGrammar_L.getSelection()[0].getLabel() : "";
+                var mln = (this.__slctMLNLrn.getSelectables().length != 0) ? this.__slctMLNLrn.getSelection()[0].getLabel() : "";
+                var db = (this.__slctTDataLrn.getSelectables().length != 0) ? this.__slctTDataLrn.getSelection()[0].getLabel() : "";
+                var method = (this.__slctMethodLrn.getSelectables().length != 0) ? this.__slctMethodLrn.getSelection()[0].getLabel() : "";
+                var logic = (this.__slctLogicLrn.getSelectables().length != 0) ? this.__slctLogicLrn.getSelection()[0].getLabel() : "";
+                var grammar = (this.__slctGrammarLrn.getSelectables().length != 0) ? this.__slctGrammarLrn.getSelection()[0].getLabel() : "";
                 var mlnText = this.codemirrormlnLArea ? this.codemirrormlnLArea.doc.getValue() : "";
                 var dbText = this.codeMirrortDataArea ? this.codeMirrortDataArea.doc.getValue() : "";
 
@@ -907,25 +978,25 @@ qx.Class.define("webmln.Application",
                                     "db": db,
                                     "mln_text": mlnText,
                                     "db_text": dbText,
-                                    "output": this.__textFieldLOutput.getValue(),
+                                    "output": this.__txtFOutputLrn.getValue(),
                                     "method": method,
-                                    "params": this.__textFieldLAddParams.getValue(),
-                                    "verbose": this.__checkBoxLVerbose.getValue(),
-                                    "pattern": this.__textFieldORFilePattern.getValue(),
-                                    "use_prior": this.__checkBoxUsePrior.getValue(),
-                                    "prior_mean": this.__textFieldLMean.getValue(),
-                                    "prior_stdev": this.__textFieldLStdDev.getValue(),
-                                    "incremental": this.__checkBoxLearnIncrem.getValue(),
-                                    "shuffle": this.__checkBoxShuffleDB.getValue(),
-                                    "init_weights": this.__checkBoxUseInitWeights.getValue(),
-                                    "qpreds": this.__textFieldLQueryPreds.getValue(),
-                                    "epreds": this.__textFieldLEvidencePreds.getValue(),
-                                    "discr_preds": this.__radioQueryPreds.getValue(),
+                                    "params": this.__txtFLAddParams.getValue(),
+                                    "verbose": this.__chkbxLVerbose.getValue(),
+                                    "pattern": this.__txtFORFilePattern.getValue(),
+                                    "use_prior": this.__chkbxUsePrior.getValue(),
+                                    "prior_mean": this.__txtFMeanLrn.getValue(),
+                                    "prior_stdev": this.__txtFStdDevLrn.getValue(),
+                                    "incremental": this.__chkbxLearnIncrem.getValue(),
+                                    "shuffle": this.__chkbxShuffleDB.getValue(),
+                                    "init_weights": this.__chkbxUseInitWeights.getValue(),
+                                    "qpreds": this.__txtFQPredsLrn.getValue(),
+                                    "epreds": this.__txtFEPredsLrn.getValue(),
+                                    "discr_preds": this.__radioQPreds.getValue(),
                                     "logic": logic,
                                     "grammar": grammar,
-                                    "multicore": this.__checkBoxUseAllCPU_L.getValue(),
-                                    "ignore_unknown_preds": this.__checkBoxLIgnoreUnknown.getValue(),
-                                    "ignore_zero_weight_formulas": this.__checkBoxLRemoveFormulas.getValue()
+                                    "multicore": this.__chkbxUseAllCPU_L.getValue(),
+                                    "ignore_unknown_preds": this.__chkbxIgnoreUnknownLrn.getValue(),
+                                    "ignore_zero_weight_formulas": this.__chkbxLRemoveFormulas.getValue()
                                     });
                 req.addListener("success", function(e) {
                         var that = this;
@@ -933,7 +1004,7 @@ qx.Class.define("webmln.Application",
                         var tar = e.getTarget();
                         response = tar.getResponse();
                         var output = response.output;
-                        that.__textAreaResults_Learning.setValue(output);
+                        that.__txtAResults_Learning.setValue(output);
                         console.log(response);
 
                 }, this);
@@ -950,18 +1021,18 @@ qx.Class.define("webmln.Application",
                     var tar = e.getTarget();
                     var response = tar.getResponse();
                     for (var i = 0; i < response.examples.length; i++) {
-                         this.__selectExampleFolder.add(new qx.ui.form.ListItem(response.examples[i]));
-                         this.__selectExampleFolder_L.add(new qx.ui.form.ListItem(response.examples[i]));
+                         this.__slctXmplFldr.add(new qx.ui.form.ListItem(response.examples[i]));
+                         this.__slctXmplFldrLrn.add(new qx.ui.form.ListItem(response.examples[i]));
                     }
 
-                    this.__textFieldQueries.setValue(response.queries);
+                    this.__txtFQueries.setValue(response.queries);
 
                     var arr = ['files', 'infMethods', 'dbs', 'lrnMethods'];
                     for (var x = 0; x < arr.length; x++) {
                         for (var i = 0; i < response[arr[x]].length; i++) {
-                            (arr[x] == 'files' ? this.__selectMLN : arr[x] ==
-                             'infMethods' ? this.__selectMethod : arr[x] == 'lrnMethods' ? this.__selectLMethod :
-                             this.__selectEvidence).add(new qx.ui.form.ListItem(response[arr[x]][i]));
+                            (arr[x] == 'files' ? this.__slctMLN : arr[x] ==
+                             'infMethods' ? this.__slctMethod : arr[x] == 'lrnMethods' ? this.__slctMethodLrn :
+                             this.__slctEvidence).add(new qx.ui.form.ListItem(response[arr[x]][i]));
                         }
                     }
                     this.loadBarChart("dia");
@@ -1069,9 +1140,9 @@ qx.Class.define("webmln.Application",
         _update_mln_text : function(e) {
             if (e.getData().length > 0) {
                 var selection = e.getData()[0].getLabel();
-                this._update_text(selection, this.__textAreaMLN);
+                this._update_text(selection, this.__txtAMLN);
             } else {
-                this.__textAreaMLN.setValue('');
+                this.__txtAMLN.setValue('');
             }
         },
 
@@ -1088,9 +1159,9 @@ qx.Class.define("webmln.Application",
         _update_evidence_text : function(e) {
             if (e.getData().length > 0) {
                  var selection = e.getData()[0].getLabel();
-                 this._update_text(selection, this.__textAreaEvidence);
+                 this._update_text(selection, this.__txtAEvidence);
             } else {
-                this.__textAreaEvidence.setValue('');
+                this.__txtAEvidence.setValue('');
             }
         },
 
@@ -1100,9 +1171,9 @@ qx.Class.define("webmln.Application",
         _update_mlnL_text : function(e) {
             if (e.getData().length > 0) {
                 var selection = e.getData()[0].getLabel();
-                this._update_text(selection, this.__textAreaLMLN);
+                this._update_text(selection, this.__txtAMLNLrn);
             } else {
-                this.__textAreaLMLN.setValue('');
+                this.__txtAMLNLrn.setValue('');
             }
         },
 
@@ -1112,9 +1183,9 @@ qx.Class.define("webmln.Application",
         _update_tData_text : function(e) {
             if (e.getData().length > 0) {
                 var selection = e.getData()[0].getLabel();
-                this._update_text(selection, this.__textAreaTData);
+                this._update_text(selection, this.__txtATDataLrn);
             } else {
-                this.__textAreaTData.setValue('');
+                this.__txtATDataLrn.setValue('');
             }
         },
 
@@ -1123,7 +1194,7 @@ qx.Class.define("webmln.Application",
         */
         _update_text : function(selection, area) {
             var that = this;
-            var folder = this.__selectExampleFolder.getSelection()[0].getLabel();
+            var folder = this.__slctXmplFldr.getSelection()[0].getLabel();
             var req = new qx.io.request.Xhr();
             req.setUrl("/mln/_get_filecontent");
             req.setMethod('POST');

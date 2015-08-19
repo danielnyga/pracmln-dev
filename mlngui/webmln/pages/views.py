@@ -58,6 +58,10 @@ def destroy():
 def download_static(filename):
     return send_from_directory(mlnApp.app.config['MLN_STATIC_PATH'], filename)
 
+@mlnApp.app.route('/mln/doc/<path:filename>')
+def download_docs(filename):
+    return send_from_directory(os.path.join(mlnApp.app.config['MLN_ROOT_PATH'], 'doc'), filename)
+
 @mlnApp.app.route('/mln/_get_filecontent', methods=['POST'])
 def load_filecontent():
     mlnsession = ensure_mln_session(session)
@@ -80,6 +84,29 @@ def load_filecontent():
 def resource_file(filename):
     return redirect('/mln/static/resource/{}'.format(filename))
 
+@mlnApp.app.route('/mln/save_edited_file', methods=['POST'])
+def save_edited_file():
+    mlnsession = ensure_mln_session(session)
+    data = json.loads(request.get_data())
+    fname = data['fname']
+    newfname = data['newfname']
+    fcontent = data['content']
+    folder = data['folder']
+    name = newfname or fname
+
+    # if file exists in examples folder, do not update it but create new one in
+    # UPLOAD_FOLDER with edited filename
+    if os.path.exists(os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], folder, fname)):
+        name = newfname or '_edited.'.join(fname.split('.'))
+
+    # rename existing file with new filename or create/overwrite
+    if os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], fname)) and newfname:
+        os.rename(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], fname), os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], name))
+    else:
+        with open(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], name),'w+') as f:
+            f.write(fcontent)
+
+    return jsonify( { 'fname': name} )
 
 @mlnApp.app.route('/mln/log/<filename>')
 def mlnlog_(filename):
