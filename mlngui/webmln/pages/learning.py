@@ -71,6 +71,7 @@ def start_learning(saveGeometry=True):
     settings['verbose'] = verbose
     settings['ignore_unknown_preds'] = data['ignore_unknown_preds']
     settings['ignore_zero_weight_formulas'] = data['ignore_zero_weight_formulas']
+    settings['save'] = data['save']
 
     # write settings
     log.info('writing config...')
@@ -120,7 +121,7 @@ def start_learning(saveGeometry=True):
         # expand the parameters
         params.update(eval("dict(%s)" % settings['params']))
 
-
+        learnedmln = ''
         try:
             # load the MLN
             if os.path.exists(os.path.join(mlnsession.xmplFolderLearning, settings["mln"])):
@@ -130,22 +131,28 @@ def start_learning(saveGeometry=True):
             mln = MLN(mlnfile=mlnfile, logic=settings['logic'], grammar=settings['grammar'])
             # load the databases
 
-            for db in dbs:
-                print db
             dbs = reduce(list.__add__, [Database.load(mln, dbfile, settings['ignore_unknown_preds']) for dbfile in dbs])
-            if verbose: 'loaded %d database(s).'
+            if verbose: log.info('loaded {} database(s).'.format(len(dbs)))
 
             # run the learner
             mlnlearnt = mln.learn(dbs, method, **params)
-            mlnlearnt.write(stream)
+
+            # save result for visualization or whatever
+            learnedmlnStream = StringIO()
+            mlnlearnt.write(learnedmlnStream)
+            learnedmln = learnedmlnStream.getvalue()
+
             if verbose:
                 print
                 print headline('LEARNT MARKOV LOGIC NETWORK')
                 print
                 mlnlearnt.write()
+
+                log.info('LEARNT MARKOV LOGIC NETWORK')
                 mlnlearnt.write(stream)
             if settings['save']:
-                with open(os.path.join(mlnsession.xmplFolderLearning, output), 'w+') as outFile:
+                log.info('saving learned mln to {}...'.format(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], output)))
+                with open(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], output), 'w+') as outFile:
                     mlnlearnt.write(outFile)
         except SystemExit:
             log.error('Cancelled...')
@@ -156,7 +163,7 @@ def start_learning(saveGeometry=True):
         traceback.print_exc()
 
     output = stream.getvalue()
-    res = {'output': output}
+    res = {'output': output, 'learnedmln': learnedmln}
     return jsonify( res )
 
 

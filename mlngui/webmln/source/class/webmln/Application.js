@@ -101,11 +101,12 @@ qx.Class.define("webmln.Application",
             var learningPage = new qx.ui.tabview.Page("Learning");
             this.__learningPage = learningPage;
             learningPage.addListener("appear", function(e) {
-                                // todo prettify. this is a dirty hack for the
-                                // highlighting, which does not work as the textareas
-                                // will only be created on first tab selection
+                                // todo prettify. this is a dirty hack as the
+                                // highlighting does not work properly when the textareas
+                                // are not yet created
                                 this._highlight('tDataArea');
                                 this._highlight('mlnLArea');
+                                this._highlight('mlnResultArea');
                                 this.loadBarChart("diaL");
                             }, this);
             learningPage.setLayout(new qx.ui.layout.Grow());
@@ -223,12 +224,18 @@ qx.Class.define("webmln.Application",
             diaEmbedGrp.setLayout(diaLayout);
             diaEmbedGrp.add(html);
             //var html = new qx.ui.embed.Html('<div id="viz" style="width: 100%; height: 100%;"></div>');
-            var vizEmbedGrp = new qx.ui.groupbox.GroupBox("Visualization");
+            var vizEmbedGrp = new qx.ui.groupbox.GroupBox("Learned MLN");
             var vizLayout = new qx.ui.layout.Grow();
             vizEmbedGrp.setLayout(vizLayout);
-            var vizHTML = "<div id='vizL' style='width: 100%; height: 100%;'></div>";
-            var vizEmbed = new qx.ui.embed.Html(vizHTML);
-            vizEmbedGrp.add(vizEmbed);
+
+            this.__txtAMLNviz = new qx.ui.form.TextArea("");
+            this.__txtAMLNviz.getContentElement().setAttribute("id", 'mlnResultArea');
+            vizEmbedGrp.add(this.__txtAMLNviz);
+
+//            var vizHTML = "<div id='vizL' style='width: 100%; height: 100%;'></div>";
+//            var vizEmbed = new qx.ui.embed.Html(vizHTML);
+//            vizEmbedGrp.add(vizEmbed);
+
             graphVizContainer.add(vizEmbedGrp, {width: "100%", height: "100%"});
             graphVizContainer.add(waitImage, { left: "50%", top: "50%"});
             diaContainer.add(diaEmbedGrp);
@@ -601,6 +608,8 @@ qx.Class.define("webmln.Application",
             this.__chkbxLRemoveFormulas = new qx.ui.form.CheckBox("remove 0-weight formulas");
 
             this.__txtFOutputLrn = new qx.ui.form.TextField("");
+            this.__txtFOutputLrn.setEnabled(false);
+            this.__chkbxSaveOutputLrn = new qx.ui.form.CheckBox("save", null);
             this.__btnStartLrn = new qx.ui.form.Button("Learn", null);
 
             // add static listitems
@@ -617,6 +626,9 @@ qx.Class.define("webmln.Application",
             this.__chkbxUsePrior.addListener("changeValue", function(e) {
                             this.__txtFMeanLrn.setEnabled(e.getData());
                             this.__txtFStdDevLrn.setEnabled(e.getData());
+                        }, this);
+            this.__chkbxSaveOutputLrn.addListener("changeValue", function(e) {
+                            this.__txtFOutputLrn.setEnabled(e.getData());
                         }, this);
             this.__chkbxRenameEditMLNLrn.addListener("changeValue", function(e) {
                             this.__txtFMLNNewNameLrn.setEnabled(e.getData());
@@ -687,7 +699,8 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__chkbxUseAllCPU, {row: 18, column: 1});
             mlnFormContainer.add(this.__chkbxLVerbose, {row: 18, column: 2});
             mlnFormContainer.add(this.__chkbxLRemoveFormulas, {row: 18, column: 3, colSpan:2});
-            mlnFormContainer.add(this.__txtFOutputLrn, {row: 19, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__txtFOutputLrn, {row: 19, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__chkbxSaveOutputLrn, {row: 19, column: 4});
             mlnFormContainer.add(this.__btnStartLrn, {row: 20, column: 1, colSpan: 4});
 
             return mlnFormContainer;
@@ -996,16 +1009,17 @@ qx.Class.define("webmln.Application",
                                     "grammar": grammar,
                                     "multicore": this.__chkbxUseAllCPU_L.getValue(),
                                     "ignore_unknown_preds": this.__chkbxIgnoreUnknownLrn.getValue(),
+                                    "save": this.__chkbxSaveOutputLrn.getValue(),
                                     "ignore_zero_weight_formulas": this.__chkbxLRemoveFormulas.getValue()
                                     });
                 req.addListener("success", function(e) {
-                        var that = this;
                         this._show_wait_animation("Lrn", false);
                         var tar = e.getTarget();
-                        response = tar.getResponse();
+                        var response = tar.getResponse();
                         var output = response.output;
-                        that.__txtAResults_Learning.setValue(output);
-                        console.log(response);
+                        this.__txtAMLNviz.setValue(response.learnedmln);
+                        this._highlight('mlnResultArea');
+                        this.__txtAResults_Learning.setValue(output);
 
                 }, this);
                 req.send();
