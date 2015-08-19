@@ -420,6 +420,12 @@ qx.Class.define("webmln.Application",
                             var content = this.codeMirrordbArea ? this.codeMirrordbArea.doc.getValue() : "";
                             this._save_file(name, newName, content);
                         }, this);
+            this.__btnRefreshMLN.addListener("execute", function(e) {
+                        this._refresh_list(this.__slctMLN, true);
+                        },this);
+            this.__btnRefreshDB.addListener("execute", function(e) {
+                        this._refresh_list(this.__slctEvidence, false);
+                        },this);
 
 
             // add widgets to form
@@ -652,9 +658,12 @@ qx.Class.define("webmln.Application",
                             this._save_file(name, newName, content);
                         }, this);
             this.__btnRefreshMLNLrn.addListener("execute", function(e) {
-                        console.log('opening /mln/docs/index.html');
-                        window.open("/mln/doc/_build/html/index.html", '__new');
+                        this._refresh_list(this.__slctMLNLrn, true);
                         },this);
+            this.__btnRefreshTDataLrn.addListener("execute", function(e) {
+                        this._refresh_list(this.__slctTDataLrn, false);
+                        },this);
+
 
             // add widgets to form
             mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
@@ -707,6 +716,28 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__btnStartLrn, {row: 20, column: 1, colSpan: 4});
 
             return mlnFormContainer;
+        },
+
+        /**
+        * Update fields when changing the example folder for learning
+        */
+        _refresh_list : function(field, mln){
+            var exampleFolder = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctXmplFldr : this.__slctXmplFldrLrn).getSelection()[0].getLabel();
+            var url = "/mln/"+ (this.__tabView.isSelected(this.__inferencePage) ? 'inference' : 'learning') + "/_change_example";
+            req = new qx.io.request.Xhr(url, "POST");
+            req.setRequestHeader("Content-Type", "application/json");
+            req.setRequestData({"folder": exampleFolder});
+            req.addListener("success", function(e) {
+                var tar = e.getTarget();
+                response = tar.getResponse();
+                filesList = mln ? response.mlns : response.dbs;
+
+                field.removeAll();
+                for (var i = 0; i < filesList.length; i++) {
+                    field.add(new qx.ui.form.ListItem(filesList[i]));
+                }
+            }, this);
+            req.send();
         },
 
         /**
