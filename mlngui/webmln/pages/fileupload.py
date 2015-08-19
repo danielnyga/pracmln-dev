@@ -16,16 +16,17 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1] in mlnApp.app.config['ALLOWED_EXTENSIONS']
 
-@mlnApp.app.route('/mln/mln_file_upload', methods=['GET', 'POST'])
+@mlnApp.app.route('/mln/file_upload', methods=['GET', 'POST'])
 def upload():
     file = request.files['file']
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        fpath = os.path.join('/tmp', 'tempupload')
-        # fpath = os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], FILEDIRS.get(filename.rsplit('.', 1)[1], 'misc'))
+        fpath = mlnApp.app.config['UPLOAD_FOLDER']
         if not os.path.exists(fpath):
             os.mkdir(fpath)
         file.save(os.path.join(fpath, filename))
+    else:
+        return 'File type not allowed. Allowed extensions: {}'.format(', '.join(mlnApp.app.config['ALLOWED_EXTENSIONS']))
     return ''
 
 

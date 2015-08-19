@@ -15,9 +15,6 @@ from fnmatch import fnmatch
 
 
 FILEDIRS = {'mln':'mln', 'pracmln':'bin', 'db':'db'}
-LEARN_CONFIG_PATTERN = '{}.learn.conf'
-QUERY_CONFIG_PATTERN = '{}.query.conf'
-GLOBAL_CONFIG_FILENAME = '.pracmln.conf'
 GUI_SETTINGS = ['db_rename', 'mln_rename', 'db', 'method', 'use_emln', 'save', 'output', 'grammar', 'queries', 'emln']
 DEFAULT_EXAMPLE = 'smokers'
 

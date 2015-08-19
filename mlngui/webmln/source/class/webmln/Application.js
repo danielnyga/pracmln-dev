@@ -149,8 +149,9 @@ qx.Class.define("webmln.Application",
             var splitPane = new qx.ui.splitpane.Pane("horizontal");
             var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
-            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow())
-            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow())
+            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
+            graphVizContainer.setMinHeight(500);
+            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
 
             var html = new qx.ui.embed.Html("<div id='dia' style='width: 100%; height: 100%;'></div>");
             var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
@@ -172,7 +173,7 @@ qx.Class.define("webmln.Application",
             innerSplitPane.add(graphVizContainer);
             innerSplitPane.add(innerMostSplitPane);
 
-            splitPane.add(mlnFormContainer, {width: "30%"});
+            splitPane.add(mlnFormContainer, {width: "40%", height: "100%"});
             splitPane.add(innerSplitPane);
 
             return splitPane;
@@ -204,18 +205,10 @@ qx.Class.define("webmln.Application",
             var splitPane = new qx.ui.splitpane.Pane("horizontal");
             var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
-            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow()).set({
-                minHeight: 500, minWidth: 1200
-            });
+            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
+            graphVizContainer.setMinHeight(500);
+            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
 
-            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow()).set({
-                minHeight: 200, minWidth: 1200
-            });
-            splitPane.add(mlnFormContainer);
-
-            var canvas = new qx.ui.container.Composite(new qx.ui.layout.Grow()).set({
-                width: 1200, height: 500
-            });
             var html = new qx.ui.embed.Html("<div id='diaL' style='width: 100%; height: 100%;'></div>");
             var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
             var diaLayout = new qx.ui.layout.Grow();
@@ -228,14 +221,15 @@ qx.Class.define("webmln.Application",
             var vizHTML = "<div id='vizL' style='width: 100%; height: 100%;'></div>";
             var vizEmbed = new qx.ui.embed.Html(vizHTML);
             vizEmbedGrp.add(vizEmbed);
-            graphVizContainer.add(vizEmbedGrp);
+            graphVizContainer.add(vizEmbedGrp, {width: "100%", height: "100%"});
             graphVizContainer.add(waitImage, { left: "50%", top: "50%"});
             diaContainer.add(diaEmbedGrp);
             innerMostSplitPane.add(diaContainer);
             innerMostSplitPane.add(textAreaResults);
-            innerSplitPane.add(graphVizContainer);
+            innerSplitPane.add(graphVizContainer, { height: "50%"});
             innerSplitPane.add(innerMostSplitPane);
 
+            splitPane.add(mlnFormContainer, {width: "40%", height: "100%"});
             splitPane.add(innerSplitPane);
 
             return splitPane;
@@ -252,6 +246,10 @@ qx.Class.define("webmln.Application",
             var mlnFormContainerLayout = new qx.ui.layout.Grid();
             this.__mlnFormContainerLayout = mlnFormContainerLayout;
             mlnFormContainerLayout.setColumnWidth(0, 100);
+            mlnFormContainerLayout.setColumnWidth(1, 130);
+            mlnFormContainerLayout.setColumnWidth(2, 160);
+            mlnFormContainerLayout.setColumnWidth(3, 110);
+            mlnFormContainerLayout.setColumnWidth(4, 220);
             var mlnFormContainer = new qx.ui.container.Composite(mlnFormContainerLayout).set({
                     padding: 5
             });
@@ -307,11 +305,12 @@ qx.Class.define("webmln.Application",
             this.__selectGrammar = new qx.ui.form.SelectBox();
             this.__selectLogic = new qx.ui.form.SelectBox();
             this.__selectMLN = new qx.ui.form.SelectBox();
-            this.__folderButton = new com.zenesis.qx.upload.UploadButton("Load File");
-            this.__uploader = new com.zenesis.qx.upload.UploadMgr(this.__folderButton, "/mln/mln_file_upload");
-                this.__uploader.setAutoUpload(false);
+            this.__buttonUploadMLNFile = new com.zenesis.qx.upload.UploadButton("Upload MLN File");
+            this.__buttonUploadMLNFile.setParam("SOURCE_PARAM", "mlnuploadinf");
+            this.__uploader = new com.zenesis.qx.upload.UploadMgr(this.__buttonUploadMLNFile, "/mln/file_upload");
+            this.__uploader.setAutoUpload(false);
             this.__textFieldNameMLN = new qx.ui.form.TextField("");
-                this.__textFieldNameMLN.setEnabled(false);
+            this.__textFieldNameMLN.setEnabled(false);
             this.__buttonSaveMLN = new qx.ui.form.Button("save", null);
             this.__checkBoxRenameEditMLN = new qx.ui.form.CheckBox("rename on edit");
 
@@ -326,6 +325,7 @@ qx.Class.define("webmln.Application",
             this.__buttonSaveEMLN = new qx.ui.form.Button("save",null);
             this.__checkBoxRenameEditEMLN = new qx.ui.form.CheckBox("rename on edit");
             this.__textFieldNameEMLN = new qx.ui.form.TextField("");
+            this.__textFieldNameEMLN.setEnabled(false);
 
             var emlnAreaContainerLayout = new qx.ui.layout.Grow();
             this.__emlnAreaContainer = new qx.ui.container.Composite(emlnAreaContainerLayout);
@@ -334,9 +334,12 @@ qx.Class.define("webmln.Application",
             this.__emlnAreaContainer.add(this.__textAreaEMLN);
 
             this.__selectEvidence = new qx.ui.form.SelectBox();
-            this.__buttonSaveEvidence = new qx.ui.form.Button("save", null);
+            this.__buttonUploadDBFileInf = new com.zenesis.qx.upload.UploadButton("Upload DB File");
+            this.__buttonUploadDBFileInf.setParam("SOURCE_PARAM", "dbuploadinf");
+            this.__uploader.addWidget(this.__buttonUploadDBFileInf)
             this.__checkBoxRenameEditEvidence = new qx.ui.form.CheckBox("rename on edit");
-            this.__textFieldDB = new qx.ui.form.TextField("");
+            this.__textFieldNameDB = new qx.ui.form.TextField("");
+            this.__textFieldNameDB.setEnabled(false);
 
             var evidenceContainerLayout = new qx.ui.layout.Grow();
             this.__evidenceContainer = new qx.ui.container.Composite(evidenceContainerLayout);
@@ -351,7 +354,7 @@ qx.Class.define("webmln.Application",
             this.__checkBoxApplyCWOption = new qx.ui.form.CheckBox("Apply CW assumption to all but the query preds");
             this.__textFieldAddParams = new qx.ui.form.TextField("");
             this.__textFieldOutput = new qx.ui.form.TextField("");
-                this.__textFieldOutput.setValue("smoking-test-smoking.results");
+            this.__textFieldOutput.setValue("smoking-test-smoking.results");
             this.__checkBoxSaveOutput = new qx.ui.form.CheckBox("save");
             this.__checkBoxUseAllCPU = new qx.ui.form.CheckBox("Use all CPUs");
             this.__checkBoxIgnoreUnknown = new qx.ui.form.CheckBox("Ignore Unknown Predicates");
@@ -375,6 +378,15 @@ qx.Class.define("webmln.Application",
             this.__checkBoxShowLabels.addListener("changeValue", function(e) {
                             this._graph.showLabels(e.getData());
                         }, this);
+            this.__checkBoxRenameEditMLN.addListener("changeValue", function(e) {
+                            this.__textFieldNameMLN.setEnabled(e.getData());
+                        }, this);
+            this.__checkBoxRenameEditEMLN.addListener("changeValue", function(e) {
+                            this.__textFieldNameEMLN.setEnabled(e.getData());
+                        }, this);
+            this.__checkBoxRenameEditEvidence.addListener("changeValue", function(e) {
+                            this.__textFieldNameDB.setEnabled(e.getData());
+                        }, this);                        
 
             // add widgets to form
             mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
@@ -388,36 +400,36 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(cwPredsLabel, {row: 20, column: 0});
             mlnFormContainer.add(outputLabel, {row: 21, column: 0});
 
-            mlnFormContainer.add(this.__selectExampleFolder, {row: 0, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__selectGrammar, {row: 1, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__selectLogic, {row: 2, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__selectMLN, {row: 3, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__folderButton, {row: 3, column: 3});
-            mlnFormContainer.add(this.__mlnAreaContainer, {row: 4, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__selectExampleFolder, {row: 0, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__selectGrammar, {row: 1, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__selectLogic, {row: 2, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__selectMLN, {row: 3, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__buttonUploadMLNFile, {row: 3, column: 4});
+            mlnFormContainer.add(this.__mlnAreaContainer, {row: 4, column: 1, colSpan: 4});
             mlnFormContainerLayout.setRowHeight(4, 200);
-//            mlnFormContainer.add(this.__checkBoxRenameEditMLN, {row: 5, column: 1});
-            mlnFormContainer.add(this.__checkBoxUseModelExt, {row: 5, column: 1});
-//            mlnFormContainer.add(this.__textFieldNameMLN, {row: 6, column: 1, colSpan: 2});
-//            mlnFormContainer.add(this.__buttonSaveMLN, {row: 6, column: 3});
+            mlnFormContainer.add(this.__checkBoxRenameEditMLN, {row: 5, column: 1});
+            mlnFormContainer.add(this.__checkBoxUseModelExt, {row: 5, column: 2});
+            mlnFormContainer.add(this.__textFieldNameMLN, {row: 6, column: 1, colSpan: 4});
+//            mlnFormContainer.add(this.__buttonSaveMLN, {row: 6, column: 4});
 
             mlnFormContainer.add(this.__selectEvidence, {row: 11, column: 1, colSpan: 3});
-//            mlnFormContainer.add(this.__buttonSaveEvidence, {row: 11, column: 3});
-            mlnFormContainer.add(this.__evidenceContainer, {row: 12, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__buttonUploadDBFileInf, {row: 11, column: 4});
+            mlnFormContainer.add(this.__evidenceContainer, {row: 12, column: 1, colSpan: 4});
             mlnFormContainerLayout.setRowHeight(12, 100);
-//            mlnFormContainer.add(this.__checkBoxRenameEditEvidence, {row: 13, column: 1});
-//            mlnFormContainer.add(this.__textFieldDB, {row: 14, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__selectMethod, {row: 15, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__textFieldQueries, {row: 16, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__checkBoxVerbose, {row: 17, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__textFieldAddParams, {row: 19, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__checkBoxRenameEditEvidence, {row: 13, column: 1});
+            mlnFormContainer.add(this.__textFieldNameDB, {row: 14, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__selectMethod, {row: 15, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__textFieldQueries, {row: 16, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__textFieldAddParams, {row: 19, column: 1, colSpan: 4});
             mlnFormContainer.add(this.__textFieldCWPreds, {row: 20, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__checkBoxApplyCWOption, {row: 20, column: 3});
+            mlnFormContainer.add(this.__checkBoxApplyCWOption, {row: 20, column: 3, colSpan:2});
             mlnFormContainer.add(this.__textFieldOutput, {row: 21, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__checkBoxSaveOutput, {row: 21, column: 3});
+            mlnFormContainer.add(this.__checkBoxSaveOutput, {row: 21, column: 3, colSpan: 2});
             mlnFormContainer.add(this.__checkBoxUseAllCPU, {row: 22, column: 1});
-            mlnFormContainer.add(this.__checkBoxIgnoreUnknown, {row: 22, column: 2});
-            mlnFormContainer.add(this.__checkBoxShowLabels, {row: 22, column: 3});
-            mlnFormContainer.add(this.__buttonStart, {row: 23, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__checkBoxVerbose, {row: 22, column: 1});
+            mlnFormContainer.add(this.__checkBoxShowLabels, {row: 22, column: 2});
+            mlnFormContainer.add(this.__checkBoxIgnoreUnknown, {row: 22, column: 3, colSpan:2});
+            mlnFormContainer.add(this.__buttonStart, {row: 23, column: 1, colSpan: 4});
 
             return mlnFormContainer;
         },
@@ -429,8 +441,12 @@ qx.Class.define("webmln.Application",
             this.check = false;
             var mlnFormContainerLayout = new qx.ui.layout.Grid();
             mlnFormContainerLayout.setColumnWidth(0, 100);
+            mlnFormContainerLayout.setColumnWidth(1, 130);
+            mlnFormContainerLayout.setColumnWidth(2, 160);
+            mlnFormContainerLayout.setColumnWidth(3, 110);
+            mlnFormContainerLayout.setColumnWidth(4, 220);
             var mlnFormContainer = new qx.ui.container.Composite(mlnFormContainerLayout).set({
-                    padding: 10
+                    padding: 5
             });
 
             // labels
@@ -479,9 +495,9 @@ qx.Class.define("webmln.Application",
             this.__selectMLN_L = new qx.ui.form.SelectBox();
             this.__buttonRefreshLMLN = new qx.ui.form.Button("<- refresh", null);
             this.__buttonSaveLMLN = new qx.ui.form.Button("save", null);
-            this.__folderLButton = new com.zenesis.qx.upload.UploadButton("Load File");
-            this.__uploaderL = new com.zenesis.qx.upload.UploadMgr(this.__folderLButton, "/mln/mln_file_upload");
-                this.__uploaderL.setAutoUpload(false);
+            this.__buttonUploadMLNFileLrn = new com.zenesis.qx.upload.UploadButton("Upload MLN File");
+            this.__buttonUploadMLNFileLrn.setParam("SOURCE_PARAM", "mlnuploadlrn");
+            this.__uploader.addWidget(this.__buttonUploadMLNFileLrn);
 
             var mlnAreaContainerLayout = new qx.ui.layout.Grow();
             this.__mlnAreaLContainer = new qx.ui.container.Composite(mlnAreaContainerLayout);
@@ -567,7 +583,6 @@ qx.Class.define("webmln.Application",
             this.__buttonStartLearning.addListener("execute", this._start_learning, this);
             this.__selectMLN_L.addListener("changeSelection", this._update_mlnL_text, this);
             this.__selectTData.addListener("changeSelection", this._update_tData_text, this);
-            this.__uploaderL.addListener("addFile", this._uploadL, this);
             this.__checkBoxUsePrior.addListener("changeValue", function(e) {
                             this.__textFieldLMean.setEnabled(e.getData());
                             this.__textFieldLStdDev.setEnabled(e.getData());
@@ -593,7 +608,7 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__mlnAreaLContainer, {row: 4, column: 1, colSpan: 4});
             mlnFormContainerLayout.setRowHeight(4, 200);
             mlnFormContainer.add(this.__checkBoxRenameEditLMLN, {row: 5, column: 1});
-            mlnFormContainer.add(this.__textFieldNameMLN, {row: 6, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__textFieldLMLNNewName, {row: 6, column: 1, colSpan: 4});
             mlnFormContainer.add(this.__selectLMethod, {row: 7, column: 1, colSpan: 4});
             mlnFormContainer.add(this.__checkBoxUsePrior, {row: 8, column: 1});
             mlnFormContainer.add(this.__textFieldLMean, {row: 8, column: 2});
@@ -602,8 +617,8 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__checkBoxUseInitWeights, {row: 9, column: 1});
             mlnFormContainer.add(this.__checkBoxLearnIncrem, {row: 9, column: 2});
             mlnFormContainer.add(this.__checkBoxShuffleDB, {row: 9, column: 3});
-            mlnFormContainer.add(radioBoxQueryPreds, {row: 10, column: 1, colSpan: 4});
-            mlnFormContainer.add(radioBoxEvidencePreds, {row: 11, column: 1, colSpan: 4});
+            mlnFormContainer.add(radioBoxQueryPreds, {row: 10, column: 1, colSpan: 2});
+            mlnFormContainer.add(radioBoxEvidencePreds, {row: 10, column: 3, colSpan: 2});
             mlnFormContainer.add(this.__selectTData, {row: 12, column: 1, colSpan: 2});
             mlnFormContainer.add(this.__buttonRefreshLTData, {row: 12, column: 3});
             mlnFormContainer.add(this.__buttonSaveTData, {row: 12, column: 4});
@@ -683,10 +698,10 @@ qx.Class.define("webmln.Application",
             if (e.getData()) {
                 this.__mlnFormContainer.add(this.__emlnLabel, {row: 7, column: 0});
                 this.__mlnFormContainer.add(this.__selectEMLN, {row: 7, column: 1, colSpan: 3});
-//                    this.__mlnFormContainer.add(this.__buttonSaveEMLN, {row: 7, column: 3});
-                this.__mlnFormContainer.add(this.__emlnAreaContainer, {row: 8, column: 1, colSpan: 3});
-//                    this.__mlnFormContainer.add(this.__checkBoxRenameEditEMLN, {row: 9, column: 1});
-//                    this.__mlnFormContainer.add(this.__textFieldNameEMLN, {row: 10, column: 1, colSpan: 3});
+                this.__mlnFormContainer.add(this.__buttonSaveEMLN, {row: 7, column: 4});
+                this.__mlnFormContainer.add(this.__emlnAreaContainer, {row: 8, column: 1, colSpan: 4});
+                this.__mlnFormContainer.add(this.__checkBoxRenameEditEMLN, {row: 9, column: 1});
+                this.__mlnFormContainer.add(this.__textFieldNameEMLN, {row: 10, column: 1, colSpan: 4});
                 this.__mlnFormContainerLayout.setRowFlex(8, 1);
 
                 var req = new qx.io.request.Xhr("/mln/inference/_use_model_ext", "GET");
@@ -702,10 +717,10 @@ qx.Class.define("webmln.Application",
             } else {
                 this.__mlnFormContainer.remove(this.__emlnLabel);
                 this.__mlnFormContainer.remove(this.__selectEMLN);
-//                    this.__mlnFormContainer.remove(this.__buttonSaveEMLN);
+                this.__mlnFormContainer.remove(this.__buttonSaveEMLN);
                 this.__mlnFormContainer.remove(this.__emlnAreaContainer);
-//                    this.__mlnFormContainer.remove(this.__checkBoxRenameEditEMLN);
-//                    this.__mlnFormContainer.remove(this.__textFieldNameEMLN);
+                this.__mlnFormContainer.remove(this.__checkBoxRenameEditEMLN);
+                this.__mlnFormContainer.remove(this.__textFieldNameEMLN);
                 this.__mlnFormContainerLayout.setRowFlex(8, 0);
                 this.__selectEMLN.removeAll();
                 this.__textAreaEMLN.setValue("");

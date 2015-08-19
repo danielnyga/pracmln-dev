@@ -15,8 +15,7 @@ from pracmln.mln.methods import InferenceMethods
 from pracmln.mln.util import parse_queries
 
 import traceback
-from utils import ensure_mln_session, getFileContent, QUERY_CONFIG_PATTERN, \
-    GUI_SETTINGS, initialize, INFERENCE_METHODS, LEARNING_METHODS, change_example, \
+from utils import ensure_mln_session, getFileContent, GUI_SETTINGS, initialize, INFERENCE_METHODS, LEARNING_METHODS, change_example, \
     getExampleFiles
 
 DEBUG = False
