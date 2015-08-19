@@ -113,10 +113,13 @@ qx.Class.define("webmln.Application",
             learningPage.add(splitPaneLearning, {width: "100%", height: "100%"});
             tabView.add(learningPage, {width: "100%", height: "100%"});
 
-            ////////////////// LEARNING PAGE ////////////////////
+            ////////////////// ABOUT PAGE ////////////////////
             var aboutPage = new qx.ui.tabview.Page("About");
             this.__aboutPage = aboutPage;
+            var iframe = new qx.ui.embed.Iframe("/mln/doc/_build/html/index.html");
             aboutPage.setLayout(new qx.ui.layout.Grow());
+            aboutPage.add(iframe);
+            tabView.add(aboutPage, {width: "100%", height: "100%"});
 
             outerContainer.add(tabView, {width: "100%", height: "100%"});
             contentIsle.add(outerContainer, {width: "100%", height: "100%"});
