@@ -33,6 +33,8 @@ from numpy.ma.core import sqrt, log
 from pracmln.mln.grounding.default import DefaultGroundingFactory
 from pracmln.mln.mrfvars import SoftMutexVariable
 from pracmln.mln.learning.common import DiscriminativeLearner
+from pracmln.mln.grounding.bpll import BPLLGroundingFactory
+import traceback
 
 
 logger = logging.getLogger(__name__)
@@ -59,7 +61,7 @@ class BPLL(AbstractLearner):
     def _prepare(self):
         logger.debug("computing statistics...") 
         self._compute_statistics()
-        
+#         print self._stat
     
     def _pl(self, varidx, w):
         '''
@@ -97,11 +99,7 @@ class BPLL(AbstractLearner):
     
     def _compute_pls(self, w):
         if self._pls is None or self._lastw is None or self._lastw != list(w):
-#             self.mrf.mln.weights = w
-#             self.mrf.mln.write()
             self._pls = [self._pl(var.idx, w) for var in self.mrf.variables]
-#             out(w)
-#             self.write_pls()
             self._lastw = list(w)
     
     
@@ -144,8 +142,6 @@ class BPLL(AbstractLearner):
         '''
         self._stat = {}
         self._varidx2fidx = defaultdict(set)
-#         out('before')
-#         self.mrf.print_evidence_atoms()
         grounder = DefaultGroundingFactory(self.mrf, verbose=False)
         for f in grounder.itergroundings(simplify=False, unsatfailure=True):
             for gndatom in f.gndatoms():
@@ -153,14 +149,10 @@ class BPLL(AbstractLearner):
                 with temporary_evidence(self.mrf):
                     for validx, value in var.itervalues():
                         world = var.setval(value, self.mrf.evidence)
-#                         self.mrf.print_world_atoms(world)
-#                         f.print_structure(world)
                         truth = f(world) 
                         if truth != 0:
                             self._varidx2fidx[var.idx].add(f.idx)
                             self._addstat(f.idx, var.idx, validx, truth)
-#         out('after')
-#         self.mrf.print_evidence_atoms()
                 
                 
 class DPLL(BPLL, DiscriminativeLearner):
@@ -194,3 +186,12 @@ class DPLL(BPLL, DiscriminativeLearner):
         return numpy.array(grad)
 
 
+class BPLL_CG(BPLL):
+    
+    def _prepare(self):
+        grounder = BPLLGroundingFactory(self.mrf)
+        out(grounder)
+        for _ in grounder.itergroundings(simplify=False, unsatfailure=True): pass
+        self._stat = grounder._stat
+        self._varidx2fidx = grounder._varidx2fidx
+        

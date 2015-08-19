@@ -23,7 +23,7 @@
 
 from common import AbstractGroundingFactory
 import logging
-from pracmln.mln.util import fstr, dict_union, StopWatch, ProgressBar
+from pracmln.mln.util import fstr, dict_union, StopWatch, ProgressBar, out
 from pracmln.logic.common import Logic
 import time
 from pracmln.mln.constants import auto, HARD
@@ -98,21 +98,26 @@ class DefaultGroundingFactory:
             if self.usecache and not self.iscached:
                 self._cacheinit()
             self.watch.tag('grounding', verbose=self.verbose)
-            if self.verbose: 
-                bar = ProgressBar(width=100, color='green')
-            for i, formula in enumerate(self.formulas):
-                if self.verbose: bar.update((i+1) / float(len(self.formulas)))
-                for gndformula in formula.itergroundings(self.mrf, simplify=simplify):
-                    if self._cache is not None:
-                        self._cache.append(gndformula)
-                    if unsatfailure and gndformula.weight == HARD and gndformula(self.mrf.evidence) != 1:
-                        print
-                        gndformula.print_structure(self.mrf.evidence)
-                        raise SatisfiabilityException('MLN is unsatisfiable due to hard constraint violation %s (see above)' % self.mrf.formulas[gndformula.idx])
-                    yield gndformula
+            for gndformula in self._itergroundings(simplify=simplify, unsatfailure=unsatfailure):
+                if self._cache is not None:
+                    self._cache.append(gndformula)
+                yield gndformula
             self.watch.finish('grounding')
-        
             
+            
+    def _itergroundings(self, simplify=False, unsatfailure=False):
+        if self.verbose: 
+            bar = ProgressBar(width=100, color='green')
+        for i, formula in enumerate(self.formulas):
+            if self.verbose: bar.update((i+1) / float(len(self.formulas)))
+            for gndformula in formula.itergroundings(self.mrf, simplify=simplify):
+                if unsatfailure and gndformula.weight == HARD and gndformula(self.mrf.evidence) != 1:
+                    print
+                    gndformula.print_structure(self.mrf.evidence)
+                    raise SatisfiabilityException('MLN is unsatisfiable due to hard constraint violation %s (see above)' % self.mrf.formulas[gndformula.idx])
+                yield gndformula
+                
+                
 class EqualityConstraintGrounder(object):
     '''
     Grounding factory for equality constraints only.

@@ -84,6 +84,14 @@ class AbstractLearner(object):
         return self._w
     
     
+    @property
+    def maxrepeat(self):
+        return self._params.get('maxrepeat', 1)
+    
+    
+    def repeat(self):
+        return False
+    
     def _fullweights(self, w):
         i = 0
         w_ = []
@@ -196,9 +204,12 @@ class AbstractLearner(object):
         for f in self.mrf.formulas:
             if self.mrf.mln.fixweights[f.idx] or self.use_init_weights:
                 self._w[f.idx] = f.weight
-        self._prepare()
-        self._optimize(**self._params)
-        self._cleanup()
+        runs = 0
+        while runs < self.maxrepeat:
+            self._prepare()
+            self._optimize(**self._params)
+            self._cleanup()
+            if not self.repeat(): break
         return self.weights
     
     

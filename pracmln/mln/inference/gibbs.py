@@ -27,6 +27,7 @@ from pracmln.mln.inference.maxwalk import SAMaxWalkSAT
 from pracmln.mln.mrfvars import BinaryVariable
 from pracmln.mln.inference.mcmc import MCMCInference
 import random
+import math
 
 
 class GibbsSampler(MCMCInference):
@@ -47,7 +48,7 @@ class GibbsSampler(MCMCInference):
                 for i, value in var.itervalues():
                     world_ = list(world)
                     var.setval(value, world_)
-                    sums[i] += gf.weight * gf(world)
+                    sums[i] += gf.weight * gf(world_)
             return map(math.exp, sums)
 
         
@@ -65,13 +66,13 @@ class GibbsSampler(MCMCInference):
                 # check for soft evidence and greedily satisfy it if possible                
                 idx = None
                 if isinstance(var, BinaryVariable):
-                    atoms = var.gndatoms[0]
+                    atom = var.gndatoms[0]
                     p = mrf.evidence[var.gndatoms[0]]
                     if p is not None:
-                        currentBelief = self.getSoftEvidenceFrequency(formula)
-                        if p > currentBelief and expsums[1] > 0:
+                        belief = self.soft_evidence_frequency(atom)
+                        if p > belief and expsums[1] > 0:
                             idx = 1
-                        elif p < currentBelief and expsums[0] > 0:
+                        elif p < belief and expsums[0] > 0:
                             idx = 0
                 # sample value
                 if idx is None:

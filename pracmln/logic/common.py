@@ -2090,13 +2090,13 @@ class Logic(object):
         
         Needs a formula since variables in equality constraints are not typed per se.
         '''
-        fVars = f.getVariables(mln)
-        eqVars_ = eq.getVariables(mln)
-        if not set(eqVars_).issubset(fVars):
+        doms = f.vardoms(mln)
+        eqVars_ = eq.vardoms(mln)
+        if not set(eqVars_).issubset(doms):
             raise Exception('Variable in (in)equality constraint not bound to a domain: %s' % eq)
         eqVars = {}
         for v in eqVars_:
-            eqVars[v] = fVars[v]
+            eqVars[v] = doms[v]
         for assignment in Logic._iter_eq_varassignments(mln, eqVars, {}):
             yield assignment
             

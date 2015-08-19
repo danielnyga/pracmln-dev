@@ -22,7 +22,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from common import AbstractLearner
 import sys
-from pracmln.mln.util import StopWatch, ProgressBar, edict
+from pracmln.mln.util import StopWatch, ProgressBar, edict, out
 from multiprocessing import Pool
 import logging
 from pracmln.utils.multicore import with_tracing, _methodcaller
@@ -184,17 +184,12 @@ class MultipleDatabaseLearner(AbstractLearner):
         for f in self.mln.formulas:
             if self.mln.fixweights[f.idx] or self.use_init_weights:
                 self._w[f.idx] = f.weight
-        self._prepare()
-        self._optimize(**self._params)
-        self._cleanup()
+        runs = 0
+        while runs < self.maxrepeat:
+            self._prepare()
+            self._optimize(**self._params)
+            self._cleanup()
+            if not any([l.repeat() for l in self.learners]): break
         return self.weights
     
 
-#     def _fixFormulaWeights(self):
-#         self._fixedWeightFormulas = {}
-#         for learner in self.learners:
-#             learner._fixFormulaWeights()
-#             for i, w in learner._fixedWeightFormulas.iteritems():
-#                 if i not in self._fixedWeightFormulas:
-#                     self._fixedWeightFormulas[i] = 0.0
-#                 self._fixedWeightFormulas[i] += w / len(self.learners)
