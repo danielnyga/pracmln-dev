@@ -42,17 +42,210 @@ from tkMessageBox import showerror, askyesno
 from pracmln.mln.util import out, ifNone, trace, parse_queries,\
     headline, StopWatch
 from pracmln.utils.config import PRACMLNConfig, query_config_pattern
-from pracmln.mln.base import parse_mln
-from pracmln.mln.database import parse_db
+from pracmln.mln.base import parse_mln, MLN
+from pracmln.mln.database import parse_db, Database
 from tabulate import tabulate
 from cProfile import Profile
 import pstats
+import StringIO
 
 
 logger = praclog.logger(__name__)
 
 GUI_SETTINGS = ['window_loc', 'db_rename', 'mln_rename', 'db', 'method', 'use_emln', 'save', 'output_filename', 'grammar', 'queries', 'emln']
 
+
+class MLNQuery(object):
+    
+    def __init__(self, config=None, **params):
+        if config is None:
+            self._config = {}
+        else:
+            self._config = config
+        self._config.config.update(params)
+     
+     
+    @property
+    def mln(self):
+        return self._config.get('mln')
+    
+    
+    @property
+    def db(self):
+        return  self._config.get('db')
+    
+    
+    @property
+    def output_filename(self):
+        return self._config.get('output_filename')
+    
+    
+    @property
+    def params(self):
+        return eval("dict(%s)" % self._config.get('params', ''))
+        
+        
+    @property
+    def method(self):
+        return InferenceMethods.clazz(self._config.get('method', 'MC-SAT'))
+        
+        
+    @property
+    def queries(self):
+        return self._config.get('queries', None)
+    
+    
+    @property
+    def emln(self):
+        return self._config.get('emln', None) 
+    
+
+    @property
+    def cw(self):
+        return self._config.get('cw', False)
+    
+    
+    @property
+    def cw_preds(self):
+        return map(str.strip, self._config.get('cw_preds', '').split(','))
+    
+    
+    @property
+    def use_emln(self):
+        return self._config.get('use_emln', False)
+
+
+    @property
+    def logic(self):
+        return self._config.get('logic', 'FirstOrderLogic')
+    
+    
+    @property
+    def grammar(self):
+        return self._config.get('grammar', 'PRACGrammar')
+    
+    
+    @property
+    def multicore(self):
+        return self._config.get('multicore', False) 
+
+    
+    @property
+    def profile(self):
+        return self._config.get('profile', False)
+    
+    
+    @property
+    def verbose(self):
+        return self._config.get('verbose', False)
+    
+    
+    @property
+    def ignore_unknown_preds(self):
+        return self._config.get('ignore_unknown_preds', False)
+    
+    @property
+    def save(self):
+        return self._config.get('save', False)
+         
+    
+    @property
+    def directory(self):
+        return os.path.dirname(self._config.config_file)
+
+
+    def run(self):
+        watch = StopWatch()
+        watch.tag('inference', self.verbose)
+        # load the MLN
+        if isinstance(self.mln, MLN):
+            mln = self.mln
+        elif isinstance(self.mln, basestring):
+            mlnfile = os.path.join(self.directory, self.mln)
+            mln = MLN(mlnfile=mlnfile, logic=self.logic, grammar=self.grammar)
+        else:
+            raise Exception('No MLN specified')
+        
+        if self.use_emln and self.emln is not None:
+            mlnstr = StringIO()
+            mln.write(mlnstr)
+            mlnstr.close()
+            mlnstr = str(mlnstr)
+            emlnpath = os.path.join(self.directory, self.emln)
+            if os.path.exists(emlnpath):
+                with open(emlnpath, 'w+') as emlnfile:
+                    emln = emlnfile.read()
+            else:
+                emln = self.emln
+            mln = parse_mln(mlnstr + emln, grammar=self.grammar, logic=self.logic)
+        
+        # load the database
+        if isinstance(self.db, Database): 
+            db = self.db
+        else:
+            dbpath = os.path.join(self.directory, self.db)
+            db = Database.load(mln, dbpath, ignore_unknown_preds=self.ignore_unknown_preds)
+            
+        # expand the parameters
+        params = dict(self._config.config)
+        if 'params' in params:
+            params.update(eval("dict(%s)" % params['params']))
+            del params['params']
+        print tabulate(sorted(list(params.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
+        # create the MLN and evidence database and the parse the queries
+#         mln = parse_mln(modelstr, searchPath=self.dir.get(), logic=self.config['logic'], grammar=self.config['grammar'])
+#         db = parse_db(mln, db_content, ignore_unknown_preds=params.get('ignore_unknown_preds', False))
+        if type(db) is list and len(db) > 1:
+            raise Exception('Inference can only handle one database at a time')
+        else:
+            db = db[0]
+        # parse non-atomic params
+        queries = parse_queries(mln, str(self.queries))
+        params['cw_preds'] = filter(lambda x: bool(x), self.cw_preds)
+        # extract and remove all non-algorithm
+        for s in GUI_SETTINGS:
+            if s in params: del params[s]
+        
+        if self.profile:
+            prof = Profile()
+            print 'starting profiler...'
+            prof.enable()
+        # set the debug level
+        olddebug = praclog.level()
+        praclog.level(eval('logging.%s' % params.get('debug', 'WARNING').upper()))
+        result = None
+        try:
+            mln_ = mln.materialize(db)
+            mrf = mln_.ground(db)
+            if self.verbose:
+                print
+                print headline('EVIDENCE VARIABLES')
+                print
+                mrf.print_evidence_vars()
+            inference = self.method(mrf, queries, **params)
+            result = inference.run()
+            print 
+            print headline('INFERENCE RESULTS')
+            print
+            inference.write()
+            if self.save:
+                with open(os.path.join(self.dir.get(), self.output_filename), 'w+') as outFile:
+                    inference.write(outFile)
+        except SystemExit:
+            print 'Cancelled...'
+        finally:
+            if self.profile:
+                prof.disable()
+                print headline('PROFILER STATISTICS')
+                ps = pstats.Stats(prof, stream=sys.stdout).sort_stats('cumulative')
+                ps.print_stats()
+            # reset the debug level
+            praclog.level(olddebug)
+        print
+        watch.finish()
+        watch.printSteps()
+        return result
+        
 
 class MLNQueryGUI(object):
 
@@ -320,11 +513,11 @@ class MLNQueryGUI(object):
 
     def start(self, *args):
         mln = self.selected_mln.get().encode('utf8')
-        emln = str(self.selected_emln.get().strip())
+        emln = self.selected_emln.get().encode('utf8')
         db = str(self.selected_db.get())
-        mln_content = self.selected_mln.get_text().strip().encode('utf8')
-        db_content = str(self.selected_db.get_text().strip())
-        emln_content = str(self.selected_emln.get_text().strip())
+#         mln_content = self.selected_mln.get_text().strip().encode('utf8')
+#         db_content = str(self.selected_db.get_text().strip())
+#         emln_content = str(self.selected_emln.get_text().strip())
         output = str(self.output_filename.get())
         methodname = str(self.selected_method.get())
         params = str(self.params.get())
@@ -333,11 +526,12 @@ class MLNQueryGUI(object):
         self.config = PRACMLNConfig(os.path.join(self.dir.get(), query_config_pattern % mln))
         self.config["mln_rename"] = self.selected_mln.rename_on_edit.get()
         self.config["db"] = db
+        self.config['mln'] = mln
         self.config["db_rename"] = self.selected_db.rename_on_edit.get()
         self.config["method"] = InferenceMethods.id(methodname)
         self.config["params"] = params
         self.config["queries"] = self.query.get()
-        self.config['emln'] = self.selected_emln.get()
+        self.config['emln'] = emln
         self.config["output_filename"] = output
         self.config["cw"] = self.closed_world.get()
         self.config["cw_preds"] = self.cwPreds.get()
@@ -363,71 +557,10 @@ class MLNQueryGUI(object):
         self.master.withdraw()
 
         try:
-            watch = StopWatch()
             print headline('PRAC QUERY TOOL')
-            watch.tag('inference')
             print
-            # expand the parameters
-            params = dict(self.config.config)
-            if 'params' in params:
-                params.update(eval("dict(%s)" % params['params']))
-                del params['params']
-            print tabulate(sorted(list(params.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
-            # create the MLN and evidence database and the parse the queries
-            modelstr = mln_content + (emln_content if self.config['use_emln'] not in (None, '') and emln_content != '' else '')
-            mln = parse_mln(modelstr, searchPath=self.dir.get(), logic=self.config['logic'], grammar=self.config['grammar'])
-            db = parse_db(mln, db_content, ignore_unknown_preds=params.get('ignore_unknown_preds', False))
-            if type(db) is list and len(db) > 1:
-                raise Exception('Inference can only handle one database at a time')
-            else:
-                db = db[0]
-            # parse non-atomic params
-            queries = parse_queries(mln, str(self.config['queries']))
-            params['cw_preds'] = filter(lambda x: bool(x), map(str.strip, params["cw_preds"].split(","))) if 'cw_preds' in params else []
-            profile = ifNone(self.config['profile'], False)
-            # extract and remove all non-algorithm
-            method = params.get('method', 'MC-SAT')
-            for s in GUI_SETTINGS:
-                if s in params: del params[s]
-            
-            if profile:
-                prof = Profile()
-                print 'starting profiler...'
-                prof.enable()
-            # set the debug level
-            olddebug = praclog.level()
-            praclog.level(eval('logging.%s' % params.get('debug', 'WARNING').upper()))
-            try:
-                mln_ = mln.materialize(db)
-                mrf = mln_.ground(db)
-                if params.get('verbose', False):
-                    print
-                    print headline('EVIDENCE VARIABLES')
-                    print
-                    mrf.print_evidence_vars()
-                inference = InferenceMethods.clazz(method)(mrf, queries, **params)
-                inference.run()
-                print 
-                print headline('INFERENCE RESULTS')
-                print
-                inference.write()
-                if self.config['save']:
-                    with open(os.path.join(self.dir.get(), output), 'w+') as outFile:
-                        inference.write(outFile)
-            except SystemExit:
-                print 'Cancelled...'
-            finally:
-                if profile:
-                    prof.disable()
-                    print headline('PROFILER STATISTICS')
-                    ps = pstats.Stats(prof, stream=sys.stdout).sort_stats('cumulative')
-                    ps.print_stats()
-                # reset the debug level
-                praclog.level(olddebug)
-            print
-            watch.finish()
-            watch.printSteps()
-            
+            infer = MLNQuery(self.config)
+            infer.run()
         except:
             traceback.print_exc()
         
