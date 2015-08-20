@@ -58,7 +58,7 @@ marker {
 text {
   color: blue;
   font-weight: bold;
-  font-size:small;
+  font-size:x-small;
 }
 
 .bar text.value {
