@@ -107,7 +107,6 @@ qx.Class.define("webmln.Application",
                                 this._highlight('tDataArea');
                                 this._highlight('mlnLArea');
                                 this._highlight('mlnResultArea');
-                                this.loadBarChart("diaL");
                             }, this);
             learningPage.setLayout(new qx.ui.layout.Grow());
             learningPage.add(splitPaneLearning, {width: "100%", height: "100%"});
@@ -163,14 +162,7 @@ qx.Class.define("webmln.Application",
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
             var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
             graphVizContainer.setMinHeight(500);
-            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
 
-            var html = new qx.ui.embed.Html("<div id='dia' style='width: 100%; height: 100%;'></div>");
-            var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
-            var diaLayout = new qx.ui.layout.Grow();
-            diaEmbedGrp.setLayout(diaLayout);
-            diaEmbedGrp.add(html);
-            //var html = new qx.ui.embed.Html('<div id="viz" style="width: 100%; height: 100%;"></div>');
             var vizEmbedGrp = new qx.ui.groupbox.GroupBox("Visualization");
             var vizLayout = new qx.ui.layout.Grow();
             vizEmbedGrp.setLayout(vizLayout);
@@ -179,6 +171,26 @@ qx.Class.define("webmln.Application",
             vizEmbedGrp.add(vizEmbed);
             graphVizContainer.add(vizEmbedGrp, {width: "100%", height: "100%"});
             graphVizContainer.add(waitImage, { left: "50%", top: "50%"});
+
+            var barChartContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
+            barChartContainer.getContentElement().setAttribute("id","dia");
+            var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
+            var diaLayout = new qx.ui.layout.Grow();
+            diaEmbedGrp.setLayout(diaLayout);
+            diaEmbedGrp.add(barChartContainer);
+
+            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
+            barChartContainer.addListener('resize', function(e) {
+                    if (typeof this['_barChartdia'] != 'undefined') {
+                      var vizSize = barChartContainer.getInnerSize();
+                      this['_barChartdia'].w = vizSize.width;
+                      this['_barChartdia'].h = vizSize.height;
+                      // remove data and re-add it to trigger redrawing
+                      var tempdata = this['_barChartdia'].barChartData.slice();
+                      this['_barChartdia'].replaceData(tempdata);
+                    }
+            }, this);
+
             diaContainer.add(diaEmbedGrp);
             innerMostSplitPane.add(diaContainer);
             innerMostSplitPane.add(textAreaResults);
@@ -219,14 +231,7 @@ qx.Class.define("webmln.Application",
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
             var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
             graphVizContainer.setMinHeight(500);
-            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
 
-            var html = new qx.ui.embed.Html("<div id='diaL' style='width: 100%; height: 100%;'></div>");
-            var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
-            var diaLayout = new qx.ui.layout.Grow();
-            diaEmbedGrp.setLayout(diaLayout);
-            diaEmbedGrp.add(html);
-            //var html = new qx.ui.embed.Html('<div id="viz" style="width: 100%; height: 100%;"></div>');
             var vizEmbedGrp = new qx.ui.groupbox.GroupBox("Learned MLN");
             var vizLayout = new qx.ui.layout.Grow();
             vizEmbedGrp.setLayout(vizLayout);
@@ -235,9 +240,26 @@ qx.Class.define("webmln.Application",
             this.__txtAMLNviz.getContentElement().setAttribute("id", 'mlnResultArea');
             vizEmbedGrp.add(this.__txtAMLNviz);
 
-//            var vizHTML = "<div id='vizL' style='width: 100%; height: 100%;'></div>";
-//            var vizEmbed = new qx.ui.embed.Html(vizHTML);
-//            vizEmbedGrp.add(vizEmbed);
+            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
+
+            var barChartContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
+            barChartContainer.getContentElement().setAttribute("id","diaL");
+            var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
+            var diaLayout = new qx.ui.layout.Grow();
+            diaEmbedGrp.setLayout(diaLayout);
+            diaEmbedGrp.add(barChartContainer);
+
+            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
+            barChartContainer.addListener('resize', function(e) {
+                    if (typeof this['_barChartdiaL'] != 'undefined') {
+                      var vizSize = barChartContainer.getInnerSize();
+                      this['_barChartdiaL'].w = vizSize.width;
+                      this['_barChartdiaL'].h = vizSize.height;
+                      // remove data and re-add it to trigger redrawing
+                      var tempdata = this['_barChartdiaL'].barChartData.slice();
+                      this['_barChartdiaL'].replaceData(tempdata);
+                    }
+            }, this);
 
             graphVizContainer.add(vizEmbedGrp, {width: "100%", height: "100%"});
             graphVizContainer.add(waitImage, { left: "50%", top: "50%"});
@@ -746,7 +768,6 @@ qx.Class.define("webmln.Application",
         _save_file : function(fname, newname, fcontent) {
             var isInfPage = this.__tabView.isSelected(this.__inferencePage);
             var xmplFldrSlctn = (isInfPage ? this.__slctXmplFldr : this.__slctXmplFldrLrn).getSelection()[0].getLabel();
-            console.log('save file', fname, xmplFldrSlctn, newname, fcontent);
 
             req = new qx.io.request.Xhr("/mln/save_edited_file", "POST");
             req.setRequestHeader("Content-Type", "application/json");
@@ -754,7 +775,6 @@ qx.Class.define("webmln.Application",
             req.addListener("success", function(e) {
                 var tar = e.getTarget();
                 response = tar.getResponse();
-                console.log('saved file as', response.fname);
             }, this);
             req.send();
         },
@@ -855,7 +875,6 @@ qx.Class.define("webmln.Application",
             var fileName = file.getFilename();
             console.log('uploading', fileName);
             this.__uploader.setAutoUpload(true);
-            console.log('uploaded', fileName);
 //            handler.beginUploads();
 //            console.log('handler', handler);
 //            file.setParam("MY_FILE_PARAM", "some-value");
@@ -872,6 +891,7 @@ qx.Class.define("webmln.Application",
         _start_inference : function(e) {
                 var that = this;
                 this.loadGraph();
+                this.loadBarChart(this.__tabView.isSelected(this.__inferencePage) ? "dia" : "diaL" );
                 var mln = (this.__slctMLN.getSelectables().length != 0) ? this.__slctMLN.getSelection()[0].getLabel() : "";
                 var emln = (this.__slctEMLN.getSelectables().length != 0) ? this.__slctEMLN.getSelection()[0].getLabel() : "";
                 var db = (this.__slctEvidence.getSelectables().length != 0) ? this.__slctEvidence.getSelection()[0].getLabel() : "";
@@ -918,6 +938,7 @@ qx.Class.define("webmln.Application",
                         for (var i = 0; i < keys.length; i++) {
                                 resultsMap[keys[i]] = values[i];
                         }
+                        this.___barChartDiaData = resultsMap;
                         var output = response.output;
                         var formulaAtoms = [];
                         for (var i = 0; i < formulas.length; i++) {
@@ -993,7 +1014,8 @@ qx.Class.define("webmln.Application",
                             }
                         }
                         that.updateGraph([],addList);
-                        that.updateBarChart("dia", resultsMap);
+
+                        this['_barChartdia'].replaceData(this._preprocess_barchartdata(this.___barChartDiaData));
                         that.__txtAResults.setValue(output);
                         that.__txtAResults.getContentElement().scrollToY(10000);
 
@@ -1001,6 +1023,21 @@ qx.Class.define("webmln.Application",
                 req.send();
         },
 
+        /**
+        *
+        */
+        _preprocess_barchartdata : function(results) {
+            var data = [];
+            for (var key in results) {
+                if (results.hasOwnProperty(key)) {
+                    var data1 = new Object();
+                    data1.name = key;
+                    data1.value = results[key];
+                    data.push(data1);
+                }
+            }
+            return data;
+        },
 
 
         /**
@@ -1083,7 +1120,6 @@ qx.Class.define("webmln.Application",
                              this.__slctEvidence).add(new qx.ui.form.ListItem(response[arr[x]][i]));
                         }
                     }
-                    this.loadBarChart("dia");
             }, this);
             req.send();
         },
@@ -1120,7 +1156,10 @@ qx.Class.define("webmln.Application",
         * Creates new instance of graph if not existent, otherwise resets it
         */
         loadBarChart : function(id) {
-            this['_barChart' + id] = this.d3BarChart(id);
+          if (typeof this['_barChart' + id] === 'undefined') {
+            this['_barChart' + id] = new webmln.BarChart(id);
+          }
+          this['_barChart' + id].clear();
         },
 
 
@@ -1280,126 +1319,6 @@ qx.Class.define("webmln.Application",
             for (var e = 0; e < data.evidencelist.length; e++) {
                 this.evidenceSelect.add(new qx.ui.form.ListItem(data.evidencelist[e]));
             }
-        },
-
-
-        d3BarChart : function(id) {
-            this.w = .8*document.getElementById(id, true, true).offsetWidth;
-            this.h = .8*document.getElementById(id, true, true).offsetHeight;
-
-            var barChartSVG = d3.select("#" + id).append("svg")
-              .attr("class", "chart")
-              .attr("width", "95%")
-              .attr("height", "95%")
-              .append("g")
-              .attr("transform", "translate(" + 100 + "," + 20 + ")");
-
-            var x = d3.scale.linear()
-                .range([0, this.w])
-                .domain([0,1]);
-
-            var xAxis = d3.svg.axis()
-                .scale(x)
-                .orient("top")
-                .tickSize(-this.h);
-
-            barChartSVG.append("g")
-                .attr("class", "x axis")
-                .call(xAxis);
-
-            return barChartSVG;
-        },
-
-
-        updateBarChart : function(id, results) {
-            var data = [];
-            for (var key in results) {
-                if (results.hasOwnProperty(key)) {
-                    var data1 = new Object();
-                    data1.name = key;
-                    data1.value = results[key];
-                    data.push(data1);
-                }
-            }
-
-            // Parse numbers, and sort by value.
-            data.sort(function(a, b) { return b.value - a.value; });
-
-            var format = d3.format(".4f");
-            var x = d3.scale.linear()
-                .range([0, this.w])
-                .domain([0,1]);
-
-            var y = d3.scale.ordinal()
-                .rangeRoundBands([0, this.h], .1)
-                .domain(data.map(function(d) { return d.name; }));
-
-            var yAxis = d3.svg.axis()
-                .scale(y)
-                .orient("left")
-                .tickSize(0);
-
-
-            // selection for bars
-            var barSelection = this['_barChart' + id].selectAll("g.bar")
-                .data(data,function(d) { return d.name; });
-
-            // create elements (bars)
-            var barItems = barSelection.enter()
-                .append("g")
-                .attr("class", "bar")
-                .attr("transform", function(d) { return "translate(0," + y(d.name) + ")"; });
-
-                // create bars and texts
-                barItems.append("rect")
-                    .attr("width", function(d) { return x(d.value); })
-                    .attr("height", y.rangeBand());
-
-                barItems.append("text")
-                    .attr("class", "value")
-                    .attr("x", function(d) { return x(d.value); })
-                    .attr("y", y.rangeBand() / 2)
-                    .attr("dx", -3)
-                    .attr("dy", ".35em")
-                    .attr("text-anchor", "end")
-                    .text(function(d) { return format(d.value); });
-
-//
-//            // update elements
-//            barSelection.select( "rect" )
-//                .attr("width", function(d) { return x(d.value); })
-//                .attr("height", y.rangeBand());
-//
-//            barSelection.select( "text" )
-//                .attr("class", "value")
-//                .attr("x", function(d) { return x(d.value); })
-//                .attr("y", y.rangeBand() / 2)
-//                .attr("dx", -3)
-//                .attr("dy", ".35em")
-//                .attr("text-anchor", "end")
-//                .text(function(d) { return format(d.value); });
-
-            // remove elements
-            barSelection.exit().remove();
-
-
-            // selection for y-axis
-            var axisSelection = this['_barChart' + id].selectAll("g.y axis")
-                .data([0], function(d) { return d; });
-
-            // create element
-            var axisItems = axisSelection.enter()
-                .append("g")
-                .attr("class", "y axis")
-                .call(yAxis);
-
-            // update axis elements
-            axisSelection.select( "g.y axis" )
-                .attr("class", "y axis")
-                .call(yAxis);
-
-            // remove axis
-            axisSelection.exit().remove();
         }
     }
 });

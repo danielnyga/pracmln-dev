@@ -55,8 +55,14 @@ marker {
   fill: #89a35c;
 }
 
+text {
+  color: blue;
+  font-weight: bold;
+  font-size:small;
+}
+
 .bar text.value {
-  fill: white;
+  fill: black;
 }
 
 .axis {
