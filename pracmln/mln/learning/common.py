@@ -209,6 +209,7 @@ class AbstractLearner(object):
             self._prepare()
             self._optimize(**self._params)
             self._cleanup()
+            runs += 1
             if not self.repeat(): break
         return self.weights
     

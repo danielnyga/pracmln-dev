@@ -189,6 +189,7 @@ class MultipleDatabaseLearner(AbstractLearner):
             self._prepare()
             self._optimize(**self._params)
             self._cleanup()
+            runs += 1
             if not any([l.repeat() for l in self.learners]): break
         return self.weights
     

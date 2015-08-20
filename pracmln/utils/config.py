@@ -92,6 +92,10 @@ class PRACMLNConfig(object):
                 logger.debug('loaded %s config' % self.config_file)
             
     
+    def get(self, k, d=None):
+        return self.config.get(k, d)
+    
+    
     def __getitem__(self, s):
         if type(s) is slice:
             prim = s.start

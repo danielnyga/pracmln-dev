@@ -574,7 +574,7 @@ def parse_db(mln, content, ignore_unknown_preds=False, db=None):
                 else: raise e
             except Exception, e:
                 traceback.print_exc()
-                raise MLNParsingError('Error parsing line %d: %s (%s)' % (line, l, e.message))
+                raise MLNParsingError('Error parsing line %d: %s (%s)' % (line+1, l, e.message))
             if mln.predicate(predname) is None and ignore_unknown_preds:
                 log.debug('Predicate "%s" is undefined.' % predname)
                 continue
