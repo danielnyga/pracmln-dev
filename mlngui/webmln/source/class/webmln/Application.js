@@ -174,23 +174,23 @@ qx.Class.define("webmln.Application",
 
             var barChartContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
             barChartContainer.getContentElement().setAttribute("id","dia");
+            barChartContainer.getContentElement().setStyle("overflow","scroll",true);
             var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
             var diaLayout = new qx.ui.layout.Grow();
             diaEmbedGrp.setLayout(diaLayout);
-            diaEmbedGrp.add(barChartContainer);
 
             var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
             barChartContainer.addListener('resize', function(e) {
                     if (typeof this['_barChartdia'] != 'undefined') {
                       var vizSize = barChartContainer.getInnerSize();
                       this['_barChartdia'].w = vizSize.width;
-                      this['_barChartdia'].h = vizSize.height;
                       // remove data and re-add it to trigger redrawing
                       var tempdata = this['_barChartdia'].barChartData.slice();
                       this['_barChartdia'].replaceData(tempdata);
                     }
             }, this);
 
+            diaEmbedGrp.add(barChartContainer);
             diaContainer.add(diaEmbedGrp);
             innerMostSplitPane.add(diaContainer);
             innerMostSplitPane.add(textAreaResults);
@@ -246,21 +246,21 @@ qx.Class.define("webmln.Application",
             barChartContainer.getContentElement().setAttribute("id","diaL");
             var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
             var diaLayout = new qx.ui.layout.Grow();
-            diaEmbedGrp.setLayout(diaLayout);
-            diaEmbedGrp.add(barChartContainer);
 
             var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
             barChartContainer.addListener('resize', function(e) {
                     if (typeof this['_barChartdiaL'] != 'undefined') {
                       var vizSize = barChartContainer.getInnerSize();
                       this['_barChartdiaL'].w = vizSize.width;
-                      this['_barChartdiaL'].h = vizSize.height;
+//                      this['_barChartdiaL'].h = vizSize.height;
                       // remove data and re-add it to trigger redrawing
                       var tempdata = this['_barChartdiaL'].barChartData.slice();
                       this['_barChartdiaL'].replaceData(tempdata);
                     }
             }, this);
 
+            diaEmbedGrp.setLayout(diaLayout);
+            diaEmbedGrp.add(barChartContainer);
             graphVizContainer.add(vizEmbedGrp, {width: "100%", height: "100%"});
             graphVizContainer.add(waitImage, { left: "50%", top: "50%"});
             diaContainer.add(diaEmbedGrp);
