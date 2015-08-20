@@ -41,7 +41,7 @@ def _mln():
     container_name = ''
     ensure_mln_session(session)
     time.sleep(2)
-    return redirect('/mln/mlninfer')
+    return redirect('/mln/')
 
 
 @mlnApp.app.route('/mln/_destroy_session', methods=['POST', 'OPTIONS'])
