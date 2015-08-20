@@ -59,7 +59,11 @@ def pivot(t):
         return max
 
 class FastConjunctionGrounding(DefaultGroundingFactory):
-    
+    '''
+    Fairly fast grounding of conjunctions pruning the grounding tree if a formula
+    is rendered false by the evidence. Performs some heuristic sorting such that
+    equality constraints are evaluated first.
+    '''
     
     def __init__(self, mrf, formulas=None, cache=auto, **params):
         DefaultGroundingFactory.__init__(self, mrf, formulas, cache)
@@ -98,7 +102,6 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             t = 'conj'
         else:
             raise Exception('Unexpected formula: %s' % fstr(formula))
-        out(formula)
         children = [formula] if  not hasattr(formula, 'children') else formula.children
         # make equality constraints access their variable domains
         # this is a _really_ dirty hack but it does the job ;-)
@@ -158,28 +161,28 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                 yield gf
             
         
-    def itergroundings(self, simplify=True, unsatfailure=True):
-        if self.iscached:
-            for gf in self._cache:
-                yield gf
-            return
-        else:
-            if self.usecache: self._cacheinit()
+    def _itergroundings(self, simplify=True, unsatfailure=True):
+#         if self.iscached:
+#             for gf in self._cache:
+#                 yield gf
+#             return
+#         else:
+#             if self.usecache: self._cacheinit()
         # generate all groundings
         global global_fastConjGrounding
         global_fastConjGrounding = self
         if self.multicore:
             pool = Pool()
             for gfs in pool.imap(with_tracing(create_formula_groundings), self.formulas):
-                if self._cache is not None:
-                    self._cache.extend(gfs)
+#                 if self._cache is not None:
+#                     self._cache.extend(gfs)
                 for gf in gfs: yield gf
             pool.terminate()
             pool.join()
         else:
             for gfs in imap(create_formula_groundings, self.formulas):
-                if self._cache is not None:
-                    self._cache.extend(gfs)
+#                 if self._cache is not None:
+#                     self._cache.extend(gfs)
                 for gf in gfs: yield gf
 
             

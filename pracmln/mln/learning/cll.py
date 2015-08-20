@@ -23,166 +23,112 @@
 
 from pracmln.mln.learning.common import AbstractLearner, DiscriminativeLearner
 import random
-import logging
 from collections import defaultdict
-from pracmln.mln.util import fsum, StopWatch, dict_union
+from pracmln.mln.util import fsum, StopWatch, dict_union, temporary_evidence,\
+    out
 from numpy.ma.core import log, sqrt
 import numpy
 from pracmln.logic.common import Logic
+from pracmln import praclog
+import sys
 
+
+logger = praclog.logger(__name__)
 
 class CLL(AbstractLearner):
     '''
     Implementation of composite-log-likelihood learning.
     '''
     
-    groundingMethod = 'NoGroundingFactory'
-    
-    def __init__(self, mln, mrf=None, **params):
-        AbstractLearner.__init__(self, mln, mrf, **params)
-        self.partSize = params.get('partSize', 1)
+    def __init__(self, mrf, **params):
+        AbstractLearner.__init__(self, mrf, **params)
         self.partitions = []
-        self.statistics = {}
-        self.partRelevantFormulas = defaultdict(set)
-        self.evidenceIndices = {} # maps partition idx to index of value given by evidence
-        self.partValueCount = {}
-        self.atomIdx2partition = {} # maps a gnd atom index to its comprising partition
-        self.maxiter = params.get('maxiter', None)
-        self.maxrepart = params.get('maxrepart', 0)
         self.repart = 0
+
+
+    @property
+    def partsize(self):
+        return self._params.get('partsize', 1)
+
+
+    @property
+    def maxiter(self):
+        return self._params.get('maxiter', 10)
+    
                 
-    def _getPredNameForPllBlock(self, block):
-        '''
-        block being a (gaIdx, [gaIdx, ...]) tuple. 
-        '''
-        (idxGA, block) = block
-        if idxGA is None:
-            if len(block) == 0:
-                raise Exception('Encountered empty block.')
-            else:
-                return self.mrf.gndAtomsByIdx[block[0]].predName
-        else:
-            return self.mrf.gndAtomsByIdx[idxGA].predName
+    @property
+    def variables(self):
+        return self.mrf.variables
     
     
-    def _createVariables(self):
-        '''
-        In the this (generative) variant of the learner, atomic variables
-        are given by the PLL blocks.
-        A discriminative variant can be obtained by filtering out those
-        atomic vars that correspond to evidence predicates.
-        '''
-        self.atomicVariables = list(self.mrf.variables.values())
-        
-        
-    def _prepareOpt(self):
-        log = logging.getLogger(self.__class__.__name__)
+    def _prepare(self):
         # create random partition of the ground atoms
-        self._createVariables()
-        variables = self.atomicVariables
-        random.shuffle(variables)
         self.partitions = []
-        self.atomIdx2partition = {}
-        self.evidenceIndices = {}
-        self.partValueCount = {}
+        self.atomidx2partition = {}
+        self.partition2formulas = defaultdict(set)
+        self.evidx = {}
+        self.valuecounts = {}
         self.partitionProbValues = {}
         self.current_wts = None
         self.iter = 0
         self.probs = None
-        size = self.partSize
+        self._stat = {}
+        size = self.partsize
+        variables = list(self.variables)
+        if size > 1:
+            random.shuffle(variables)
         while len(variables) > 0:
-            vars = variables[:size if len(variables) > size else len(variables)]
-#             partVariables = map(lambda v: v[0] if v[0] is not None else v[1], vars)
+            vars_ = variables[:size if len(variables) > size else len(variables)]
             partidx = len(self.partitions)
-            partition = CLL.GndAtomPartition(self.mrf, vars, partidx)
+            partition = CLL.Partition(self.mrf, vars_, partidx)
             # create the mapping from atoms to their partitions
-            for atom in partition.getGndAtomsPlain():
-                self.atomIdx2partition[atom.idx] = partition
-            log.debug('created partition: %s' % str(partition))
-            self.partValueCount[partidx] = partition.getNumberOfPossibleWorlds()
+            for atom in partition.gndatoms:
+                self.atomidx2partition[atom.idx] = partition
+            logger.debug('created partition: %s' % str(partition))
+            self.valuecounts[partidx] = partition.valuecount()
             self.partitions.append(partition)
-            self.evidenceIndices[partidx] = partition.getEvidenceIndex()
+            self.evidx[partidx] = partition.evidenceidx()
             variables = variables[len(partition.variables):]
-        log.debug('CLL created %d partitions' % len(self.partitions))
-        self._computeStatistics()
+        logger.debug('CLL created %d partitions' % len(self.partitions))
+        self._compute_statistics()
+
+        
+    def repeat(self):
+        return True
         
         
-    def run(self, **params):
-#         self._computeStatistics()
-        return AbstractLearner.run(self, **params)
-#         '''
-#         This is a modification of the run method of the AbstractLearner, which
-#         runs the optimization only for a specified number of iterations and
-#         then reconfigures the CLL partitions.
-#         initialWts: whether to use the MLN's current weights as the starting point for the optimization
-#         '''
-#          
-#         log = logging.getLogger(self.__class__.__name__)
-#         if not 'scipy' in sys.modules:
-#             raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
-#         # initial parameter vector: all zeros or weights from formulas
-#         wt = numpy.zeros(len(self.mln.formulas), numpy.float64)
-#         if self.initialWts:
-#             for i in range(len(self.mln.formulas)):
-#                 wt[i] = self.mln.formulas[i].weight
-#             log.debug('Using initial weight vector: %s' % str(wt))
-#                  
-#         # precompute fixed formula weights
-#         self._fixFormulaWeights()
-#         self.wt = self._projectVectorToNonFixedWeightIndices(wt)
-#          
-#         self.params.update(params)
-#         repart = self.params.get('maxrepart', 5)
-#         for i in range(repart):
-#             self._prepareOpt()
-#             self._optimize(**params)
-#             self._postProcess()
-#         return self.wt
+    def _addstat(self, fidx, pidx, validx, inc=1):
+        if fidx not in self._stat:
+            self._stat[fidx] = {}
+        d = self._stat[fidx]
+        if pidx not in d:
+            d[pidx] = [0] * self.valuecounts[pidx]
+        d[pidx][validx] += inc
     
-    
-    def printStatistics(self):
-        for f, parts in self.statistics.iteritems():
-#             for val, counts in parts.iteritems():
-            print f, parts
-    
-            
-    def addStatistics(self, fIdx, partIdx, valIdx, size, inc=1.):
-        part2values = self.statistics.get(fIdx, None)
-        if part2values is None:
-            part2values = {}
-            self.statistics[fIdx] = part2values
-        valuesCounts = part2values.get(partIdx, None)
-        if valuesCounts is None:
-            valuesCounts = [0] * size
-            part2values[partIdx] = valuesCounts
-        valuesCounts[valIdx] += inc
-        
-    
-    def _computeStatistics(self):
+
+    def _compute_statistics(self):
         watch = StopWatch()
         watch.tag('grounding')
-        self.statistics = {}
-        self.partRelevantFormulas = defaultdict(set)
-        log = logging.getLogger(self.__class__.__name__)
-        for formula in self.mln.formulas:
-            literals = []
-            for literal in formula.iterLiterals():
-                literals.append(literal)
+        self._stat = {}
+        self.partition2formulas = defaultdict(set)
+        for formula in self.mrf.formulas:
+            lits = []
+            for lit in formula.literals():
+                lits.append(lit)
             # in case of a conjunction, rearrange the literals such that 
             # equality constraints are evaluated first
-            isconj = self.mrf.mln.logic.isConjunctionOfLiterals(formula)
+            isconj = self.mrf.mln.logic.islitconj(formula)
             if isconj:
-                literals = sorted(literals, key=lambda l: -1 if isinstance(l, Logic.Equality) else 1)
-            self._computeStatisticsRecursive(literals, [], {}, formula, isconj=isconj)
+                literals = sorted(lits, key=lambda l: -1 if isinstance(l, Logic.Equality) else 1)
+            self._compute_stat_rec(literals, [], {}, formula, isconj=isconj)
         watch.finish()
         watch.printSteps()
     
     
-    def _computeStatisticsRecursive(self, literals, gndliterals, var_assign, formula, f_gndlit_parts=None, processed=None, isconj=False):
+    def _compute_stat_rec(self, literals, gndliterals, var_assign, formula, f_gndlit_parts=None, processed=None, isconj=False):
         '''
         TODO: make sure that there are no equality constraints in the conjunction!
         '''
-        log = logging.getLogger(self.__class__.__name__)
         if len(literals) == 0:
             # at this point, we have a fully grounded conjunction in gndliterals
             # create a mapping from a partition to the ground literals in this formula
@@ -190,10 +136,10 @@ class CLL(AbstractLearner):
             part2gndlits = defaultdict(list)
             part_with_f_lit = None
             for gndlit in gndliterals:
-                if isinstance(gndlit, Logic.Equality) or hasattr(self, 'queryPreds') and gndlit.gndAtom.predName not in self.queryPreds: continue
-                part = self.atomIdx2partition[gndlit.gndAtom.idx]
+                if isinstance(gndlit, Logic.Equality) or hasattr(self, 'qpreds') and gndlit.gndatom.predname not in self.qpreds: continue
+                part = self.atomidx2partition[gndlit.gndatom.idx]
                 part2gndlits[part].append(gndlit)
-                if gndlit.isTrue(self.mrf.evidence) == 0:
+                if gndlit(self.mrf.evidence) == 0:
                     part_with_f_lit = part  
             # if there is a false ground literal we only need to take into account
             # the partition comprising this literal (criterion no. 2)
@@ -211,91 +157,75 @@ class CLL(AbstractLearner):
                 evidence = {}
                 if isconj:
                     for gndlit in gndlits:
-                        evidence[gndlit.gndAtom.idx] = 0 if gndlit.negated else 1
-                for world in partition.generatePossibleWorldTuples(evidence):
+                        evidence[gndlit.gndatom.idx] = 0 if gndlit.negated else 1
+                for world in partition.itervalues(evidence):
                     # update the sufficient statistics for the given formula, partition and world value
-                    worldidx = partition.getPossibleWorldIndex(world)
+                    worldidx = partition.valueidx(world)
                     if isconj:
                         truth = 1
                     else:
                         # temporarily set the evidence in the MRF, compute the truth value of the 
                         # formula and remove the temp evidence
-                        for atomIdx, value in partition.worldTuple2EvidenceDict(world).iteritems():
-                            self.mrf._setTemporaryEvidence(atomIdx, value)
-                        truth = gndformula.isTrue(self.mrf.evidence)
-                        self.mrf._removeTemporaryEvidence()
+                        with temporary_evidence(self.mrf):
+                            for atomidx, value in partition.value2dict(world).iteritems():
+                                self.mrf[atomidx] = value
+                            truth = gndformula(self.mrf.evidence)
                     if truth != 0:
-                        self.partRelevantFormulas[partition.idx].add(formula.idxFormula)
-                        self.addStatistics(formula.idxFormula, partition.idx, worldidx, partition.getNumberOfPossibleWorlds(), truth)
+                        self.partition2formulas[partition.idx].add(formula.idx)
+                        self._addstat(formula.idx, partition.idx, worldidx, truth)
             return
             
         lit = literals[0]
         # ground the literal with the existing assignments
-        gndlit = lit.ground(self.mrf, var_assign, allowPartialGroundings=True)
-        for assign in Logic.iter_eq_varassignments(gndlit, formula, self.mrf) if self.mrf.mln.logic.isEquality(gndlit) else gndlit.iterVariableAssignments(self.mrf):
+        gndlit = lit.ground(self.mrf, var_assign, partial=True)
+        for assign in Logic.iter_eq_varassignments(gndlit, formula, self.mrf) if isinstance(gndlit, Logic.Equality) else gndlit.itervargroundings(self.mrf):
             # copy the arguments to avoid side effects
             # if f_gndlit_parts is None: f_gndlit_parts = set()
             # else: f_gndlit_parts = set(f_gndlit_parts)
             if processed is None: processed = []
             else: processed = list(processed)
             # ground with the remaining free variables
-            gnd_lit_ = gndlit.ground(self.mrf, assign)
-            truth = gnd_lit_.isTrue(self.mrf.evidence)
+            gndlit_ = gndlit.ground(self.mrf, assign)
+            truth = gndlit_(self.mrf.evidence)
             # treatment of equality constraints
-            if isinstance(gnd_lit_, Logic.Equality):
+            if isinstance(gndlit_, Logic.Equality):
                 if isconj:
                     if truth == 1:
-                        self._computeStatisticsRecursive(literals[1:], gndliterals, dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj)
+                        self._compute_stat_rec(literals[1:], gndliterals, dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj)
                     else: continue
                 else:
-                    self._computeStatisticsRecursive(literals[1:], gndliterals + [gnd_lit_], dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj) 
+                    self._compute_stat_rec(literals[1:], gndliterals + [gndlit_], dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj) 
                 continue
-            atomidx = gnd_lit_.gndAtom.idx
+            atom = gndlit_.gndatom
 
-            if atomidx in processed: continue
+            if atom.idx in processed: continue
             
             # if we encounter a gnd literal that is false by the evidence
             # and there is already a false one in this grounding from a different
             # partition, we can stop the grounding process here. The gnd conjunction
             # will never ever be rendered true by any of this partitions values (criterion no. 5)
-            isEvidence = hasattr(self, 'queryPreds') and gnd_lit_.gndAtom.predName not in self.queryPreds
+            isevidence = hasattr(self, 'qpreds') and gndlit_.gndatom.predname not in self.qpreds
             #assert isEvidence == False
             if isconj and truth == 0:
-                falseLitInPart = False
-                if f_gndlit_parts is not None and not f_gndlit_parts.contains(atomidx):
+                if f_gndlit_parts is not None and atom not in f_gndlit_parts:
                     continue
-                elif isEvidence: continue
+                elif isevidence: continue
                 else:
-                    self._computeStatisticsRecursive(literals[1:], gndliterals + [gnd_lit_], dict_union(var_assign, assign), formula, self.atomIdx2partition[atomidx], processed, isconj) 
+                    self._compute_stat_rec(literals[1:], gndliterals + [gndlit_], dict_union(var_assign, assign), formula, self.atomidx2partition[atom.idx], processed, isconj) 
                     continue
-            elif isconj and isEvidence:
-                self._computeStatisticsRecursive(literals[1:], gndliterals, dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj) 
+            elif isconj and isevidence:
+                self._compute_stat_rec(literals[1:], gndliterals, dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj) 
                 continue
                  
-            self._computeStatisticsRecursive(literals[1:], gndliterals + [gnd_lit_], dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj) 
+            self._compute_stat_rec(literals[1:], gndliterals + [gndlit_], dict_union(var_assign, assign), formula, f_gndlit_parts, processed, isconj) 
     
 
-    @staticmethod
-    def chain(variable):
-        '''
-        Returns a chained/flattened list of all gnd atom indices in the given variable
-        '''
-        atomIndices = []
-        for v in variable:
-            if type(v) is list:
-                for a in v:
-                    atomIndices.append(a)
-            else:
-                atomIndices.append(v)
-        return atomIndices
-
-
-    def _computeProbabilities(self, w):
+    def _compute_probs(self, w):
         probs = {}#numpy.zeros(len(self.partitions))
-        for partIdx in range(len(self.partitions)):
-            sums = numpy.zeros(self.partValueCount[partIdx])
-            for f in self.partRelevantFormulas[partIdx]:
-                for i, v in enumerate(self.statistics[f][partIdx]):
+        for pidx in range(len(self.partitions)):
+            sums = numpy.zeros(self.valuecounts[pidx])
+            for f in self.partition2formulas[pidx]:
+                for i, v in enumerate(self._stat[f][pidx]):
                     val = v * w[f]
                     sums[i] += val
             sum_min = numpy.min(sums)
@@ -304,97 +234,104 @@ class CLL(AbstractLearner):
             sums -= sum_max
             expsums = numpy.sum(numpy.exp(sums))
             s = numpy.log(expsums)
-            probs[partIdx] = numpy.exp(sums - s)
+            probs[pidx] = numpy.exp(sums - s)
 #             expsum = numpy.exp(sums)
-#             probs[partIdx] = expsum / fsum(expsum)
-#             self.partitionProbValues[partIdx] = expsum
+#             probs[pidx] = expsum / fsum(expsum)
+#             self.probs[pidx] = expsum
+        self.probs = probs
         return probs
         
 
-    def _f(self, w, **params):
-        logger = logging.getLogger(self.__class__.__name__)
-        if self.current_wts is None or not numpy.array_equal(self.current_wts, w):
-            self.current_wts = w
-            self.probs = self._computeProbabilities(w)
-#         self.probs = self._computeProbabilities(w)
+    def _f(self, w):
+        if self.current_wts is None or list(w) != self.current_wts:
+            self.current_wts = list(w)
+            self.probs = self._compute_probs(w)
         likelihood = numpy.zeros(len(self.partitions))
-        for partIdx in range(len(self.partitions)):
-            p = self.probs[partIdx][self.evidenceIndices[partIdx]]
+        for pidx in range(len(self.partitions)):
+            p = self.probs[pidx][self.evidx[pidx]]
             if p == 0: p = 1e-10
-            likelihood[partIdx] += p
+            likelihood[pidx] += p
         self.iter += 1
         return fsum(map(log, likelihood))
             
+            
     def _grad(self, w, **params):    
-        log = logging.getLogger(self.__class__.__name__)
-        if self.current_wts is None or not numpy.array_equal(self.current_wts, w):
+        if self.current_wts is None or not list(w) != self.current_wts:
             self.current_wts = w
-            self.probs = self._computeProbabilities(w)
+            self.probs = self._compute_probs(w)
         grad = numpy.zeros(len(w))
-        for fIdx, partitions in self.statistics.iteritems():
+        for fidx, partitions in self._stat.iteritems():
             for part, values in partitions.iteritems():
-                v = values[self.evidenceIndices[part]]
+                v = values[self.evidx[part]]
                 for i, val in enumerate(values):
                     v -= self.probs[part][i] * val
-                grad[fIdx] += v
+                grad[fidx] += v
         self.grad_opt_norm = float(sqrt(fsum(map(lambda x: x * x, grad))))
         return numpy.array(grad)
     
     
-    class GndAtomPartition(object):
+    class Partition(object):
         '''
-        Represents a partition of the PLL blocks in the MRF. Provides a couple
+        Represents a partition of the variables in the MRF. Provides a couple
         of convencience methods.
         '''
         
-        def __init__(self, mrf, atomicblocks, idx):
-            self.variables = atomicblocks
+        def __init__(self, mrf, variables, idx):
+            self.variables = variables
             self.mrf = mrf
             self.idx = idx
             
             
-        def contains(self, atom):
+        @property
+        def gndatoms(self):
+            atoms = []
+            for v in self.variables:
+                atoms.extend(v.gndatoms)
+            return atoms
+            
+            
+        def __contains__(self, atom):
             '''
             Returns True iff the given ground atom or ground atom index is part of
             this partition.
             '''
             if isinstance(atom, Logic.GroundAtom):
-                return self.contains(atom.idx)
+                return atom in self.gndatoms
             elif type(atom) is int:
-                return atom in self.getGndAtomsPlain()
+                return self.mrf.gndatom(atom) in self 
             else:
                 raise Exception('Invalid type of atom: %s' % type(atom))
             
             
-        def worldTuple2EvidenceDict(self, worldtuple):
+        def value2dict(self, value):
             '''
             Takes a possible world tuple of the form ((0,),(0,),(1,0,0),(1,)) and transforms
             it into a dict mapping the respective atom indices to their truth values
             '''
             evidence = {}
-            for block, value in zip(self.variables, worldtuple):
-                evidence.update(block.valueTuple2EvidenceDict(value))
+            for var, val in zip(self.variables, value):
+                evidence.update(var.value2dict(val))
             return evidence
             
         
-        def getEvidenceIndex(self, evidence=None):
+        def evidenceidx(self, evidence=None):
             '''
             Returns the index of the possible world value of this partition that is represented
             by evidence. If evidence is None, the evidence set in the MRF is used.
             '''
             if evidence is None:
                 evidence = self.mrf.evidence
-            evidenceTuple = []
-            for block in self.variables:
-                evidenceTuple.append(block.getEvidenceValue(evidence))
-            return self.getPossibleWorldIndex(tuple(evidenceTuple))
+            evidencevalue = []
+            for var in self.variables:
+                evidencevalue.append(var.evidence_value(evidence))
+            return self.valueidx(tuple(evidencevalue))
         
         
-        def getPossibleWorldIndex(self, possible_world):
+        def valueidx(self, value):
             '''
             Computes the index of the given possible world that would be assigned
-            to it by recursively generating all worlds by iterPossibleWorlds().
-            possible_world needs to by (nested) tuple of truth values.
+            to it by recursively generating all worlds by itervalues().
+            value needs to be represented by a (nested) tuple of truth values.
             Exp: ((0,),(0,),(1,0,0),(0,)) --> 0
                  ((0,),(0,),(1,0,0),(1,)) --> 1
                  ((0,),(0,),(0,1,0),(0,)) --> 2
@@ -402,14 +339,14 @@ class CLL(AbstractLearner):
                  ...
             '''
             idx = 0
-            for i, (block, val) in enumerate(zip(self.variables, possible_world)):
+            for i, (var, val) in enumerate(zip(self.variables, value)):
                 exponential = 2 ** (len(self.variables) - i - 1)
-                validx = block.getValueIndex(val)
+                validx = var.valueidx(val)
                 idx += validx * exponential
             return idx
                     
                 
-        def generatePossibleWorldTuples(self, evidence=None):
+        def itervalues(self, evidence=None):
             '''
             Yields possible world values of this partition in the form
             ((0,),(0,),(1,0,0),(0,)), for instance. Nested tuples represent mutex variables.
@@ -418,48 +355,34 @@ class CLL(AbstractLearner):
             '''
             if evidence is None:
                 evidence = []
-            for world in self._generatePossibleWorldTuplesRecursive(self.variables, [], evidence):
+            for world in self._itervalues(self.variables, [], evidence):
                 yield world
         
         
-        def _generatePossibleWorldTuplesRecursive(self, atomicblocks, assignment, evidence):
+        def _itervalues(self, variables, assignment, evidence):
             '''
             Recursively generates all tuples of possible worlds that are consistent
             with the evidence at hand.
             '''
-            if len(atomicblocks) == 0:
+            if not variables:
                 yield tuple(assignment)
                 return
-            block = atomicblocks[0]
-            for val in block.generateValueTuples(evidence):
-                for world in self._generatePossibleWorldTuplesRecursive(atomicblocks[1:], assignment + [val], evidence):
+            var = variables[0]
+            for _, val in var.itervalues(evidence):
+                for world in self._itervalues(variables[1:], assignment + [val], evidence):
                     yield world
                         
             
-        def getGndAtomsPlain(self):
-            '''
-            Returns a plain list of all ground atom indices in this partition.
-            '''
-            atomIndices = []
-            for v in self.variables:
-                atomIndices.extend(v.iteratoms())
-            return atomIndices
-        
-        
-        def getNumberOfPossibleWorlds(self):
+        def valuecount(self):
             '''
             Returns the number of possible (partial) worlds of this partition
             '''
             count = 1
             for v in self.variables:
-                count *= v.getNumberOfValues()
+                count *= v.valuecount()
             return count
         
         
-        def var2String(self, varIdx):
-            return ','.join(map(str, self.variables[varIdx]))
-        
-                
         def __str__(self):
             s = []
             for v in self.variables:
@@ -467,34 +390,18 @@ class CLL(AbstractLearner):
             return '%d: [%s]' % (self.idx, ','.join(s))
     
     
-#     def __printPartitions(self):
-#         log = logging.getLogger(self.__class__.__name__)
-#         for idx, p in enumerate(self.partitions):
-#             log.info([self.mrf.gndAtomsByIdx[i] if type(i) is int else map(lambda x: str(self.mrf.gndAtomsByIdx[x]), i) for i in p])
-#             for evidence in self._iterPartitionValues(idx):
-#                 log.info('VALUE')
-#                 for a in p:
-#                     if type(a) is list:
-#                         val = self.mrf.gndAtomsByIdx[a[[v for i, v in enumerate(evidence) if i in a].index(1)]]
-#                         log.info('  %s = %.1f' % (val, 1.))
-#                     else:
-#                         log.info('  %s = %.1f' % (str(self.mrf.gndAtomsByIdx[a]), evidence[a]))
-        
-
 class DCLL(CLL, DiscriminativeLearner):
     '''
     Discriminative Composite-Likelihood Learner.
     '''
     
-    def __init__(self, mln, mrf=None, **params):
-        log = logging.getLogger(self.__class__.__name__)
-        CLL.__init__(self, mln, mrf, **params)
-        self.queryPreds = self._getQueryPreds(params)
-        log.info('query preds: %s' % self.queryPreds)
+    def __init__(self, mrf=None, **params):
+        CLL.__init__(self, mrf, **params)
         
     
-    def _createVariables(self):
-        self.atomicVariables = [block for block in self.mrf.variables.values() if block.predicate.predname in self.queryPreds]
+    @property
+    def variables(self):
+        return [var for var in self.mrf.variables if var.predicate.predname in self.qreds]
     
     
-GndAtomPartition = CLL.GndAtomPartition
+Partition = CLL.Partition
