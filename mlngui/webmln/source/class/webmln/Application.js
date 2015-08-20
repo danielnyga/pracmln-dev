@@ -112,8 +112,8 @@ qx.Class.define("webmln.Application",
             learningPage.add(splitPaneLearning, {width: "100%", height: "100%"});
             tabView.add(learningPage, {width: "100%", height: "100%"});
 
-            ////////////////// ABOUT PAGE ////////////////////
-            var aboutPage = new qx.ui.tabview.Page("About");
+            ////////////////// DOKU PAGE ////////////////////
+            var aboutPage = new qx.ui.tabview.Page("Documentation");
             this.__aboutPage = aboutPage;
             var iframe = new qx.ui.embed.Iframe("/mln/doc/_build/html/index.html");
             aboutPage.setLayout(new qx.ui.layout.Grow());
@@ -244,6 +244,7 @@ qx.Class.define("webmln.Application",
 
             var barChartContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
             barChartContainer.getContentElement().setAttribute("id","diaL");
+            barChartContainer.getContentElement().setStyle("overflow","scroll",true);
             var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
             var diaLayout = new qx.ui.layout.Grow();
 
