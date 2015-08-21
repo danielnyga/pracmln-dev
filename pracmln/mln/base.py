@@ -240,7 +240,7 @@ class MLN(object):
         
         :param mln:     an instance of an MLN object.
         '''
-        for pred in mln.iter_predicates():
+        for pred in mln.iterpreds():
             self.declare_predicate(pred)
     
 
@@ -336,7 +336,7 @@ class MLN(object):
                 if p not in queries:
                     cwPreds.add(p)
             params['cwPreds'] = cwPreds
-        self.setClosedWorldPred(*params.get('cwPreds', []))
+        # self.setClosedWorldPred(*params.get('cwPreds', []))
         if evidence_db is None:
             evidence_db = Database(self)
         materialized_mln = self.materializeFormulaTemplates([evidence_db], verbose=self.verbose)
@@ -347,7 +347,7 @@ class MLN(object):
         result_db = Database(self)
         for atom in sorted(resultDict):
             value = resultDict[atom]
-            result_db.addGroundAtom(atom, value)
+            result_db << (atom, value)
             if value > 0:
                 log.info("%.3f    %s" % (value, atom))
         if params.get('mergeDBs', True):

@@ -126,7 +126,7 @@ class Database(object):
             return self._domains
     
     
-    def duplicate(self, mln=None):
+    def copy(self, mln=None):
         '''
         Returns a copy this Database. If mln is specified, asserts
         this database for the given MLN.
@@ -135,14 +135,11 @@ class Database(object):
                                if not, it will be associated with `self.mln`.
         '''
         if mln is None:
-            db = Database(self.mln)
-            db.domains = copy.deepcopy(self._domains)
-            db.evidence = copy.deepcopy(self._evidence)
-        else:
-            db = Database(mln)
-            for atom, truth in self.gndatoms():
-                try: db.add(atom, truth)
-                except NoSuchPredicateError: pass
+            mln = self.mln
+        db = Database(mln)
+        for atom, truth in self.gndatoms():
+            try: db.add(atom, truth)
+            except NoSuchPredicateError: pass
         return db
     
     
@@ -385,7 +382,7 @@ class Database(object):
         ''' 
         mrf = Database.PseudoMRF(self)
         formula = self.mln.logic.parse_formula(formula)
-        for assignment in mrf.iter_true_varassignments(formula, thr=thr):
+        for assignment in mrf.iter_true_var_assignments(formula, truth_thr=thr):
             yield assignment
 
 
@@ -456,7 +453,7 @@ class Database(object):
             self.domains = mergedom(self.mln.domains, db.domains)
             self.gndatoms = Database.PseudoMRF.GroundAtomGen()
             # duplicate the database to avoid side effects
-            self.evidence = Database.PseudoMRF.WorldValues(db.duplicate())
+            self.evidence = Database.PseudoMRF.WorldValues(db.copy())
 
         class GroundAtomGen(object):
             def __getitem__(self, gndAtomName):
@@ -499,6 +496,9 @@ class Database(object):
                 numTotal += 1
                 numTrue += gf.truth(self.evidence)
             return (numTrue, numTotal)
+
+        def gndatom(self, atom):
+            return self.gndatoms.get(atom)
         
         def iter_true_var_assignments(self, formula, truth_thr=1.0):
             '''

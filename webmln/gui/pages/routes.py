@@ -3,12 +3,11 @@ import os
 from os.path import expanduser
 import logging
 from logging import FileHandler
-from webmln.gui.app import mlnApp
+from webmln.gui.app import mlnApp, app
 
 
 def register_routes(mlnapp=None):
     print 'Registering MLN routes...'
-    from webmln.gui.app import app
     mlnApp.app = app
     mlnApp.app.config['MLN_STATIC_PATH'] = os.path.join(mlnApp.app.root_path,
                                                       'build')

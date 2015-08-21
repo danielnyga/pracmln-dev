@@ -136,7 +136,7 @@ if __name__ == '__main__':
         if not isWindows: os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
 
     # build qooxdoo
-    generate = adapt("$PRACMLN_HOME/webmln/app/generate.py", arch)
+    generate = adapt("$PRACMLN_HOME/webmln/gui/generate.py", arch)
     os.system(generate + ' source-all')
     os.system(generate + ' build')
 
@@ -144,7 +144,6 @@ if __name__ == '__main__':
 
     # write shell script for environment setup
     appsDir = adapt("$PRACMLN_HOME/apps", arch)
-    guiDir = adapt("$PRACMLN_HOME/mlngui", arch)
     pyparsingDir = adapt("$PRACMLN_HOME/3rdparty/pyparsing", arch)
     jythonDir = adapt("$PRACMLN_HOME/jython", arch)
     logutilsDir = adapt("$PRACMLN_HOME/3rdparty/logutils-0.3.3", arch)
@@ -162,7 +161,6 @@ if __name__ == '__main__':
         f = file("env.sh", "w")
         f.write('#!/bin/bash\n')
         f.write("export PATH=$PATH:%s\n" % appsDir)
-        f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % guiDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % logutilsDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % pyparsingDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % tabulateDir)
