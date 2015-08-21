@@ -2,10 +2,10 @@ from StringIO import StringIO
 import logging
 import os
 import traceback
-from webmln.mlninit import mlnApp
 from flask import json, request, session, jsonify
 import sys
-from mlngui.webmln.pages.utils import ensure_mln_session, dump, \
+from webmln.gui.app import mlnApp
+from webmln.gui.pages.utils import ensure_mln_session, dump, \
     change_example, get_training_db_paths
 from pracmln import MLN, Database
 from pracmln.mln.learning import DiscriminativeLearner

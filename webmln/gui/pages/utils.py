@@ -1,18 +1,14 @@
-from StringIO import StringIO
 import json
 import logging
 import os
 import pickle
-from webmln.mlninit import mlnApp
-from flask import send_from_directory, render_template, jsonify, session
-from webmln.app import MLNSession
+from flask import jsonify, session
 import re
 from multiprocessing.queues import Queue
 import sys
-from werkzeug.utils import redirect
-from pracmln.mln.methods import InferenceMethods, LearningMethods
 from fnmatch import fnmatch
-
+from pracmln.mln.methods import InferenceMethods, LearningMethods
+from webmln.gui.app import mlnApp, MLNSession
 
 FILEDIRS = {'mln':'mln', 'pracmln':'bin', 'db':'db'}
 GUI_SETTINGS = ['db_rename', 'mln_rename', 'db', 'method', 'use_emln', 'save', 'output', 'grammar', 'queries', 'emln']

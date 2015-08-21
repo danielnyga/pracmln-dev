@@ -9,7 +9,7 @@
 ************************************************************************ */
 
 /**
- * This is the main application class of your custom application "pracweb"
+ * This is the main application class of your custom application "webmln"
  *
  * @asset(webmln/*)
  */

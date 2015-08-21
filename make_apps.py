@@ -30,7 +30,7 @@ for pkg in packages:
     check_package(pkg)
     
 python_apps = [
-    {"name": "webmln", "script": "$PRACMLN_HOME/mlngui/runMLN.py"},
+    {"name": "webmln", "script": "$PRACMLN_HOME/webmln/run.py"},
     {"name": "mlnquery", "script": "$PRACMLN_HOME/pracmln/mlnquery.py"},
     {"name": "mlnlearn", "script": "$PRACMLN_HOME/pracmln/mlnlearn.py"},
     {"name": "xval", "script": "$PRACMLN_HOME/pracmln/xval.py"},
@@ -136,7 +136,7 @@ if __name__ == '__main__':
         if not isWindows: os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
 
     # build qooxdoo
-    generate = adapt("$PRACMLN_HOME/mlngui/webmln/generate.py", arch)
+    generate = adapt("$PRACMLN_HOME/webmln/app/generate.py", arch)
     os.system(generate + ' source-all')
     os.system(generate + ' build')
 

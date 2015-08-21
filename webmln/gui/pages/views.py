@@ -1,14 +1,14 @@
 import json
 import logging
 import os
-from utils import getFileContent
+from utils import getFileContent, ensure_mln_session
 from urlparse import urlparse
-from webmln.mlninit import mlnApp
 from flask import render_template, send_from_directory, request, session, \
     jsonify
 import time
-from webmln.pages.utils import ensure_mln_session
 from werkzeug.utils import redirect
+from webmln.gui.app import mlnApp
+
 
 @mlnApp.app.after_request
 def remove_if_invalid(response):

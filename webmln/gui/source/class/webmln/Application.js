@@ -5,7 +5,7 @@
 ************************************************************************ */
 
 /**
- * This is the main application class of your custom application "myapp"
+ * This is the main application class of your custom application "webmln"
  *
  * @asset(webmln/*)
  */

@@ -1,14 +1,27 @@
 from flask import Flask
 
+class MLNFlask(object):
+    '''
+    The MLN Flask app.
+    '''
+
+    def __init__(self):
+        print 'creating MLNFlask object'
+        self.app = None
+        self.session_store = SessionStore()
 
 class MLNSession():
-
+    '''
+    The MLN Session.
+    '''
     def __init__(self, http_session):
         self.id = http_session['id']
         self.http_session = http_session
 
 class SessionStore():
-
+    '''
+    The MLN SessionStore.
+    '''
     def __init__(self):
         self.sessions = {}
 
@@ -26,3 +39,4 @@ class SessionStore():
         return str(self.sessions)
 
 app = Flask(__name__)
+mlnApp = MLNFlask()

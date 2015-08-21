@@ -1,13 +1,14 @@
 from StringIO import StringIO
-from webmln.mlninit import mlnApp
 import os
 from os.path import expanduser
 import logging
 from logging import FileHandler
+from webmln.gui.app import mlnApp
+
 
 def register_routes(mlnapp=None):
     print 'Registering MLN routes...'
-    from webmln.app import app
+    from webmln.gui.app import app
     mlnApp.app = app
     mlnApp.app.config['MLN_STATIC_PATH'] = os.path.join(mlnApp.app.root_path,
                                                       'build')
@@ -33,9 +34,9 @@ def register_routes(mlnapp=None):
     filelogger.setFormatter(formatter)
     ulog.addHandler(filelogger)
 
-    from webmln.pages import mlnSpec
-    from webmln.pages import learning
-    from webmln.pages import inference
-    from webmln.pages import views
-    from webmln.pages import fileupload
-    from webmln.pages import utils
+    from webmln.gui.pages import mlnSpec
+    from webmln.gui.pages import learning
+    from webmln.gui.pages import inference
+    from webmln.gui.pages import views
+    from webmln.gui.pages import fileupload
+    from webmln.gui.pages import utils

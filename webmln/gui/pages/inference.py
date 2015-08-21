@@ -7,7 +7,6 @@ import subprocess
 
 from flask import request, session, jsonify, send_from_directory
 
-from webmln.mlninit import mlnApp
 from pracmln.mln.inference import *
 from pracmln.mln.base import parse_mln
 from pracmln.mln.database import parse_db
@@ -17,6 +16,7 @@ from pracmln.mln.util import parse_queries
 import traceback
 from utils import ensure_mln_session, getFileContent, GUI_SETTINGS, initialize, INFERENCE_METHODS, LEARNING_METHODS, change_example, \
     getExampleFiles
+from webmln.gui.app import mlnApp
 
 DEBUG = False
 SECRET_KEY = 'secret'

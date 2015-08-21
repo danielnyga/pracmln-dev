@@ -1,8 +1,8 @@
 import os
 from flask import request, send_from_directory, jsonify, redirect
 from werkzeug import secure_filename
-from webmln.mlninit import mlnApp
-from webmln.pages.utils import initFileStorage, FILEDIRS
+from webmln.gui.app import mlnApp
+from webmln.gui.pages.utils import initFileStorage
 
 
 @mlnApp.app.route('/mln/uploads/<filedir>/<filename>')
