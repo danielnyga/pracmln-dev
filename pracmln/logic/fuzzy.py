@@ -105,7 +105,7 @@ class FuzzyLogic(Logic):
             if isinstance(f, Logic.TrueFalse):
                 return f.invert()
             else:
-                return self.logic.negation([f])
+                return self.logic.negation([f], mln=self.mln, idx=self.idx)
     
 
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -127,17 +127,17 @@ class FuzzyLogic(Logic):
                 if isinstance(child, Logic.TrueFalse):
                     truth = child.truth()
                     if truth == 0:
-                        return self.mln.logic.true_false(0.)
+                        return self.mln.logic.true_false(0., mln=self.mln, idx=self.idx)
                     if minTruth is None or truth < minTruth:
                         minTruth = truth
                 else:
                     sf_children.append(child)
             if minTruth is not None and minTruth < 1 or minTruth == 1 and len(sf_children) == 0:
-                sf_children.append(self.mln.logic.true_false(minTruth))
+                sf_children.append(self.mln.logic.true_false(minTruth, mln=self.mln))
             if len(sf_children) > 1:
-                return self.mln.logic.conjunction(sf_children)
+                return self.mln.logic.conjunction(sf_children, mln=self.mln, idx=self.idx)
             elif len(sf_children) == 1:
-                return sf_children[0]
+                return sf_children[0].copy(idx=self.idx)
             else:
                 assert False # should be unreachable
     
@@ -160,17 +160,17 @@ class FuzzyLogic(Logic):
                 if isinstance(child, Logic.TrueFalse):
                     truth = child.truth()
                     if truth == 1:
-                        return self.mln.logic.true_false(1.)
+                        return self.mln.logic.true_false(1., mln=self.mln, idx=self.idx)
                     if maxTruth is None or truth > maxTruth:
                         maxTruth = truth
                 else:
                     sf_children.append(child)
             if maxTruth is not None and maxTruth > 0 or (maxTruth == 0 and len(sf_children) == 0):
-                sf_children.append(self.mln.logic.true_false(maxTruth))
+                sf_children.append(self.mln.logic.true_false(maxTruth, mln=self.mln))
             if len(sf_children) > 1:
-                return self.mln.logic.disjunction(sf_children)
+                return self.mln.logic.disjunction(sf_children, mln=self.mln, idx=self.idx)
             elif len(sf_children) == 1:
-                return sf_children[0]
+                return sf_children[0].copy(idx=self.idx)
             else:
                 assert False
             
@@ -185,7 +185,8 @@ class FuzzyLogic(Logic):
             return FuzzyLogic.max_undef(None if ant is None else 1. - ant, self.children[1].truth(world))
     
         def simplify(self, world):
-            return self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]]), self.children[1]]).simplify(world)
+            return self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]], mln=self.mln, idx=self.idx),
+                                               self.children[1]], mln=self.mln, idx=self.idx).simplify(world)
         
         
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -197,9 +198,9 @@ class FuzzyLogic(Logic):
             return FuzzyLogic.min_undef(self.children[0].truth(world), self.children[1].truth(world))
     
         def simplify(self, world):
-            c1 = self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]]), self.children[1]])
-            c2 = self.mln.logic.disjunction([self.children[0], self.mln.logic.negation([self.children[1]])])
-            return self.mln.logic.conjunction([c1,c2]).simplify(world)
+            c1 = self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]], mln=self.mln, idx=self.idx), self.children[1]], mln=self.mln, idx=self.idx)
+            c2 = self.mln.logic.disjunction([self.children[0], self.mln.logic.negation([self.children[1]], mln=self.mln, idx=self.idx)], mln=self.mln, idx=self.idx)
+            return self.mln.logic.conjunction([c1,c2], mln=self.mln, idx=self.idx).simplify(world)
         
 
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -208,15 +209,15 @@ class FuzzyLogic(Logic):
     class Equality(Logic.Equality):
         
         def truth(self, world=None):
-            if any(map(self.logic.isvar, self.args)):
+            if any(map(self.mln.logic.isvar, self.args)):
                 return None
             equals = 1. if (self.args[0] == self.args[1]) else 0.
             return (1. - equals) if self.negated else equals
         
         def simplify(self, world):
             truth = self.truth(world) 
-            if truth != None: return self.mln.logic.true_false(truth)
-            return self.mln.logic.equality(list(self.args), negated=self.negated)
+            if truth != None: return self.mln.logic.true_false(truth, mln=self.mln, idx=self.idx)
+            return self.mln.logic.equality(list(self.args), negated=self.negated, mln=self.mln, idx=self.idx)
 
 
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -224,10 +225,20 @@ class FuzzyLogic(Logic):
         
     class TrueFalse(Formula, Logic.TrueFalse):
         
-        def __init__(self, value):
-            if not (value >= 0. and value <= 1.):
-                raise Exception('Illegal truth value: %s' % value)
-            Logic.TrueFalse(self, value)
+        # def __init__(self, truth, mln, idx=None):
+        #     if not (truth >= 0. and truth <= 1.):
+        #         raise Exception('Illegal truth value: %s' % truth)
+        #     Logic.TrueFalse(self, truth)
+
+        @property
+        def value(self):
+            return self._value
+
+        @value.setter
+        def value(self, truth):
+            if not (truth >= 0. and truth <= 1.):
+                raise Exception('Illegal truth value: %s' % truth)
+            self._value = truth
         
         def __str__(self):
             return str(self.value)
@@ -236,7 +247,7 @@ class FuzzyLogic(Logic):
             return str(self)
         
         def invert(self):
-            return self.mln.logic.true_false(1. - self.value)
+            return self.mln.logic.true_false(1. - self.value, idx=self.idx, mln=self.mln)
     
 
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #

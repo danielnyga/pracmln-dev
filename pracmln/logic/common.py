@@ -379,7 +379,7 @@ class Logic(object):
                 yield grounding
             
             
-        def iter_true_varassignments(self, mrf, world=None, thr=1.0, strict=False, unknown=False, partial=None):
+        def iter_true_var_assignments(self, mrf, world=None, truth_thr=1.0, strict=False, unknown=False, partial=None):
             '''
             Iteratively yields the variable assignments (as a dict) for which this
             formula exceeds the given truth threshold. 
@@ -404,17 +404,17 @@ class Logic(object):
                     if var in variables: del variables[var]
             except Exception, e:
                 raise Exception("Error grounding '%s': %s" % (str(self), str(e)))
-            for assignment in self._iter_true_varassignments(mrf, variables, partial, world, 
-                                                                dict(variables), thr=thr, strict=strict, unknown=unknown):
+            for assignment in self._iter_true_var_assignments(mrf, variables, partial, world,
+                                                                dict(variables), truth_thr=truth_thr, strict=strict, unknown=unknown):
                 yield assignment
         
         
-        def _iter_true_varassignments(self, mrf, variables, assignment, world, allvars, thr=1.0, strict=False, unknown=False):
+        def _iter_true_var_assignments(self, mrf, variables, assignment, world, allvars, truth_thr=1.0, strict=False, unknown=False):
             # if all variables have been grounded...
             if variables == {}:
                 gf = self.ground(mrf, assignment)
                 truth = gf(world)
-                if (((truth >= thr) if not strict else (truth > thr)) and truth is not None) or (truth is None and unknown):
+                if (((truth >= truth_thr) if not strict else (truth > truth_thr)) and truth is not None) or (truth is None and unknown):
                     true_assignment = {}
                     for v in allvars:
                         true_assignment[v] = assignment[v]
@@ -427,8 +427,8 @@ class Logic(object):
             for value in mrf.domains[domname]: # replacing it with one of the constants
                 assignment_[varname] = value
                 # recursive descent to ground further variables
-                for ass in self._iter_true_varassignments(mrf, dict(variables), assignment_, world, allvars, 
-                                                             thr=thr, strict=strict, unknown=unknown):
+                for ass in self._iter_true_var_assignments(mrf, dict(variables), assignment_, world, allvars,
+                                                             truth_thr=truth_thr, strict=strict, unknown=unknown):
                     yield ass
                     
                     
@@ -730,8 +730,26 @@ class Logic(object):
             
         def latex(self):
             return ' \land '.join(map(lambda c: ('(%s)' % c.latex()) if isinstance(c, Logic.ComplexFormula) else c.latex(), self.children))
-        
-            
+
+
+        def maxtruth(self, world):
+            mintruth = 1
+            for c in self.children:
+                truth = c.truth(world)
+                if truth is None: continue
+                if truth < mintruth: mintruth = truth
+            return mintruth
+
+
+        def mintruth(self, world):
+            maxtruth = 0
+            for c in self.children:
+                truth = c.truth(world)
+                if truth is None: continue
+                if truth < maxtruth: maxtruth = truth
+            return maxtruth
+
+
         def cnf(self, level=0):
             clauses = []
             litSets = []
@@ -828,7 +846,24 @@ class Logic(object):
         def latex(self):
             return ' \lor '.join(map(lambda c: ('(%s)' % c.latex()) if isinstance(c, Logic.ComplexFormula) else c.latex(), self.children))
             
-    
+        def maxtruth(self, world):
+            mintruth = 1
+            for c in self.children:
+                truth = c.truth(world)
+                if truth is None: continue
+                if truth < mintruth: mintruth = truth
+            return mintruth
+
+
+        def mintruth(self, world):
+            maxtruth = 0
+            for c in self.children:
+                truth = c.truth(world)
+                if truth is None: continue
+                if truth < maxtruth: maxtruth = truth
+            return maxtruth
+
+
         def cnf(self, level=0):
             disj = []
             conj = []
@@ -1114,7 +1149,19 @@ class Logic(object):
             if self.negated: return (1. - tv)
             return tv
     
-    
+
+        def mintruth(self, world):
+            truth = self.truth(world)
+            if truth is None: return 0
+            else: return truth
+
+
+        def maxtruth(self, world):
+            truth = self.truth(world)
+            if truth is None: return 1
+            else: return truth
+
+
         def __str__(self):
             return {True:"!", False:""}[self.negated] + str(self.gndatom)
         

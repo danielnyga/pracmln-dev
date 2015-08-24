@@ -30,6 +30,7 @@ for pkg in packages:
     check_package(pkg)
     
 python_apps = [
+    {"name": "webmln", "script": "$PRACMLN_HOME/webmln/run.py"},
     {"name": "mlnquery", "script": "$PRACMLN_HOME/pracmln/mlnquery.py"},
     {"name": "mlnlearn", "script": "$PRACMLN_HOME/pracmln/mlnlearn.py"},
     {"name": "xval", "script": "$PRACMLN_HOME/pracmln/xval.py"},
@@ -133,16 +134,21 @@ if __name__ == '__main__':
         f.write("python -O \"%s\" %s\n" % (adapt(app["script"], arch), allargs))
         f.close()
         if not isWindows: os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+
+    # build qooxdoo
+    generate = adapt("$PRACMLN_HOME/webmln/gui/generate.py", arch)
+    os.system(generate + ' source-all')
+    os.system(generate + ' build')
+
     print
 
     # write shell script for environment setup
     appsDir = adapt("$PRACMLN_HOME/apps", arch)
-    pythonDir = adapt("$PRACMLN_HOME/python", arch)
     pyparsingDir = adapt("$PRACMLN_HOME/3rdparty/pyparsing", arch)
     jythonDir = adapt("$PRACMLN_HOME/jython", arch)
     logutilsDir = adapt("$PRACMLN_HOME/3rdparty/logutils-0.3.3", arch)
     tabulateDir = adapt("$PRACMLN_HOME/3rdparty/tabulate-0.7.4", arch)
-    
+
     # make the experiments dir
     if not os.path.exists('experiments'):
         os.mkdir('experiments')
@@ -173,8 +179,7 @@ if __name__ == '__main__':
     else:
         f = file("env.bat", "w")
         f.write("SET PATH=%%PATH%%;%s\r\n" % appsDir)
-        f.write("SET PYTHONPATH=%%PYTHONPATH%%;%s\r\n" % pythonDir)
-        f.write("SET JYTHONPATH=%%JYTHONPATH%%;%s;%s\r\n" % (jythonDir, pythonDir))
+        f.write("SET JYTHONPATH=%%JYTHONPATH%%;%s\r\n" % (jythonDir))
         f.write("SET PROBCOG_HOME=%s\n" % adapt("$PRACMLN_HOME", arch))
         f.close()
         print 'To temporarily set up your environment for the current session, type:'
@@ -182,5 +187,4 @@ if __name__ == '__main__':
         print
         print 'To permanently configure your environment, use Windows Control Panel to set the following environment variables:'
         print '  To the PATH variable add the directory "%s"' % appsDir
-        print '  To the PYTHONPATH variable add the directory "%s"' % pythonDir
         print 'Should any of these variables not exist, simply create them.'

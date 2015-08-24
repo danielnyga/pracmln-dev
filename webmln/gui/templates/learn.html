@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+{% block title %}Learning{% endblock %}
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="{{ url_for('download_static', filename='css/codemirror.css') }}">
+    <script type="text/javascript" src="{{ url_for('download_static', filename='script/webmln.js') }}"></script>
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="{{ url_for('download_static', filename='script/codemirror.js') }}"></script>
+    <script src="{{ url_for('download_static', filename='script/javascript.js') }}"></script>
+{% endblock %}
+
+  {% block content %}
+    {{ super() }}
+  {% endblock %}

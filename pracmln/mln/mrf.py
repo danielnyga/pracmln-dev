@@ -268,8 +268,8 @@ class MRF(object):
             atomvalues_[str(gndatom)] = value
             var = self.variable(gndatom)
             if isinstance(self.mln.logic, FuzzyLogic):
-                if (isinstance(var, MutexVariable) or isinstance(var, SoftMutexVariable)) and value is not None and value in Interval(']0,1['):
-                    raise MRFValueException('Illegal value for the  (soft-) mutex variable "%s": %s' % (str(var), value))
+                if (isinstance(var, MutexVariable) or isinstance(var, SoftMutexVariable) or isinstance(var, BinaryVariable)) and value is not None and value in Interval(']0,1['):
+                    raise MRFValueException('Illegal value for the  (soft-) mutex or binary variable "%s": %s' % (str(var), value))
         atomvalues = atomvalues_
         if erase: # erase all variable assignments appearing in atomvalues
             for key, _ in atomvalues.iteritems():
@@ -283,7 +283,7 @@ class MRF(object):
             var = self.variable(gndatom)
             # create a template with admissible truth values for all
             # ground atoms in this variable 
-            values = [nan] * len(var.gndatoms)
+            values = [-1] * len(var.gndatoms)
             if isinstance(var, FuzzyVariable):
                 self._evidence[gndatom.idx] = value
                 continue
@@ -291,13 +291,17 @@ class MRF(object):
                 self._evidence[gndatom.idx] = value
                 continue
             for _, val in var.itervalues(evidence={gndatom.idx: value}):
+                print val, values
                 for i, (v, v_) in enumerate(zip(values, val)):
-                    if v is nan: values[i] = v_
+                    out(v, v_)
+                    if v == -1: values[i] = v_
                     elif v is not None and v != v_:
-                        values[i] = None  
+                        values[i] = None
+            print values
             for atom, val in zip(var.gndatoms, values):
-                curval = self._evidence[atom.idx] 
-                if curval is not None and curval != val:
+                curval = self._evidence[atom.idx]
+                print atom, val, curval
+                if curval is not None and val is not None and curval != val:
                     raise MRFValueException('Contradictory evidence in variable %s: %s = %s vs. %s' % (var.name, str(gndatom), curval, val))
                 elif curval is None and val is not None:
                     self._evidence[atom.idx] = val

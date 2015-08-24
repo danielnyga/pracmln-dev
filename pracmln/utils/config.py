@@ -94,7 +94,10 @@ class PRACMLNConfig(object):
     
     def get(self, k, d=None):
         return self.config.get(k, d)
-    
+
+
+    def update(self, d):
+        self.config.update(d)
     
     def __getitem__(self, s):
         if type(s) is slice:

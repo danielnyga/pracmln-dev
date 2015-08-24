@@ -100,19 +100,7 @@ class FirstOrderLogic(Logic):
 
             
     class GroundLit(Logic.GroundLit, Formula):
-        
-        def mintruth(self, world):
-            truth = self.truth(world)
-            if truth is None: return 0
-            else: return truth
-    
-    
-        def maxtruth(self, world):
-            truth = self.truth(world)
-            if truth is None: return 1
-            else: return truth
 
-        
         def noisyor(self, world):
             truth = self(world)
             if self.negated: truth = 1. - truth
@@ -135,25 +123,7 @@ class FirstOrderLogic(Logic):
                 return None
             else:
                 return 0
-    
-    
-        def maxtruth(self, world):
-            mintruth = 1
-            for c in self.children:
-                truth = c.truth(world)
-                if truth is None: continue
-                if truth < mintruth: mintruth = truth
-            return mintruth
-    
-        
-        def mintruth(self, world):
-            maxtruth = 0
-            for c in self.children:
-                truth = c.truth(world)
-                if truth is None: continue
-                if truth < maxtruth: maxtruth = truth
-            return maxtruth
-        
+
         
         def simplify(self, world):
             sf_children = []
@@ -201,25 +171,7 @@ class FirstOrderLogic(Logic):
             else:
                 return 1.
             
-            
-        def maxtruth(self, world):
-            mintruth = 1
-            for c in self.children:
-                truth = c.truth(world)
-                if truth is None: continue
-                if truth < mintruth: mintruth = truth
-            return mintruth
-        
-        
-        def mintruth(self, world):
-            maxtruth = 0
-            for c in self.children:
-                truth = c.truth(world)
-                if truth is None: continue
-                if truth < maxtruth: maxtruth = truth
-            return maxtruth
-        
-        
+
         def simplify(self, world):
             sf_children = []
             for child in self.children:

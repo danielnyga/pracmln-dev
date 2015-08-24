@@ -169,7 +169,8 @@ class WCSPConverter(object):
         this is fairly efficient since not all combinations
         need to be evaluated. Returns a dictionary mapping the constraint
         costs to the list of respective variable assignments.
-        ''' 
+        '''
+        formula.print_structure()
         logic = self.mrf.mln.logic
         # we can treat conjunctions and disjunctions fairly efficiently
         defaultProcedure = False
@@ -185,6 +186,7 @@ class WCSPConverter(object):
             assignment = {}#[0] * len(varindices)
             children = list(formula.literals())
             for gndlit in children:
+                if isinstance(gndlit, Logic.TrueFalse): continue
                 (gndatom, val) = (gndlit.gndatom, not gndlit.negated)
                 if disj: val = not val
                 val = 1 if val else 0
