@@ -28,19 +28,16 @@ import traceback
 import shutil
 
 from optparse import OptionParser
-from mln.mln import readMLNFromFile
-from mln.database import readDBFromFile, Database
 from random import shuffle, sample
 import math
 from mln.methods import LearningMethods, InferenceMethods
-from wcsp.converter import WCSPConverter
 from utils.eval import ConfusionMatrix
-from mln.util import strFormula, mergeDomains
 from multiprocessing import Pool
 from utils.clustering import SAHN, Cluster, computeClosestCluster
 import logging
 import praclog
 from logging import FileHandler
+from pracmln.mln.database import Database
 
 
 usage = '''Usage: %prog [options] <predicate> <domain> <mlnfile> <dbfiles>'''
@@ -53,7 +50,7 @@ parser.add_option("-p", "--percent", dest="percent", type='int', default=100,
 parser.add_option("-v", "--verbose", dest="verbose", action='store_true', default=False,
                   help="Verbose mode.")
 parser.add_option("-m", "--multicore", dest="multicore", action='store_true', default=False,
-                  help="Verbose mode.")
+                  help="Distribute the folds over all CPUs.")
 parser.add_option('-n', '--noisy', dest='noisy', type='str', default=None,
                   help='-nDOMAIN defines DOMAIN as a noisy string.')
 parser.add_option('-f', '--folder', dest='folder', type='str', default=None,
@@ -103,7 +100,7 @@ class XValFold(object):
         self.confMatrix = ConfusionMatrix()
         # write the training and testing databases into a file
         dbfile = open(os.path.join(params.directory, 'train_dbs_%d.db' % params.foldIdx), 'w+')
-        Database.writeDBs(params.learnDBs, dbfile)
+        Database.write(params.learnDBs, dbfile)
         dbfile.close()
         dbfile = open(os.path.join(params.directory, 'test_dbs_%d.db' % params.foldIdx), 'w+')
         Database.writeDBs(params.testDBs, dbfile)

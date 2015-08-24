@@ -324,7 +324,7 @@ class MLN(object):
         parse_mln(input, '.', logic=None, grammar=None, mln=self)
     
                 
-    def infer(self, method, queries=None, evidence_db=None, **params):
+    def infer(self, method, queries=None, evidence=None, **params):
         log = logging.getLogger(self.__class__.__name__)
         self.defaultInferenceMethod = method
         
