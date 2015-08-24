@@ -62,7 +62,7 @@ class MLNQuery(object):
             self._config = {}
         else:
             self._config = config
-        self._config.config.update(params)
+        self._config.update(params)
      
      
     @property
@@ -187,7 +187,7 @@ class MLNQuery(object):
             db = Database.load(mln, dbpath, ignore_unknown_preds=self.ignore_unknown_preds)
             
         # expand the parameters
-        params = dict(self._config.config)
+        params = dict(self._config)
         if 'params' in params:
             params.update(eval("dict(%s)" % params['params']))
             del params['params']
@@ -197,7 +197,7 @@ class MLNQuery(object):
 #         db = parse_db(mln, db_content, ignore_unknown_preds=params.get('ignore_unknown_preds', False))
         if type(db) is list and len(db) > 1:
             raise Exception('Inference can only handle one database at a time')
-        else:
+        elif type(db) is list:
             db = db[0]
         # parse non-atomic params
         queries = parse_queries(mln, str(self.queries))

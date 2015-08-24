@@ -466,8 +466,8 @@ class Database(object):
             def __init__(self, name):
                 self.name = self.idx = name
         
-            def isTrue(self, world_values):
-                return world_values[self.name]
+            def truth(self, world):
+                return world[self.name]
         
             def __str__(self):
                 return self.name

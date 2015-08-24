@@ -26,7 +26,7 @@ from pracmln.logic.common import Logic
 from pracmln.praclog import logging
 from pracmln.mln.database import Database
 from pracmln.mln.constants import ALL
-from pracmln.mln.mrfvars import MutexVariable, SoftMutexVariable
+from pracmln.mln.mrfvars import MutexVariable, SoftMutexVariable, FuzzyVariable
 from pracmln.mln.util import StopWatch, barstr, colorize, elapsed_time_str, out
 import sys
 from pracmln.mln.errors import NoSuchPredicateError
@@ -77,6 +77,9 @@ class Inference(object):
             for gndatom in self.mrf.gndatoms:
                 if gndatom.idx not in qatoms and self.mrf.evidence[gndatom.idx] is None:
                     self.mrf.evidence[gndatom.idx] = 0
+        for var in self.mrf.variables:
+            if isinstance(var, FuzzyVariable):
+                var.consistent(self.mrf.evidence, strict=True)
         self._watch = StopWatch()
     
     

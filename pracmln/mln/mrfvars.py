@@ -239,9 +239,9 @@ class FuzzyVariable(MRFVariable):
         if value is not None:
             if value >= 0 and value <= 1:
                 return True
-            else: return False
+            else: raise MRFValueException('Invalid value of variable %s: %s' % (repr(self), value))
         else:
-            if strict: return False
+            if strict: raise MRFValueException('Invalid value of variable %s: %s' % (repr(self), value))
             else: return True
     
     

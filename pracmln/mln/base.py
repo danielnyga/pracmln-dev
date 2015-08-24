@@ -453,6 +453,7 @@ class MLN(object):
                 mrf.gndatom(gndatom.predname, *gndatom.args)
         evidence = dict([(atom, value) for atom, value in db.evidence.iteritems() if mrf.gndatom(atom) is not None])
         mrf.set_evidence(evidence, erase=False)
+        mrf.print_evidence_vars()
         # application of closed world was moved to the inference and learning classes 
 #         if cw and cwpreds is not None:
 #             raise Exception('Conflicting parameters: cw and cwpreds are both given.')
@@ -795,6 +796,7 @@ def parse_mln(text, searchPath='.', logic='FirstOrderLogic', grammar='PRACGramma
                             pred = FunctionalPredicate(predname, argdoms, mutex)
                     elif fuzzy:
                         pred = FuzzyPredicate(predname, argdoms)
+                        fuzzy = False
                     else:
                         pred = Predicate(predname, argdoms)
                     mln.predicate(pred)
@@ -823,7 +825,7 @@ def parse_mln(text, searchPath='.', logic='FirstOrderLogic', grammar='PRACGramma
                             uniquevars = None
                     except ParseException, e:
                         raise MLNParsingError("Error parsing formula '%s'\n" % formula)
-                if fuzzy and not isPredDecl: raise Exception('"#fuzzy" decorator not allowed at this place.')
+                if fuzzy and not isPredDecl: raise Exception('"#fuzzy" decorator not allowed at this place: %s' % line)
         except MLNParsingError:
             sys.stderr.write("Error processing line '%s'\n" % line)
             cls, e, tb = sys.exc_info()

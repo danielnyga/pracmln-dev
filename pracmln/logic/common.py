@@ -730,8 +730,26 @@ class Logic(object):
             
         def latex(self):
             return ' \land '.join(map(lambda c: ('(%s)' % c.latex()) if isinstance(c, Logic.ComplexFormula) else c.latex(), self.children))
-        
-            
+
+
+        def maxtruth(self, world):
+            mintruth = 1
+            for c in self.children:
+                truth = c.truth(world)
+                if truth is None: continue
+                if truth < mintruth: mintruth = truth
+            return mintruth
+
+
+        def mintruth(self, world):
+            maxtruth = 0
+            for c in self.children:
+                truth = c.truth(world)
+                if truth is None: continue
+                if truth < maxtruth: maxtruth = truth
+            return maxtruth
+
+
         def cnf(self, level=0):
             clauses = []
             litSets = []
@@ -828,7 +846,24 @@ class Logic(object):
         def latex(self):
             return ' \lor '.join(map(lambda c: ('(%s)' % c.latex()) if isinstance(c, Logic.ComplexFormula) else c.latex(), self.children))
             
-    
+        def maxtruth(self, world):
+            mintruth = 1
+            for c in self.children:
+                truth = c.truth(world)
+                if truth is None: continue
+                if truth < mintruth: mintruth = truth
+            return mintruth
+
+
+        def mintruth(self, world):
+            maxtruth = 0
+            for c in self.children:
+                truth = c.truth(world)
+                if truth is None: continue
+                if truth < maxtruth: maxtruth = truth
+            return maxtruth
+
+
         def cnf(self, level=0):
             disj = []
             conj = []
@@ -1109,12 +1144,24 @@ class Logic(object):
     
     
         def truth(self, world):
-            tv = self.gndatom.isTrue(world)
+            tv = self.gndatom.truth(world)
             if tv is None: return None
             if self.negated: return (1. - tv)
             return tv
     
-    
+
+        def mintruth(self, world):
+            truth = self.truth(world)
+            if truth is None: return 0
+            else: return truth
+
+
+        def maxtruth(self, world):
+            truth = self.truth(world)
+            if truth is None: return 1
+            else: return truth
+
+
         def __str__(self):
             return {True:"!", False:""}[self.negated] + str(self.gndatom)
         
@@ -1158,7 +1205,7 @@ class Logic(object):
         def ground(self, mrf, assignment, simplify=False, partial=False):
             # always get the gnd atom from the mrf, so that
             # formulas can be transferred between different MRFs
-            return self.mln.logic.gnd_lit(mrf.gndatoms(str(self.gndatom)), self.negated, mln=self.mln, idx=self.idx)
+            return self.mln.logic.gnd_lit(mrf.gndatom(str(self.gndatom)), self.negated, mln=self.mln, idx=self.idx)
     
     
         def copy(self, mln=None, idx=inherit):
