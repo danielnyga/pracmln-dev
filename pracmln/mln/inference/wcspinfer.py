@@ -21,7 +21,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from pracmln.mln.util import combinations, dict_union, Interval, out
+from pracmln.mln.util import combinations, dict_union, Interval, out, stop
 from pracmln.mln.inference.infer import Inference
 from pracmln.wcsp import Constraint
 from pracmln.wcsp import WCSP
@@ -31,6 +31,8 @@ import logging
 from collections import defaultdict
 from pracmln.mln.constants import infty, HARD
 from pracmln.mln.grounding.fastconj import FastConjunctionGrounding
+from pracmln.mln.grounding.default import DefaultGroundingFactory
+from pracmln.mln.errors import SatisfiabilityException, MRFValueException
 
 
 logger = logging.getLogger(__name__)
@@ -122,7 +124,7 @@ class WCSPConverter(object):
         for f in self.mrf.formulas:
             if f.weight == 0: 
                 continue
-            if f.weight < 0:
+            if f.weight < 0 and f.weight != HARD:
                 f = logic.negate(f)
                 f.weight = -f.weight
             formulas.append(f.nnf())
@@ -130,13 +132,11 @@ class WCSPConverter(object):
 #         grounder = DefaultGroundingFactory(self.mrf, formulas)
         grounder = FastConjunctionGrounding(self.mrf, formulas, multicore=self.multicore)
         for gf in grounder.itergroundings(simplify=True):
-            if isinstance(gf, Logic.TrueFalse): 
-                if gf.weight == HARD:
-                    raise Exception('MLN is unsatisfiable: hard constraint %s violated' % self.mrf.mln.formulas[gf.idx])
+            if isinstance(gf, Logic.TrueFalse):
+                if gf.weight == HARD and gf.truth() == 0:
+                    raise SatisfiabilityException('MLN is unsatisfiable: hard constraint %s violated' % self.mrf.mln.formulas[gf.idx])
                 else:# formula is rendered true/false by the evidence -> equal in every possible world 
                     continue
-#             gf = gf.nnf()
-#             gf.print_structure(self.mrf.evidence)
             self.generate_constraint(gf)
         self.mrf.mln.weights = self._weights
         return self.wcsp
@@ -155,7 +155,6 @@ class WCSPConverter(object):
         del cost2assignments[defcost] # remove the default cost values
         
         constraint = Constraint(varindices, defcost=defcost)
-        constraint.defcost = defcost
         for cost, tuples in cost2assignments.iteritems():
             for t in tuples:
                 constraint.tuple(t, cost)
@@ -170,7 +169,6 @@ class WCSPConverter(object):
         need to be evaluated. Returns a dictionary mapping the constraint
         costs to the list of respective variable assignments.
         '''
-        formula.print_structure()
         logic = self.mrf.mln.logic
         # we can treat conjunctions and disjunctions fairly efficiently
         defaultProcedure = False
@@ -183,14 +181,20 @@ class WCSPConverter(object):
         if not conj and not disj:
             defaultProcedure = True
         if not defaultProcedure:
-            assignment = {}#[0] * len(varindices)
+            assignment = [None] * len(varindices)
             children = list(formula.literals())
             for gndlit in children:
+                # constants are handled in the maxtruth/mintruth calls below
                 if isinstance(gndlit, Logic.TrueFalse): continue
+                # get the value of the gndlit that renders the formula true (conj) or false (disj):
+                # for a conjunction, the literal must be true,
+                # for a disjunction, it must be false.
                 (gndatom, val) = (gndlit.gndatom, not gndlit.negated)
                 if disj: val = not val
                 val = 1 if val else 0
                 variable = self.variables[self.atom2var[gndatom.idx]]
+                # in case there are multiple values of a variable that may render the formula true
+                # we cannot apply this efficient implementation and have to fall back to the naive impl. 
                 tmp_evidence = dict_union(variable.value2dict(variable.evidence_value()), {gndatom.idx: val})
                 if variable.valuecount(tmp_evidence) > 1:
                     defaultProcedure = True
@@ -199,17 +203,17 @@ class WCSPConverter(object):
                     varidx = self.atom2var[gndatom.idx] 
                     validx = self.val2idx[varidx][value]
                 # if the formula is unsatisfiable
-                if assignment.get(varidx) is not None and assignment[varidx] != value:
+                if assignment[varindices.index(varidx)] is not None and assignment[varindices.index(varidx)] != value:
                     if formula.weight == HARD:
-                        raise Exception('Knowledge base is unsatisfiable.')
+                        raise SatisfiabilityException('Knowledge base is unsatisfiable.')
                     else: # for soft constraints, unsatisfiable formulas can be ignored
                         return None
-                assignment[varidx] = validx
+                assignment[varindices.index(varidx)] = validx
             if not defaultProcedure:
                 maxtruth = formula.maxtruth(self.mrf.evidence)
                 mintruth = formula.mintruth(self.mrf.evidence)
-                if formula.weight == HARD and maxtruth in Interval(']0,1[') or mintruth in Interval(']0,1['):
-                    raise Exception('No fuzzy truth values are allowed in hard constraints.')
+                if formula.weight == HARD and (maxtruth in Interval(']0,1[') or mintruth in Interval(']0,1[')):
+                    raise MRFValueException('No fuzzy truth values are allowed in hard constraints.')
                 if conj:
                     if formula.weight == HARD:
                         cost = 0
@@ -225,8 +229,7 @@ class WCSPConverter(object):
                         defcost = 0
                         cost = formula.weight * (1 - mintruth)
                 if len(assignment) != len(varindices):
-                    raise Exception('Illegal variable assignments. Variables: %s, Assignment: %s' % (varindices, assignment))
-                assignment = [assignment[v] for v in varindices]
+                    raise MRFValueException('Illegal variable assignments. Variables: %s, Assignment: %s' % (varindices, assignment))
                 return {cost: [tuple(assignment)], defcost: 'else'}
         if defaultProcedure: 
             # fallback: go through all combinations of truth assignments
@@ -255,7 +258,7 @@ class WCSPConverter(object):
                     raise Exception('Something went wrong: Truth of ground formula cannot be evaluated (see above)')
                 
                 if truth in Interval(']0,1[') and formula.weight == HARD:
-                    raise Exception('No fuzzy truth values are allowed in hard constraints.')
+                    raise MRFValueException('No fuzzy truth values are allowed in hard constraints.')
                 
                 cost = self.wcsp.top if (truth < 1 and formula.weight == HARD) else (1 - truth) * formula.weight
                 cost2assignments[cost].append(tuple(assignment))
