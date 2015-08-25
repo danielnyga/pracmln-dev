@@ -42,7 +42,8 @@ from pracmln.mln.mrfvars import MutexVariable, SoftMutexVariable, FuzzyVariable,
     BinaryVariable
 from pracmln.mln.errors import MRFValueException, NoSuchDomainError,\
     NoSuchPredicateError
-from pracmln.mln.util import CallByRef, Interval, trace, out, temporary_evidence
+from pracmln.mln.util import CallByRef, Interval, trace, out, temporary_evidence,\
+    tty, stop
 from pracmln.mln.methods import InferenceMethods
 from math import *
 import traceback
@@ -204,9 +205,7 @@ class MRF(object):
         '''
         max_weight = 0
         for f in self.formulas:
-            if f.weight == HARD:
-                f.weight = HARD
-            elif f.weight is not None and f.weight is not HARD:
+            if f.weight is not None and f.weight !=  HARD:
                 w = str(f.weight)
                 variables = re.findall(r'\$\w+', w)
                 for var in variables:
@@ -218,7 +217,7 @@ class MRF(object):
                         raise Exception("Undefined variable(s) referenced in '%s'" % w)
                 w = re.sub(r'domSize\((.*?)\)', r'self.domsize("\1")', w)
                 try:
-                    f.weight = float(eval(w)) if w is not HARD else HARD
+                    f.weight = float(eval(w)) 
                 except:
                     sys.stderr.write("Evaluation error while trying to compute '%s'\n" % w)
                     raise
@@ -291,16 +290,12 @@ class MRF(object):
                 self._evidence[gndatom.idx] = value
                 continue
             for _, val in var.itervalues(evidence={gndatom.idx: value}):
-                print val, values
                 for i, (v, v_) in enumerate(zip(values, val)):
-                    out(v, v_)
                     if v == -1: values[i] = v_
                     elif v is not None and v != v_:
                         values[i] = None
-            print values
             for atom, val in zip(var.gndatoms, values):
                 curval = self._evidence[atom.idx]
-                print atom, val, curval
                 if curval is not None and val is not None and curval != val:
                     raise MRFValueException('Contradictory evidence in variable %s: %s = %s vs. %s' % (var.name, str(gndatom), curval, val))
                 elif curval is None and val is not None:
@@ -439,7 +434,7 @@ class MRF(object):
         '''
         for gndatom in self.gndatoms:
             v = world[gndatom.idx]
-            vstr = '%.2f' % v if v is not None else '?   '
+            vstr = '%.3f' % v if v is not None else '?   '
             stream.write('%s  %s\n' % (vstr, str(gndatom)))
         
     
@@ -450,9 +445,9 @@ class MRF(object):
         for var in self.variables:
             stream.write(repr(var) + '\n')
             for i, v in enumerate(var.evidence_value(world)):
-                vstr = '%.2f' % v if v is not None else '?   '
+                vstr = '%.3f' % v if v is not None else '?   '
                 stream.write('  %s  %s\n' % (vstr, var.gndatoms[i])) 
-    
+            
 
     def evidence_dicts(self):
         '''
