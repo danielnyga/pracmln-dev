@@ -32,6 +32,12 @@ from pracmln.mln.util import fstr
 from pracmln.mln.database import Database
 from pracmln.mln.inference.infer import Inference
 from pracmln.mln.inference.mcmc import MCMCInference
+from pracmln.mln.constants import ALL, HARD
+from pracmln import praclog
+import random
+
+
+logger = praclog.logger(__name__)
 
 
 class FuzzyMCSAT(Inference):
@@ -113,9 +119,9 @@ class MCSAT(MCMCInference):
     MC-SAT/MC-SAT-PC
     '''
     
-    def __init__(self, mrf, queries, **params):
+    def __init__(self, mrf, queries=ALL, **params):
         MCMCInference.__init__(self, mrf, queries, **params)
-
+        self._weight_backup = list(self.mrf.mln.weights)
  
     
     def _initKB(self, verbose=False):
@@ -123,24 +129,24 @@ class MCSAT(MCMCInference):
         Initialize the knowledge base to the required format and collect structural information for optimization purposes
         '''
         # convert the MLN ground formulas to CNF
-        if verbose: print "converting formulas to CNF..."
+        logger.debug("converting formulas to CNF...")
         #self.mln._toCNF(allPositive=True)
-        self.gndFormulas, self.formulas = toCNF(self.mrf.gndFormulas, self.mln.formulas, self.mln.logic, allPositive=True)
+        self.gndformulas, self.formulas = Logic.cnf(self.mrf.gndFormulas, self.mln.formulas, self.mln.logic, allPositive=True)
 
         # get clause data
-        if verbose: print "gathering clause data..."
-        self.gndFormula2ClauseIdx = {} # ground formula index -> tuple (idxFirstClause, idxLastClause+1) for use with range
+        logger.debug("gathering clause data...")
+        self.gf2clauseidx = {} # ground formula index -> tuple (idxFirstClause, idxLastClause+1) for use with range
         self.clauses = [] # list of clauses, where each entry is a list of ground literals
         #self.GAoccurrences = {} # ground atom index -> list of clause indices (into self.clauses)
-        idxClause = 0
+        i_clause = 0
         # process all ground formulas
-        for idxGndFormula, f in enumerate(self.gndFormulas):
+        for i_gf, gf in enumerate(self.gndformulas):
             # get the list of clauses
-            if isinstance(f, Logic.Conjunction):
-                lc = f.children
+            if isinstance(gf, Logic.Conjunction):
+                lc = gf.children
             else:
-                lc = [f]
-            self.gndFormula2ClauseIdx[idxGndFormula] = (idxClause, idxClause + len(lc))
+                lc = [gf]
+            self.gf2clauseidx[i_gf] = (i_clause, i_clause + len(lc))
             # process each clause
             for c in lc:
                 if hasattr(c, "children"):
@@ -150,9 +156,9 @@ class MCSAT(MCMCInference):
                 # add clause to list
                 self.clauses.append(lits)
                 # next clause index
-                idxClause += 1
+                i_clause += 1
         # add clauses for soft evidence atoms
-        for se in self.softEvidence:
+        for se in []:#self.softEvidence:
             se["numTrue"] = 0.0
             formula = self.mln.logic.parseFormula(se["expr"])
             se["formula"] = formula.ground(self.mrf, {})
@@ -171,7 +177,8 @@ class MCSAT(MCMCInference):
                 idxClause += 1
             se["idxClauseNegative"] = (idxFirst, idxClause)
             
-    def _formulaClauses(self, f):
+            
+    def _formula_clauses(self, f):
         # get the list of clauses
         if isinstance(f, Logic.Conjunction):
             lc = f.children
@@ -183,9 +190,47 @@ class MCSAT(MCMCInference):
                 yield c.children
             else: # unit clause
                 yield [c]
+                
     
-    def _infer(self, numChains=1, maxSteps=5000, verbose=False, shortOutput=False, details=True, 
-               debug=False, debugLevel=1, initAlgo="SampleSAT", randomSeed=None, infoInterval=None, 
+    @property
+    def chains(self):
+        return self._params.get('chains', 1)
+    
+    @property
+    def maxsteps(self):
+        return self._params.get('maxsteps', 5000)
+    
+    @property
+    def softevidence(self):
+        return self._params.get('softevidence', False)
+    
+    @property
+    def use_se(self):
+        return self._params.get('use_se')
+    
+    @property
+    def p(self):
+        return self._params.get('p', .5)
+    
+    @property
+    def resulthistory(self):
+        return self._params.get('resulthistory', False)
+    
+    @property
+    def historyfile(self):
+        return self._params.get('historyfile', None)
+    
+    @property
+    def rndseed(self):
+        return self._params.get('rndseed', None)
+    
+    @property
+    def initalgo(self):
+        return self._params.get('initalgo', 'SampleSAT')
+    
+    
+    def _infer(self, chains=1, maxsteps=5000, details=True, 
+               debug=False, randomSeed=None, infoInterval=None, 
                resultsInterval=None, p=0.5, keepResultsHistory=False, referenceResults=None, 
                saveHistoryFile=None, sampleCallback=None, softEvidence=None, maxSoftEvidenceDeviation=None, handleSoftEvidence=True, **args):
         '''
@@ -204,8 +249,7 @@ class MCSAT(MCMCInference):
         softEvidence: if None, use soft evidence from MLN, otherwise use given dictionary of soft evidence
         handleSoftEvidence: if False, ignore all soft evidence in the MCMC sampling (but still compute softe evidence statistics if soft evidence is there)
         '''
-        log = logging.getLogger(self.__class__.__name__)
-        if verbose: log.info("starting MC-SAT with maxSteps=%d, handleSoftEvidence=%s" % (maxSteps, handleSoftEvidence))
+        logger.debug("starting MC-SAT with maxsteps=%d, softevidence=%s" % (self.maxsteps, self.softevidence))
         if softEvidence is None:
             self.softEvidence = self.mrf.getSoftEvidence()
             self.softEvidence.extend(self.mrf.posteriorProbReqs)
@@ -218,36 +262,33 @@ class MCSAT(MCMCInference):
         self.handleSoftEvidence = handleSoftEvidence
 
         # initialize the KB and gather required info
-        self._initKB(verbose)
+        self._initKB()
         # get the list of relevant ground atoms for each block (!!! only needed for SAMaxWalkSAT actually)
         self.mrf._getBlockRelevantGroundFormulas()
         
-        self.p = p
-        self.debug = debug
-        self.debugLevel = debugLevel
-        self.resultsHistory = []
-        if saveHistoryFile is not None:
-            keepResultsHistory = True
-        self.referenceResults = referenceResults
-        t_start = time.time()
-        details = verbose and details
+        self.history = []
+        if self.historyfile is not None:
+            self.resulthistory = True
+        self.reference_results = None
+        
         # print CNF KB
-        if self.debug:
-            log.debug("\nCNF KB:")
-            for gf in self.gndFormulas:
-                log.debug("%7.3f  %s" % (self.formulas[gf.idxFormula].weight, fstr(gf)))
-            print
+        logger.debug("CNF KB:")
+        for gf in self.gndformulas:
+            logger.debug("%7.3f  %s" % (gf.weight, str(gf)))
+        print
         # set the random seed if it was given
-        if randomSeed != None:
-            random.seed(randomSeed)
+        if self.rndseed is not None:
+            random.seed(self.rndseed)
+            
+        # this is obsolete since we have variables anyway
         # read evidence
-        if details: log.info("reading evidence...")
-        self._readEvidence()
-        #print "evidence", self.evidence
-        if details:
-            log.info("evidence blocks: %d" % len(self.evidenceBlocks))
-            log.info("block exclusions: %d" % len(self.blockExclusions))
-            log.info("initializing %d chain(s)..." % numChains)
+#         logger.debug("reading evidence...")
+#         self._readEvidence()
+#         #print "evidence", self.evidence
+#         if details:
+#             log.info("evidence blocks: %d" % len(self.evidenceBlocks))
+#             log.info("block exclusions: %d" % len(self.blockExclusions))
+#             log.info("initializing %d chain(s)..." % numChains)
             
             
 #        self.phistory = {} # HACK for debugging (see all references to self.phistory)
@@ -255,41 +296,41 @@ class MCSAT(MCMCInference):
 #        maxSoftEvidenceDeviation = None
 
         # create chains
-        chainGroup = MCMCInference.ChainGroup(self)
-        self.chainGroup = chainGroup
+        chaingroup = MCMCInference.ChainGroup(self)
+        self.chaingroup = chaingroup
         self.wt = [f.weight for f in self.formulas]
-        for i in range(numChains):
+        
+        for i in range(self.chains):
             chain = MCMCInference.Chain(self, self.queries)
-            chainGroup.addChain(chain)
+            chaingroup.chain(chain)
             # satisfy hard constraints using initialization algorithm
-            if initAlgo == "SAMaxWalkSAT":
+            if self.initalgo == 'SAMaxWalkSAT':
                 ##mws = SAMaxWalkSAT(chain.state, self.mln, self.evidenceBlocks)
                 #mws.run()
                 raise Exception("SAMaxWalkSAT currently unsupported") # no longer making use of self.mln's (gnd)formulas 
-            elif initAlgo == "SampleSAT":
+            elif self.initalgo == "SampleSAT":
                 M = []
                 NLC = []
-                for idxGF, gf in enumerate(self.gndFormulas):
-#                     if self.wt[gf.idxFormula] >= 20:
-                    if self.mln.formulas[gf.idxFormula].isHard:
-                        if gf.isLogical():
-                            clauseRange = self.gndFormula2ClauseIdx[idxGF]
-                            M.extend(range(*clauseRange))
+                for i, gf in enumerate(self.gndformulas):
+                    if gf.weight == HARD:
+                        if gf.islogical():
+                            clause_range = self.gf2clauseidx[i]
+                            M.extend(range(*clause_range))
                         else:
                             NLC.append(gf)
-                ss = SampleSAT(self.mrf, chain.state, M, NLC, self, p=0.8, debug=debug and debugLevel >= 2) # Note: can't use p=1.0 because there is a chance of getting into an oscillating state
+                ss = SampleSAT(self.mrf, chain.state, M, NLC, self, p=0.8) # Note: can't use p=1.0 because there is a chance of getting into an oscillating state
                 ss.run()
             else:
                 raise Exception("MC-SAT Error: Unknown initialization algorithm specified")
-            # some debug info
-            if debug and False:
-                print "\ninitial state:"
-                self.mrf.printState(chain.state)
+        
+        if logger.level == praclog.DEBUG:
+            self.mrf.print_world_vars(chain.state)
+            
         # do MCSAT sampling
-        if details: log.info("sampling (p=%f)... time elapsed: %s" % (self.p, self._getElapsedTime()[1]))
+        logger.debug("sampling (p=%f)... time elapsed: %s" % (self.p, self._getElapsedTime()[1]))
+        
         if infoInterval is None: infoInterval = {True:1, False:10}[debug == 'INFO' or debug == 'DEBUG']
         if resultsInterval is None: resultsInterval = {True:1, False:50}[debug == 'INFO' or debug == 'DEBUG']
-        
         
         if len(self.softEvidence) == 0 and maxSoftEvidenceDeviation is not None:
             maxSoftEvidenceDeviation = None
@@ -297,15 +338,16 @@ class MCSAT(MCMCInference):
         if maxSoftEvidenceDeviation is not None:
             print "iterate until maxSoftEvidenceDeviation <", maxSoftEvidenceDeviation        
         
+
         self.step = 1        
-        while maxSoftEvidenceDeviation is not None or self.step <= maxSteps:
+        while maxSoftEvidenceDeviation is not None or self.step <= self.maxsteps:
             # take one step in each chain
-            for chain in chainGroup.chains:
-                if debug: 
-                    log.info("step %d..." % self.step)
+            for chain in chaingroup.chains:
+                logger.debug("step %d..." % self.step)
+                
                 # choose a subset of the satisfied formulas and sample a state that satisfies them
 #                 log.info(chain.state)
-                numSatisfied = self._satisfySubset(chain)
+                satisfied = self._satisfySubset(chain)
 #                 log.info(chain.state)
                 # update chain counts
                 chain.update()
@@ -357,27 +399,25 @@ class MCSAT(MCMCInference):
             pickle.dump(self.getResultsHistory(), file(saveHistoryFile, "w"))
         return results
     
+    
     def _satisfySubset(self, chain):
         '''
         Choose a set of logical formulas M to be satisfied (more specifically, M is a set of clause indices)
         and also choose a set of non-logical constraints NLC to satisfy
         '''
-        log = logging.getLogger(self.__class__.__name__)
         M = []
         NLC = []
-        for idxGF, gf in enumerate(self.gndFormulas):
-            if gf.isTrue(chain.state) == 1:
-                u = random.uniform(0, math.exp(self.wt[gf.idxFormula]))
+        for gfidx, gf in enumerate(self.gndformulas):
+            if gf(chain.state) == 1:
+                u = random.uniform(0, math.exp(self.wt[gf.idx]))
                 if u > 1:
-                    if gf.isLogical():
-                        clauseRange = self.gndFormula2ClauseIdx[idxGF]
-                        M.extend(range(*clauseRange))
+                    if gf.islogical():
+                        clause_range = self.gf2clauseidx[gfidx]
+                        M.extend(range(*clause_range))
                     else:
                         NLC.append(gf)
-                    if self.debug and self.debugLevel >= 3:
-                        print "  to satisfy:", fstr(gf)
         # add soft evidence constraints
-        if self.handleSoftEvidence:
+        if self.softevidence:
             for se in self.softEvidence:
                 p = se["numTrue"] / self.step
                 
@@ -385,10 +425,10 @@ class MCSAT(MCMCInference):
                 #l.append(p)
                 #self.phistory[strFormula(se["formula"])] = l
                 
-                if se["formula"].isTrue(chain.state):
+                if se["formula"](chain.state):
                     #print "true case"
                     add = False
-                    if p < se["p"]:
+                    if p < se['p']:
                         add = True
                     if add:
                         M.extend(range(*se["idxClausePositive"]))
@@ -402,29 +442,32 @@ class MCSAT(MCMCInference):
                         M.extend(range(*se["idxClauseNegative"]))
                     #print "negative case: add=%s, %s, %f should become %f" % (add, map(str, [map(str, self.clauses[i]) for i in range(*se["idxClauseNegative"])]), p, se["p"])
         # (uniformly) sample a state that satisfies them
-        ss = SampleSAT(self.mrf, chain.state, M, NLC, self, debug=self.debug and self.debugLevel >= 2, p=self.p)
+        ss = SampleSAT(self.mrf, chain.state, M, NLC, self, p=self.p)
         ss.run()
         return len(M) + len(NLC)
     
-    def _getProbConstraintsDeviation(self):
-        if len(self.softEvidence) == 0:
+    
+    def _prob_constraints_deviation(self):
+        if len(self.softevidence) == 0:
             return {}
         se_mean, se_max, se_max_item = 0.0, -1, None
-        for se in self.softEvidence:
+        for se in self.softevidence:
             dev = abs((se["numTrue"] / self.step) - se["p"])
             se_mean += dev
             if dev > se_max:
                 se_max = max(se_max, dev)
                 se_max_item = se
-        se_mean /= len(self.softEvidence)
+        se_mean /= len(self.softevidence)
         return {"pc_dev_mean": se_mean, "pc_dev_max": se_max, "pc_dev_max_item": se_max_item["expr"]}
     
-    def _extendResultsHistory(self, results):
-        currentResults = {"step": self.step, "results": list(results), "time": self._getElapsedTime()[0]}
-        currentResults.update(self._getProbConstraintsDeviation())
+    
+    def _extend_results_history(self, results):
+        cur_results = {"step": self.step, "results": list(results), "time": self._getElapsedTime()[0]}
+        cur_results.update(self._getProbConstraintsDeviation())
         if self.referenceResults is not None:
-            currentResults.update(self._compareResults(results, self.referenceResults))
-        self.resultsHistory.append(currentResults)
+            cur_results.update(self._compareResults(results, self.referenceResults))
+        self.history.append(cur_results)
+    
         
     def getResultsHistory(self):
         return self.resultsHistory

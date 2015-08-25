@@ -65,7 +65,7 @@ class MRF(object):
     '''
 
 
-    def __init__(self, mln, db=None):
+    def __init__(self, mln, db):
         self.mln = mln.materialize(db)
         self._evidence = []
 #         self.evidenceBackup = {}

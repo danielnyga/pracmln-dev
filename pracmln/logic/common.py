@@ -2159,8 +2159,9 @@ class Logic(object):
             for assignment in Logic._iter_eq_varassignments(mrf, variables, dict_union(assignment, {variable: value})):
                 yield assignment
 
+
     @staticmethod
-    def toClauseSet(cnf):
+    def clauseset(cnf):
         '''
         Takes a formula in CNF and returns a set of clauses, i.e. a list of sets
         containing literals. All literals are converted into strings.
@@ -2183,47 +2184,47 @@ class Logic(object):
     
     
     @staticmethod
-    def toCNF(gndFormulas, formulas, logic, allPositive=False):
+    def cnf(gfs, formulas, logic, allpos=False):
         '''
         convert the given ground formulas to CNF
         if allPositive=True, then formulas with negative weights are negated to make all weights positive
-        @return a new pair (gndFormulas, formulas)
+        @return a new pair (gndformulas, formulas)
+        
+        .. warning::
+        
+        If allpos is True, this might have side effects on the formula weights of the MLN.
+        
         '''    
-        # get list of formula indices where we must negate
-        newFormulas = []    
-        negate = []
-        if allPositive:
-            for idxFormula,formula in enumerate(formulas):
-                f = formula
-                if formula.weight < 0:
-                    negate.append(idxFormula)
-                    if isinstance(formula, Logic.Negation):
-                        f = formula.children[0]                        
-                    else:
-                        f = logic.negation([formula])                 
-                    f.weight = -formula.weight
-                    f.idxFormula = idxFormula
-                newFormulas.append(f)
+        # get list of formula indices which we must negate
+        formulas_ = []    
+        negated = []
+        if allpos:
+            for f in formulas:
+                if f.weight < 0:
+                    negated.append(f.idx)
+                    f = logic.negate(f)                 
+                    f.weight = -f.weight
+                formulas_.append(f)
         # get CNF version of each ground formula
-        newGndFormulas = []
-        for gf in gndFormulas:
+        gfs_ = []
+        for gf in gfs:
             # non-logical constraint
-            if not gf.isLogical(): # don't apply any transformations to non-logical constraints
-                if gf.idxFormula in negate:
+            if not gf.logical(): # don't apply any transformations to non-logical constraints
+                if gf.idx in negated:
                     gf.negate()
-                newGndFormulas.append(gf)
+                gfs_.append(gf)
                 continue
             # logical constraint
-            if gf.idxFormula in negate:
-                cnf = logic.negation([gf]).toCNF()
+            if gf.idx in negated:
+                cnf = logic.negate(gf).cnf()
             else:
-                cnf = gf.toCNF()
-            if type(cnf) == logic.TrueFalse: # formulas that are always true or false can be ignored
+                cnf = gf.cnf()
+            if isinstance(cnf, Logic.TrueFalse): # formulas that are always true or false can be ignored
                 continue
             cnf.idxFormula = gf.idxFormula
-            newGndFormulas.append(cnf)
+            gfs_.append(cnf)
         # return modified formulas
-        return (newGndFormulas, newFormulas)
+        return gfs_, formulas_
     
     
     def conjunction(self, *args, **kwargs):
