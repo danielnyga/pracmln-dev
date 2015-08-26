@@ -291,7 +291,7 @@ class MLNLearn(object):
                 print
                 mlnlearnt.write()
             if self.save:
-                with open(os.path.join(self.dir.get(), self.output_filename), 'w+') as outFile:
+                with open(os.path.join(self.directory, self.output_filename), 'w+') as outFile:
                     mlnlearnt.write(outFile)
         except SystemExit:
             print 'Cancelled...'
