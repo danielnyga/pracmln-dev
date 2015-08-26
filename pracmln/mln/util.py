@@ -56,13 +56,15 @@ import math
 def currentframe():
     """Return the frame object for the caller's stack frame."""
     try:
-        raise Exception
+        raise Exception()
     except:
-        return sys.exc_info()[2].tb_frame.f_back
+        traceback.print_exc()
+        return sys.exc_info()[2].tb_frame
 
-if hasattr(sys, '_getframe'): currentframe = lambda: sys._getframe(3)
+if hasattr(sys, '_getframe'): currentframe = lambda: sys._getframe(2)
 
-def caller():
+
+def caller(tb=1):
     """
     Find the stack frame of the caller so that we can note the source
     file name, line number and function name.
@@ -71,47 +73,38 @@ def caller():
     #On some versions of IronPython, currentframe() returns None if
     #IronPython isn't run with -X:Frames.
     rv = "(unknown file)", 0, "(unknown function)"
+    d = 0
     while hasattr(f, "f_code"):
         co = f.f_code
-        filename = os.path.normcase(co.co_filename)
-        if filename == __file__:
-            f = f.f_back
-            continue
         rv = (co.co_filename, f.f_lineno, co.co_name)
-        break
+        if d >= tb: break
+        d += 1
+        f = f.f_back
     return rv
 
 
-def out(*args):
-    rv = caller()
+def out(*args, **kwargs):
+    rv = caller(kwargs.get('tb', 1))
     print '%s: l.%d: %s' % (os.path.basename(rv[0]), rv[1], ' '.join(map(str, args)))
 
 
-def stop(*args):
-    rv = caller()
-    print '%s: l.%d: %s' % (os.path.basename(rv[0]), rv[1], ' '.join(map(str, args)))
+def stop(*args, **kwargs):
+    out(*args, **edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
     print '<press enter to continue>'
     raw_input()
     
 
-def trace(*args):
+def trace(*args, **kwargs):
     print '=== STACK TRACE ==='
-    traceback.print_stack()
     sys.stdout.flush()
-    sys.stderr.flush()
-    rv = caller()
-    print '%s: l.%d: %s' % (os.path.basename(rv[0]), rv[1], ' '.join(map(str, args)))
-    
-def stoptrace(*args):
-    print '=== STACK TRACE ==='
-    traceback.print_stack()
+    traceback.print_stack(file=sys.stdout)
+    out(*args, **edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
     sys.stdout.flush()
-    sys.stderr.flush()
-    rv = caller()
-    print '%s: l.%d: %s' % (os.path.basename(rv[0]), rv[1], ' '.join(map(str, args)))
-    print '<press enter to continue>'
-    raw_input()
     
+    
+def stoptrace(*args, **kwargs):
+    trace(**edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
+    stop(*args, **edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
 
 
 def flip(value):
@@ -611,11 +604,13 @@ class temporary_evidence():
     
 if __name__ == '__main__':
     
-    d = edict({1:2,2:3,'hi':'world'})
-    print d
-    print d + {'bla': 'blub'}
-    print d
-    print d - 1
-    print d - {'hi': 'bla'}
-    print d
+    out()
     
+#     d = edict({1:2,2:3,'hi':'world'})
+#     print d
+#     print d + {'bla': 'blub'}
+#     print d
+#     print d - 1
+#     print d - {'hi': 'bla'}
+#     print d
+#     
