@@ -24,7 +24,7 @@
 from grammar import StandardGrammar, PRACGrammar
 import sys
 from pracmln.mln.util import ifNone, fstr, dict_union, colorize, flip, out,\
-    trace
+    trace, stop, stoptrace
 from pracmln.mln.errors import NoSuchDomainError, NoSuchPredicateError
 from collections import defaultdict
 import itertools
@@ -742,12 +742,12 @@ class Logic(object):
 
 
         def mintruth(self, world):
-            maxtruth = 0
+            mintruth = 1
             for c in self.children:
                 truth = c.truth(world)
-                if truth is None: continue
-                if truth < maxtruth: maxtruth = truth
-            return maxtruth
+                if truth is None: return 0
+                if truth < mintruth: mintruth = truth
+            return mintruth
 
 
         def cnf(self, level=0):
@@ -847,12 +847,12 @@ class Logic(object):
             return ' \lor '.join(map(lambda c: ('(%s)' % c.latex()) if isinstance(c, Logic.ComplexFormula) else c.latex(), self.children))
             
         def maxtruth(self, world):
-            mintruth = 1
+            maxtruth = 0
             for c in self.children:
                 truth = c.truth(world)
-                if truth is None: continue
-                if truth < mintruth: mintruth = truth
-            return mintruth
+                if truth is None: return 1
+                if truth > maxtruth: maxtruth = truth
+            return maxtruth
 
 
         def mintruth(self, world):
@@ -860,7 +860,7 @@ class Logic(object):
             for c in self.children:
                 truth = c.truth(world)
                 if truth is None: continue
-                if truth < maxtruth: maxtruth = truth
+                if truth > maxtruth: maxtruth = truth
             return maxtruth
 
 

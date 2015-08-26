@@ -139,7 +139,7 @@ class WCSP(object):
         '''
         varindices = constraint.variables
         cold = self.constraints.get(tuple(sorted(varindices)))
-        if not cold is None:
+        if cold is not None:
             c_ = Constraint(cold.variables, defcost=constraint.defcost)
             for t, cost in constraint.tuples.iteritems():
                 t = [t[constraint.variables.index(v)] for v in cold.variables]
@@ -147,20 +147,31 @@ class WCSP(object):
             constraint = c_
             varindices = constraint.variables
             
-            # update all the tuples of the old constraint
+            # update all the tuples of the old constraint with the tuples of the new constraint
             for t, cost in constraint.tuples.iteritems():
-                tOldCosts = cold.tuples.get(t, None)
-                if tOldCosts == self.top or tOldCosts is None and cold.defcost == self.top: continue
-                if tOldCosts is not None:
-                    cold.tuple(t, self.top if cost == self.top else cost + tOldCosts)
+                oldcost = cold.tuples.get(t, None)
+                # if the tuple has caused maximal costs in the old constraint, it must also cause maximal costs in the
+                # merged one. Or if the tuple was not part of the old constraint and the defcosts were maximal.
+                if oldcost == self.top or oldcost is None and cold.defcost == self.top: continue
+                # add the tuple costs of the new constraint or make them top if it's top in the new constraint
+                if oldcost is not None:
+                    cold.tuple(t, self.top if cost == self.top else cost + oldcost)
+                # add the tuple costs of the new constraint if the tuple is not conatined in the old one
+                # or make them top if the tuple has maximal costs in the new constraint
                 else:
                     cold.tuple(t, self.top if cost == self.top else cost + cold.defcost)
+                    
             # update the default costs of the old constraint
             if constraint.defcost != 0 and cold.defcost != self.top:
+                # all tuples that are part of the old constraint but not of the new constraint
+                # have to be added the default costs of the new constraint, or made tops cost
+                # in case the defcosts of the new constraint are top
                 for t in filter(lambda x: x not in constraint.tuples, cold.tuples):
-                    oldCost = cold.tuples[t]
-                    if oldCost != self.top:
-                        cold.tuple(t, self.top if constraint.defcost == self.top else oldCost + constraint.defcost)
+                    oldcost = cold.tuples[t]
+                    if oldcost != self.top:
+                        cold.tuple(t, self.top if constraint.defcost == self.top else oldcost + constraint.defcost)
+                # for all tuples that are neither in the old nor the new constraint, the default costs
+                # have to be updated by the sum of the two defcosts, or tops if defcosts of the new constraint are tops.
                 cold.defcost = self.top if constraint.defcost == self.top else cold.defcost + constraint.defcost
             # if the constraint is fully specified by its tuples,
             # simplify it by introducing default costs

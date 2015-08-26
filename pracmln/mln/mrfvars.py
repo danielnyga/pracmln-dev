@@ -236,6 +236,7 @@ class FuzzyVariable(MRFVariable):
     
     def consistent(self, world, strict=False):
         value = self.evidence_value(world)[0]
+        print self.evidence_value(world), world
         if value is not None:
             if value >= 0 and value <= 1:
                 return True
