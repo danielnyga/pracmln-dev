@@ -70,12 +70,11 @@ class Inference(object):
                         self.mrf.evidence[gndatom.idx] = 0
         # apply the closed world assumption to all remaining ground atoms that are not in the queries
         if self.closedworld:
-            qatoms = set()
+            qpreds = set()
             for q in self.queries:
-                qatoms.update(q.gndatom_indices())
-            out(qatoms)
+                qpreds.update(q.prednames())
             for gndatom in self.mrf.gndatoms:
-                if gndatom.idx not in qatoms and self.mrf.evidence[gndatom.idx] is None:
+                if gndatom.predname not in qpreds and self.mrf.evidence[gndatom.idx] is None:
                     self.mrf.evidence[gndatom.idx] = 0
         for var in self.mrf.variables:
             if isinstance(var, FuzzyVariable):
@@ -134,7 +133,9 @@ class Inference(object):
                 prevLen = len(equeries)
                 if '(' in query: # a fully or partially grounded formula
                     f = self.mln.logic.parse_formula(query)
+                    out(f)
                     for gf in f.itergroundings(self.mrf):
+                        out(gf)
                         equeries.append(gf)
                 else: # just a predicate name
                     if query not in self.mln.prednames:
