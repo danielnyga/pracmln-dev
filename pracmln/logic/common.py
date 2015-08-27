@@ -1032,6 +1032,8 @@ class Logic(object):
             if not any(map(self.mln.logic.isvar, args)):
                 atom = "%s(%s)" % (self.predname, ",".join(args))
                 gndatom = mrf.gndatom(atom)
+                if gndatom is None:
+                    raise Exception('Could not ground "%s". This atom is not among the ground atoms.' % atom)
                 # simplify if necessary
                 if simplify and gndatom.truth(mrf.evidence) is not None:
                     truth = gndatom.truth(mrf.evidence)
