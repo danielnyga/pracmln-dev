@@ -23,7 +23,6 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from pracmln.logic.common import Logic
-from pracmln.praclog import logging
 from pracmln.mln.database import Database
 from pracmln.mln.constants import ALL
 from pracmln.mln.mrfvars import MutexVariable, SoftMutexVariable, FuzzyVariable
@@ -127,15 +126,12 @@ class Inference(object):
         just predicate names are expanded to the corresponding list of atoms.
         '''
         equeries = []
-        logger = logging.getLogger(self.__class__.__name__)
         for query in queries:
             if type(query) == str:
                 prevLen = len(equeries)
                 if '(' in query: # a fully or partially grounded formula
                     f = self.mln.logic.parse_formula(query)
-                    out(f)
                     for gf in f.itergroundings(self.mrf):
-                        out(gf)
                         equeries.append(gf)
                 else: # just a predicate name
                     if query not in self.mln.prednames:
