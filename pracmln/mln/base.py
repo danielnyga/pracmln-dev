@@ -453,7 +453,7 @@ class MLN(object):
                 mrf.gndatom(gndatom.predname, *gndatom.args)
         evidence = dict([(atom, value) for atom, value in db.evidence.iteritems() if mrf.gndatom(atom) is not None])
         mrf.set_evidence(evidence, erase=False)
-        mrf.print_evidence_vars()
+        # mrf.print_evidence_vars()
         # application of closed world was moved to the inference and learning classes 
 #         if cw and cwpreds is not None:
 #             raise Exception('Conflicting parameters: cw and cwpreds are both given.')
