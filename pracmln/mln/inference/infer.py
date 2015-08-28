@@ -21,6 +21,7 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+import pracmln
 
 from pracmln.logic.common import Logic
 from pracmln.mln.database import Database
@@ -30,6 +31,7 @@ from pracmln.mln.util import StopWatch, barstr, colorize, elapsed_time_str, out
 import sys
 from pracmln.mln.errors import NoSuchPredicateError
 
+logger = pracmln.praclog.logger(__name__)
 
 class Inference(object):
     '''
@@ -63,6 +65,10 @@ class Inference(object):
         # apply the closed world assumptions to the explicitly specified predicates
         if self.cwpreds:
             for pred in self.cwpreds:
+                if isinstance(self.mln.predicate(pred), pracmln.mln.FunctionalPredicate):
+                    raise Exception('Closed world assumption is inapplicable to functional predicate %s' % pred)
+                if isinstance(self.mln.predicate(pred), pracmln.mln.SoftFunctionalPredicate) and self.verbose:
+                    logger.warning('Closed world assumption will be applied to soft functional predicate %s' % pred)
                 for gndatom in self.mrf.gndatoms:
                     if gndatom.predname != pred: continue
                     if self.mrf.evidence[gndatom.idx] is None:
@@ -73,6 +79,9 @@ class Inference(object):
             for q in self.queries:
                 qpreds.update(q.prednames())
             for gndatom in self.mrf.gndatoms:
+                if isinstance(self.mln.predicate(gndatom.predname), pracmln.mln.FunctionalPredicate) \
+                        or isinstance(self.mln.predicate(gndatom.predname), pracmln.mln.SoftFunctionalPredicate):
+                    continue
                 if gndatom.predname not in qpreds and self.mrf.evidence[gndatom.idx] is None:
                     self.mrf.evidence[gndatom.idx] = 0
         for var in self.mrf.variables:
