@@ -598,8 +598,8 @@ class temporary_evidence():
         return self.mrf
     
     def __exit__(self, t, v, tb):
-        raise t(v)
-
+        if t is not None:
+            raise t(v)
         self.mrf.evidence = self.evidence_backup
         return True
         
