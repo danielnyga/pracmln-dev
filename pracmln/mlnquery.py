@@ -63,8 +63,7 @@ class MLNQuery(object):
         else:
             self._config = config
         self._config.update(params)
-     
-     
+
     @property
     def mln(self):
         return self._config.get('mln')
@@ -186,8 +185,9 @@ class MLNQuery(object):
             dbpath = os.path.join(self.directory, self.db)
             db = Database.load(mln, dbpath, ignore_unknown_preds=self.ignore_unknown_preds)
             
-        # expand the parameters
-        params = dict(self._config)
+        # expand the
+        #  parameters
+        params = dict(self._config.config)
         if 'params' in params:
             params.update(eval("dict(%s)" % params['params']))
             del params['params']
@@ -217,11 +217,12 @@ class MLNQuery(object):
         try:
             mln_ = mln.materialize(db)
             mrf = mln_.ground(db)
+
             if self.verbose:
                 print
                 print headline('EVIDENCE VARIABLES')
                 print
-                mrf.print_evidence_vars()
+
             inference = self.method(mrf, queries, **params)
             result = inference.run()
             print 
