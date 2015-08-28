@@ -533,10 +533,11 @@ class FilePickEdit(Frame):
         self.files = []
         if self.allowNone:
             self.files.append("")
-        for filename in os.listdir(self.directory):
-            for fm in self.file_mask:
-                if fnmatch(filename, fm):
-                    self.files.append(filename)
+        if os.path.exists(self.directory):
+            for filename in os.listdir(self.directory):
+                for fm in self.file_mask:
+                    if fnmatch(filename, fm):
+                        self.files.append(filename)
         self.files.sort()
         if len(self.files) == 0 and not self.allowNone: self.files.append("(no %s files found)" % str(self.file_mask    ))
         
