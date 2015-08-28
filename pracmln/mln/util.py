@@ -597,7 +597,9 @@ class temporary_evidence():
     def __enter__(self):
         return self.mrf
     
-    def __exit__(self, *args):
+    def __exit__(self, t, v, tb):
+        raise t(v)
+
         self.mrf.evidence = self.evidence_backup
         return True
         
