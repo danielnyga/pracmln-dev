@@ -21,7 +21,8 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from pracmln.mln.util import combinations, dict_union, Interval, out, stop
+from pracmln.mln.util import combinations, dict_union, Interval, out, stop, \
+    temporary_evidence
 from pracmln.mln.inference.infer import Inference
 from pracmln.wcsp import Constraint
 from pracmln.wcsp import WCSP
@@ -42,15 +43,18 @@ class WCSPInference(Inference):
     
     def __init__(self, mrf, queries, **params):
         Inference.__init__(self, mrf, queries, **params)
-        self.converter = WCSPConverter(self.mrf)
-        
-    
+
+
     def _run(self):
         result_ = {}
-        result = self.result_dict(verbose=self.verbose)
-        for query in self.queries:
-            query = str(query)
-            result_[query] = result[query] if query in result else self.mrf[query] 
+        with temporary_evidence(self.mrf):
+            self.converter = WCSPConverter(self.mrf)
+            result = self.result_dict(verbose=self.verbose)
+            print 'queries', self.queries
+            for query in self.queries:
+                print query
+                query = str(query)
+                result_[query] = result[query] if query in result else self.mrf[query]
         return result_
     
     
@@ -101,6 +105,9 @@ class WCSPConverter(object):
             if isinstance(variable, FuzzyVariable): # fuzzy variables are not subject to reasoning
                 continue
             if variable.valuecount(self.mrf.evidence_dicti()) == 1: # the var is fully determined by the evidence
+                for _, value in variable.itervalues(self.mrf.evidence_dicti()):
+                    break
+                self.mrf.set_evidence(variable.value2dict(value), erase=False)
                 continue
             self.variables[varidx] = variable
             for gndatom in variable.gndatoms:
@@ -110,7 +117,6 @@ class WCSPConverter(object):
                 self.val2idx[varidx][value] = validx
             varidx += 1
 
-    
     def convert(self):
         '''
         Performs a conversion from an MLN into a WCSP.
