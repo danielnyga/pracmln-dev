@@ -70,8 +70,8 @@ def __build_preamble(packages, declarations):
 
 def __write_output(infile, outdir, workdir = '.', filename = '', size = 1):
     try:
-        # Generate the DVI file
-        latexcmd = 'latex -halt-on-error -output-directory {} {}'.format(workdir, infile)
+        # Generate the DVI file. NOTE: no output in stdout, as it is piped into /dev/null!
+        latexcmd = 'latex -halt-on-error -output-directory {} {} >/dev/null'.format(workdir, infile)
         rc = os.system(latexcmd)
 
         # Something bad happened, abort
