@@ -317,10 +317,12 @@ class MutexVariable(MRFVariable):
         # that are fixed by the evidence argument and None for all others
         trues = sum(filter(lambda x: x == 1, valpattern))
         if trues > 1: # sanity check
-            raise Exception("More than one ground atom in mutex variable is true: %s" % str(self))
+            raise MRFValueException("More than one ground atom in mutex variable is true: %s" % str(self))
         if trues == 1: # if the true value of the mutex var is in the evidence, we have only one possibility
             yield tuple(map(lambda x: 1 if x == 1 else 0, valpattern))
             return
+        if all([x == 0 for x in valpattern]):
+            raise MRFValueException('Illegal value for a MutexVariable: %s' % valpattern)
         for i, val in enumerate(valpattern): # generate a value tuple with a truth value for each atom which is not set to false by evidence
             if val == 0: continue
             elif val is None:
@@ -331,7 +333,7 @@ class MutexVariable(MRFVariable):
     
     def valueidx(self, value):
         if sum(value) != 1:
-            raise Exception('Invalid world value for mutex variable %s: %s' % (str(self), str(value)))
+            raise MRFValueException('Invalid world value for mutex variable %s: %s' % (str(self), str(value)))
         else:
             return value.index(1)
         
