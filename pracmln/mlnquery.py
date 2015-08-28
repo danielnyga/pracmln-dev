@@ -40,7 +40,7 @@ from utils import config
 from pracmln import praclog
 from tkMessageBox import showerror, askyesno
 from pracmln.mln.util import out, ifNone, trace, parse_queries,\
-    headline, StopWatch
+    headline, StopWatch, stop, stoptrace
 from pracmln.utils.config import PRACMLNConfig, query_config_pattern
 from pracmln.mln.base import parse_mln, MLN
 from pracmln.mln.database import parse_db, Database
@@ -58,10 +58,12 @@ GUI_SETTINGS = ['window_loc', 'db_rename', 'mln_rename', 'db', 'method', 'use_em
 class MLNQuery(object):
     
     def __init__(self, config=None, **params):
+        self.configfile = None
         if config is None:
             self._config = {}
-        else:
-            self._config = config
+        elif isinstance(config, PRACMLNConfig):
+            self._config = config.config
+            self.configfile = config
         self._config.update(params)
 
     @property
@@ -150,7 +152,7 @@ class MLNQuery(object):
     
     @property
     def directory(self):
-        return os.path.dirname(self._config.config_file)
+        return os.path.dirname(self.configfile.config_file)
 
 
     def run(self):
