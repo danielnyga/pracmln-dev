@@ -50,9 +50,7 @@ class WCSPInference(Inference):
         with temporary_evidence(self.mrf):
             self.converter = WCSPConverter(self.mrf)
             result = self.result_dict(verbose=self.verbose)
-            print 'queries', self.queries
             for query in self.queries:
-                print query
                 query = str(query)
                 result_[query] = result[query] if query in result else self.mrf[query]
         return result_
