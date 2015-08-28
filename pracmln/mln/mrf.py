@@ -434,18 +434,19 @@ class MRF(object):
         '''
         for gndatom in self.gndatoms:
             v = world[gndatom.idx]
-            vstr = '%.3f' % v if v is not None else '?   '
+            vstr = '%.3f' % v if v is not None else '?    '
             stream.write('%s  %s\n' % (vstr, str(gndatom)))
         
     
-    def print_world_vars(self, world, stream=sys.stdout):
+    def print_world_vars(self, world, stream=sys.stdout, tb=2):
         '''
         Prints the given world `world` as a readable string of the MRF variables to the given stream.
         '''
+        out('=== WORLD VARIABLES ===', tb=tb)
         for var in self.variables:
             stream.write(repr(var) + '\n')
             for i, v in enumerate(var.evidence_value(world)):
-                vstr = '%.3f' % v if v is not None else '?   '
+                vstr = '%.3f' % v if v is not None else '?    '
                 stream.write('  %s  %s\n' % (vstr, var.gndatoms[i])) 
             
 
@@ -556,7 +557,7 @@ class MRF(object):
         '''
         Prints the evidence truth values of the variables of this MRF to the given `stream`.
         '''
-        self.print_world_vars(self.evidence, stream)    
+        self.print_world_vars(self.evidence, stream, tb=3)    
     
     
     def getTruthDegreeGivenSoftEvidence(self, gf, world):
