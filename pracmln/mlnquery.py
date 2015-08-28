@@ -189,7 +189,7 @@ class MLNQuery(object):
             
         # expand the
         #  parameters
-        params = dict(self._config.config)
+        params = dict(self._config)
         if 'params' in params:
             params.update(eval("dict(%s)" % params['params']))
             del params['params']
