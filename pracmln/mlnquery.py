@@ -219,12 +219,12 @@ class MLNQuery(object):
         try:
             mln_ = mln.materialize(db)
             mrf = mln_.ground(db)
+            inference = self.method(mrf, queries, **params)
             if self.verbose:
                 print
                 print headline('EVIDENCE VARIABLES')
                 print
                 mrf.print_evidence_vars()
-            inference = self.method(mrf, queries, **params)
             result = inference.run()
             print 
             print headline('INFERENCE RESULTS')
