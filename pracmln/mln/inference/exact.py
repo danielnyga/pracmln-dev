@@ -35,6 +35,9 @@ from pracmln.mln.util import Interval, ProgressBar, colorize, out
 from numpy.ma.core import exp
 from pracmln.mln.inference.infer import Inference
 from pracmln.mln.grounding.default import DefaultGroundingFactory
+from pracmln.logic.common import Logic
+
+logger = logging.getLogger(__name__)
 
 # this readonly global is for multiprocessing to exploit copy-on-write
 # on linux systems
@@ -55,8 +58,9 @@ def eval_queries(world):
             truth = gf(world)
             if gf.weight == HARD and truth in Interval(']0,1['):
                 raise Exception('No real-valued degrees of truth are allowed in hard constraints.')
-            if gf.weight == HARD and truth != 1:
-                continue #  
+            if gf.weight == HARD:
+                if truth == 1: continue
+                else: return numerators, 0
             expsum += gf(world) * gf.weight
     expsum = exp(expsum)
     # update numerators
@@ -75,8 +79,8 @@ class EnumerationAsk(Inference):
     
     def __init__(self, mrf, queries, **params):
         Inference.__init__(self, mrf, queries, **params)
-#         self.grounder = FastConjunctionGrounding(mrf, formulas=mrf.formulas, cache=auto, verbose=False, multicore=self.multicore)
-        self.grounder = DefaultGroundingFactory(mrf, formulas=mrf.formulas, cache=auto, verbose=False)
+        self.grounder = FastConjunctionGrounding(mrf, formulas=mrf.formulas, cache=auto, verbose=False, multicore=self.multicore)
+#         self.grounder = DefaultGroundingFactory(mrf, formulas=mrf.formulas, cache=auto, verbose=False)
         # check consistency of fuzzy and functional variables
         for variable in self.mrf.variables:
             variable.consistent(self.mrf.evidence, strict=isinstance(variable, FuzzyVariable))
@@ -89,11 +93,17 @@ class EnumerationAsk(Inference):
         debug: (given that verbose is true) if true, outputs debug information, in particular the distribution over possible worlds
         debugLevel: level of detail for debug mode
         '''
-        logger = logging.getLogger(self.__class__.__name__)
+        # check consistency with hard constraints:
+        self._watch.tag('check hard constraints')
+        hcgrounder = FastConjunctionGrounding(self.mrf, formulas=[f for f in self.mrf.formulas if f.weight == HARD], **self._params)
+        for gf in hcgrounder.itergroundings(simplify=True, unsatfailure=True):
+            if isinstance(gf, Logic.TrueFalse) and gf.truth() == .0:
+                raise SatisfiabilityException('MLN is unsatisfiable due to hard constraint violation by evidence: %s (%s)' % (str(gf), str(self.mln.formula(gf.idx))))
+        self._watch.finish('check hard constraints')
         # compute number of possible worlds
         worlds = 1
         for variable in self.mrf.variables:
-            values = variable.valuecount(self.mrf.evidence_dicti())
+            values = variable.valuecount(self.mrf.evidence)
             worlds *= values
         numerators = [0.0 for i in range(len(self.queries))]
         denominator = 0.
