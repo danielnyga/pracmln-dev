@@ -24,6 +24,7 @@
 import pickle
 from subprocess import Popen, PIPE
 from mln.util import logx
+import os
 
 def KLDivergence(p, q):
 	'''
@@ -234,6 +235,32 @@ class ConfusionMatrix(object):
 			
 		print '%s: - Acc=%.2f, Pre=%.2f, Rec=%.2f F1=%.2f' % ('Average: ', aAcc/len(classes), aPre/len(classes), aRec/len(classes), aF1/len(classes))	
 		print ""
+	
+	def get_average_precision(self):
+		classes = []
+		for classification in self.matrix:
+			for truth in self.matrix.get(classification,{}):
+				try:
+					classes.index(truth)
+				except ValueError:
+					classes.append(truth)
+		
+		classes = sorted(classes)
+		aAcc = 0.0
+		aPre = 0.0
+		aRec = 0.0
+		aF1 = 0.0
+		
+		for cf in classes:
+			acc,pre,rec,f1 = self.getMetrics(cf)
+			aAcc += acc
+			aPre += pre
+			aRec += rec
+			aF1 += f1
+		
+		return {'Acc' : aAcc/len(classes), 'Pre' : aPre/len(classes), 'Rec' : aRec/len(classes), 'F1' : aF1/len(classes), 'Classes' : len(classes)}	
+		
+		
 	@staticmethod	
 	def compareConfusionMatrices(*matricesPath):
 		for path in matricesPath:
@@ -241,7 +268,35 @@ class ConfusionMatrix(object):
 			print path
 			cm.printAveragePrecision()
 	
-
+	
+	@staticmethod	
+	def write_comparison_results_between_confusion_matrices(filename,*matricesPath):
+		
+		aAcc = 0.0
+		aPre = 0.0
+		aRec = 0.0
+		aF1 = 0.0
+		num_elements = len(matricesPath)
+		num_classes = 0
+		result_file = open(filename,'w')
+		
+		for path in matricesPath:
+			print path
+			cm = ConfusionMatrix.load(path)
+			res_dict = cm.get_average_precision()
+			
+			aAcc += res_dict['Acc']
+			aPre += res_dict['Pre']
+			aRec += res_dict['Rec']
+			aF1 += res_dict['F1']
+			num_classes += res_dict['Classes'] 
+			result_file.write('%s: - Acc=%.2f, Pre=%.2f, Rec=%.2f, F1=%.2f, Classes=%.2f \n' % (os.path.basename(path), res_dict['Acc'], res_dict['Pre'], res_dict['Rec'], res_dict['F1'],res_dict['Classes']))
+			
+		result_file.write('%s: - Acc=%.2f, Pre=%.2f, Rec=%.2f, F1=%.2f, Classes=%.2f, #CMs=%.2f  \n ' % ('Overall Average: ', aAcc/num_elements, aPre/num_elements, aRec/num_elements, aF1/num_elements,num_classes,num_elements))
+		
+		result_file.close()
+			
+		
 	def iteritems(self):
 		'''
 		Iterates over triples of the form (prediction, class, count) of this confusion matrix.
