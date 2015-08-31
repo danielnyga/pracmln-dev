@@ -50,7 +50,7 @@ qx.Class.define("webmln.Application",
             req.addListener("success", function(e) {
                 var tar = e.getTarget();
                 var response = tar.getResponse();
-                sessionname = response;
+                var sessionname = response;
             });
             req.send();
             };
@@ -747,13 +747,13 @@ qx.Class.define("webmln.Application",
         _refresh_list : function(field, mln){
             var exampleFolder = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctXmplFldr : this.__slctXmplFldrLrn).getSelection()[0].getLabel();
             var url = "/mln/"+ (this.__tabView.isSelected(this.__inferencePage) ? 'inference' : 'learning') + "/_change_example";
-            req = new qx.io.request.Xhr(url, "POST");
+            var req = new qx.io.request.Xhr(url, "POST");
             req.setRequestHeader("Content-Type", "application/json");
             req.setRequestData({"folder": exampleFolder});
             req.addListener("success", function(e) {
                 var tar = e.getTarget();
-                response = tar.getResponse();
-                filesList = mln ? response.mlns : response.dbs;
+                var response = tar.getResponse();
+                var filesList = mln ? response.mlns : response.dbs;
 
                 field.removeAll();
                 for (var i = 0; i < filesList.length; i++) {
@@ -770,12 +770,12 @@ qx.Class.define("webmln.Application",
             var isInfPage = this.__tabView.isSelected(this.__inferencePage);
             var xmplFldrSlctn = (isInfPage ? this.__slctXmplFldr : this.__slctXmplFldrLrn).getSelection()[0].getLabel();
 
-            req = new qx.io.request.Xhr("/mln/save_edited_file", "POST");
+            var req = new qx.io.request.Xhr("/mln/save_edited_file", "POST");
             req.setRequestHeader("Content-Type", "application/json");
             req.setRequestData({"folder": xmplFldrSlctn, "fname": fname, "newfname": newname, "content": fcontent});
             req.addListener("success", function(e) {
                 var tar = e.getTarget();
-                response = tar.getResponse();
+                var response = tar.getResponse();
             }, this);
             req.send();
         },
@@ -786,12 +786,12 @@ qx.Class.define("webmln.Application",
         */
         _change_example_inf : function(e){
             var exampleFolder = e.getData()[0].getLabel();
-            req = new qx.io.request.Xhr("/mln/inference/_change_example", "POST");
+            var req = new qx.io.request.Xhr("/mln/inference/_change_example", "POST");
             req.setRequestHeader("Content-Type", "application/json");
             req.setRequestData({"folder": exampleFolder});
             req.addListener("success", function(e) {
                 var tar = e.getTarget();
-                response = tar.getResponse();
+                var response = tar.getResponse();
 
                 this.__slctMLN.removeAll();
                 for (var i = 0; i < response.mlns.length; i++) {
@@ -811,12 +811,12 @@ qx.Class.define("webmln.Application",
         */
         _change_example_lrn : function(e){
             var exampleFolder = e.getData()[0].getLabel();
-            req = new qx.io.request.Xhr("/mln/learning/_change_example", "POST");
+            var req = new qx.io.request.Xhr("/mln/learning/_change_example", "POST");
             req.setRequestHeader("Content-Type", "application/json");
             req.setRequestData({"folder": exampleFolder});
             req.addListener("success", function(e) {
                 var tar = e.getTarget();
-                response = tar.getResponse();
+                var response = tar.getResponse();
                 this.__slctMLNLrn.removeAll();
                 for (var i = 0; i < response.mlns.length; i++) {
                     this.__slctMLNLrn.add(new qx.ui.form.ListItem(response.mlns[i]));
@@ -847,7 +847,7 @@ qx.Class.define("webmln.Application",
                 req.addListener("success", function(e) {
                     var tar = e.getTarget();
                     var that = this;
-                    response = tar.getResponse().split(",");
+                    var response = tar.getResponse().split(",");
                     for (var i = 0; i < response.length; i++) {
                         that.__slctEMLN.add(new qx.ui.form.ListItem(response[i]));
                     }
@@ -903,7 +903,7 @@ qx.Class.define("webmln.Application",
                 var emlnText = this.codeMirroremlnArea ? this.codeMirroremlnArea.doc.getValue() : "";
                 var dbText = this.codeMirrordbArea ? this.codeMirrordbArea.doc.getValue() : "";
 
-                req = new qx.io.request.Xhr("/mln/inference/_start_inference", "POST");
+                var req = new qx.io.request.Xhr("/mln/inference/_start_inference", "POST");
                 req.setRequestHeader("Content-Type", "application/json");
                 req.setRequestData({"mln": mln,
                                     "emln": emln,
@@ -929,7 +929,7 @@ qx.Class.define("webmln.Application",
                 req.addListener("success", function(e) {
                         var that = this;
                         var tar = e.getTarget();
-                        response = tar.getResponse();
+                        var response = tar.getResponse();
 
                         var atoms = response.atoms;
                         var formulas = response.formulas;
@@ -1057,7 +1057,7 @@ qx.Class.define("webmln.Application",
                 var mlnText = this.codemirrormlnLArea ? this.codemirrormlnLArea.doc.getValue() : "";
                 var dbText = this.codeMirrortDataArea ? this.codeMirrortDataArea.doc.getValue() : "";
 
-                req = new qx.io.request.Xhr("/mln/learning/_start_learning", "POST");
+                var req = new qx.io.request.Xhr("/mln/learning/_start_learning", "POST");
                 req.setRequestHeader("Content-Type", "application/json");
                 req.setRequestData({"mln": mln,
                                     "db": db,
@@ -1102,7 +1102,7 @@ qx.Class.define("webmln.Application",
         * Fetch options to choose from
         */
         _init : function() {
-            req = new qx.io.request.Xhr("/mln/_init", "GET");
+            var req = new qx.io.request.Xhr("/mln/_init", "GET");
             req.addListener("success", function(e) {
                     var tar = e.getTarget();
                     var response = tar.getResponse();

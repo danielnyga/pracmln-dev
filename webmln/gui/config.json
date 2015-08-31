@@ -53,6 +53,12 @@
   // You only need to edit the remainder of this file, if you want to customize
   // specific jobs, or add own job definitions.
 
+  // suppress warnings for globals specified in lint-check below
+  "config-warnings" :
+  {
+      "job-shadowing": ["common", "source-all", "build"]
+  },
+
   "jobs" :
   {
     // Uncomment the following entry to add a contrib or library to your
@@ -72,6 +78,22 @@
         }
       ]
     }
+
+    ,"common" :
+    {
+       "lint-check": {
+          "allowed-globals": [
+                "CodeMirror",
+                "d3"
+          ]
+      }
+   },
+   "source-script" : {
+       "extend" : ["common"]
+   },
+   "build-script" : {
+       "extend" : ["common"]
+   }
     
 
     // If you want to tweak a job setting, see the following sample where

@@ -23,8 +23,12 @@ qx.Class.define("webmln.Graph",
   *****************************************************************************
   */
   construct: function(prarent) {
-    this.container = new qxd3.Svg("#viz", 'pracgraph');
-    this.d3 = this.container.getD3();
+    this.container = d3.select("#viz")
+        .append("svg")
+        .attr("id", "pracgraph")
+        .attr('width','100%')
+        .attr('height','100%')
+        .append('svg:g');
     this.WAITMSEC = 500;
 
     //this.audio = new Audio("audio/bubble.wav");
@@ -34,7 +38,7 @@ qx.Class.define("webmln.Graph",
     this.w = document.getElementById("viz", true, true).offsetWidth;
     this.h = document.getElementById("viz", true, true).offsetHeight;
 
-    this.svnContainer = this.d3.select('#viz').select("svg").select("g");
+    this.svnContainer = d3.select('#viz').select("svg").select("g");
     /*
     this.svnContainer.append("defs").selectAll("marker")
       .data(["dashedred", "strokegreen", "dashed", "strokeblue", "arrowhead", "default"])
@@ -49,7 +53,7 @@ qx.Class.define("webmln.Graph",
       .append("path")
       .attr("d", "M0,-5L10,0L0,5 Z");*/
 
-    this.force = this.d3.layout.force();
+    this.force = d3.layout.force();
     this.nodes = this.force.nodes();
     this.links = this.force.links();
 
@@ -262,7 +266,7 @@ qx.Class.define("webmln.Graph",
      */
     showLabels : function(showLabels) {
         var cols = document.getElementsByClassName('label');
-        for(i=0; i<cols.length; i++) {
+        for(var i=0; i<cols.length; i++) {
             var visibility = showLabels ? 'visible' : 'hidden';
             cols[i].style.visibility = visibility;
         }
@@ -273,7 +277,7 @@ qx.Class.define("webmln.Graph",
      * redraws the graph with the updated nodes and links
      */
     update : function () {
-      showLabels = typeof showLabels !== 'undefined' ? showLabels : true;
+      var showLabels = typeof showLabels !== 'undefined' ? showLabels : true;
 
       var path = this.svnContainer.selectAll("path.link")
         .data(this.links, function(d) {
