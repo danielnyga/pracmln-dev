@@ -71,9 +71,6 @@
       "library" :
       [
         {
-          "manifest" : "../../3rdparty/QxD3/Manifest.json"
-        },
-        {
           "manifest" : "contrib://UploadMgr/trunk/Manifest.json"
         }
       ]
