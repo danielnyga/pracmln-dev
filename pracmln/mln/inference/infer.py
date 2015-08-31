@@ -26,7 +26,8 @@ from pracmln.logic.common import Logic
 from pracmln.mln.database import Database
 from pracmln.mln.constants import ALL
 from pracmln.mln.mrfvars import MutexVariable, SoftMutexVariable, FuzzyVariable
-from pracmln.mln.util import StopWatch, barstr, colorize, elapsed_time_str, out
+from pracmln.mln.util import StopWatch, barstr, colorize, elapsed_time_str, out,\
+    headline
 import sys
 from pracmln.mln.errors import NoSuchPredicateError
 
@@ -198,6 +199,7 @@ class Inference(object):
         results = sorted(results, key=str)
         for q in results:
             stream.write('%s %s\n' % (barstr(barwidth, self.results[q], color=color), q))
+        self._watch.printSteps()
     
     
     def write_elapsed_time(self, stream=sys.stdout, color=None):
@@ -208,7 +210,8 @@ class Inference(object):
         if color: col = 'blue'
         else: col = None
         total = float(self._watch['inference'].elapsedtime)
-        stream.write(colorize('INFERENCE RUNTIME STATISTICS\n============================\n', format=(None, None, True), color=color))
+        stream.write(headline('INFERENCE RUNTIME STATISTICS'))
+        print
         for t in sorted(self._watch.tags.values(), key=lambda t: t.elapsedtime, reverse=True):
             stream.write('%s %s %s\n' % (barstr(width=30, percent=t.elapsedtime / total, color=col), elapsed_time_str(t.elapsedtime), t.label))
     
