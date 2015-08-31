@@ -465,11 +465,10 @@ class FilePickEdit(Frame):
         Replaces the text in the edit field as by typing
         into it.
         '''
-        self.editor.delete('1.0', END)
+        self.select("")
         if txt.strip() == "":
             txt = "// empty database\n";
         self.editor.insert(INSERT, txt)
-        self.select("")
         self.onEdit()
         
 
