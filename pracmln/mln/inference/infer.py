@@ -66,7 +66,7 @@ class Inference(object):
         # fill in the missing truth values of variables that have only one remaining value
         for variable in self.mrf.variables:
             if variable.valuecount(self.mrf.evidence_dicti()) == 1: # the var is fully determined by the evidence
-                for _, value in variable.itervalues(self.mrf.evidence_dicti()): break
+                for _, value in variable.itervalues(self.mrf.evidence): break
                 self.mrf.set_evidence(variable.value2dict(value), erase=False)
         # apply the closed world assumptions to the explicitly specified predicates
         if self.cwpreds:

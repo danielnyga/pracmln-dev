@@ -259,10 +259,16 @@ class FuzzyVariable(MRFVariable):
     
     def valuecount(self, evidence=None):
         if evidence is None or evidence[self.gndatoms[0].idx] is None:
-            raise Exception('Cannot count number of values of an unassigned FuzzyVariable.')
+            raise MRFValueException('Cannot count number of values of an unassigned FuzzyVariable.')
         else:
             return 1
-            
+
+
+    def itervalues(self, evidence=None):
+        if evidence is None or evidence[self.gndatoms[0].idx] is None:
+            raise MRFValueException('Cannot iterate over values of fuzzy variables: %s' % str(self))
+        else:
+            yield None, (evidence[self.gndatoms[0].idx],)
     
 
 class BinaryVariable(MRFVariable):
