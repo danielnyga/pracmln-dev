@@ -27,7 +27,8 @@ from pracmln.logic.common import Logic
 from pracmln.mln.database import Database
 from pracmln.mln.constants import ALL
 from pracmln.mln.mrfvars import MutexVariable, SoftMutexVariable, FuzzyVariable
-from pracmln.mln.util import StopWatch, barstr, colorize, elapsed_time_str, out
+from pracmln.mln.util import StopWatch, barstr, colorize, elapsed_time_str, out,\
+    headline
 import sys
 from pracmln.mln.errors import NoSuchPredicateError
 
@@ -62,6 +63,11 @@ class Inference(object):
             if type(queries) is not list:
                 queries = [queries]
             self.queries = self._expand_queries(queries)
+        # fill in the missing truth values of variables that have only one remaining value
+        for variable in self.mrf.variables:
+            if variable.valuecount(self.mrf.evidence_dicti()) == 1: # the var is fully determined by the evidence
+                for _, value in variable.itervalues(self.mrf.evidence_dicti()): break
+                self.mrf.set_evidence(variable.value2dict(value), erase=False)
         # apply the closed world assumptions to the explicitly specified predicates
         if self.cwpreds:
             for pred in self.cwpreds:
@@ -158,7 +164,7 @@ class Inference(object):
     
     
     def _run(self, verbose=False, **args):
-        raise Exception('%s does not implement _infer()' % self.__class__.__name__)
+        raise Exception('%s does not implement _run()' % self.__class__.__name__)
 
 
     def run(self):
@@ -169,10 +175,9 @@ class Inference(object):
         # perform actual inference (polymorphic)
         if self.verbose: print 'Inference engine: %s' % self.__class__.__name__
         self._watch.tag('inference', verbose=self.verbose)
-#         if self.closedworld is not None:
-#             with temporary_evidence(self.mrf):
-#                 self.mrf.apply_cw(None if self.closedworld is ALL else self.closedworld)
+        _weights_backup = list(self.mln.weights)
         self._results = self._run()
+        self.mln.weights = _weights_backup
         self._watch.finish('inference')
         return self
     
@@ -203,6 +208,7 @@ class Inference(object):
         results = sorted(results, key=str)
         for q in results:
             stream.write('%s %s\n' % (barstr(barwidth, self.results[q], color=color), q))
+        self._watch.printSteps()
     
     
     def write_elapsed_time(self, stream=sys.stdout, color=None):
@@ -213,7 +219,8 @@ class Inference(object):
         if color: col = 'blue'
         else: col = None
         total = float(self._watch['inference'].elapsedtime)
-        stream.write(colorize('INFERENCE RUNTIME STATISTICS\n============================\n', format=(None, None, True), color=color))
+        stream.write(headline('INFERENCE RUNTIME STATISTICS'))
+        print
         for t in sorted(self._watch.tags.values(), key=lambda t: t.elapsedtime, reverse=True):
             stream.write('%s %s %s\n' % (barstr(width=30, percent=t.elapsedtime / total, color=col), elapsed_time_str(t.elapsedtime), t.label))
     

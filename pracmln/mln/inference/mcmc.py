@@ -28,7 +28,7 @@ import random
 
 import logging
 from pracmln.mln.inference.infer import Inference
-from pracmln.mln.util import fstr
+from pracmln.mln.util import fstr, out, stop
 
 
 logger = logging.getLogger(__name__)
@@ -68,21 +68,30 @@ class MCMCInference(Inference):
             self.queries = queries
             self.soft_evidence = None
             self.steps = 0
-            self.truth = [0] * len(self.queries)
+            self.truths = [0] * len(self.queries)
             self.converged = False
             self.lastresult = 10
             self.infer = infer
             # copy the current  evidence as this chain's state
-            self.state = list(infer.mrf.evidence)
-            # initialize remaining variables randomly (but consistently)
-            self.state = infer.random_world(self.state)
+            # initialize remaining variables randomly (but consistently with the evidence)
+            self.state = infer.random_world()
+#             out('initialized chain with state')
+#             self.infer.mrf.print_world_vars(self.state)
         
         
-        def update(self):
+        def update(self, state):
             self.steps += 1
+#             out('old state', self.state)
+#             out('new state', state)
+            self.state = state
             # keep track of counts for queries
-            for i in range(len(self.queries)):
-                self.truths[i] += self.queries[i](self.state)
+            for i, q in enumerate(self.queries):
+#                 out('checking for query', q)
+#                 out('in state')
+#                 self.infer.mrf.print_world_vars(self.state)
+#                 if q(self.state) > 0:
+#                     stop(q, 'is true')
+                self.truths[i] += q(self.state)
             # check if converged !!! TODO check for all queries
             if self.steps % 50 == 0:
                 result = self.results()[0]
@@ -145,7 +154,7 @@ class MCMCInference(Inference):
                 cr = chain.results()
                 for i in range(len(self.chains[0].queries)):
                     var[i] += (cr[i] - results[i]) ** 2 / chains
-            return dict([(q, p) for q, p in zip(self.queries, results)]), var
+            return dict([(str(q), p) for q, p in zip(queries, results)]), var
         
         
         def avgtruth(self, formula):

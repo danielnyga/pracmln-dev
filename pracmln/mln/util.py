@@ -90,7 +90,7 @@ def out(*args, **kwargs):
 
 def stop(*args, **kwargs):
     out(*args, **edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
-    print '<press enter to continue>'
+    sys.stdout.write('<press enter to continue>\r')
     raw_input()
     
 
@@ -106,6 +106,11 @@ def stoptrace(*args, **kwargs):
     trace(**edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
     stop(*args, **edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
 
+
+def crash(*args, **kwargs):
+    out(*args, **edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
+    print colorize('TERMINATING.', ('red', None, True), True)
+    exit(-1)
 
 def flip(value):
     '''
@@ -575,6 +580,21 @@ class edict(dict):
             del ret[d]
         return ret
     
+    
+class eset(set):
+    
+    def __add__(self, s):
+        return set(self).union(s)
+    
+
+def item(s):
+    '''
+    Returns an arbitrary item from the given set `s`.
+    '''
+    if not s:
+        raise Exception('Argument of type %s is empty.' % type(s).__name__)
+    for i in s: break
+    return i
 
 class temporary_evidence():
     '''
@@ -597,9 +617,9 @@ class temporary_evidence():
     def __enter__(self):
         return self.mrf
     
-    def __exit__(self, t, v, tb):
-        if t is not None:
-            raise t(v)
+    def __exit__(self, exception_type, exception_value, traceback):
+        if exception_type is not None:
+            raise traceback(exception_value)
         self.mrf.evidence = self.evidence_backup
         return True
         

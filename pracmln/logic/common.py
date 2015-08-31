@@ -1669,7 +1669,7 @@ class Logic(object):
             elif isinstance(child, Logic.Lit):
                 return self.mln.logic.lit(not child.negated, child.predname, child.args, mln=self.mln, idx=self.idx)
             elif isinstance(child, Logic.GroundLit):
-                return self.mln.logic.gnd_lit(child.gndAtom, not child.negated, mln=self.mln, idx=self.idx)
+                return self.mln.logic.gnd_lit(child.gndatom, not child.negated, mln=self.mln, idx=self.idx)
             elif isinstance(child, Logic.TrueFalse):
                 return self.mln.logic.true_false(1 - child.value, mln=self.mln, idx=self.idx)
             elif isinstance(child, Logic.Equality):
@@ -2211,7 +2211,7 @@ class Logic(object):
         gfs_ = []
         for gf in gfs:
             # non-logical constraint
-            if not gf.logical(): # don't apply any transformations to non-logical constraints
+            if not gf.islogical(): # don't apply any transformations to non-logical constraints
                 if gf.idx in negated:
                     gf.negate()
                 gfs_.append(gf)
@@ -2223,7 +2223,7 @@ class Logic(object):
                 cnf = gf.cnf()
             if isinstance(cnf, Logic.TrueFalse): # formulas that are always true or false can be ignored
                 continue
-            cnf.idxFormula = gf.idxFormula
+            cnf.idx = gf.idx
             gfs_.append(cnf)
         # return modified formulas
         return gfs_, formulas_

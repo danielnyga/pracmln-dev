@@ -220,12 +220,12 @@ class MLNQuery(object):
             mln_ = mln.materialize(db)
             mrf = mln_.ground(db)
 
+            inference = self.method(mrf, queries, **params)
             if self.verbose:
                 print
                 print headline('EVIDENCE VARIABLES')
                 print
 
-            inference = self.method(mrf, queries, **params)
             result = inference.run()
             print 
             print headline('INFERENCE RESULTS')
@@ -234,6 +234,9 @@ class MLNQuery(object):
             if self.save:
                 with open(os.path.join(self.dir.get(), self.output_filename), 'w+') as outFile:
                     inference.write(outFile)
+            print
+            if self.verbose:
+                inference.write_elapsed_time()
         except SystemExit:
             print 'Cancelled...'
         finally:

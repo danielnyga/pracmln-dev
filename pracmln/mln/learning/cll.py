@@ -31,6 +31,8 @@ import numpy
 from pracmln.logic.common import Logic
 from pracmln import praclog
 import sys
+from pracmln.mln.constants import HARD
+from pracmln.mln.errors import SatisfiabilityException
 
 
 logger = praclog.logger(__name__)
@@ -226,18 +228,21 @@ class CLL(AbstractLearner):
             sums = numpy.zeros(self.valuecounts[pidx])
             for f in self.partition2formulas[pidx]:
                 for i, v in enumerate(self._stat[f][pidx]):
-                    val = v * w[f]
-                    sums[i] += val
-            sum_min = numpy.min(sums)
-            sums -= sum_min
-            sum_max = numpy.max(sums)
-            sums -= sum_max
-            expsums = numpy.sum(numpy.exp(sums))
-            s = numpy.log(expsums)
-            probs[pidx] = numpy.exp(sums - s)
-#             expsum = numpy.exp(sums)
-#             probs[pidx] = expsum / fsum(expsum)
-#             self.probs[pidx] = expsum
+                    if f.weight == HARD and v == 0:
+                        sums[i] = -1
+                    elif sums[i] != -1:
+                        sums[i] += v * w[f]
+#             sum_max = numpy.max(sums)
+#             sums -= sum_max
+#             expsums = numpy.sum(numpy.exp(sums))
+#             s = numpy.log(expsums)
+#             probs[pidx] = numpy.exp(sums - s)
+            expsum = numpy.exp(sums)
+            expsum = numpy.array([e if s >= 0 else 0 for s, e in zip(sums, expsum)]) # leave out the inadmissible values
+            z = fsum(expsum)
+            if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: all probability masses of partition %s are zero.' % str(self.partitions[pidx]))
+            probs[pidx] = expsum / z
+            self.probs[pidx] = expsum
         self.probs = probs
         return probs
         

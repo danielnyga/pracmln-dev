@@ -35,6 +35,8 @@ from pracmln.mln.mrfvars import SoftMutexVariable
 from pracmln.mln.learning.common import DiscriminativeLearner
 from pracmln.mln.grounding.bpll import BPLLGroundingFactory
 import traceback
+from pracmln.mln.constants import HARD
+from pracmln.mln.errors import SatisfiabilityException
 
 
 logger = logging.getLogger(__name__)
@@ -77,12 +79,18 @@ class BPLL(AbstractLearner):
         sums = numpy.zeros(values)
         for fidx in gfs:
             for validx, n in enumerate(self._stat[fidx][varidx]):
-                sums[validx] += n * w[fidx]
+                if w[fidx] == HARD: 
+                    # set the prob mass of every value violating a hard constraint to -1
+                    # to indicate a globally inadmissible value. We will set those ones to 0 afterwards.
+                    if n == 0: sums[validx] = -1
+                elif sums[validx] != -1:
+                    # don't set it if this value has already been assigned marked as inadmissible.  
+                    sums[validx] += n * w[fidx]
         expsums = numpy.exp(sums)
+        expsums = numpy.array([e if s >= 0 else 0 for s, e in zip(sums, expsums)]) # leave of the inadmissible values
         z = sum(expsums)
+        if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: all probability masses of variable %s are zero.' % str(var))
         return map(lambda w_: w_ / z, expsums)
-#         sum_min = numpy.min(sums)
-#         sums -= sum_min
 #         sum_max = numpy.max(sums)
 #         sums -= sum_max
 #         expsums = numpy.sum(numpy.exp(sums))

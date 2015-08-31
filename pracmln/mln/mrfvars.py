@@ -51,6 +51,16 @@ class MRFVariable(object):
         self.predicate = predicate
     
     
+    def atomvalues(self, value):
+        '''
+        Returns a generator of (atom, value) pairs for the given variable value
+        
+        :param value:     a tuple of truth values
+        '''
+        for atom, val in zip(self.gndatoms, value):
+            yield atom, val
+    
+    
     def iteratoms(self):
         '''
         Yields all ground atoms in this variable, sorted by atom index ascending
@@ -172,6 +182,8 @@ class MRFVariable(object):
                      actual index obtained by `MRFVariable.valueidx()`.
         
         '''
+        if type(evidence) is list:
+            evidence = dict([(i, v) for i, v in enumerate(evidence)])
         for tup in self._itervalues(evidence):
             yield self.valueidx(tup), tup
     
