@@ -28,6 +28,7 @@ import logging
 import sys
 from numpy.ma.core import exp
 from pracmln.mln.util import out, stop
+from pracmln.mln.constants import HARD
 
 
 try:
@@ -92,11 +93,12 @@ class AbstractLearner(object):
     def repeat(self):
         return False
     
-    def _fullweights(self, w):
+    
+    def _add_fixweights(self, w):
         i = 0
         w_ = []
         for f in self.mrf.formulas:
-            if self.mrf.mln.fixweights[f.idx]:
+            if self.mrf.mln.fixweights[f.idx] or f.weight == HARD:
                 w_.append(self._w[f.idx])
             else:
                 w_.append(w[i])
@@ -105,12 +107,12 @@ class AbstractLearner(object):
     
     
     def _varweights(self):
-        return self._remove_fixweights(self._w)
+        return self._filter_fixweights(self._w)
     
     
     def f(self, weights):
         # reconstruct full weight vector
-        w = self._fullweights(weights) 
+        w = self._add_fixweights(weights) 
         # compute prior
         prior = 0
         if self.prior_stdev is not None:
@@ -129,14 +131,14 @@ class AbstractLearner(object):
 
         
     def grad(self, weights):
-        w = self._fullweights(weights)
+        w = self._add_fixweights(weights)
         grad = self._grad(w)
         self._grad_ = grad
         # add gaussian prior
         if self.prior_stdev is not None:
             for i, weight in enumerate(w):
                 grad[i] -= 1./(self.prior_stdev ** 2) * weight
-        return self._remove_fixweights(grad)
+        return self._filter_fixweights(grad)
         
         
     def __call__(self, weights):
@@ -165,29 +167,18 @@ class AbstractLearner(object):
         else:
             self.dummyFValue += sum(abs(self.lastFullGradient))
         print "_f: self.dummyFValue = ", self.dummyFValue
-#        if not hasattr(self, 'lastFullGradient'):
-#            return 0
-#        if not hasattr(self, 'dummyFValue'):
-#            self.dummyFValue = 1
-#        else:
-#            if numpy.any(self.secondlastFullGradient != self.lastFullGradient):
-#                self.dummyFValue += 1
-#            
-#        self.secondlastFullGradient = self.lastFullGradient     
-        
         return self.dummyFValue
     
-        
-
     
-    def _remove_fixweights(self, v):
+    def _filter_fixweights(self, v):
         '''
         Removes from the vector `v` all elements at indices that correspond to a fixed weight formula index.
+        or a hard constraint formula.
         '''
         if len(v) != len(self.mrf.formulas):
             raise Exception('Vector must have same length as formula weights')
         v_ = []#numpy.zeros(len(v), numpy.float64)
-        for val in [v[i] for i in range(len(self.mrf.formulas)) if not self.mrf.mln.fixweights[i]]:
+        for val in [v[i] for i in range(len(self.mrf.formulas)) if not self.mrf.mln.fixweights[i] and self.mrf.mln.weights[i] != HARD]:
             v_.append(val)
         return v_
     

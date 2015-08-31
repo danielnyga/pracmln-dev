@@ -29,6 +29,8 @@ from common import *
 from pracmln.mln.mrfvars import SoftMutexVariable
 from pracmln.mln.grounding.default import DefaultGroundingFactory
 from pracmln.mln.util import ProgressBar
+from pracmln.mln.constants import HARD
+from pracmln.mln.errors import SatisfiabilityException
 
 
 class LL(AbstractLearner):
@@ -57,10 +59,18 @@ class LL(AbstractLearner):
             expsums = []
             for fvalues in self._stat:
                 s = 0
+                hc_violation = False
                 for fidx, val in fvalues.iteritems():
+                    if self.mrf.mln.formulas[fidx.weight] == HARD and val == 0:
+                        hc_violation = True
+                        break
                     s += val * w[fidx]
-                expsums.append(exp(s))
+                if hc_violation: 
+                    expsums.append(0)
+                else:
+                    expsums.append(exp(s))
             z = sum(expsums)
+            if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: probability masses of all possible worlds are zero.')
             self._ls = map(lambda v: v / z, expsums) 
         return self._ls 
             
