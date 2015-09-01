@@ -150,8 +150,8 @@ class BPLL(AbstractLearner):
         '''
         self._stat = {}
         self._varidx2fidx = defaultdict(set)
-        grounder = DefaultGroundingFactory(self.mrf, verbose=False)
-        for f in grounder.itergroundings(simplify=False, unsatfailure=True):
+        grounder = DefaultGroundingFactory(self.mrf, simplify=False, unsatfailure=False, verbose=False)
+        for f in grounder.itergroundings():
             for gndatom in f.gndatoms():
                 var = self.mrf.variable(gndatom)
                 with temporary_evidence(self.mrf):

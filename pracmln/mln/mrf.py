@@ -582,64 +582,16 @@ class MRF(object):
         return 1.0 if worldValues[gndAtom.idx] else 0.0
     
 
-    def _noisyOr(self, mln, worldValues, disj):
-        if isinstance(disj, FirstOrderLogic.GroundLit):
-            lits = [disj]
-        elif isinstance(disj, FirstOrderLogic.TrueFalse):
-            return disj.isTrue(worldValues)
-        else:
-            lits = disj.children
-        prod = 1.0
-        for lit in lits:
-            p = mln._getEvidenceTruthDegreeCW(lit.gndAtom, worldValues)
-            if not lit.negated:
-                factor = p 
-            else:
-                factor = 1.0 - p
-            prod *= 1.0 - factor
-        return 1.0 - prod
-
-    def _removeTemporaryEvidence(self):
-        for idx, value in self.evidenceBackup.iteritems():
-            self._setEvidence(idx, value)
-        self.evidenceBackup.clear()
-
-    def _isTrueGndFormulaGivenEvidence(self, gf):
-        return gf.isTrue(self.evidence)
-
-
-
-    def _toCNF(self, allPositive=False):
-        '''
-            converts all ground formulas to CNF and also makes changes to the
-            MLN's set of formulas, such that the correspondence between groundings
-            and formulas still holds
-        '''
-        self.gndFormulas, self.formulas = toCNF(self.gndFormulas, self.formulas, logic=self.mln.logic)
-
-    
     def print_gndatoms(self, stream=sys.stdout):
         '''
         Prints the alphabetically sorted list of ground atoms in this MRF to the given `stream`.
         '''
+        out('=== GROUND ATOMS ===', tb=2)
         l = self._gndatoms.keys()
         for ga in sorted(l):
             stream.write(str(ga) + '\n')
 
             
-    def printFormulaProbabilities(self):
-        self._getWorlds()
-        sums = [0.0 for _ in range(len(self.formulas))]
-        totals = [0.0 for i in range(len(self.formulas))]
-        for world in self.worlds:
-            for gf in self.gndFormulas:
-                if self._isTrue(gf, world["values"]):
-                    sums[gf.idxFormula] += world["sum"] / self.partition_function
-                totals[gf.idxFormula] += world["sum"] / self.partition_function
-        for i, formula in enumerate(self.formulas):
-            print "%f %s" % (sums[i] / totals[i], str(formula))
-
-
     def apply_prob_constraints(self, constraints, method=InferenceMethods.EnumerationAsk, 
                                    thr=1.0e-3, steps=20, fittingMCSATSteps=5000, 
                                    fittingParams=None, given=None, queries=None, 
@@ -658,7 +610,6 @@ class MRF(object):
             if not None, then convergence is relaxed, and we stop when the *mean* absolute difference between desired and
             actual probability drops below "threshold" *and* the maximum is below "maxThreshold"
         '''
-        logger = logging.getLogger(self.__class__.__name__)
         if fittingParams is None:
             fittingParams = {}
         inferenceParams = fittingParams
@@ -753,7 +704,7 @@ class MRF(object):
             formula.weight += float(logx(f)) #make sure to set the weight to a native float and not an mpmath value
             diff = diffs[idxConstraint]
             # print status
-            logger.debug("  [%s] p=%f vs. %f (diff = %f), weight %s: %f -> %f, dev max %f mean %f, elapsed: %.3fs" % (strStep, p, pnew, diff, strFormula(formula), old_weight, formula.weight, maxdiff, meandiff, time.time() - t_start))
+            logger.debug("  [%s] p=%f vs. %f (diff = %f), weight %s: %f -> %f, dev max %f mean %f, elapsed: %.3fs" % (strStep, p, pnew, diff, str(formula), old_weight, formula.weight, maxdiff, meandiff, time.time() - t_start))
             if fittingStep % len(constraints) == 0:
                 step += 1
             fittingStep += 1
@@ -767,103 +718,6 @@ class MRF(object):
 
         return (results[len(constraints):], {"steps": min(step, steps), "fittingSteps": fittingStep, "maxdiff": maxdiff, "meandiff": meandiff, "time": time.time() - t_start})
 
-    #
-    # TODO: Move the inference into MLN. It should be the only class 
-    #       a user has to interface.
-    #
-
-#     def infer(self, what, given=None, verbose=True, **args):
-#         '''
-#         Infer a probability P(F1 | F2) where F1 and F2 are formulas - using the default inference method specified for this MLN
-#         what: a formula, e.g. "foo(A,B)", or a list of formulas
-#         given: either
-#                  * another formula, e.g. "bar(A,B) ^ !baz(A,B)"
-#                    Note: it can be an arbitrary formula only for exact inference, otherwise it must be a conjunction
-#                    This will overwrite any evidence previously set in the MLN
-#                  * None if the evidence currently set in the MLN is to be used
-#         verbose: whether to print the results
-#         args: any additional arguments to pass on to the actual inference method
-#         '''
-#         # call actual inference method
-#         defaultMethod = self.mln.defaultInferenceMethod
-#         if defaultMethod == InferenceMethods.Exact:
-#             return self.inferExact(what, given, verbose, **args)
-#         elif defaultMethod == InferenceMethods.GibbsSampling:
-#             return self.inferGibbs(what, given, verbose, **args)
-#         elif defaultMethod == InferenceMethods.MCSAT:
-#             return self.inferMCSAT(what, given, verbose, **args)
-#         elif defaultMethod == InferenceMethods.FuzzyMCSAT:
-#             return self.inferFuzzyMCSAT(what, given, verbose, **args)
-#         elif defaultMethod == InferenceMethods.IPFPM_exact:
-#             return self.inferIPFPM(what, given, inferenceMethod=InferenceMethods.Exact, **args)
-#         elif defaultMethod == InferenceMethods.IPFPM_MCSAT:
-#             return self.inferIPFPM(what, given, inferenceMethod=InferenceMethods.MCSAT, **args)
-#         elif defaultMethod == InferenceMethods.EnumerationAsk:
-#             return self.inferEnumerationAsk(what, given, verbose=verbose, **args)
-#         elif defaultMethod == InferenceMethods.WCSP:
-#             return self.inferWCSP(what, given, verbose, **args)
-#         elif defaultMethod == InferenceMethods.BnB:
-#             return self.inferBnB(what, given, verbose, **args)
-#         else:
-#             raise Exception("Unknown inference method '%s'. Use a member of InferenceMethods!" % str(self.defaultInferenceMethod))
-# 
-#     def inferExact(self, what, given=None, verbose=True, **args):
-#         return self._infer(ExactInference(self), what, given, verbose, **args)
-# 
-#     def inferExactLinear(self, what, given=None, verbose=True, **args):
-#         return self._infer(ExactInferenceLinear(self), what, given, verbose, **args)
-# 
-#     def inferEnumerationAsk(self, what, given=None, verbose=True, **args):
-#         return self._infer(EnumerationAsk(self), what, given, verbose, **args)
-# 
-#     def inferGibbs(self, what, given=None, verbose=True, **args):
-#         return self._infer(GibbsSampler(self), what, given, verbose=verbose, **args)
-# 
-#     def inferMCSAT(self, what, given=None, verbose=True, **args):
-#         mcsat = MCSAT(self, verbose=verbose) # can be used for later data retrieval
-#         return self._infer(mcsat, what, given, verbose, **args)
-#     
-#     def inferFuzzyMCSAT(self, what, given=None, verbose=True, **args):
-#         return self._infer(FuzzyMCSAT(self), what, given, verbose, **args)
-# 
-#     def inferIPFPM(self, what, given=None, verbose=True, **args):
-#         '''
-#             inference based on the iterative proportional fitting procedure at the model level (IPFP-M)
-#         '''
-#         ipfpm = IPFPM(self) # can be used for later data retrieval
-#         return self._infer(ipfpm, what, given, verbose, **args)
-#     
-#     def inferWCSP(self, what, given=None, verbose=True, **args):
-#         '''
-#         Perform WCSP (MPE) inference on the MLN.
-#         '''
-#         return self._infer(WCSPInference(self), what, given, verbose, **args)
-#     
-#     def inferBnB(self, what, given=None, verbose=True, **args):
-#         return self._infer(BnBInference(self), what, given, verbose, **args)
-# 
-#     def _infer(self, inferObj, what, given=None, verbose=True, doProbabilityFitting=True, **args):
-#         # if there are prior probability constraints, apply them first
-#         if len(self.probreqs) > 0 and doProbabilityFitting:
-#             fittingParams = {
-#                 "fittingMethod": self.mln.probabilityFittingInferenceMethod,
-#                 "fittingSteps": self.mln.probabilityFittingMaxSteps,
-#                 "fittingThreshold": self.mln.probabilityFittingThreshold,
-#                 "probabilityFittingResultFileName": None
-#                 #fittingMCSATSteps
-#             }
-#             fittingParams.update(args)
-#             self._fitProbabilityConstraints(self.probreqs, **fittingParams)
-#         # run actual inference method
-#         self.inferObj = inferObj
-#         return inferObj.infer(what, given, verbose=verbose, **args)
-
-#     def getResultsDict(self):
-#         '''
-#             gets the results computed by the last call to an inference method (infer*)
-#             in the form of a dictionary that maps ground formulas to probabilities
-#         '''
-#         return self.inferObj.getResultsDict()
 
     def _weights(self):
         ''' returns the weight vector as a list '''
@@ -876,23 +730,22 @@ class MRF(object):
         '''
         if not hasattr(self, "gndFormulas") or len(self.gndFormulas) == 0:
             raise Exception("Error: cannot create graph because the MLN was not combined with a concrete domain")
-        f = file(filename, "wb")
-        f.write("graph G {\n")
-        graph = {}
-        for gf in self.gndFormulas:
-            idxGndAtoms = gf.idxGroundAtoms()
-            for i in range(len(idxGndAtoms)):
-                for j in range(i + 1, len(idxGndAtoms)):
-                    edge = [idxGndAtoms[i], idxGndAtoms[j]]
-                    edge.sort()
-                    edge = tuple(edge)
-                    if not edge in graph:
-                        f.write("  ga%d -- ga%d\n" % edge)
-                        graph[edge] = True
-        for gndAtom in self.gndAtoms.values():
-            f.write('  ga%d [label="%s"]\n' % (gndAtom.idx, str(gndAtom)))
-        f.write("}\n")
-        f.close()
+        with open(filename, "wb") as f:
+            f.write("graph G {\n")
+            graph = {}
+            for gf in self.itergroundings:
+                atomindices = gf.gndatom_indices()
+                for i in range(len(atomindices)):
+                    for j in range(i + 1, len(atomindices)):
+                        edge = [atomindices[i], atomindices[j]]
+                        edge.sort()
+                        edge = tuple(edge)
+                        if not edge in graph:
+                            f.write("  ga%d -- ga%d\n" % edge)
+                            graph[edge] = True
+            for atom in self.gndatoms.values():
+                f.write('  ga%d [label="%s"]\n' % (atom.idx, str(atom)))
+            f.write("}\n")
 
 
     def graphml(self, filename):

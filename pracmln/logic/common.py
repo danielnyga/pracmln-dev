@@ -1628,11 +1628,11 @@ class Logic(object):
                
     
         def __str__(self):
-            return '!(%s)' % str(self.children[0])
+            return ('!(%s)' if isinstance(self.children[0], Logic.ComplexFormula) else '!%s') % str(self.children[0])
     
         
         def cstr(self, color=False):
-            return '!(%s)' % self.children[0].cstr(color)
+            return ('!(%s)' if isinstance(self.children[0], Logic.ComplexFormula) else '!%s') % self.children[0].cstr(color)
     
         
         def latex(self):

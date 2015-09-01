@@ -238,8 +238,9 @@ class WCSP(object):
             logger.critical('There are no satisfiable constraints.')
         for constraint in self.constraints.values():
             for value in [constraint.defcost] + constraint.tuples.values():
+                if value == self.top: continue
                 value = eval('%.6f' % value)
-                if value in costs or value == self.top:
+                if value in costs:
                     continue
                 bisect.insort(costs, value)
                 if (minWeight is None or value < minWeight) and value > 0:
@@ -299,7 +300,7 @@ class WCSP(object):
 #         wcsp_ = copy.copy(self)
         if self.top != -1: return
         divisor = self._compute_divisor()
-        top = self.top = self._compute_hardcost(divisor)
+        top = self._compute_hardcost(divisor)
         for constraint in self.constraints.values():
             if constraint.defcost == self.top:
                 constraint.defcost = top
@@ -310,6 +311,7 @@ class WCSP(object):
                     constraint.tuples[tup] = top
                 else:
                     constraint.tuples[tup] = 0 if divisor is None else long(float(cost) / divisor)
+        self.top = top
     
                     
     def itersolutions(self):

@@ -36,6 +36,7 @@ from pracmln.mln.constants import ALL, HARD
 from pracmln import praclog
 import random
 from collections import defaultdict
+from pracmln.mln.grounding.fastconj import FastConjunctionGrounding
 
 logger = praclog.logger(__name__)
 
@@ -131,7 +132,8 @@ class MCSAT(MCMCInference):
         # convert the MLN ground formulas to CNF
         logger.debug("converting formulas to CNF...")
         #self.mln._toCNF(allPositive=True)
-        self.gndformulas, self.formulas = Logic.cnf(self.mrf.itergroundings(simplify=True), self.mln.formulas, self.mln.logic, allpos=True)
+        grounder = FastConjunctionGrounding(self.mrf, simplify=True)
+        self.gndformulas, self.formulas = Logic.cnf(grounder.itergroundings(), self.mln.formulas, self.mln.logic, allpos=True)
         # get clause data
         logger.debug("gathering clause data...")
         self.gf2clauseidx = {} # ground formula index -> tuple (idxFirstClause, idxLastClause+1) for use with range
@@ -228,10 +230,7 @@ class MCSAT(MCMCInference):
         return self._params.get('initalgo', 'SampleSAT')
     
     
-    def _run(self, chains=1, maxsteps=5000, details=True, 
-               debug=False, randomSeed=None, infoInterval=None, 
-               resultsInterval=None, p=0.5, keepResultsHistory=False, referenceResults=None, 
-               saveHistoryFile=None, sampleCallback=None, softEvidence=None, maxSoftEvidenceDeviation=None, handleSoftEvidence=True, **args):
+    def _run(self):
         '''
         p: probability of a greedy (WalkSAT) move
         initAlgo: algorithm to use in order to find an initial state that satisfies all hard constraints ("SampleSAT" or "SAMaxWalkSat")
@@ -249,16 +248,6 @@ class MCSAT(MCMCInference):
         handleSoftEvidence: if False, ignore all soft evidence in the MCMC sampling (but still compute softe evidence statistics if soft evidence is there)
         '''
         logger.debug("starting MC-SAT with maxsteps=%d, softevidence=%s" % (self.maxsteps, self.softevidence))
-#         if softEvidence is None:
-#             self.softEvidence = self.mrf.getSoftEvidence()
-#             self.softEvidence.extend(self.mrf.posteriorProbReqs)
-#             for se in self.softEvidence:
-#                 atom = self.mrf.gndAtoms.get(se['expr'], None)
-#                 if atom is None: continue
-#                 self.mrf.evidence[atom.idx] = None
-#         else:
-#             self.softEvidence = softEvidence
-        self.handleSoftEvidence = handleSoftEvidence
 
         # initialize the KB and gather required info
         self._initKB()
@@ -279,21 +268,6 @@ class MCSAT(MCMCInference):
         if self.rndseed is not None:
             random.seed(self.rndseed)
             
-        # this is obsolete since we have variables anyway
-        # read evidence
-#         logger.debug("reading evidence...")
-#         self._readEvidence()
-#         #print "evidence", self.evidence
-#         if details:
-#             log.info("evidence blocks: %d" % len(self.evidenceBlocks))
-#             log.info("block exclusions: %d" % len(self.blockExclusions))
-#             log.info("initializing %d chain(s)..." % numChains)
-            
-            
-#        self.phistory = {} # HACK for debugging (see all references to self.phistory)
-#        maxSteps = 1000
-#        maxSoftEvidenceDeviation = None
-
         # create chains
         chaingroup = MCMCInference.ChainGroup(self)
         self.chaingroup = chaingroup
@@ -303,70 +277,36 @@ class MCSAT(MCMCInference):
             chain = MCMCInference.Chain(self, self.queries)
             chaingroup.chain(chain)
             # satisfy hard constraints using initialization algorithm
-            if self.initalgo == 'SAMaxWalkSAT':
-                ##mws = SAMaxWalkSAT(chain.state, self.mln, self.evidenceBlocks)
-                #mws.run()
-                raise Exception("SAMaxWalkSAT currently unsupported") # no longer making use of self.mln's (gnd)formulas 
-            elif self.initalgo == "SampleSAT":
-                M = []
-                NLC = []
-                for i, gf in enumerate(self.gndformulas):
-                    if gf.weight == HARD:
-                        if gf.islogical():
-                            clause_range = self.gf2clauseidx[i]
-                            M.extend(range(*clause_range))
-                        else:
-                            NLC.append(gf)
-                if M or NLC:
-                    SampleSAT(self.mrf, chain.state, M, NLC, self, p=0.8).run() # Note: can't use p=1.0 because there is a chance of getting into an oscillating state
-            else:
-                raise Exception("MC-SAT Error: Unknown initialization algorithm specified")
+            M = []
+            NLC = []
+            for i, gf in enumerate(self.gndformulas):
+                if gf.weight == HARD:
+                    if gf.islogical():
+                        clause_range = self.gf2clauseidx[i]
+                        M.extend(range(*clause_range))
+                    else:
+                        NLC.append(gf)
+            if M or NLC:
+                SampleSAT(self.mrf, chain.state, M, NLC, self, p=0.8).run() # Note: can't use p=1.0 because there is a chance of getting into an oscillating state
         
         if praclog.level == praclog.DEBUG:
             self.mrf.print_world_vars(chain.state)
             
-        # do MCSAT sampling
-        if infoInterval is None: infoInterval = {True:1, False:10}[debug == 'INFO' or debug == 'DEBUG']
-        if resultsInterval is None: resultsInterval = {True:1, False:50}[debug == 'INFO' or debug == 'DEBUG']
-        
-        if not self.softevidence and maxSoftEvidenceDeviation is not None:
-            maxSoftEvidenceDeviation = None
-            print "no soft evidence -> setting maxSoftEvidenceDeviation to None, terminate after maxSteps=", maxSteps
-        if maxSoftEvidenceDeviation is not None:
-            print "iterate until maxSoftEvidenceDeviation <", maxSoftEvidenceDeviation        
-        
-
         self.step = 1        
-        while maxSoftEvidenceDeviation is not None or self.step <= self.maxsteps:
+        while self.step <= self.maxsteps:
             # take one step in each chain
             for chain in chaingroup.chains:
                 # choose a subset of the satisfied formulas and sample a state that satisfies them
                 state = self._satisfy_subset(chain)
                 # update chain counts
                 chain.update(state)
-                
-            # update soft evidence counts
-#             for se in self.softEvidence:
-#                 se["numTrue"] += self.chainGroup.currentlyTrue(se["formula"])
-                
             # intermediate results
-            if (details or keepResultsHistory) and self.step % resultsInterval == 0 and self.step != self.maxsteps:
-                results = chaingroup.results()
-                if keepResultsHistory: self._extendResultsHistory(results)
             self.step += 1
             #termination condition
             #TODO:
-            minStep = 1000
-            if maxSoftEvidenceDeviation is not None and self.step > minStep:
-                dev = self._getProbConstraintsDeviation()
-                if dev["pc_dev_max"] < maxSoftEvidenceDeviation:
-                    break
         # get results
         self.step -= 1
         results = chaingroup.results()
-        if keepResultsHistory: self._extendResultsHistory(results)
-        if saveHistoryFile is not None:            
-            pickle.dump(self.getResultsHistory(), file(saveHistoryFile, "w"))
         return results[0]
     
     

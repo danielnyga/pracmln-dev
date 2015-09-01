@@ -105,7 +105,7 @@ class LL(AbstractLearner):
             self._stat.append(values)
             if self._eworld_idx is None and world == eworld:
                 self._eworld_idx = widx  
-            for gf in grounder.itergroundings(unsatfailure=True):
+            for gf in grounder.itergroundings():
                 truth = gf(world)
                 if truth != 0: values[gf.idx] = values.get(gf.idx, 0) + truth
                 

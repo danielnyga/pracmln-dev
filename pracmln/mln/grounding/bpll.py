@@ -76,7 +76,7 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
     '''
     
     def __init__(self, mrf, formulas=None, cache=auto, **params):
-        FastConjunctionGrounding.__init__(self, mrf, formulas=formulas, cache=cache, **params)
+        FastConjunctionGrounding.__init__(self, mrf, simplify=False, unsatfailure=False, formulas=formulas, cache=cache, **params)
         self._stat = {}
         self._varidx2fidx = defaultdict(set)
     
@@ -181,7 +181,7 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
                     yield gf
         
         
-    def _itergroundings(self, simplify=True, unsatfailure=True):
+    def _itergroundings(self, simplify=False, unsatfailure=False):
         global global_bpll_grounding
         global_bpll_grounding = self
         if self.multicore:

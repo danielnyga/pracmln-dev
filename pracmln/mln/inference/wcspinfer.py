@@ -134,8 +134,8 @@ class WCSPConverter(object):
             formulas.append(f.nnf())
         # preprocess the ground formulas
 #         grounder = DefaultGroundingFactory(self.mrf, formulas)
-        grounder = FastConjunctionGrounding(self.mrf, formulas, multicore=self.multicore)
-        for gf in grounder.itergroundings(simplify=True):
+        grounder = FastConjunctionGrounding(self.mrf, simplify=True, unsatfailure=True, formulas=formulas, multicore=self.multicore)
+        for gf in grounder.itergroundings():
             if isinstance(gf, Logic.TrueFalse):
                 if gf.weight == HARD and gf.truth() == 0:
                     raise SatisfiabilityException('MLN is unsatisfiable: hard constraint %s violated' % self.mrf.mln.formulas[gf.idx])
@@ -175,7 +175,7 @@ class WCSPConverter(object):
         '''
         logic = self.mrf.mln.logic
         # we can treat conjunctions and disjunctions fairly efficiently
-        defaultProcedure = False
+        defaultProcedure = True
         conj = logic.islitconj(formula)
         disj = False
         if not conj:
@@ -206,11 +206,16 @@ class WCSPConverter(object):
                 for _, value in variable.itervalues(tmp_evidence):
                     varidx = self.atom2var[gndatom.idx] 
                     validx = self.val2idx[varidx][value]
-                # if the formula is unsatisfiable
+                # if there are two different values needed to render the formula true...
+                out(formula)
                 if assignment[varindices.index(varidx)] is not None and assignment[varindices.index(varidx)] != value:
                     if formula.weight == HARD:
-                        raise SatisfiabilityException('Knowledge base is unsatisfiable.')
-                    else: # for soft constraints, unsatisfiable formulas can be ignored
+                        if conj: # ...if it's a hard conjunction, the MLN is unsatisfiable -- e.g. foo(x) ^ !foo(x) 
+                            raise SatisfiabilityException('Knowledge base is unsatisfiable due to hard constraint violation: %s' % formula)
+                        elif disj: # ...if it's a hard disjunction, it's a tautology -- e.g. foo(x) v !foo(x)
+                            out('ignoring')
+                            continue
+                    else: # for soft constraints, unsatisfiable formulas and tautologies  can be ignored
                         return None
                 assignment[varindices.index(varidx)] = validx
             if not defaultProcedure:
@@ -263,8 +268,13 @@ class WCSPConverter(object):
                 
                 if truth in Interval(']0,1[') and formula.weight == HARD:
                     raise MRFValueException('No fuzzy truth values are allowed in hard constraints.')
-                
-                cost = self.wcsp.top if (truth < 1 and formula.weight == HARD) else (1 - truth) * formula.weight
+                if formula.weight == HARD:
+                    if truth == 1:
+                        cost = 0
+                    else:
+                        cost = self.wcsp.top
+                else:
+                    cost = ((1 - truth) * formula.weight)
                 cost2assignments[cost].append(tuple(assignment))
             return cost2assignments
         assert False # unreachable
