@@ -65,8 +65,8 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
     equality constraints are evaluated first.
     '''
     
-    def __init__(self, mrf, formulas=None, cache=auto, **params):
-        DefaultGroundingFactory.__init__(self, mrf, formulas, cache)
+    def __init__(self, mrf, simplify=False, unsatfailure=False, formulas=None, cache=auto, **params):
+        DefaultGroundingFactory.__init__(self, mrf, simplify=simplify, unsatfailure=unsatfailure, formulas=formulas, cache=cache, **params)
             
     
     def _conjsort(self, e):
@@ -162,27 +162,17 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             
         
     def _itergroundings(self, simplify=True, unsatfailure=True):
-#         if self.iscached:
-#             for gf in self._cache:
-#                 yield gf
-#             return
-#         else:
-#             if self.usecache: self._cacheinit()
         # generate all groundings
         global global_fastConjGrounding
         global_fastConjGrounding = self
         if self.multicore:
             pool = Pool()
             for gfs in pool.imap(with_tracing(create_formula_groundings), self.formulas):
-#                 if self._cache is not None:
-#                     self._cache.extend(gfs)
                 for gf in gfs: yield gf
             pool.terminate()
             pool.join()
         else:
             for gfs in imap(create_formula_groundings, self.formulas):
-#                 if self._cache is not None:
-#                     self._cache.extend(gfs)
                 for gf in gfs: yield gf
 
             

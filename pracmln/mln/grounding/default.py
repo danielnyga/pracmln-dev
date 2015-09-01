@@ -23,31 +23,44 @@
 
 from common import AbstractGroundingFactory
 import logging
-from pracmln.mln.util import fstr, dict_union, StopWatch, ProgressBar, out
-from pracmln.logic.common import Logic
-import time
+from pracmln.mln.util import fstr, dict_union, StopWatch, ProgressBar, out,\
+    ifNone
 from pracmln.mln.constants import auto, HARD
 from pracmln.mln.errors import SatisfiabilityException
 
 
 logger = logging.getLogger(__name__)
 
+
 CACHE_SIZE = 100000
+
 
 class DefaultGroundingFactory:
     '''
     Implementation of the default grounding algorithm, which
     creates ALL ground atoms and ALL ground formulas.
+
+    :param simplify:        if `True`, the formula will be simplified according to the
+                            evidence given.
+    :param unsatfailure:    raises a :class:`mln.errors.SatisfiabilityException` if a 
+                            hard logical constraint is violated by the evidence.
     '''
     
-    def __init__(self, mrf, formulas=None, cache=auto, **params):
+    def __init__(self, mrf, simplify=False, unsatfailure=False, formulas=None, cache=auto, **params):
         self.mrf = mrf
-        self.formulas = self.mrf.formulas if formulas is None else formulas
+        self.formulas = ifNone(formulas, list(self.mrf.formulas))
+        self.total_gf = 0
+        for f in self.formulas:
+            self.total_gf += f.countgroundings(self.mrf)
+        self.grounder = None
         self._cachesize = CACHE_SIZE if cache is auto else cache
         self._cache = None
         self.__cacheinit = False
+        self.__cachecomplete = False
         self._params = params
         self.watch = StopWatch()
+        self.simplify = simplify
+        self.unsatfailure = unsatfailure
         
         
     @property
@@ -71,44 +84,47 @@ class DefaultGroundingFactory:
     
     
     def _cacheinit(self):
-        total = 0
-        for f in self.formulas:
-            total += f.countgroundings(self.mrf)
-        if total > self._cachesize:
-            logging.getLogger(self.__class__.__name__).warning('Number of formula groundings (%d) exceeds cache size (%d). Caching is disabled.' % (total, self._cachesize))
+        if self.total_gf > self._cachesize:
+            logger.warning('Number of formula groundings (%d) exceeds cache size (%d). Caching is disabled.' % (self.total_gf, self._cachesize))
         else:
             self._cache = []
         self.__cacheinit = True
     
     
-    def itergroundings(self, simplify=False, unsatfailure=False):
+    def itergroundings(self):
         '''
         Iterates over all formula groundings.
-        
-        :param simplify:        if `True`, the formula will be simplified according to the
-                                evidence given.
-        :param unsatfailure:    raises a :class:`mln.errors.SatisfiabilityException` if a 
-                                hard logical constraint is violated by the evidence.
         '''
-        if self.iscached:
-            for gf in self._cache:
-                yield gf
-            return
-        else:
-            if self.usecache and not self.iscached:
-                self._cacheinit()
-            self.watch.tag('grounding', verbose=self.verbose)
-            for gndformula in self._itergroundings(simplify=simplify, unsatfailure=unsatfailure):
-                if self._cache is not None:
-                    self._cache.append(gndformula)
-                yield gndformula
-            self.watch.finish('grounding')
+        self.watch.tag('grounding', verbose=self.verbose)
+        if self.grounder is None:
+            self.grounder = iter(self._itergroundings(simplify=self.simplify, unsatfailure=self.unsatfailure))
+        if self.usecache and not self.iscached:
+            self._cacheinit()
+        counter = -1
+        while True:
+            counter += 1
+            if self.iscached and len(self._cache) > counter:
+                yield self._cache[counter]
+            elif not self.__cachecomplete:
+                try:
+                    gf = self.grounder.next()
+                except StopIteration:
+                    self.__cachecomplete = True
+                    return
+                else:
+                    if self._cache is not None:
+                        self._cache.append(gf)
+                    yield gf
+            else: return
+        self.watch.finish('grounding')
             
             
     def _itergroundings(self, simplify=False, unsatfailure=False):
         if self.verbose: 
             bar = ProgressBar(width=100, color='green')
+        out(map(str, self.formulas))
         for i, formula in enumerate(self.formulas):
+            out(formula)
             if self.verbose: bar.update((i+1) / float(len(self.formulas)))
             for gndformula in formula.itergroundings(self.mrf, simplify=simplify):
                 if unsatfailure and gndformula.weight == HARD and gndformula(self.mrf.evidence) != 1:
