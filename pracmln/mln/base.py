@@ -71,8 +71,8 @@ class MLN(object):
     '''
     Represents a Markov logic network.
     
-    :member formulas:    a list of `MLNFormula` objects representing the formulas of the MLN.
-    :member predicates:  a dict mapping predicate names to `Predicate` objects.
+    :member formulas:    a list of :class:`logic.common.Formula` objects representing the formulas of the MLN.
+    :member predicates:  a dict mapping predicate names to :class:`mlnpreds.Predicate` objects.
     
     :param logic:        (string) the type of logic to be used in this MLN. Possible values
                          are `FirstOrderLogic` and `FuzzyLogic`.
