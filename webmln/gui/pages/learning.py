@@ -1,87 +1,85 @@
-from StringIO import StringIO
-import logging
 import os
+import logging
 import traceback
+from StringIO import StringIO
 from flask import json, request, session, jsonify
-import sys
+from pracmln.praclog import logger
 from webmln.gui.app import mlnApp
-from webmln.gui.pages.utils import ensure_mln_session, dump, \
-    change_example, get_training_db_paths
+from webmln.gui.pages.utils import ensure_mln_session, change_example, get_training_db_paths
 from pracmln import MLN, Database
 from pracmln.mln.learning import DiscriminativeLearner
 from pracmln.mln.methods import LearningMethods
-from pracmln.mln.util import headline
+from pracmln.mln.util import headline, out
 from pracmln.utils.config import PRACMLNConfig, learn_config_pattern
 from tabulate import tabulate
 
+log = logger(__name__)
+
+
 @mlnApp.app.route('/mln/learning/_start_learning', methods=['POST'])
-def start_learning(saveGeometry=True):
+def start_learning(savegeometry=True):
+    mlnsession = ensure_mln_session(session)
 
     # initialize logger
     stream = StringIO()
     handler = logging.StreamHandler(stream)
-    # sformatter = logging.Formatter("%(message)s\n")
     sformatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(sformatter)
-    log = logging.getLogger('streamlog')
-    log.setLevel(logging.INFO)
-    log.addHandler(handler)
+    streamlog = logging.getLogger('streamlog')
+    streamlog.setLevel(logging.INFO)
+    streamlog.addHandler(handler)
+    streamlog.info('start_learning')
 
-    # update settings;
-    log.info('start_learning')
-    mlnsession = ensure_mln_session(session)
+    # load settings from webform
     data = json.loads(request.get_data())
 
-    mln = data['mln'].encode('utf8')
-    db = data['db'].encode('utf8')
-    mln_content = data['mln_text'].encode('utf8')
-    db_content = data['db_text'].encode('utf8')
-    output = data['output'].encode('utf8')
-    method = data['method'].encode('utf8')
-    params = data['params'].encode('utf8')
-
-
     # update settings
-    settings = mlnsession.settingsL
-    if mln == "":
-        raise Exception("No MLN was selected")
-    params = params
-    verbose = data['verbose']
-    if not os.path.exists(mlnApp.app.config['UPLOAD_FOLDER']):
-        os.mkdir(mlnApp.app.config['UPLOAD_FOLDER'])
-    settings = PRACMLNConfig(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], learn_config_pattern % mln))
-    settings["mln"] = mln
-    settings["db"] = db
-    settings["output_filename"] = output
-    settings["params"] = params
-    settings["method"] = LearningMethods.id(method)
-    settings["pattern"] = data['pattern'].encode('utf8')
-    settings["use_prior"] = data['use_prior']
-    settings["prior_mean"] = data['prior_mean']
-    settings["prior_stdev"] = data['prior_stdev']
-    settings["incremental"] = data['incremental']
-    settings["shuffle"] = data['shuffle']
-    settings["use_initial_weights"] = data['init_weights']
-    settings["qpreds"] = data['qpreds'].encode('utf8')
-    settings["epreds"] = data['epreds'].encode('utf8')
-    settings["discr_preds"] = data['discr_preds']
-    settings['logic'] = data['logic'].encode('utf8')
-    settings['grammar'] = data['grammar'].encode('utf8')
-    settings['multicore'] = data['multicore']
-    settings['verbose'] = verbose
-    settings['ignore_unknown_preds'] = data['ignore_unknown_preds']
-    settings['ignore_zero_weight_formulas'] = data['ignore_zero_weight_formulas']
-    settings['save'] = data['save']
+    learnconfig = PRACMLNConfig(os.path.join(mlnsession.xmplFolder, learn_config_pattern % data['mln'].encode('utf8')))
+    learnconfig.update(mlnsession.learnconfig.config)
+    learnconfig.update(
+        dict(mln_rename=data['mln_rename_on_edit'],
+             db=data['db'].encode('utf8'), db_rename=data['db_rename_on_edit'],
+             method=data['method'].encode('utf8'),
+             params=data['params'].encode('utf8'),
+             mln=data['mln'].encode('utf8'),
+             output_filename=data['output'].encode('utf8'),
+             logic=data['logic'].encode('utf8'),
+             grammar=data['grammar'].encode('utf8'),
+             multicore=data['multicore'], save=data['save_results'],
+             ignore_unknown_preds=data['ignore_unknown_preds'],
+             verbose=data['verbose'], use_prior=data['use_prior'],
+             prior_mean=data['prior_mean'],
+             prior_stdev=data['prior_stdev'],
+             use_initial_weights=data['init_weights'],
+             shuffle=data['shuffle'],
+             qpreds=data['qpreds'].encode('utf8'),
+             epreds=data['epreds'].encode('utf8'),
+             discr_preds=data['discr_preds'],
+             ignore_zero_weight_formulas=data['ignore_zero_weight_formulas'],
+             incremental=data['incremental'],
+             pattern=data['pattern'].encode('utf8')))
 
-    # write settings
-    log.info('writing config...')
-    settings.dump()
+    if learnconfig['mln'] == "":
+        raise Exception("No MLN was selected")
+
+    out(learnconfig.config)
+
+    # store settings in session
+    mlnsession.learnconfig = learnconfig
+
+    # expand the parameters
+    tmpconfig = learnconfig.config.copy()
+    if 'params' in tmpconfig:
+        params = eval("dict(%s)" % learnconfig['params'])
+        del tmpconfig['params']
+        tmpconfig.update(params)
 
     # load the training databases
-    pattern = settings["pattern"].strip()
+    pattern = tmpconfig["pattern"].strip()
     if pattern:
-        dbs = get_training_db_paths()
+        dbs = get_training_db_paths(pattern)
     else:
+        db = tmpconfig["db"]
         if db is None or not db:
             raise Exception('no trainig data given!')
         if os.path.exists(os.path.join(mlnsession.xmplFolderLearning, db)):
@@ -89,60 +87,57 @@ def start_learning(saveGeometry=True):
         elif os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], db)):
             dbs = [os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], db)]
 
-
-    mlnsession.settingsL = settings
+    mlnsession.learnconfig = learnconfig
 
     # invoke learner
+    learnedmln = ''
     try:
         print headline('PRACMLN LEARNING TOOL')
 
         # get the method class
-        method = LearningMethods.clazz(settings['method'])
+        method = LearningMethods.clazz(tmpconfig['method'])
 
-        if verbose:
-            conf = dict(settings.config)
-            conf.update(settings['params'])
-            print tabulate(sorted(list(conf.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
+        if tmpconfig['verbose']:
+            conf = dict(tmpconfig)
+            print tabulate(
+                sorted(list(conf.viewitems()), key=lambda (key, value): str(key)), headers=('Parameter:', 'Value:'))
 
-        params = {}
-        params = dict([(k, settings[k]) for k in ('multicore', 'verbose', 'ignore_zero_weight_formulas')])
+        params = dict([(k, tmpconfig[k]) for k in ('multicore', 'verbose', 'ignore_zero_weight_formulas')])
 
         # for discriminative learning
         if issubclass(method, DiscriminativeLearner):
-            if settings['discr_preds'] == False: # use query preds
-                params['qpreds'] = settings['qpreds'].split(',')
-            elif settings['discr_preds'] == True: # use evidence preds
-                params['epreds'] = settings['epreds'].split(',')
+            if not tmpconfig['discr_preds']:  # use query preds
+                params['qpreds'] = tmpconfig['qpreds'].split(',')
+            elif tmpconfig['discr_preds']:  # use evidence preds
+                params['epreds'] = tmpconfig['epreds'].split(',')
 
         # gaussian prior settings
-        if settings["use_prior"]:
-            params['prior_mean'] = float(settings["prior_mean"])
-            params['prior_stdev'] = float(settings["prior_stdev"])
-        # expand the parameters
-        params.update(eval("dict(%s)" % settings['params']))
+        if tmpconfig["use_prior"]:
+            params['prior_mean'] = float(tmpconfig["prior_mean"])
+            params['prior_stdev'] = float(tmpconfig["prior_stdev"])
 
-        learnedmln = ''
         try:
             # load the MLN
-            if os.path.exists(os.path.join(mlnsession.xmplFolderLearning, settings["mln"])):
-                mlnfile = os.path.join(mlnsession.xmplFolderLearning, settings["mln"])
-            elif os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], settings["mln"])):
-                mlnfile = os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], settings["mln"])
-            mln = MLN(mlnfile=mlnfile, logic=settings['logic'], grammar=settings['grammar'])
-            # load the databases
+            if os.path.exists(os.path.join(mlnsession.xmplFolderLearning, tmpconfig["mln"])):
+                mlnfile = os.path.join(mlnsession.xmplFolderLearning, tmpconfig["mln"])
+            elif os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], tmpconfig["mln"])):
+                mlnfile = os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], tmpconfig["mln"])
+            mln = MLN(mlnfile=mlnfile, logic=tmpconfig['logic'], grammar=tmpconfig['grammar'])
 
-            dbs = reduce(list.__add__, [Database.load(mln, dbfile, settings['ignore_unknown_preds']) for dbfile in dbs])
-            if verbose: log.info('loaded {} database(s).'.format(len(dbs)))
+            # load the databases
+            dbs = reduce(list.__add__, [Database.load(mln, dbfile, tmpconfig['ignore_unknown_preds']) for dbfile in dbs])
+            if tmpconfig['verbose']: log.info('loaded {} database(s).'.format(len(dbs)))
 
             # run the learner
             mlnlearnt = mln.learn(dbs, method, **params)
 
             # save result for visualization or whatever
-            learnedmlnStream = StringIO()
-            mlnlearnt.write(learnedmlnStream)
-            learnedmln = learnedmlnStream.getvalue()
+            learnedmlnstream = StringIO()
+            mlnlearnt.write(learnedmlnstream)
+            mlnlearnt.write()
+            learnedmln = learnedmlnstream.getvalue()
 
-            if verbose:
+            if tmpconfig['verbose']:
                 print
                 print headline('LEARNT MARKOV LOGIC NETWORK')
                 print
@@ -150,9 +145,10 @@ def start_learning(saveGeometry=True):
 
                 log.info('LEARNT MARKOV LOGIC NETWORK')
                 mlnlearnt.write(stream)
-            if settings['save']:
-                log.info('saving learned mln to {}...'.format(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], output)))
-                with open(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], output), 'w+') as outFile:
+            if tmpconfig['save']:
+                log.info('saving learned mln to {}...'.format(
+                    os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], tmpconfig['output_filename'])))
+                with open(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], tmpconfig['output_filename']), 'w+') as outFile:
                     mlnlearnt.write(outFile)
         except SystemExit:
             log.error('Cancelled...')
@@ -164,7 +160,7 @@ def start_learning(saveGeometry=True):
 
     output = stream.getvalue()
     res = {'output': output, 'learnedmln': learnedmln}
-    return jsonify( res )
+    return jsonify(res)
 
 
 @mlnApp.app.route('/mln/learning/_change_example', methods=['POST'])

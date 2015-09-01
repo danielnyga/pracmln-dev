@@ -396,7 +396,7 @@ qx.Class.define("webmln.Application",
             this.__chkbxVerbose = new qx.ui.form.CheckBox("verbose");
             this.__txtFCWPreds = new qx.ui.form.TextField("");
             this.__chkbxApplyCWOption = new qx.ui.form.CheckBox("Apply CW assumption to all but the query preds");
-            this.__txtFAddParams = new qx.ui.form.TextField("");
+            this.__txtFParams = new qx.ui.form.TextField("");
             this.__txtFOutput = new qx.ui.form.TextField("");
             this.__txtFOutput.setValue("smoking-test-smoking.results");
             this.__chkbxSaveOutput = new qx.ui.form.CheckBox("save");
@@ -486,7 +486,7 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__btnSaveDB, {row: 14, column: 4});
             mlnFormContainer.add(this.__slctMethod, {row: 15, column: 1, colSpan: 4});
             mlnFormContainer.add(this.__txtFQueries, {row: 16, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__txtFAddParams, {row: 19, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__txtFParams, {row: 19, column: 1, colSpan: 4});
             mlnFormContainer.add(this.__txtFCWPreds, {row: 20, column: 1, colSpan: 2});
             mlnFormContainer.add(this.__chkbxApplyCWOption, {row: 20, column: 3, colSpan:2});
             mlnFormContainer.add(this.__txtFOutput, {row: 21, column: 1, colSpan: 2});
@@ -633,10 +633,10 @@ qx.Class.define("webmln.Application",
 
             var orFilePatternLabel = new qx.ui.basic.Label("OR file pattern:");
             this.__txtFORFilePattern = new qx.ui.form.TextField("");
-            this.__txtFLAddParams = new qx.ui.form.TextField("");
+            this.__txtFParamsLrn = new qx.ui.form.TextField("");
 
-            this.__chkbxUseAllCPU_L = new qx.ui.form.CheckBox("use all CPUs");
-            this.__chkbxLVerbose = new qx.ui.form.CheckBox("verbose");
+            this.__chkbxUseAllCPULrn = new qx.ui.form.CheckBox("use all CPUs");
+            this.__chkbxVerboseLrn = new qx.ui.form.CheckBox("verbose");
             this.__chkbxLRemoveFormulas = new qx.ui.form.CheckBox("remove 0-weight formulas");
 
             this.__txtFOutputLrn = new qx.ui.form.TextField("");
@@ -730,9 +730,9 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__btnSaveTData, {row: 15, column: 4});
             mlnFormContainer.add(orFilePatternLabel, {row: 16, column: 1});
             mlnFormContainer.add(this.__txtFORFilePattern, {row: 16, column: 2, colSpan: 3});
-            mlnFormContainer.add(this.__txtFLAddParams, {row: 17, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__txtFParamsLrn, {row: 17, column: 1, colSpan: 4});
             mlnFormContainer.add(this.__chkbxUseAllCPU, {row: 18, column: 1});
-            mlnFormContainer.add(this.__chkbxLVerbose, {row: 18, column: 2});
+            mlnFormContainer.add(this.__chkbxVerboseLrn, {row: 18, column: 2});
             mlnFormContainer.add(this.__chkbxLRemoveFormulas, {row: 18, column: 3, colSpan:2});
             mlnFormContainer.add(this.__txtFOutputLrn, {row: 19, column: 1, colSpan: 3});
             mlnFormContainer.add(this.__chkbxSaveOutputLrn, {row: 19, column: 4});
@@ -913,7 +913,7 @@ qx.Class.define("webmln.Application",
                                     "emln_text": emlnText,
                                     "output": this.__txtFOutput.getValue(),
                                     "method": method,
-                                    "params": this.__txtFAddParams.getValue(),
+                                    "params": this.__txtFParams.getValue(),
                                     "mln_rename_on_edit": this.__chkbxRenameEditMLN.getValue(),
                                     "db_rename_on_edit": this.__chkbxRenameEditEvidence.getValue(),
                                     "query": this.__txtFQueries.getValue(),
@@ -1047,7 +1047,6 @@ qx.Class.define("webmln.Application",
         _start_learning : function(e) {
                 this._show_wait_animation("Lrn", true);
                 var that = this;
-                var that = this;
                 this.loadGraph();
                 var mln = (this.__slctMLNLrn.getSelectables().length != 0) ? this.__slctMLNLrn.getSelection()[0].getLabel() : "";
                 var db = (this.__slctTDataLrn.getSelectables().length != 0) ? this.__slctTDataLrn.getSelection()[0].getLabel() : "";
@@ -1065,8 +1064,10 @@ qx.Class.define("webmln.Application",
                                     "db_text": dbText,
                                     "output": this.__txtFOutputLrn.getValue(),
                                     "method": method,
-                                    "params": this.__txtFLAddParams.getValue(),
-                                    "verbose": this.__chkbxLVerbose.getValue(),
+                                    "mln_rename_on_edit": this.__chkbxRenameEditMLNLrn.getValue(),
+                                    "db_rename_on_edit": this.__chkbxRenameEditTData.getValue(),
+                                    "params": this.__txtFParamsLrn.getValue(),
+                                    "verbose": this.__chkbxVerboseLrn.getValue(),
                                     "pattern": this.__txtFORFilePattern.getValue(),
                                     "use_prior": this.__chkbxUsePrior.getValue(),
                                     "prior_mean": this.__txtFMeanLrn.getValue(),
@@ -1079,9 +1080,9 @@ qx.Class.define("webmln.Application",
                                     "discr_preds": this.__radioQPreds.getValue(),
                                     "logic": logic,
                                     "grammar": grammar,
-                                    "multicore": this.__chkbxUseAllCPU_L.getValue(),
+                                    "multicore": this.__chkbxUseAllCPULrn.getValue(),
                                     "ignore_unknown_preds": this.__chkbxIgnoreUnknownLrn.getValue(),
-                                    "save": this.__chkbxSaveOutputLrn.getValue(),
+                                    "save_results": this.__chkbxSaveOutputLrn.getValue(),
                                     "ignore_zero_weight_formulas": this.__chkbxLRemoveFormulas.getValue()
                                     });
                 req.addListener("success", function(e) {
@@ -1106,21 +1107,65 @@ qx.Class.define("webmln.Application",
             req.addListener("success", function(e) {
                     var tar = e.getTarget();
                     var response = tar.getResponse();
+                    var infconfig = response.inference.config;
+                    var lrnconfig = response.learning.config;
+
+                    // set examples for inference and learning
                     for (var i = 0; i < response.examples.length; i++) {
                          this.__slctXmplFldr.add(new qx.ui.form.ListItem(response.examples[i]));
                          this.__slctXmplFldrLrn.add(new qx.ui.form.ListItem(response.examples[i]));
                     }
 
-                    this.__txtFQueries.setValue(response.queries);
+                    // set mln files for inference and learning
+                    for (var i = 0; i < response.mlnfiles.length; i++) {
+                         this.__slctMLN.add(new qx.ui.form.ListItem(response.mlnfiles[i]));
+                         this.__slctMLNLrn.add(new qx.ui.form.ListItem(response.mlnfiles[i]));
+                    }
 
-                    var arr = ['files', 'infMethods', 'dbs', 'lrnMethods'];
-                    for (var x = 0; x < arr.length; x++) {
-                        for (var i = 0; i < response[arr[x]].length; i++) {
-                            (arr[x] == 'files' ? this.__slctMLN : arr[x] ==
-                             'infMethods' ? this.__slctMethod : arr[x] == 'lrnMethods' ? this.__slctMethodLrn :
-                             this.__slctEvidence).add(new qx.ui.form.ListItem(response[arr[x]][i]));
+                    // set db files for inference and learning
+                    for (var i = 0; i < response.dbfiles.length; i++) {
+                         this.__slctEvidence.add(new qx.ui.form.ListItem(response.dbfiles[i]));
+                         this.__slctTDataLrn.add(new qx.ui.form.ListItem(response.dbfiles[i]));
+                    }
+
+                    // set inference methods and set selected from config
+                    var selectedmethod = infconfig.method;
+                    for (var i = 0; i < response.inference.methods.length; i++) {
+                        if (response.inference.methods[i] == selectedmethod) {
+                            var selecteditem = new qx.ui.form.ListItem(response.inference.methods[i]);
+                            this.__slctMethod.add(selecteditem);
+                        } else {
+                            this.__slctMethod.add(new qx.ui.form.ListItem(response.inference.methods[i]));
                         }
                     }
+                    this.__slctMethod.setSelection([selecteditem]);
+
+                    // set learning methods and set selected from config
+                    var selectedmethod = lrnconfig.method;
+                    for (var i = 0; i < response.learning.methods.length; i++) {
+                        if (response.learning.methods[i] == selectedmethod) {
+                            var selecteditem = new qx.ui.form.ListItem(response.learning.methods[i]);
+                            this.__slctMethodLrn.add(selecteditem);
+                        } else {
+                            this.__slctMethodLrn.add(new qx.ui.form.ListItem(response.learning.methods[i]));
+                        }
+                    }
+                    this.__slctMethodLrn.setSelection([selecteditem]);
+
+                    // set config for inference
+                    this.__chkbxApplyCWOption.setValue(infconfig.cw || false);
+                    this.__txtFOutput.setValue(infconfig.output_filename || '');
+                    this.__txtFParams.setValue(infconfig.params || '');
+                    this.__txtFQueries.setValue(infconfig.queries || '');
+                    this.__chkbxVerbose.setValue(infconfig.verbose || false);
+                    this.__chkbxUseAllCPU.setValue(infconfig.multicore || false);
+
+                    // set config for learning
+                    this.__txtFOutputLrn.setValue(lrnconfig.output_filename || '');
+                    this.__txtFParamsLrn.setValue(lrnconfig.params || '');
+                    this.__chkbxVerboseLrn.setValue(lrnconfig.verbose || false);
+                    this.__chkbxUseAllCPULrn.setValue(lrnconfig.cw || false);
+                    
             }, this);
             req.send();
         },

@@ -1,13 +1,16 @@
 import json
 import logging
 import os
-from utils import getFileContent, ensure_mln_session
+from pracmln.mln.methods import InferenceMethods, LearningMethods
+from pracmln.praclog import logger
+from utils import getFileContent, ensure_mln_session, initialize, get_example_files
 from urlparse import urlparse
-from flask import render_template, send_from_directory, request, session, \
-    jsonify
+from flask import render_template, send_from_directory, request, session, jsonify
 import time
 from werkzeug.utils import redirect
 from webmln.gui.app import mlnApp
+
+log = logger(__name__)
 
 
 @mlnApp.app.after_request
@@ -58,9 +61,11 @@ def destroy():
 def download_static(filename):
     return send_from_directory(mlnApp.app.config['MLN_STATIC_PATH'], filename)
 
+
 @mlnApp.app.route('/mln/doc/<path:filename>')
 def download_docs(filename):
     return send_from_directory(os.path.join(mlnApp.app.config['MLN_ROOT_PATH'], 'doc'), filename)
+
 
 @mlnApp.app.route('/mln/_get_filecontent', methods=['POST'])
 def load_filecontent():
@@ -76,13 +81,14 @@ def load_filecontent():
     elif os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], filename)):
         text = getFileContent(os.path.join(mlnApp.app.config['UPLOAD_FOLDER']), filename)
 
-    return jsonify( {'text': text} )
+    return jsonify({'text': text})
 
 
 # route for qooxdoo resources
 @mlnApp.app.route('/mln/resource/<path:filename>')
 def resource_file(filename):
     return redirect('/mln/static/resource/{}'.format(filename))
+
 
 @mlnApp.app.route('/mln/save_edited_file', methods=['POST'])
 def save_edited_file():
@@ -103,10 +109,11 @@ def save_edited_file():
     if os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], fname)) and newfname:
         os.rename(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], fname), os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], name))
     else:
-        with open(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], name),'w+') as f:
+        with open(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], name), 'w+') as f:
             f.write(fcontent)
 
-    return jsonify( { 'fname': name} )
+    return jsonify({'fname': name})
+
 
 @mlnApp.app.route('/mln/log/<filename>')
 def mlnlog_(filename):
@@ -117,3 +124,29 @@ def mlnlog_(filename):
     else:
         return render_template('log.html', **locals())
 
+
+
+@mlnApp.app.route('/mln/_init', methods=['GET', 'OPTIONS'])
+def init_options():
+    log.info('init_options')
+    mlnsession = ensure_mln_session(session)
+    initialize()
+
+    mlnfiles, dbfiles = get_example_files(mlnsession.xmplFolder)
+
+    dirs = [x for x in os.listdir(mlnApp.app.config['EXAMPLES_FOLDER']) if
+            os.path.isdir(
+                os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], x))]
+
+    inferconfig = mlnsession.inferconfig.config
+    inferconfig.update({"method": InferenceMethods.name(mlnsession.inferconfig.config['method'])})
+
+    lrnconfig = mlnsession.learnconfig.config
+    lrnconfig.update({"method": LearningMethods.name(mlnsession.learnconfig.config['method'])})
+
+    resinference = {'methods': sorted(InferenceMethods.names()),
+           'config': inferconfig}
+    reslearn = {'methods': sorted(LearningMethods.names()),
+           'config': lrnconfig}
+
+    return jsonify({"inference": resinference, "learning": reslearn, "mlnfiles": mlnfiles, "dbfiles": dbfiles, "examples": dirs})

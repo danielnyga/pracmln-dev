@@ -1,4 +1,3 @@
-from StringIO import StringIO
 import os
 from os.path import expanduser
 import logging
@@ -9,8 +8,7 @@ from webmln.gui.app import mlnApp, app
 def register_routes(mlnapp=None):
     print 'Registering MLN routes...'
     mlnApp.app = app
-    mlnApp.app.config['MLN_STATIC_PATH'] = os.path.join(mlnApp.app.root_path,
-                                                      'build')
+    mlnApp.app.config['MLN_STATIC_PATH'] = os.path.join(mlnApp.app.root_path, 'build')
 
     # settings for fileupload and logging
     home = expanduser("~")
@@ -22,7 +20,7 @@ def register_routes(mlnapp=None):
 
     mlnApp.app.config['LOG_FOLDER'] = os.path.join(mlnApp.app.root_path, 'log')
     if not os.path.exists(os.path.join(mlnApp.app.config['LOG_FOLDER'])):
-       os.mkdir(os.path.join(mlnApp.app.config['LOG_FOLDER']))
+        os.mkdir(os.path.join(mlnApp.app.config['LOG_FOLDER']))
     mlnApp.app.secret_key = 'so secret!'
 
     # separate logger for user statistics
