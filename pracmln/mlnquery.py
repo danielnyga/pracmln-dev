@@ -48,6 +48,7 @@ from tabulate import tabulate
 from cProfile import Profile
 import pstats
 import StringIO
+import pracmln
 
 
 logger = praclog.logger(__name__)
@@ -94,7 +95,10 @@ class MLNQuery(object):
         
     @property
     def queries(self):
-        return self._config.get('queries', None)
+        q = self._config.get('queries', pracmln.ALL)
+        if isinstance(q, basestring):
+            return parse_queries(self.mln, q)
+        return q
     
     
     @property
@@ -202,7 +206,8 @@ class MLNQuery(object):
         elif type(db) is list:
             db = db[0]
         # parse non-atomic params
-        queries = parse_queries(mln, str(self.queries))
+#         if type(self.queries) is not list:
+#             queries = parse_queries(mln, str(self.queries))
         params['cw_preds'] = filter(lambda x: bool(x), self.cw_preds)
         # extract and remove all non-algorithm
         for s in GUI_SETTINGS:
@@ -219,7 +224,7 @@ class MLNQuery(object):
         try:
             mln_ = mln.materialize(db)
             mrf = mln_.ground(db)
-            inference = self.method(mrf, queries, **params)
+            inference = self.method(mrf, self.queries, **params)
             if self.verbose:
                 print
                 print headline('EVIDENCE VARIABLES')
