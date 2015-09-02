@@ -6,6 +6,7 @@ import subprocess
 from StringIO import StringIO
 from fnmatch import fnmatch
 from flask import request, session, jsonify
+import sys
 from pracmln.mln.base import parse_mln
 from pracmln.mln.database import parse_db
 from pracmln.mln.methods import InferenceMethods
@@ -51,6 +52,8 @@ def start_inference():
     streamlog.setLevel(logging.INFO)
     streamlog.addHandler(handler)
     streamlog.info('start_inference')
+    sys.stdout = stream
+
 
     # load settings from webform
     data = json.loads(request.get_data())
@@ -117,7 +120,7 @@ def start_inference():
             mrf = mln_.ground(db, cwpreds=cw_preds)
             if inferconfig.get('verbose', False):
                 streamlog.info('EVIDENCE VARIABLES')
-                mrf.print_evidence_vars()
+                mrf.print_evidence_vars(stream)
             inference = InferenceMethods.clazz(method)(mrf, queries, **tmpconfig)
             inference.run()
 
@@ -133,11 +136,8 @@ def start_inference():
             resultvalues = results.values()
 
             streamlog.info('INFERENCE RESULTS')
-            inference.write(stream)
-            if inferconfig['save']:
-                with open(os.path.join(mlnsession.xmplFolder, inferconfig['output_filename']),
-                          'w+') as outFile:
-                    inference.write(outFile)
+            inference.write(stream, color=None)
+
         except SystemExit:
             streamlog.error('Cancelled...')
         finally:

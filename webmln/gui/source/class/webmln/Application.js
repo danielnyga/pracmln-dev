@@ -86,7 +86,7 @@ qx.Class.define("webmln.Application",
             var splitPaneInference = this.getsplitPaneInference();
             var splitPaneLearning = this.getsplitPaneLearning();
 
-            var tabView = new qx.ui.tabview.TabView('top');
+            var tabView = new qx.ui.tabview.TabView('bottom');
             tabView.setContentPadding(2,2,2,2);
             this.__tabView = tabView;
 
@@ -153,7 +153,9 @@ qx.Class.define("webmln.Application",
             waitImage.hide();
             this._waitImageInf = waitImage;
 
-            var textAreaResults = new qx.ui.form.TextArea("");
+            var textAreaResults = new qx.ui.form.TextArea("").set({
+                font: qx.bom.Font.fromString("14px monospace")
+            });
             this.__txtAResults = textAreaResults;
             textAreaResults.setReadOnly(true);
 
@@ -223,7 +225,9 @@ qx.Class.define("webmln.Application",
             waitImage.hide();
             this._waitImageLrn = waitImage;
 
-            var textAreaResults = new qx.ui.form.TextArea("");
+            var textAreaResults = new qx.ui.form.TextArea("").set({
+                font: qx.bom.Font.fromString("14px monospace")
+            });
             this.__txtAResults_Learning = textAreaResults;
             textAreaResults.setReadOnly(true);
 
@@ -287,6 +291,9 @@ qx.Class.define("webmln.Application",
         buildMLNForm : function() {
 
             this.check = false;
+            var mlnFormContainerWSpacing = new qx.ui.container.Composite(new qx.ui.layout.VBox());
+            mlnFormContainerWSpacing.add(new qx.ui.core.Spacer(10,80));
+
             var mlnFormContainerLayout = new qx.ui.layout.Grid();
             this.__mlnFormContainerLayout = mlnFormContainerLayout;
             mlnFormContainerLayout.setColumnWidth(0, 100);
@@ -346,7 +353,7 @@ qx.Class.define("webmln.Application",
             this.__slctLogic = new qx.ui.form.SelectBox();
             this.__slctMLN = new qx.ui.form.SelectBox();
             this.__btnRefreshMLN = new qx.ui.form.Button("<- refresh", null);
-            this.__btnUploadMLNFile = new com.zenesis.qx.upload.UploadButton("Upload MLN File");
+            this.__btnUploadMLNFile = new com.zenesis.qx.upload.UploadButton("Load MLN File");
             this.__btnUploadMLNFile.setParam("SOURCE_PARAM", "mlnuploadinf");
             this.__uploader = new com.zenesis.qx.upload.UploadMgr(this.__btnUploadMLNFile, "/mln/file_upload");
             this.__uploader.setAutoUpload(false);
@@ -376,7 +383,7 @@ qx.Class.define("webmln.Application",
 
             this.__slctEvidence = new qx.ui.form.SelectBox();
             this.__btnRefreshDB = new qx.ui.form.Button("<- refresh", null);
-            this.__btnUploadDBFileInf = new com.zenesis.qx.upload.UploadButton("Upload DB File");
+            this.__btnUploadDBFileInf = new com.zenesis.qx.upload.UploadButton("Load DB File");
             this.__btnUploadDBFileInf.setParam("SOURCE_PARAM", "dbuploadinf");
             this.__uploader.addWidget(this.__btnUploadDBFileInf)
             this.__chkbxRenameEditEvidence = new qx.ui.form.CheckBox("rename on edit");
@@ -490,7 +497,8 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__chkbxIgnoreUnknown, {row: 22, column: 3, colSpan:2});
             mlnFormContainer.add(this.__btnStart, {row: 23, column: 1, colSpan: 4});
 
-            return mlnFormContainer;
+            mlnFormContainerWSpacing.add(mlnFormContainer);
+            return mlnFormContainerWSpacing;
         },
 
 
@@ -499,6 +507,8 @@ qx.Class.define("webmln.Application",
         */
         buildMLNLearningForm : function() {
             this.check = false;
+            var mlnFormContainerWSpacing = new qx.ui.container.Composite(new qx.ui.layout.VBox());
+            mlnFormContainerWSpacing.add(new qx.ui.core.Spacer(10,80));
             var mlnFormContainerLayout = new qx.ui.layout.Grid();
             mlnFormContainerLayout.setColumnWidth(0, 100);
             mlnFormContainerLayout.setColumnWidth(1, 130);
@@ -550,7 +560,7 @@ qx.Class.define("webmln.Application",
             this.__slctLogicLrn = new qx.ui.form.SelectBox();
             this.__slctMLNLrn = new qx.ui.form.SelectBox();
             this.__btnRefreshMLNLrn = new qx.ui.form.Button("<- refresh", null);
-            this.__btnUploadMLNFileLrn = new com.zenesis.qx.upload.UploadButton("Upload MLN File");
+            this.__btnUploadMLNFileLrn = new com.zenesis.qx.upload.UploadButton("Load MLN File");
             this.__btnUploadMLNFileLrn.setParam("SOURCE_PARAM", "mlnuploadlrn");
             this.__uploader.addWidget(this.__btnUploadMLNFileLrn);
             this.__btnSaveMLNLrn = new qx.ui.form.Button("save", null);
@@ -606,7 +616,7 @@ qx.Class.define("webmln.Application",
 
             this.__slctTDataLrn = new qx.ui.form.SelectBox();
             this.__btnRefreshTDataLrn = new qx.ui.form.Button("<- refresh", null);
-            this.__btnUploadTDataFileLrn = new com.zenesis.qx.upload.UploadButton("Upload DB File");
+            this.__btnUploadTDataFileLrn = new com.zenesis.qx.upload.UploadButton("Load DB File");
             this.__btnUploadTDataFileLrn.setParam("SOURCE_PARAM", "tdatauploadlrn");
             this.__uploader.addWidget(this.__btnUploadTDataFileLrn);
             this.__btnSaveTData = new qx.ui.form.Button("save", null);
@@ -719,7 +729,8 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__chkbxLRemoveFormulas, {row: 18, column: 3, colSpan:2});
             mlnFormContainer.add(this.__btnStartLrn, {row: 20, column: 1, colSpan: 4});
 
-            return mlnFormContainer;
+            mlnFormContainerWSpacing.add(mlnFormContainer);
+            return mlnFormContainerWSpacing;
         },
 
 

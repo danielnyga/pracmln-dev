@@ -3,6 +3,7 @@ import logging
 import traceback
 from StringIO import StringIO
 from flask import json, request, session, jsonify
+import sys
 from pracmln.praclog import logger
 from webmln.gui.app import mlnApp
 from webmln.gui.pages.utils import ensure_mln_session, change_example, get_training_db_paths
@@ -29,6 +30,7 @@ def start_learning(savegeometry=True):
     streamlog.setLevel(logging.INFO)
     streamlog.addHandler(handler)
     streamlog.info('start_learning')
+    sys.stdout = stream
 
     # load settings from webform
     data = json.loads(request.get_data())
@@ -134,14 +136,13 @@ def start_learning(savegeometry=True):
             # save result for visualization or whatever
             learnedmlnstream = StringIO()
             mlnlearnt.write(learnedmlnstream)
-            mlnlearnt.write()
             learnedmln = learnedmlnstream.getvalue()
 
             if tmpconfig['verbose']:
                 print
                 print headline('LEARNT MARKOV LOGIC NETWORK')
                 print
-                mlnlearnt.write()
+                mlnlearnt.write(stream)
 
                 log.info('LEARNT MARKOV LOGIC NETWORK')
                 mlnlearnt.write(stream)

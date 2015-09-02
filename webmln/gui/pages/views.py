@@ -94,6 +94,7 @@ def resource_file(filename):
 @mlnApp.app.route('/mln/save_edited_file', methods=['POST'])
 def save_edited_file():
     mlnsession = ensure_mln_session(session)
+
     data = json.loads(request.get_data())
     fname = data['fname']
     newfname = data['newfname']

@@ -18,17 +18,6 @@ DEFAULT_EXAMPLE = 'smokers'
 log = logger(__name__)
 
 
-class StdoutQueue(Queue):
-    def __init__(self, *args, **kwargs):
-        Queue.__init__(self, *args, **kwargs)
-
-    def write(self, msg):
-        self.put(msg)
-
-    def flush(self):
-        sys.__stdout__.flush()
-
-
 def ensure_mln_session(session):
     mln_session = mlnApp.session_store[session]
     if mln_session is None:
