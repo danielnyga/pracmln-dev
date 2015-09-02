@@ -222,7 +222,7 @@ class AbstractLearner(object):
         else:
             opt = optimize.SciPyOpt(optimizer, w, self, **params)        
         w = opt.run()
-        self._w = self._fullweights(w)
+        self._w = self._add_fixweights(w)
         
         
     def hessian(self, wt):
