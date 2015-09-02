@@ -546,9 +546,10 @@ class SampleSAT:
         
         
         def _isbottleneck(self, atomidx):
+            atomidx2lits = self.atomidx2lits
             if len(self.truelits) != 1 or atomidx not in self.truelits: return False
-            if len(self.atomidx2lits[atomidx]) == 1: return True
-            if all(lambda x: x == self.atomidx2lits[atomidx][0], self.atomidx2lits[atomidx]): return False # the atom appears with different polarity in the clause, this is not a bottleneck
+            if len(atomidx2lits[atomidx]) == 1: return True
+            if all(map(lambda x: x == item(atomidx2lits[atomidx]), atomidx2lits[atomidx])): return False # the atom appears with different polarity in the clause, this is not a bottleneck
             return True
         
         

@@ -1591,8 +1591,8 @@ class Logic(object):
     
         
         def simplify(self, world):
-            c1 = self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]], mln=self.mln, idx=self.idx), self.children[1]])
-            c2 = self.mln.logic.disjunction([self.children[0], Negation([self.children[1]], mln=self.mln, idx=self.idx)], mln=self.mln, idx=self.idx)
+            c1 = self.mln.logic.disjunction([self.mln.logic.negation([self.children[0]], mln=self.mln), self.children[1]], mln=self.mln)
+            c2 = self.mln.logic.disjunction([self.children[0], self.mln.logic.negation([self.children[1]], mln=self.mln)], mln=self.mln)
             return self.mln.logic.conjunction([c1,c2], mln=self.mln, idx=self.idx).simplify(world)
     
 

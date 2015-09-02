@@ -541,8 +541,8 @@ class MRF(object):
         :param grounding_factory: the grounding factory to be used.  
         :returns:         a generator yielding ground formulas
         '''
-        grounder = eval('%s(self)' % grounding_factory)
-        for gndf in grounder.itergroundings(simplify=simplify):
+        grounder = eval('%s(self, simplify=simplify)' % grounding_factory)
+        for gndf in grounder.itergroundings():
             yield gndf
         
 

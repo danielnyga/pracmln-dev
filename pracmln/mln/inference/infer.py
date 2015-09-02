@@ -28,7 +28,7 @@ from pracmln.mln.database import Database
 from pracmln.mln.constants import ALL
 from pracmln.mln.mrfvars import MutexVariable, SoftMutexVariable, FuzzyVariable
 from pracmln.mln.util import StopWatch, barstr, colorize, elapsed_time_str, out,\
-    headline
+    headline, tty
 import sys
 from pracmln.mln.errors import NoSuchPredicateError
 
@@ -184,7 +184,7 @@ class Inference(object):
     
     def write(self, stream=sys.stdout, color=None, sort='prob', group=True, reverse=True):
         barwidth = 30
-        if stream is sys.stdout and color is None:
+        if tty(stream) and color is None:
             color = 'yellow'
         if sort not in ('alpha', 'prob'):
             raise Exception('Unknown sorting: %s' % sort)
