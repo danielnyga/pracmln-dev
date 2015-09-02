@@ -3,7 +3,8 @@ import logging
 import os
 from pracmln.mln.methods import InferenceMethods, LearningMethods
 from pracmln.praclog import logger
-from utils import getFileContent, ensure_mln_session, initialize, get_example_files
+from utils import getFileContent, ensure_mln_session, get_example_files, \
+    load_configurations
 from urlparse import urlparse
 from flask import render_template, send_from_directory, request, session, jsonify
 import time
@@ -130,7 +131,7 @@ def mlnlog_(filename):
 def init_options():
     log.info('init_options')
     mlnsession = ensure_mln_session(session)
-    initialize()
+    load_configurations()
 
     mlnfiles, dbfiles = get_example_files(mlnsession.xmplFolder)
 

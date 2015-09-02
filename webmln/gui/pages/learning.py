@@ -45,7 +45,7 @@ def start_learning(savegeometry=True):
              output_filename=data['output'].encode('utf8'),
              logic=data['logic'].encode('utf8'),
              grammar=data['grammar'].encode('utf8'),
-             multicore=data['multicore'], save=data['save_results'],
+             multicore=data['multicore'], save=False,
              ignore_unknown_preds=data['ignore_unknown_preds'],
              verbose=data['verbose'], use_prior=data['use_prior'],
              prior_mean=data['prior_mean'],
@@ -145,11 +145,6 @@ def start_learning(savegeometry=True):
 
                 log.info('LEARNT MARKOV LOGIC NETWORK')
                 mlnlearnt.write(stream)
-            if tmpconfig['save']:
-                log.info('saving learned mln to {}...'.format(
-                    os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], tmpconfig['output_filename'])))
-                with open(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], tmpconfig['output_filename']), 'w+') as outFile:
-                    mlnlearnt.write(outFile)
         except SystemExit:
             log.error('Cancelled...')
         finally:

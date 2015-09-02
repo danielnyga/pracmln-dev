@@ -72,7 +72,7 @@ def start_inference():
              cw=data['closed_world'], cw_preds=data['cw_preds'],
              use_emln=data['use_emln'], logic=data['logic'].encode('utf8'),
              grammar=data['grammar'].encode('utf8'),
-             multicore=data['use_multicpu'], save=data['save_results'],
+             multicore=data['use_multicpu'], save=False,
              ignore_unknown_preds=data['ignore_unknown_preds'],
              verbose=data['verbose']))
 

@@ -5,6 +5,8 @@ import re
 from multiprocessing.queues import Queue
 import sys
 from fnmatch import fnmatch
+from pracmln.mln.methods import LearningMethods, InferenceMethods
+from pracmln.mln.util import out
 from pracmln.praclog import logger
 from pracmln.utils.config import PRACMLNConfig, query_config_pattern, learn_config_pattern
 from webmln.gui.app import mlnApp, MLNSession
@@ -33,6 +35,7 @@ def ensure_mln_session(session):
         session['id'] = os.urandom(24)
         mln_session = MLNSession(session)
         mln_session.xmplFolder = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
+        mln_session.xmplFolderLearning = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
         log.info('created new MLN session %s' % str(mln_session.id.encode('base-64')))
         mlnApp.session_store.put(mln_session)
         initFileStorage()
@@ -67,18 +70,12 @@ def getFileContent(fDir, fName):
     return content
 
 
-def initialize():
-    log.info('initializing configurations...')
+def load_configurations():
+    log.info('loading configurations...')
     mlnsession = ensure_mln_session(session)
-    mlnsession.params = ''
 
-    queryconfigfiles = glob.glob(os.path.join(mlnsession.xmplFolder, query_config_pattern % '*'))
-    for qfilename in queryconfigfiles:
-        inferconfig = PRACMLNConfig(qfilename)
-
-    learnconfigfiles = glob.glob(os.path.join(mlnsession.xmplFolder, learn_config_pattern % '*'))
-    for lfilename in learnconfigfiles:
-        learnconfig = PRACMLNConfig(lfilename)
+    inferconfig = PRACMLNConfig(os.path.join(mlnsession.xmplFolder, query_config_pattern % mlnsession.xmplFolder.split('/')[-1]))
+    learnconfig = PRACMLNConfig(os.path.join(mlnsession.xmplFolderLearning, learn_config_pattern % mlnsession.xmplFolderLearning.split('/')[-1]))
 
     mlnsession.inferconfig = inferconfig
     mlnsession.learnconfig = learnconfig
@@ -91,9 +88,16 @@ def change_example(task, folder):
         mlnsession.xmplFolder = f
     else:
         mlnsession.xmplFolderLearning = f
+
+    load_configurations()
+
     mlnfiles, dbs = get_example_files(f)
     usermlnfiles, userdbs = get_example_files(mlnApp.app.config['UPLOAD_FOLDER'])
-    res = {'dbs': dbs + userdbs, 'mlns': mlnfiles + usermlnfiles}
+    res = {'dbs': dbs + userdbs, 'mlns': mlnfiles + usermlnfiles,
+           'lrnconfig': mlnsession.learnconfig.config,
+           'lrnmethods': sorted(LearningMethods.names()),
+           'infconfig': mlnsession.inferconfig.config,
+           'infmethods': sorted(InferenceMethods.names())}
     return jsonify(res)
 
 
