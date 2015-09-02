@@ -7,7 +7,7 @@ MLN or learning/inference algorithms.
 Confusion Matrices
 ~~~~~~~~~~~~~~~~~~
 
-.. automodule:: utils.eval
+.. automodule:: pracmln.utils.eval
     :members: ConfusionMatrix
     
 Examples
