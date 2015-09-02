@@ -367,9 +367,8 @@ class MLN(object):
         are actually used in the data, i.e. if a predicate is not used in any
         of the databases, all formulas that make use of this predicate are ignored.
 
-        :param *dbs:     list of `Database` objects for materialization.
+        :param dbs:     list of :class:`database.Database` objects for materialization.
         '''
-        logger = logging.getLogger(self.__class__.__name__)
         logger.debug("materializing formula templates...")
         
         mln_ = self.copy()
