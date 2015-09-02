@@ -93,10 +93,17 @@ def change_example(task, folder):
 
     mlnfiles, dbs = get_example_files(f)
     usermlnfiles, userdbs = get_example_files(mlnApp.app.config['UPLOAD_FOLDER'])
+
+    inferconfig = mlnsession.inferconfig.config
+    inferconfig.update({"method": InferenceMethods.name(mlnsession.inferconfig.config['method'])})
+
+    lrnconfig = mlnsession.learnconfig.config
+    lrnconfig.update({"method": LearningMethods.name(mlnsession.learnconfig.config['method'])})
+
     res = {'dbs': dbs + userdbs, 'mlns': mlnfiles + usermlnfiles,
-           'lrnconfig': mlnsession.learnconfig.config,
+           'lrnconfig': lrnconfig,
            'lrnmethods': sorted(LearningMethods.names()),
-           'infconfig': mlnsession.inferconfig.config,
+           'infconfig': inferconfig,
            'infmethods': sorted(InferenceMethods.names())}
     return jsonify(res)
 

@@ -68,7 +68,7 @@ def start_inference():
              params=data['params'].encode('utf8'),
              queries=data['query'].encode('utf8'),
              mln=data['mln'].encode('utf8'), emln=data['emln'].encode('utf8'),
-             output_filename=data['output'].encode('utf8'),
+             output_filename="",
              cw=data['closed_world'], cw_preds=data['cw_preds'],
              use_emln=data['use_emln'], logic=data['logic'].encode('utf8'),
              grammar=data['grammar'].encode('utf8'),

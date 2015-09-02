@@ -42,7 +42,7 @@ def start_learning(savegeometry=True):
              method=data['method'].encode('utf8'),
              params=data['params'].encode('utf8'),
              mln=data['mln'].encode('utf8'),
-             output_filename=data['output'].encode('utf8'),
+             output_filename="",
              logic=data['logic'].encode('utf8'),
              grammar=data['grammar'].encode('utf8'),
              multicore=data['multicore'], save=False,

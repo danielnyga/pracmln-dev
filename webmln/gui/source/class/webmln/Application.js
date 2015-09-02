@@ -1165,6 +1165,7 @@ qx.Class.define("webmln.Application",
                 // set learning methods and set selected from config
                 this.__slctMethodLrn.removeAll();
                 for (var i = 0; i < methods.length; i++) {
+                    console.log(methods[i],config.method,methods[i] == config.method);
                     if (methods[i] == config.method) {
                         var selectedmethoditem = new qx.ui.form.ListItem(methods[i]);
                         this.__slctMethodLrn.add(selectedmethoditem);
