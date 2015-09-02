@@ -197,7 +197,8 @@ class MLNQuery(object):
         if 'params' in params:
             params.update(eval("dict(%s)" % params['params']))
             del params['params']
-        print tabulate(sorted(list(params.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
+        if self.verbose:
+            print tabulate(sorted(list(params.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
         # create the MLN and evidence database and the parse the queries
 #         mln = parse_mln(modelstr, searchPath=self.dir.get(), logic=self.config['logic'], grammar=self.config['grammar'])
 #         db = parse_db(mln, db_content, ignore_unknown_preds=params.get('ignore_unknown_preds', False))
@@ -231,15 +232,16 @@ class MLNQuery(object):
                 print
                 mrf.print_evidence_vars()
             result = inference.run()
-            print 
-            print headline('INFERENCE RESULTS')
-            print
-            inference.write()
+            if self.verbose:
+                print 
+                print headline('INFERENCE RESULTS')
+                print
+                inference.write()
             if self.save:
                 with open(os.path.join(self.dir.get(), self.output_filename), 'w+') as outFile:
                     inference.write(outFile)
-            print
             if self.verbose:
+                print
                 inference.write_elapsed_time()
         except SystemExit:
             print 'Cancelled...'
@@ -251,9 +253,10 @@ class MLNQuery(object):
                 ps.print_stats()
             # reset the debug level
             praclog.level(olddebug)
-        print
-        watch.finish()
-        watch.printSteps()
+        if self.verbose:
+            print
+            watch.finish()
+            watch.printSteps()
         return result
         
 
