@@ -155,7 +155,7 @@ class MultipleDatabaseLearner(AbstractLearner):
                 if self.verbose: bar.inc()
 
 
-    def _remove_fixweights(self, v):
+    def _filter_fixweights(self, v):
         '''
         Removes from the vector `v` all elements at indices that correspond to a fixed weight formula index.
         '''
@@ -164,7 +164,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         return [v[i] for i in range(len(self.mln.formulas)) if not self.mln.fixweights[i]]
 
     
-    def _fullweights(self, w):
+    def _add_fixweights(self, w):
         i = 0
         w_ = []
         for f in self.mln.formulas:
