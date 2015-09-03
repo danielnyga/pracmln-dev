@@ -120,11 +120,6 @@ def start_inference():
             inference = InferenceMethods.clazz(method)(mrf, queries, **tmpconfig)
             inference.run()
 
-
-            # generate output for graph and bar chart
-            atoms = mrf._gndatoms.keys()
-
-
             if inferconfig.get('verbose', False):
                 streamlog.info('INFERENCE RESULTS')
                 inference.write(stream, color=None)
