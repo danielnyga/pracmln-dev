@@ -83,12 +83,12 @@ class BPLL(AbstractLearner):
                 if w[fidx] == HARD: 
                     # set the prob mass of every value violating a hard constraint to -1
                     # to indicate a globally inadmissible value. We will set those ones to 0 afterwards.
-                    if n == 0: sums[validx] = -1
+                    if n == 0: sums[validx] = None
                 elif sums[validx] != -1:
                     # don't set it if this value has already been assigned marked as inadmissible.  
                     sums[validx] += n * w[fidx]
         expsums = numpy.exp(sums)
-        expsums = numpy.array([e if s >= 0 else 0 for s, e in zip(sums, expsums)]) # leave of the inadmissible values
+        expsums = numpy.array([e if s is not None else 0 for s, e in zip(sums, expsums)]) # leave of the inadmissible values
         z = sum(expsums)
         if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: all probability masses of variable %s are zero.' % str(var))
         return map(lambda w_: w_ / z, expsums)
@@ -200,7 +200,7 @@ class BPLL_CG(BPLL):
     def _prepare(self):
         grounder = BPLLGroundingFactory(self.mrf)
         out(grounder)
-        for _ in grounder.itergroundings(simplify=False, unsatfailure=True): pass
+        for _ in grounder.itergroundings(): pass
         self._stat = grounder._stat
         self._varidx2fidx = grounder._varidx2fidx
         
