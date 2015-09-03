@@ -111,7 +111,7 @@ def start_inference():
             cw_preds = [p.name for p in mln.predicates if p.name not in queries]
 
         # extract and remove all non-algorithm
-        method = tmpconfig.get('method', 'MC-SAT')
+        method = tmpconfig.get('method', 'MCSAT')
         for s in GUI_SETTINGS:
             if s in tmpconfig: del tmpconfig[s]
 
@@ -124,19 +124,18 @@ def start_inference():
             inference = InferenceMethods.clazz(method)(mrf, queries, **tmpconfig)
             inference.run()
 
+
             # generate output for graph and bar chart
             atoms = mrf._gndatoms.keys()
-            for i in mrf.itergroundings():
-                formulas.append(str(i))
-            results = {}
-            for gndf, p in mrf.evidence_dicts().iteritems():
-                results[str(gndf)] = p
 
-            resultkeys = results.keys()
-            resultvalues = results.values()
+            graphres = calculategraphres(mrf, db.evidence.keys())
+            for formula in mrf.itergroundings():
+                formulas.append(str(formula))
 
             streamlog.info('INFERENCE RESULTS')
             inference.write(stream, color=None)
+
+            barchartresults =  [{"name":x, "value":inference.results[x]} for x in inference.results]
 
         except SystemExit:
             streamlog.error('Cancelled...')
@@ -146,8 +145,8 @@ def start_inference():
     except:
         traceback.print_exc()
 
-    return jsonify({'atoms': atoms, 'formulas': formulas, 'resultkeys': resultkeys,
-           'resultvalues': resultvalues, 'output': stream.getvalue()})
+    return jsonify({'atoms': atoms, 'formulas': formulas, 'graphres': graphres, 'resbar': barchartresults,
+           'output': stream.getvalue()})
 
 
 @mlnApp.app.route('/mln/inference/_use_model_ext', methods=['GET', 'OPTIONS'])
@@ -161,3 +160,27 @@ def get_emln():
     if len(emlns) == 0:
         emlns.append("(no %s files found)" % str('*.emln'))
     return ','.join(emlns)
+
+
+def calculategraphres(resmrf, evidence):
+    permutations = []
+    for formula in resmrf.itergroundings():
+        gatoms = sorted(formula.gndatoms(), key=lambda entry: str(entry))
+        permutations.extend(perm(gatoms))
+    graphresults = []
+    for p in permutations:
+        sourceisev = str(p[0]) in evidence
+        targetisev = str(p[1]) in evidence
+        if {'source': str(p[0]), 'target': str(p[1]), 'value': str(formula), 'arcStyle': 'strokegreen', 'evidence': [sourceisev, targetisev]} in graphresults: continue
+        graphresults.append({'source': {'name': str(p[0]), 'isevidence': sourceisev}, 'target': {'name': str(p[1]), 'isevidence':targetisev}, 'value': str(formula), 'arcStyle': 'strokegreen'})
+    return graphresults
+
+def perm(list):
+    res = []
+    for i, val in enumerate(list):
+        for y, val2 in enumerate(list):
+            if i >= y: continue
+            if len(val.args) > len(set(val.args)) or len(val2.args) > len(set(val2.args)): continue
+            if (val, val2) in res: continue
+            res.append((val, val2))
+    return res

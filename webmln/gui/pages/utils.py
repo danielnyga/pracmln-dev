@@ -1,12 +1,8 @@
-import glob
 import os
 from flask import jsonify, session
 import re
-from multiprocessing.queues import Queue
-import sys
 from fnmatch import fnmatch
 from pracmln.mln.methods import LearningMethods, InferenceMethods
-from pracmln.mln.util import out
 from pracmln.praclog import logger
 from pracmln.utils.config import PRACMLNConfig, query_config_pattern, learn_config_pattern
 from webmln.gui.app import mlnApp, MLNSession
@@ -71,6 +67,7 @@ def load_configurations():
 
 
 def change_example(task, folder):
+    log.info('change_example')
     mlnsession = ensure_mln_session(session)
     f = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], folder)
     if task == 'inference':
@@ -83,10 +80,10 @@ def change_example(task, folder):
     mlnfiles, dbs = get_example_files(f)
     usermlnfiles, userdbs = get_example_files(mlnApp.app.config['UPLOAD_FOLDER'])
 
-    inferconfig = mlnsession.inferconfig.config
+    inferconfig = mlnsession.inferconfig.config.copy()
     inferconfig.update({"method": InferenceMethods.name(mlnsession.inferconfig.config['method'])})
 
-    lrnconfig = mlnsession.learnconfig.config
+    lrnconfig = mlnsession.learnconfig.config.copy()
     lrnconfig.update({"method": LearningMethods.name(mlnsession.learnconfig.config['method'])})
 
     res = {'dbs': dbs + userdbs, 'mlns': mlnfiles + usermlnfiles,

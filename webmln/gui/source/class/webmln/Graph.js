@@ -39,19 +39,6 @@ qx.Class.define("webmln.Graph",
     this.h = document.getElementById("viz", true, true).offsetHeight;
 
     this.svnContainer = d3.select('#viz').select("svg").select("g");
-    /*
-    this.svnContainer.append("defs").selectAll("marker")
-      .data(["dashedred", "strokegreen", "dashed", "strokeblue", "arrowhead", "default"])
-      .enter().append("marker")
-      .attr("id", function(d) { return d; })
-      .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 10)
-      .attr("refY", -.8)
-      .attr("markerWidth", 7.5)
-      .attr("markerHeight", 7.5)
-      .attr("orient", "auto")
-      .append("path")
-      .attr("d", "M0,-5L10,0L0,5 Z");*/
 
     this.force = d3.layout.force();
     this.nodes = this.force.nodes();
@@ -74,8 +61,8 @@ qx.Class.define("webmln.Graph",
         var rInterval = setTimeout( function() {
           if (dIndex < toBeRemoved.length) {
             t.removeLink(toBeRemoved[dIndex])
-            t.removeIfSingle(toBeRemoved[dIndex].source);
-            t.removeIfSingle(toBeRemoved[dIndex].target);
+            t.removeIfSingle(toBeRemoved[dIndex].source.name);
+            t.removeIfSingle(toBeRemoved[dIndex].target.name);
             dIndex++;
           }
           if (dIndex < toBeRemoved.length) {
@@ -89,11 +76,11 @@ qx.Class.define("webmln.Graph",
       var addNodesAndLinks = function(dataIndex, t) {
         var aInterval = setTimeout( function() {
           if (dataIndex < toBeAdded.length) {
-            if (t.findNodeIndex(toBeAdded[dataIndex].source) === -1) {
-              t.addNode(toBeAdded[dataIndex].source);
+            if (t.findNodeIndex(toBeAdded[dataIndex].source.name) === -1) {
+              t.addNode(toBeAdded[dataIndex].source.name, toBeAdded[dataIndex].source.isevidence);
             }
-            if (t.findNodeIndex(toBeAdded[dataIndex].target) === -1) {
-              t.addNode(toBeAdded[dataIndex].target);
+            if (t.findNodeIndex(toBeAdded[dataIndex].target.name) === -1) {
+              t.addNode(toBeAdded[dataIndex].target.name, toBeAdded[dataIndex].target.isevidence);
             }
             t.addLink(toBeAdded[dataIndex]);
             dataIndex++;
@@ -115,13 +102,13 @@ qx.Class.define("webmln.Graph",
     replaceData : function (data) {
       this.clear();
       for (var dataIndex = 0; dataIndex < data.length; dataIndex++) {
-        if (this.findNodeIndex(data[dataIndex].source) === -1) {
-              this.addNode(data[dataIndex].source);
+        if (this.findNodeIndex(data[dataIndex].source.name) === -1) {
+              this.addNode(data[dataIndex].source.name, data[dataIndex].source.isevidence);
             }
-            if (this.findNodeIndex(data[dataIndex].target) === -1) {
-              this.addNode(data[dataIndex].target);
+            if (this.findNodeIndex(data[dataIndex].target.name) === -1) {
+              this.addNode(data[dataIndex].target.name, data[dataIndex].target.isevidence);
             }
-        this.links.push({"source": this.findNode(data[dataIndex].source),"target": this.findNode(data[dataIndex].target),"value": data[dataIndex].value, "arcStyle":data[dataIndex].arcStyle});
+        this.links.push({"source": this.findNode(data[dataIndex].source.name),"target": this.findNode(data[dataIndex].target.name),"value": data[dataIndex].value, "arcStyle":data[dataIndex].arcStyle});
       }
       this.update();
     },        
@@ -129,8 +116,8 @@ qx.Class.define("webmln.Graph",
     /**
      * adds a node with the given id to the nodes list
      */
-    addNode : function (id) {
-      this.nodes.push({"id":id});
+    addNode : function (id, isevidence) {
+      this.nodes.push({"id": id, "isevidence": isevidence});
       //this.playSound();
       this.update();
     },
@@ -148,9 +135,9 @@ qx.Class.define("webmln.Graph",
      * adds a link if it does not exist yet, otherwise updates the edge label
      */
     addLink : function (lnk){
-      var index = this.findLinkIndex(this.findNode(lnk.source), this.findNode(lnk.target));
+      var index = this.findLinkIndex(this.findNode(lnk.source.name), this.findNode(lnk.target.name));
       if (index == -1) {
-        this.links.push({"source": this.findNode(lnk.source),"target": this.findNode(lnk.target),"value": [lnk.value], "arcStyle": lnk.arcStyle});
+        this.links.push({"source": this.findNode(lnk.source.name),"target": this.findNode(lnk.target.name),"value": [lnk.value], "arcStyle": lnk.arcStyle});
       } else {
         var valIndex = this.links[index].value.indexOf(lnk.value);
         if (valIndex == -1) {
@@ -280,9 +267,7 @@ qx.Class.define("webmln.Graph",
       var showLabels = typeof showLabels !== 'undefined' ? showLabels : true;
 
       var path = this.svnContainer.selectAll("path.link")
-        .data(this.links, function(d) {
-                return d.source.id + "-" + d.target.id; 
-                });
+        .data(this.links, function(d) { return d.source.id + "-" + d.target.id; });
 
       var pathEnter = path.enter().append("path")
         .attr("id", function(d) { return d.source.id + "-" + d.target.id; })
@@ -327,15 +312,14 @@ qx.Class.define("webmln.Graph",
           .text(d.id);
         })
         .on("mouseout", function() {
-
-            //Remove the tooltip
-            d3.select("#tooltip").remove();
-
+                //Remove the tooltip
+                d3.select("#tooltip").remove();
         })
         .attr("r", function(d) {
-          d.radius = 10;
-          return d.radius; } )
-        .attr("id", function(d) { return d.id; } );
+              d.radius = 10;
+              return d.radius; } )
+        .attr("id", function(d) { return d.id; } )
+        .attr("class", function(d) { return d.isevidence ? 'evidence' : ''; });
 
       circle.exit().remove();
 
@@ -413,7 +397,7 @@ qx.Class.define("webmln.Graph",
         .charge(-1000)
         .on("tick", tick)
         .gravity( .05 )
-        .distance( 250 )
+        .distance( 100 )
         .start();
     }
   }

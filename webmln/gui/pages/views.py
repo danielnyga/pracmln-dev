@@ -128,10 +128,10 @@ def mlnlog_(filename):
 
 
 
-@mlnApp.app.route('/mln/_init', methods=['GET', 'OPTIONS'])
+@mlnApp.app.route('/mln/_init', methods=['GET'])
 def init_options():
-    log.info('init_options')
     mlnsession = ensure_mln_session(session)
+
     load_configurations()
 
     mlnfiles, dbfiles = get_example_files(mlnsession.xmplFolder)
@@ -140,10 +140,10 @@ def init_options():
             os.path.isdir(
                 os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], x))]
 
-    inferconfig = mlnsession.inferconfig.config
+    inferconfig = mlnsession.inferconfig.config.copy()
     inferconfig.update({"method": InferenceMethods.name(mlnsession.inferconfig.config['method'])})
 
-    lrnconfig = mlnsession.learnconfig.config
+    lrnconfig = mlnsession.learnconfig.config.copy()
     lrnconfig.update({"method": LearningMethods.name(mlnsession.learnconfig.config['method'])})
 
     resinference = {'methods': sorted(InferenceMethods.names()),

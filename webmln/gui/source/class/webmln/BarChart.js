@@ -28,7 +28,7 @@ qx.Class.define("webmln.BarChart",
     this.h = document.getElementById(id, true, true).offsetHeight;
     this.id = id;
     this.barHeight = 15;
-    this.offset = 50;
+    this.offset = 100;
 
     this['barChartSVG'+ this.id] = d3.select("#" + this.id).append("svg")
               .attr("class", "chart")
@@ -72,8 +72,6 @@ qx.Class.define("webmln.BarChart",
      * redraws the bar chart with the updated data
      */
     update : function () {
-        this.h = this.barChartData.length * this.barHeight + this.offset;
-        d3.select("#" + this.id).select("svg").attr("height", this.h);
 
         var format = d3.format(".4f");
         var x = d3.scale.linear()
@@ -126,6 +124,9 @@ qx.Class.define("webmln.BarChart",
 
         this['barChartSVG'+ this.id].selectAll("g.x.axis")
             .call(xAxis);
+
+        this.h = this.barChartData.length * this.barHeight + this.offset;
+        d3.select("#" + this.id).select("svg").attr("height", this.h);
     }
   }
 });

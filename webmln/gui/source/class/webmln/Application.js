@@ -167,7 +167,7 @@ qx.Class.define("webmln.Application",
             var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
             graphVizContainer.setMinHeight(500);
 
-            var vizEmbedGrp = new qx.ui.groupbox.GroupBox("Visualization");
+            var vizEmbedGrp = new qx.ui.groupbox.GroupBox("Ground Markov Random Field");
             var vizLayout = new qx.ui.layout.Grow();
             vizEmbedGrp.setLayout(vizLayout);
             var vizHTML = "<div id='viz' style='width: 100%; height: 100%;'></div>";
@@ -179,7 +179,7 @@ qx.Class.define("webmln.Application",
             var barChartContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
             barChartContainer.getContentElement().setAttribute("id","dia");
             barChartContainer.getContentElement().setStyle("overflow","scroll",true);
-            var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
+            var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Inference Result");
             var diaLayout = new qx.ui.layout.Grow();
             diaEmbedGrp.setLayout(diaLayout);
 
@@ -247,35 +247,10 @@ qx.Class.define("webmln.Application",
             this.__txtAMLNviz.getContentElement().setAttribute("id", 'mlnResultArea');
             vizEmbedGrp.add(this.__txtAMLNviz);
 
-            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
-
-            var barChartContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
-            barChartContainer.getContentElement().setAttribute("id","diaL");
-            barChartContainer.getContentElement().setStyle("overflow","scroll",true);
-            var diaEmbedGrp = new qx.ui.groupbox.GroupBox("Statistics");
-            var diaLayout = new qx.ui.layout.Grow();
-
-            var diaContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
-            barChartContainer.addListener('resize', function(e) {
-                    if (typeof this['_barChartdiaL'] != 'undefined') {
-                      var vizSize = barChartContainer.getInnerSize();
-                      this['_barChartdiaL'].w = vizSize.width;
-//                      this['_barChartdiaL'].h = vizSize.height;
-                      // remove data and re-add it to trigger redrawing
-                      var tempdata = this['_barChartdiaL'].barChartData.slice();
-                      this['_barChartdiaL'].replaceData(tempdata);
-                    }
-            }, this);
-
-            diaEmbedGrp.setLayout(diaLayout);
-            diaEmbedGrp.add(barChartContainer);
             graphVizContainer.add(vizEmbedGrp, {width: "100%", height: "100%"});
             graphVizContainer.add(waitImage, { left: "50%", top: "50%"});
-            diaContainer.add(diaEmbedGrp);
-            innerMostSplitPane.add(diaContainer);
-            innerMostSplitPane.add(textAreaResults);
-            innerSplitPane.add(graphVizContainer, { height: "50%"});
-            innerSplitPane.add(innerMostSplitPane);
+            innerSplitPane.add(graphVizContainer, { height: "70%"});
+            innerSplitPane.add(textAreaResults);
 
             splitPane.add(mlnFormContainer, {width: "40%", height: "100%"});
             splitPane.add(innerSplitPane);
@@ -472,7 +447,7 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__btnRefreshMLN, {row: 3, column: 3});
             mlnFormContainer.add(this.__btnUploadMLNFile, {row: 3, column: 4});
             mlnFormContainer.add(this.__mlnAreaContainer, {row: 4, column: 1, colSpan: 4});
-            mlnFormContainerLayout.setRowHeight(4, 200);
+            mlnFormContainerLayout.setRowHeight(4, 300);
             mlnFormContainer.add(this.__chkbxRenameEditMLN, {row: 5, column: 1});
             mlnFormContainer.add(this.__chkbxUseModelExt, {row: 5, column: 2});
             mlnFormContainer.add(this.__txtFNameMLN, {row: 6, column: 1, colSpan: 3});
@@ -482,7 +457,7 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__btnRefreshDB, {row: 11, column: 3});
             mlnFormContainer.add(this.__btnUploadDBFileInf, {row: 11, column: 4});
             mlnFormContainer.add(this.__evidenceContainer, {row: 12, column: 1, colSpan: 4});
-            mlnFormContainerLayout.setRowHeight(12, 100);
+            mlnFormContainerLayout.setRowHeight(12, 300);
             mlnFormContainer.add(this.__chkbxRenameEditEvidence, {row: 13, column: 1});
             mlnFormContainer.add(this.__txtFNameDB, {row: 14, column: 1, colSpan: 3});
             mlnFormContainer.add(this.__btnSaveDB, {row: 14, column: 4});
@@ -698,7 +673,7 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__btnRefreshMLNLrn, {row: 3, column: 3});
             mlnFormContainer.add(this.__btnUploadMLNFileLrn, {row: 3, column: 4});
             mlnFormContainer.add(this.__containerMLNAreaLrn, {row: 4, column: 1, colSpan: 4});
-            mlnFormContainerLayout.setRowHeight(4, 200);
+            mlnFormContainerLayout.setRowHeight(4, 250);
             mlnFormContainer.add(this.__chkbxRenameEditMLNLrn, {row: 5, column: 1});
             mlnFormContainer.add(this.__txtFMLNNewNameLrn, {row: 6, column: 1, colSpan: 3});
             mlnFormContainer.add(this.__btnSaveMLNLrn, {row: 6, column: 4});
@@ -716,7 +691,7 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__btnRefreshTDataLrn, {row: 12, column: 3});
             mlnFormContainer.add(this.__btnUploadTDataFileLrn, {row: 12, column: 4});
             mlnFormContainer.add(this.__tDataContainer, {row: 13, column: 1, colSpan: 4});
-            mlnFormContainerLayout.setRowHeight(13, 200);
+            mlnFormContainerLayout.setRowHeight(13, 250);
             mlnFormContainer.add(this.__chkbxRenameEditTData, {row: 14, column: 1});
             mlnFormContainer.add(this.__chkbxIgnoreUnknownLrn, {row: 14, column: 2});
             mlnFormContainer.add(this.__txtFTDATANewNameLrn, {row: 15, column: 1, colSpan: 3});
@@ -875,7 +850,7 @@ qx.Class.define("webmln.Application",
         _start_inference : function(e) {
                 var that = this;
                 this.loadGraph();
-                this.loadBarChart(this.__tabView.isSelected(this.__inferencePage) ? "dia" : "diaL" );
+                this.loadBarChart("dia");
                 var mln = (this.__slctMLN.getSelectables().length != 0) ? this.__slctMLN.getSelection()[0].getLabel() : "";
                 var emln = (this.__slctEMLN.getSelectables().length != 0) ? this.__slctEMLN.getSelection()[0].getLabel() : "";
                 var db = (this.__slctEvidence.getSelectables().length != 0) ? this.__slctEvidence.getSelection()[0].getLabel() : "";
@@ -912,114 +887,13 @@ qx.Class.define("webmln.Application",
                         var tar = e.getTarget();
                         var response = tar.getResponse();
 
-                        var atoms = response.atoms;
-                        var formulas = response.formulas;
-                        var keys = response.resultkeys;
-                        var values = response.resultvalues;
-                        var resultsMap = new Object();
-                        for (var i = 0; i < keys.length; i++) {
-                                resultsMap[keys[i]] = values[i];
-                        }
-                        this.___barChartDiaData = resultsMap;
-                        var output = response.output;
-                        var formulaAtoms = [];
-                        for (var i = 0; i < formulas.length; i++) {
-                            formulaAtoms[i] = [];
-                            for (var j = 0; j < atoms.length; j++) {
-                                if (formulas[i].indexOf(atoms[j]) > -1 && (formulaAtoms[i].indexOf(atoms[j]) == -1)) {
-                                    formulaAtoms[i].push(atoms[j]);
-                                }
-                            }
-                        }
-                        var duplicates = [];
-                        var splitAtoms = [];
-                        for (var i = 0; i < atoms.length; i++) {
-                            splitAtoms[i] = [];
-                            splitAtoms[i][0] = atoms[i].split("(")[0];
-                            splitAtoms[i][1] = atoms[i].slice(atoms[i].indexOf("(")+1,atoms[i].indexOf(")")).split(",").sort();
-                        }
-                        for (var i = 0; i < splitAtoms.length; i++) {
-                            var skip = false;
-                            for (var j = 0; j < splitAtoms[i][1].length; j++) {
-                                for (var k = 0; k < splitAtoms[i][1].length; k++) {
-                                    if (j >= k) continue;
-                                    if (splitAtoms[i][1][j] == splitAtoms[i][1][k]) {
-                                        duplicates.push(atoms[i]);
-                                        skip = true;
-                                        break;
-                                    }
-                                }
-                                if (skip) break;
-                            }
-                            for (var j = 0; j < splitAtoms.length; j++) {
-                                if (i >= j) continue;
-
-                                if (splitAtoms[i][0] == splitAtoms[j][0] && splitAtoms[i][1].join(",") == splitAtoms[j][1].join(",")) {
-                                    duplicates.push(atoms[i]);
-                                }
-                            }
-                        }
-                        var hasDuplicates = []
-                        for (var i = 0; i < formulaAtoms.length; i++) {
-                            hasDuplicates[i] = false;
-                            for (var j = 0; j < duplicates.length; j++) {
-                                 if (formulaAtoms[i].indexOf(duplicates[j]) > -1) {
-                                      hasDuplicates[i] = true;
-                                      break;
-                                 }
-                            }
-                        }
-
-                        var addList = [];
-                        var checkList;
-                        var link;
-
-                        for (var i = 0; i < formulaAtoms.length; i++) {
-                            if (hasDuplicates[i]) continue;
-                            checkList = [];
-                            for (var j = 0; j < formulaAtoms[i].length; j++) {
-                                checkList[j] = [];
-                                for (var k = 0; k < formulaAtoms[i].length; k++) {
-                                    if (j != k) {
-                                        if (j > k && checkList[k].indexOf(j) > -1) {
-                                            continue;
-                                        }
-                                        checkList[j].push(k);
-                                        var link = new Object();
-                                        link.source = formulaAtoms[i][j];
-                                        link.target = formulaAtoms[i][k];
-                                        link.value = [formulas[i]];
-                                        link.arcStyle = "strokegreen";
-                                        addList.push(link);
-                                    }
-                                }
-                            }
-                        }
-                        that.updateGraph([],addList);
-
-                        this['_barChartdia'].replaceData(this._preprocess_barchartdata(this.___barChartDiaData));
-                        that.__txtAResults.setValue(output);
-                        that.__txtAResults.getContentElement().scrollToY(10000);
+                        this.updateGraph([],response.graphres);
+                        this['_barChartdia'].replaceData(response.resbar);
+                        this.__txtAResults.setValue(response.output);
+                        this.__txtAResults.getContentElement().scrollToY(10000);
 
                 }, this);
                 req.send();
-        },
-
-
-        /**
-        *
-        */
-        _preprocess_barchartdata : function(results) {
-            var data = [];
-            for (var key in results) {
-                if (results.hasOwnProperty(key)) {
-                    var data1 = new Object();
-                    data1.name = key;
-                    data1.value = results[key];
-                    data.push(data1);
-                }
-            }
-            return data;
         },
 
 
@@ -1087,8 +961,6 @@ qx.Class.define("webmln.Application",
             req.addListener("success", function(e) {
                     var tar = e.getTarget();
                     var response = tar.getResponse();
-                    var infconfig = response.inference.config;
-                    var lrnconfig = response.learning.config;
 
                     // set examples for inference and learning
                     for (var i = 0; i < response.examples.length; i++) {
@@ -1176,7 +1048,6 @@ qx.Class.define("webmln.Application",
                 // set learning methods and set selected from config
                 this.__slctMethodLrn.removeAll();
                 for (var i = 0; i < methods.length; i++) {
-                    console.log(methods[i],config.method,methods[i] == config.method);
                     if (methods[i] == config.method) {
                         var selectedmethoditem = new qx.ui.form.ListItem(methods[i]);
                         this.__slctMethodLrn.add(selectedmethoditem);

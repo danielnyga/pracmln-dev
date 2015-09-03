@@ -92,8 +92,18 @@ circle {
     stroke-width: 1.5px;
 }
 
+circle.evidence {
+    -moz-transition: all 0.1s;
+    -o-transition: all 0.1s;
+    -webkit-transition: all 0.1s;
+    transition: all 0.1s;
+    fill: orange;
+    stroke: #89a35c;
+    stroke-width: 1.5px;
+}
+
 circle:hover {
-  fill: orange;
+  fill: #89a35c;
   stroke: #89a35c;
   stroke-width: 1.5px;
 }
