@@ -51,7 +51,7 @@ def start_inference():
     streamlog = logging.getLogger('streamlog')
     streamlog.setLevel(logging.INFO)
     streamlog.addHandler(handler)
-    streamlog.info('start_inference')
+    streamlog.info('STARTING INFERENCE')
     sys.stdout = stream
 
 
@@ -128,13 +128,12 @@ def start_inference():
             # generate output for graph and bar chart
             atoms = mrf._gndatoms.keys()
 
+
+            if inferconfig.get('verbose', False):
+                streamlog.info('INFERENCE RESULTS')
+                inference.write(stream, color=None)
+
             graphres = calculategraphres(mrf, db.evidence.keys())
-            for formula in mrf.itergroundings():
-                formulas.append(str(formula))
-
-            streamlog.info('INFERENCE RESULTS')
-            inference.write(stream, color=None)
-
             barchartresults =  [{"name":x, "value":inference.results[x]} for x in inference.results]
 
         except SystemExit:
@@ -145,8 +144,7 @@ def start_inference():
     except:
         traceback.print_exc()
 
-    return jsonify({'atoms': atoms, 'formulas': formulas, 'graphres': graphres, 'resbar': barchartresults,
-           'output': stream.getvalue()})
+    return jsonify({'graphres': graphres, 'resbar': barchartresults, 'output': stream.getvalue()})
 
 
 @mlnApp.app.route('/mln/inference/_use_model_ext', methods=['GET', 'OPTIONS'])
