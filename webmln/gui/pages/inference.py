@@ -82,10 +82,6 @@ def start_inference():
     # store settings in session
     mlnsession.inferconfig = inferconfig
 
-    atoms = []
-    formulas = []
-    resultkeys = []
-    resultvalues = []
     try:
         # expand the parameters
         tmpconfig = inferconfig.config.copy()
