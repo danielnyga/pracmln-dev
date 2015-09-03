@@ -35,6 +35,8 @@ import sys
 from pracmln.mln.util import barstr, colorize, out
 from pracmln.mln.errors import MLNParsingError
 import traceback
+from collections import defaultdict
+
 
 class Database(object):
     '''
@@ -53,7 +55,7 @@ class Database(object):
     
     def __init__(self, mln, evidence=None, dbfile=None, ignore_unknown_preds=False):
         self.mln = mln
-        self._domains = {}
+        self._domains = defaultdict(list)
         self._evidence = {}
         if dbfile is not None:
             Database.load(mln, dbfile, db=self, ignore_unknown_preds=ignore_unknown_preds)

@@ -1,6 +1,6 @@
 # Weighted Constraint Satisfaction Problems -- Representation and Solving
 #
-# (C) 2012 by Daniel Nyga (nyga@cs.tum.edu)
+# (C) 2012-2015 by Daniel Nyga (nyga@cs.uni-bremen.edu)
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the

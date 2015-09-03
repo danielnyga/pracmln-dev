@@ -48,6 +48,7 @@ from tabulate import tabulate
 from cProfile import Profile
 import pstats
 import StringIO
+import pracmln
 
 
 logger = praclog.logger(__name__)
@@ -93,7 +94,10 @@ class MLNQuery(object):
         
     @property
     def queries(self):
-        return self._config.get('queries', None)
+        q = self._config.get('queries', pracmln.ALL)
+        if isinstance(q, basestring):
+            return parse_queries(self.mln, q)
+        return q
     
     
     @property
@@ -193,7 +197,8 @@ class MLNQuery(object):
         if 'params' in params:
             params.update(eval("dict(%s)" % params['params']))
             del params['params']
-        print tabulate(sorted(list(params.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
+        if self.verbose:
+            print tabulate(sorted(list(params.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
         # create the MLN and evidence database and the parse the queries
 #         mln = parse_mln(modelstr, searchPath=self.dir.get(), logic=self.config['logic'], grammar=self.config['grammar'])
 #         db = parse_db(mln, db_content, ignore_unknown_preds=params.get('ignore_unknown_preds', False))
@@ -202,7 +207,8 @@ class MLNQuery(object):
         elif type(db) is list:
             db = db[0]
         # parse non-atomic params
-        queries = parse_queries(mln, str(self.queries))
+#         if type(self.queries) is not list:
+#             queries = parse_queries(mln, str(self.queries))
         params['cw_preds'] = filter(lambda x: bool(x), self.cw_preds)
         # extract and remove all non-algorithm
         for s in GUI_SETTINGS:
@@ -219,23 +225,23 @@ class MLNQuery(object):
         try:
             mln_ = mln.materialize(db)
             mrf = mln_.ground(db)
-
-            inference = self.method(mrf, queries, **params)
+            inference = self.method(mrf, self.queries, **params)
             if self.verbose:
                 print
                 print headline('EVIDENCE VARIABLES')
                 print
 
             result = inference.run()
-            print 
-            print headline('INFERENCE RESULTS')
-            print
-            inference.write()
+            if self.verbose:
+                print 
+                print headline('INFERENCE RESULTS')
+                print
+                inference.write()
             if self.save:
                 with open(os.path.join(self.dir.get(), self.output_filename), 'w+') as outFile:
                     inference.write(outFile)
-            print
             if self.verbose:
+                print
                 inference.write_elapsed_time()
         except SystemExit:
             print 'Cancelled...'
@@ -247,9 +253,10 @@ class MLNQuery(object):
                 ps.print_stats()
             # reset the debug level
             praclog.level(olddebug)
-        print
-        watch.finish()
-        watch.printSteps()
+        if self.verbose:
+            print
+            watch.finish()
+            watch.printSteps()
         return result
         
 

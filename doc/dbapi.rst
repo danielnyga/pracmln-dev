@@ -1,5 +1,5 @@
-:mod:`mln.database` --- Database representations for Markov Logic Networks
-==========================================================================
+:class:`pracmln.mln.database.Database` --- Database representations for Markov Logic Networks
+==================================================================================
 
-.. automodule:: mln.database
-    :members: Database, readDBFromFile
+.. automodule:: pracmln.mln.database
+    :members: Database

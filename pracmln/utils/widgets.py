@@ -1,6 +1,7 @@
 # widgets module for use with MLN tools
 #
-# (C) 2006-2011 by Dominik Jain
+# (C) 2012-2015 by Daniel Nyga
+#     2006-2011 by Dominik Jain
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the

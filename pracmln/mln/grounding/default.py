@@ -122,9 +122,7 @@ class DefaultGroundingFactory:
     def _itergroundings(self, simplify=False, unsatfailure=False):
         if self.verbose: 
             bar = ProgressBar(width=100, color='green')
-        out(map(str, self.formulas))
         for i, formula in enumerate(self.formulas):
-            out(formula)
             if self.verbose: bar.update((i+1) / float(len(self.formulas)))
             for gndformula in formula.itergroundings(self.mrf, simplify=simplify):
                 if unsatfailure and gndformula.weight == HARD and gndformula(self.mrf.evidence) != 1:
