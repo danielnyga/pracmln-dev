@@ -82,7 +82,7 @@ text {
   stroke: black;
 }
 
-circle {
+circle.query {
     -moz-transition: all 0.1s;
     -o-transition: all 0.1s;
     -webkit-transition: all 0.1s;
@@ -98,6 +98,16 @@ circle.evidence {
     -webkit-transition: all 0.1s;
     transition: all 0.1s;
     fill: orange;
+    stroke: #89a35c;
+    stroke-width: 1.5px;
+}
+
+circle.hidden {
+    -moz-transition: all 0.1s;
+    -o-transition: all 0.1s;
+    -webkit-transition: all 0.1s;
+    transition: all 0.1s;
+    fill: grey;
     stroke: #89a35c;
     stroke-width: 1.5px;
 }
