@@ -64,6 +64,7 @@ Project Lead:
 Contributors:
 ^^^^^^^^^^^^^
 * Mareike Picklum
+* Thiemo Wiedemeyer
 * Valentine Chiwome
 
 Former Contributors (from ProbCog):
