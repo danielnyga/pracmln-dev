@@ -77,10 +77,10 @@ qx.Class.define("webmln.Graph",
         var aInterval = setTimeout( function() {
           if (dataIndex < toBeAdded.length) {
             if (t.findNodeIndex(toBeAdded[dataIndex].source.name) === -1) {
-              t.addNode(toBeAdded[dataIndex].source.name, toBeAdded[dataIndex].source.isevidence);
+              t.addNode(toBeAdded[dataIndex].source.name, toBeAdded[dataIndex].source.type);
             }
             if (t.findNodeIndex(toBeAdded[dataIndex].target.name) === -1) {
-              t.addNode(toBeAdded[dataIndex].target.name, toBeAdded[dataIndex].target.isevidence);
+              t.addNode(toBeAdded[dataIndex].target.name, toBeAdded[dataIndex].target.type);
             }
             t.addLink(toBeAdded[dataIndex]);
             dataIndex++;
@@ -103,10 +103,10 @@ qx.Class.define("webmln.Graph",
       this.clear();
       for (var dataIndex = 0; dataIndex < data.length; dataIndex++) {
         if (this.findNodeIndex(data[dataIndex].source.name) === -1) {
-              this.addNode(data[dataIndex].source.name, data[dataIndex].source.isevidence);
+              this.addNode(data[dataIndex].source.name, data[dataIndex].source.type);
             }
             if (this.findNodeIndex(data[dataIndex].target.name) === -1) {
-              this.addNode(data[dataIndex].target.name, data[dataIndex].target.isevidence);
+              this.addNode(data[dataIndex].target.name, data[dataIndex].target.type);
             }
         this.links.push({"source": this.findNode(data[dataIndex].source.name),"target": this.findNode(data[dataIndex].target.name),"value": data[dataIndex].value, "arcStyle":data[dataIndex].arcStyle});
       }
@@ -116,8 +116,8 @@ qx.Class.define("webmln.Graph",
     /**
      * adds a node with the given id to the nodes list
      */
-    addNode : function (id, isevidence) {
-      this.nodes.push({"id": id, "isevidence": isevidence});
+    addNode : function (id, type) {
+      this.nodes.push({"id": id, "type": type});
       //this.playSound();
       this.update();
     },
@@ -319,7 +319,7 @@ qx.Class.define("webmln.Graph",
               d.radius = 10;
               return d.radius; } )
         .attr("id", function(d) { return d.id; } )
-        .attr("class", function(d) { return d.isevidence ? 'evidence' : ''; });
+        .attr("class", function(d) { return d.type; });
 
       circle.exit().remove();
 

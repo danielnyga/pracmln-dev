@@ -13,7 +13,8 @@ from pracmln.mln.methods import InferenceMethods
 from pracmln.mln.util import parse_queries, out
 from pracmln.praclog import logger
 from pracmln.utils.config import query_config_pattern, PRACMLNConfig
-from utils import ensure_mln_session, GUI_SETTINGS, change_example
+from utils import ensure_mln_session, GUI_SETTINGS, change_example, \
+    get_cond_prob_png
 from webmln.gui.app import mlnApp
 
 log = logger(__name__)
@@ -82,6 +83,10 @@ def start_inference():
     # store settings in session
     mlnsession.inferconfig = inferconfig
 
+    barchartresults = []
+    graphres = []
+    png = ''
+    ratio = 1
     try:
         # expand the parameters
         tmpconfig = inferconfig.config.copy()
@@ -99,6 +104,7 @@ def start_inference():
             raise Exception('Inference can only handle one database at a time')
         else:
             db = db[0]
+
         # parse non-atomic params
         queries = parse_queries(mln, str(tmpconfig['queries']))
         cw_preds = filter(lambda x: x != "", map(str.strip, str(
@@ -124,8 +130,10 @@ def start_inference():
                 streamlog.info('INFERENCE RESULTS')
                 inference.write(stream, color=None)
 
-            graphres = calculategraphres(mrf, db.evidence.keys())
+            graphres = calculategraphres(mrf, db.evidence.keys(), inference.queries)
             barchartresults =  [{"name":x, "value":inference.results[x]} for x in inference.results]
+
+            png, ratio = get_cond_prob_png(queries, db)
 
         except SystemExit:
             streamlog.error('Cancelled...')
@@ -135,7 +143,9 @@ def start_inference():
     except:
         traceback.print_exc()
 
-    return jsonify({'graphres': graphres, 'resbar': barchartresults, 'output': stream.getvalue()})
+    return jsonify({'graphres': graphres, 'resbar': barchartresults,
+                    'output': stream.getvalue(),
+                    'condprob': {'png': png, 'ratio': ratio}})
 
 
 @mlnApp.app.route('/mln/inference/_use_model_ext', methods=['GET', 'OPTIONS'])
@@ -151,25 +161,39 @@ def get_emln():
     return ','.join(emlns)
 
 
-def calculategraphres(resmrf, evidence):
+# calculates links from the mrf groundformulas
+# for each ground formula, a fully connected
+# subgraph is calculated. Bidirectional relations are
+# ignored to avoid duplicate links
+# 'type' will be used to determine
+# the circle color during graph drawing
+def calculategraphres(resmrf, evidence, queries):
     permutations = []
     for formula in resmrf.itergroundings():
         gatoms = sorted(formula.gndatoms(), key=lambda entry: str(entry))
         permutations.extend(perm(gatoms))
-    graphresults = []
+    links = []
     for p in permutations:
-        sourceisev = str(p[0]) in evidence
-        targetisev = str(p[1]) in evidence
-        if {'source': str(p[0]), 'target': str(p[1]), 'value': str(formula), 'arcStyle': 'strokegreen', 'evidence': [sourceisev, targetisev]} in graphresults: continue
-        graphresults.append({'source': {'name': str(p[0]), 'isevidence': sourceisev}, 'target': {'name': str(p[1]), 'isevidence':targetisev}, 'value': str(formula), 'arcStyle': 'strokegreen'})
-    return graphresults
+        sourceev = "evidence" if str(p[0]) in evidence else "query" if p[0] in queries else "hidden"
+        targetev = "evidence" if str(p[1]) in evidence else "query" if p[1] in queries else "hidden"
 
+        lnk = {'source': {'name': str(p[0]), 'type': sourceev},
+               'target': {'name': str(p[1]), 'type': targetev},
+               'value': str(formula),
+               'arcStyle': 'strokegreen'}
+        if lnk in links: continue
+        links.append(lnk)
+    return links
+
+
+# returns useful combinations of the list items.
+# ignores atoms with two identical arguments (e.g. Friends(Bob, Bob))
+# and duplicates
 def perm(list):
     res = []
     for i, val in enumerate(list):
         for y, val2 in enumerate(list):
             if i >= y: continue
-            if len(val.args) > len(set(val.args)) or len(val2.args) > len(set(val2.args)): continue
             if (val, val2) in res: continue
             res.append((val, val2))
     return res

@@ -29,7 +29,7 @@ def start_learning(savegeometry=True):
     streamlog = logging.getLogger('streamlog')
     streamlog.setLevel(logging.INFO)
     streamlog.addHandler(handler)
-    streamlog.info('start_learning')
+    streamlog.info('STARTING LEARNING')
     sys.stdout = stream
 
     # load settings from webform
@@ -94,8 +94,6 @@ def start_learning(savegeometry=True):
     # invoke learner
     learnedmln = ''
     try:
-        print headline('PRACMLN LEARNING TOOL')
-
         # get the method class
         method = LearningMethods.clazz(tmpconfig['method'])
 
@@ -135,17 +133,13 @@ def start_learning(savegeometry=True):
 
             # save result for visualization or whatever
             learnedmlnstream = StringIO()
-            mlnlearnt.write(learnedmlnstream)
+            mlnlearnt.write(learnedmlnstream, color=None)
             learnedmln = learnedmlnstream.getvalue()
 
             if tmpconfig['verbose']:
-                print
-                print headline('LEARNT MARKOV LOGIC NETWORK')
-                print
-                mlnlearnt.write(stream)
+                streamlog.info('LEARNT MARKOV LOGIC NETWORK')
+                mlnlearnt.write(stream, color=None)
 
-                log.info('LEARNT MARKOV LOGIC NETWORK')
-                mlnlearnt.write(stream)
         except SystemExit:
             log.error('Cancelled...')
         finally:

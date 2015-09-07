@@ -2,13 +2,13 @@ import os
 from flask import request, send_from_directory, jsonify, redirect
 from werkzeug import secure_filename
 from webmln.gui.app import mlnApp
-from webmln.gui.pages.utils import initFileStorage
+from webmln.gui.pages.utils import init_file_storage
 
 
 @mlnApp.app.route('/mln/uploads/<filedir>/<filename>')
 def uploaded_file(filedir, filename):
     if 'UPLOAD_FOLDER' not in mlnApp.app.config:
-        initFileStorage()
+        init_file_storage()
     return send_from_directory(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], filedir), filename)
 
 

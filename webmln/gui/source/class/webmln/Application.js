@@ -81,6 +81,55 @@ qx.Class.define("webmln.Application",
                 contentIsle.setHeight(h);
             }, this);
 
+            var condProb = new qx.ui.basic.Image();
+            condProb.setAllowGrowX(true);
+            condProb.setAllowShrinkX(true);
+            condProb.setAllowGrowY(true);
+            condProb.setAllowShrinkY(true);
+            condProb.setScale(true);
+            this._condProb = condProb;
+
+            var condProbWin = new qx.ui.window.Window("Conditional Probability");
+            condProbWin.setWidth(.2*document.getElementById("container", true, true).offsetWidth);
+            condProbWin.setHeight(.1*document.getElementById("container", true, true).offsetWidth);
+            condProbWin.setShowMinimize(false);
+            condProbWin.setLayout(new qx.ui.layout.Canvas());
+            condProbWin.setContentPadding(4);
+            condProbWin.add(condProb);
+            condProbWin.open();
+            condProbWin.hide();
+            this._condProbWin = condProbWin;
+
+            // resize image to fit in window
+            condProbWin.addListener("resize", function(e) {
+            var ratio =  typeof this._imgRatio != 'undefined'? this._imgRatio : 1;
+            var newWidth = e.getData().width - 10;
+            var newHeight = e.getData().height - 30;
+            if (newWidth / ratio <= newHeight) {
+              newHeight = newWidth / ratio;
+            } else {
+              newWidth = newHeight * ratio;
+            }
+            condProb.setWidth(parseInt(newWidth, 10));
+            condProb.setHeight(parseInt(newHeight, 10));
+            }, this);
+
+            // resize image to fit in window
+            condProb.addListener("changeSource", function(e) {
+            var ratio =  typeof this._imgRatio != 'undefined'? this._imgRatio : 1;
+            var newWidth = condProbWin.getInnerSize().width - 10;
+            var newHeight = condProbWin.getInnerSize().height - 30;
+            if (newWidth / ratio <= newHeight) {
+              newHeight = newWidth / ratio;
+            } else {
+              newWidth = newHeight * ratio;
+            }
+            condProb.setWidth(parseInt(newWidth, 10));
+            condProb.setHeight(parseInt(newHeight, 10));
+            }, this);
+
+            this.getRoot().add(condProbWin, {left:20, top:20});
+
 
             var outerContainer = new qx.ui.container.Scroll();
             var splitPaneInference = this.getsplitPaneInference();
@@ -121,7 +170,7 @@ qx.Class.define("webmln.Application",
             tabView.add(aboutPage, {width: "100%", height: "100%"});
 
             outerContainer.add(tabView, {width: "100%", height: "100%"});
-            contentIsle.add(outerContainer, {width: "100%", height: "100%"});
+            contentIsle.add(outerContainer, { flex: 1});
             this._init();
         },
 
@@ -160,7 +209,7 @@ qx.Class.define("webmln.Application",
             textAreaResults.setReadOnly(true);
 
             var mlnFormContainer = this.buildMLNForm();
-            this.__mlnFormContainer = mlnFormContainer;
+
             var splitPane = new qx.ui.splitpane.Pane("horizontal");
             var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
@@ -201,7 +250,7 @@ qx.Class.define("webmln.Application",
             innerSplitPane.add(graphVizContainer);
             innerSplitPane.add(innerMostSplitPane);
 
-            splitPane.add(mlnFormContainer, {width: "40%", height: "100%"});
+            splitPane.add(mlnFormContainer, {width: "40%"});
             splitPane.add(innerSplitPane);
 
             return splitPane;
@@ -266,19 +315,19 @@ qx.Class.define("webmln.Application",
         buildMLNForm : function() {
 
             this.check = false;
-            var mlnFormContainerWSpacing = new qx.ui.container.Composite(new qx.ui.layout.VBox());
-            mlnFormContainerWSpacing.add(new qx.ui.core.Spacer(10,80));
 
             var mlnFormContainerLayout = new qx.ui.layout.Grid();
             this.__mlnFormContainerLayout = mlnFormContainerLayout;
-            mlnFormContainerLayout.setColumnWidth(0, 100);
+            mlnFormContainerLayout.setColumnWidth(0, 90);
             mlnFormContainerLayout.setColumnWidth(1, 130);
             mlnFormContainerLayout.setColumnWidth(2, 160);
             mlnFormContainerLayout.setColumnWidth(3, 110);
             mlnFormContainerLayout.setColumnWidth(4, 220);
+
             var mlnFormContainer = new qx.ui.container.Composite(mlnFormContainerLayout).set({
-                    padding: 5
+                    padding: 15
             });
+            this.__mlnFormContainer = mlnFormContainer;
 
             // labels
             var exampleFolderLabel = new qx.ui.basic.Label().set({
@@ -362,6 +411,7 @@ qx.Class.define("webmln.Application",
             this.__btnUploadDBFileInf.setParam("SOURCE_PARAM", "dbuploadinf");
             this.__uploader.addWidget(this.__btnUploadDBFileInf)
             this.__chkbxRenameEditEvidence = new qx.ui.form.CheckBox("rename on edit");
+            this.__chkbxShowCondProb = new qx.ui.form.CheckBox("show/hide cond. probability");
             this.__txtFNameDB = new qx.ui.form.TextField("");
             this.__txtFNameDB.setEnabled(false);
             this.__btnSaveDB = new qx.ui.form.Button("save",null);
@@ -427,6 +477,12 @@ qx.Class.define("webmln.Application",
             this.__btnRefreshDB.addListener("execute", function(e) {
                         this._refresh_list(this.__slctEvidence, false);
                         },this);
+            this.__chkbxShowCondProb.addListener('changeValue', function(e) {
+                    if (e.getData())
+                        this._condProbWin.show();
+                    else
+                        this._condProbWin.hide();
+                }, this);
 
 
             // add widgets to form
@@ -447,18 +503,19 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__btnRefreshMLN, {row: 3, column: 3});
             mlnFormContainer.add(this.__btnUploadMLNFile, {row: 3, column: 4});
             mlnFormContainer.add(this.__mlnAreaContainer, {row: 4, column: 1, colSpan: 4});
-            mlnFormContainerLayout.setRowHeight(4, 300);
+            mlnFormContainerLayout.setRowHeight(4, 250);
             mlnFormContainer.add(this.__chkbxRenameEditMLN, {row: 5, column: 1});
             mlnFormContainer.add(this.__chkbxUseModelExt, {row: 5, column: 2});
             mlnFormContainer.add(this.__txtFNameMLN, {row: 6, column: 1, colSpan: 3});
             mlnFormContainer.add(this.__btnSaveMLN, {row: 6, column: 4});
-
+            // leave rows 7 - 10 empty for expanding model extension!
             mlnFormContainer.add(this.__slctEvidence, {row: 11, column: 1, colSpan: 2});
             mlnFormContainer.add(this.__btnRefreshDB, {row: 11, column: 3});
             mlnFormContainer.add(this.__btnUploadDBFileInf, {row: 11, column: 4});
             mlnFormContainer.add(this.__evidenceContainer, {row: 12, column: 1, colSpan: 4});
-            mlnFormContainerLayout.setRowHeight(12, 300);
+            mlnFormContainerLayout.setRowHeight(12, 250);
             mlnFormContainer.add(this.__chkbxRenameEditEvidence, {row: 13, column: 1});
+            mlnFormContainer.add(this.__chkbxShowCondProb, {row: 13, column: 2});
             mlnFormContainer.add(this.__txtFNameDB, {row: 14, column: 1, colSpan: 3});
             mlnFormContainer.add(this.__btnSaveDB, {row: 14, column: 4});
             mlnFormContainer.add(this.__slctMethod, {row: 15, column: 1, colSpan: 4});
@@ -472,7 +529,16 @@ qx.Class.define("webmln.Application",
             mlnFormContainer.add(this.__chkbxIgnoreUnknown, {row: 22, column: 3, colSpan:2});
             mlnFormContainer.add(this.__btnStart, {row: 23, column: 1, colSpan: 4});
 
-            mlnFormContainerWSpacing.add(mlnFormContainer);
+            var mlnFormContainerWSpacing = new qx.ui.container.Composite(new qx.ui.layout.VBox());
+            var pracmlnlogo = new qx.ui.basic.Image('/mln/static/images/pracmln-logo.svg');
+
+            var scroll =  new qx.ui.container.Scroll().set({
+                width: 750
+            });
+
+            scroll.add(mlnFormContainer);
+            mlnFormContainerWSpacing.add(pracmlnlogo, { width: "100%", height: "7%"});
+            mlnFormContainerWSpacing.add(scroll, {flex: 1});
             return mlnFormContainerWSpacing;
         },
 
@@ -482,16 +548,15 @@ qx.Class.define("webmln.Application",
         */
         buildMLNLearningForm : function() {
             this.check = false;
-            var mlnFormContainerWSpacing = new qx.ui.container.Composite(new qx.ui.layout.VBox());
-            mlnFormContainerWSpacing.add(new qx.ui.core.Spacer(10,80));
-            var mlnFormContainerLayout = new qx.ui.layout.Grid();
-            mlnFormContainerLayout.setColumnWidth(0, 100);
-            mlnFormContainerLayout.setColumnWidth(1, 130);
-            mlnFormContainerLayout.setColumnWidth(2, 160);
-            mlnFormContainerLayout.setColumnWidth(3, 110);
-            mlnFormContainerLayout.setColumnWidth(4, 220);
-            var mlnFormContainer = new qx.ui.container.Composite(mlnFormContainerLayout).set({
-                    padding: 5
+
+            var mlnFormContainerLrnLayout = new qx.ui.layout.Grid();
+            mlnFormContainerLrnLayout.setColumnWidth(0, 90);
+            mlnFormContainerLrnLayout.setColumnWidth(1, 130);
+            mlnFormContainerLrnLayout.setColumnWidth(2, 160);
+            mlnFormContainerLrnLayout.setColumnWidth(3, 110);
+            mlnFormContainerLrnLayout.setColumnWidth(4, 220);
+            var mlnFormContainerLrn = new qx.ui.container.Composite(mlnFormContainerLrnLayout).set({
+                    padding: 15
             });
 
             // labels
@@ -520,7 +585,7 @@ qx.Class.define("webmln.Application",
                 rich : true
             });
             var addParamsLabel = new qx.ui.basic.Label().set({
-                value: this._template('Params:', 'label'),
+                value: this._template('ParamsLadida:', 'label'),
                 rich : true
             });
             var cwPredsLabel = new qx.ui.basic.Label().set({
@@ -658,54 +723,63 @@ qx.Class.define("webmln.Application",
 
 
             // add widgets to form
-            mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
-            mlnFormContainer.add(grammarLabel, {row: 1, column: 0});
-            mlnFormContainer.add(logicLabel, {row: 2, column: 0});
-            mlnFormContainer.add(mlnLabel, {row: 3, column: 0});
-            mlnFormContainer.add(methodLabel, {row: 7, column: 0});
-            mlnFormContainer.add(trainingDataLabel, {row: 12, column: 0});
-            mlnFormContainer.add(addParamsLabel, {row: 17, column: 0});
+            mlnFormContainerLrn.add(exampleFolderLabel, {row: 0, column: 0});
+            mlnFormContainerLrn.add(grammarLabel, {row: 1, column: 0});
+            mlnFormContainerLrn.add(logicLabel, {row: 2, column: 0});
+            mlnFormContainerLrn.add(mlnLabel, {row: 3, column: 0});
+            mlnFormContainerLrn.add(methodLabel, {row: 7, column: 0});
+            mlnFormContainerLrn.add(trainingDataLabel, {row: 12, column: 0});
+            mlnFormContainerLrn.add(addParamsLabel, {row: 17, column: 0});
 
-            mlnFormContainer.add(this.__slctXmplFldrLrn, {row: 0, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__slctGrammarLrn, {row: 1, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__slctLogicLrn, {row: 2, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__slctMLNLrn, {row: 3, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__btnRefreshMLNLrn, {row: 3, column: 3});
-            mlnFormContainer.add(this.__btnUploadMLNFileLrn, {row: 3, column: 4});
-            mlnFormContainer.add(this.__containerMLNAreaLrn, {row: 4, column: 1, colSpan: 4});
-            mlnFormContainerLayout.setRowHeight(4, 250);
-            mlnFormContainer.add(this.__chkbxRenameEditMLNLrn, {row: 5, column: 1});
-            mlnFormContainer.add(this.__txtFMLNNewNameLrn, {row: 6, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__btnSaveMLNLrn, {row: 6, column: 4});
-            mlnFormContainer.add(this.__slctMethodLrn, {row: 7, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__chkbxUsePrior, {row: 8, column: 1});
-            mlnFormContainer.add(this.__txtFMeanLrn, {row: 8, column: 2});
-            mlnFormContainer.add(stdDevLabel, {row: 8, column: 3});
-            mlnFormContainer.add(this.__txtFStdDevLrn, {row: 8, column: 4});
-            mlnFormContainer.add(this.__chkbxUseInitWeights, {row: 9, column: 1});
-            mlnFormContainer.add(this.__chkbxLearnIncrem, {row: 9, column: 2});
-            mlnFormContainer.add(this.__chkbxShuffleDB, {row: 9, column: 3});
-            mlnFormContainer.add(radioBoxQPreds, {row: 10, column: 1, colSpan: 2});
-            mlnFormContainer.add(radioBoxEPreds, {row: 10, column: 3, colSpan: 2});
-            mlnFormContainer.add(this.__slctTDataLrn, {row: 12, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__btnRefreshTDataLrn, {row: 12, column: 3});
-            mlnFormContainer.add(this.__btnUploadTDataFileLrn, {row: 12, column: 4});
-            mlnFormContainer.add(this.__tDataContainer, {row: 13, column: 1, colSpan: 4});
-            mlnFormContainerLayout.setRowHeight(13, 250);
-            mlnFormContainer.add(this.__chkbxRenameEditTData, {row: 14, column: 1});
-            mlnFormContainer.add(this.__chkbxIgnoreUnknownLrn, {row: 14, column: 2});
-            mlnFormContainer.add(this.__txtFTDATANewNameLrn, {row: 15, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__btnSaveTData, {row: 15, column: 4});
-            mlnFormContainer.add(orFilePatternLabel, {row: 16, column: 1});
-            mlnFormContainer.add(this.__txtFORFilePattern, {row: 16, column: 2, colSpan: 3});
-            mlnFormContainer.add(this.__txtFParamsLrn, {row: 17, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__chkbxUseAllCPU, {row: 18, column: 1});
-            mlnFormContainer.add(this.__chkbxVerboseLrn, {row: 18, column: 2});
-            mlnFormContainer.add(this.__chkbxLRemoveFormulas, {row: 18, column: 3, colSpan:2});
-            mlnFormContainer.add(this.__btnStartLrn, {row: 20, column: 1, colSpan: 4});
+            mlnFormContainerLrn.add(this.__slctXmplFldrLrn, {row: 0, column: 1, colSpan: 4});
+            mlnFormContainerLrn.add(this.__slctGrammarLrn, {row: 1, column: 1, colSpan: 4});
+            mlnFormContainerLrn.add(this.__slctLogicLrn, {row: 2, column: 1, colSpan: 4});
+            mlnFormContainerLrn.add(this.__slctMLNLrn, {row: 3, column: 1, colSpan: 2});
+            mlnFormContainerLrn.add(this.__btnRefreshMLNLrn, {row: 3, column: 3});
+            mlnFormContainerLrn.add(this.__btnUploadMLNFileLrn, {row: 3, column: 4});
+            mlnFormContainerLrn.add(this.__containerMLNAreaLrn, {row: 4, column: 1, colSpan: 4});
+            mlnFormContainerLrnLayout.setRowHeight(4, 250);
+            mlnFormContainerLrn.add(this.__chkbxRenameEditMLNLrn, {row: 5, column: 1});
+            mlnFormContainerLrn.add(this.__txtFMLNNewNameLrn, {row: 6, column: 1, colSpan: 3});
+            mlnFormContainerLrn.add(this.__btnSaveMLNLrn, {row: 6, column: 4});
+            mlnFormContainerLrn.add(this.__slctMethodLrn, {row: 7, column: 1, colSpan: 4});
+            mlnFormContainerLrn.add(this.__chkbxUsePrior, {row: 8, column: 1});
+            mlnFormContainerLrn.add(this.__txtFMeanLrn, {row: 8, column: 2});
+            mlnFormContainerLrn.add(stdDevLabel, {row: 8, column: 3});
+            mlnFormContainerLrn.add(this.__txtFStdDevLrn, {row: 8, column: 4});
+            mlnFormContainerLrn.add(this.__chkbxUseInitWeights, {row: 9, column: 1});
+            mlnFormContainerLrn.add(this.__chkbxLearnIncrem, {row: 9, column: 2});
+            mlnFormContainerLrn.add(this.__chkbxShuffleDB, {row: 9, column: 3});
+            mlnFormContainerLrn.add(radioBoxQPreds, {row: 10, column: 1, colSpan: 2});
+            mlnFormContainerLrn.add(radioBoxEPreds, {row: 10, column: 3, colSpan: 2});
+            mlnFormContainerLrn.add(this.__slctTDataLrn, {row: 12, column: 1, colSpan: 2});
+            mlnFormContainerLrn.add(this.__btnRefreshTDataLrn, {row: 12, column: 3});
+            mlnFormContainerLrn.add(this.__btnUploadTDataFileLrn, {row: 12, column: 4});
+            mlnFormContainerLrn.add(this.__tDataContainer, {row: 13, column: 1, colSpan: 4});
+            mlnFormContainerLrnLayout.setRowHeight(13, 250);
+            mlnFormContainerLrn.add(this.__chkbxRenameEditTData, {row: 14, column: 1});
+            mlnFormContainerLrn.add(this.__chkbxIgnoreUnknownLrn, {row: 14, column: 2});
+            mlnFormContainerLrn.add(this.__txtFTDATANewNameLrn, {row: 15, column: 1, colSpan: 3});
+            mlnFormContainerLrn.add(this.__btnSaveTData, {row: 15, column: 4});
+            mlnFormContainerLrn.add(orFilePatternLabel, {row: 16, column: 1});
+            mlnFormContainerLrn.add(this.__txtFORFilePattern, {row: 16, column: 2, colSpan: 3});
+            mlnFormContainerLrn.add(this.__txtFParamsLrn, {row: 17, column: 1, colSpan: 4});
+            mlnFormContainerLrn.add(this.__chkbxUseAllCPU, {row: 18, column: 1});
+            mlnFormContainerLrn.add(this.__chkbxVerboseLrn, {row: 18, column: 2});
+            mlnFormContainerLrn.add(this.__chkbxLRemoveFormulas, {row: 18, column: 3, colSpan:2});
+            mlnFormContainerLrn.add(this.__btnStartLrn, {row: 20, column: 1, colSpan: 4});
 
-            mlnFormContainerWSpacing.add(mlnFormContainer);
-            return mlnFormContainerWSpacing;
+            var mlnFormContainerLrnWSpacing = new qx.ui.container.Composite(new qx.ui.layout.VBox());
+            var pracmlnlogo = new qx.ui.basic.Image('/mln/static/images/pracmln-logo.svg');
+
+            var scroll =  new qx.ui.container.Scroll().set({
+                width: 750
+            });
+
+            scroll.add(mlnFormContainerLrn);
+            mlnFormContainerLrnWSpacing.add(pracmlnlogo, { width: "100%", height: "7%"});
+            mlnFormContainerLrnWSpacing.add(scroll, {flex: 1});
+            return mlnFormContainerLrnWSpacing;
         },
 
 
@@ -797,7 +871,7 @@ qx.Class.define("webmln.Application",
                 this.__mlnFormContainer.add(this.__chkbxRenameEditEMLN, {row: 9, column: 1});
                 this.__mlnFormContainer.add(this.__txtFNameEMLN, {row: 10, column: 1, colSpan: 3});
                 this.__mlnFormContainer.add(this.__btnSaveEMLN, {row: 10, column: 4});
-                this.__mlnFormContainerLayout.setRowFlex(8, 1);
+                this.__mlnFormContainerLayout.setRowHeight(8, 250);
 
                 var req = new qx.io.request.Xhr("/mln/inference/_use_model_ext", "GET");
                 req.addListener("success", function(e) {
@@ -812,11 +886,11 @@ qx.Class.define("webmln.Application",
             } else {
                 this.__mlnFormContainer.remove(this.__emlnLabel);
                 this.__mlnFormContainer.remove(this.__slctEMLN);
-                this.__mlnFormContainer.remove(this.__btnSaveEMLN);
                 this.__mlnFormContainer.remove(this.__emlnAreaContainer);
                 this.__mlnFormContainer.remove(this.__chkbxRenameEditEMLN);
                 this.__mlnFormContainer.remove(this.__txtFNameEMLN);
-                this.__mlnFormContainerLayout.setRowFlex(8, 0);
+                this.__mlnFormContainer.remove(this.__btnSaveEMLN);
+                this.__mlnFormContainerLayout.setRowHeight(8, 0);
                 this.__slctEMLN.removeAll();
                 this.__txtAEMLN.setValue("");
                 this.__chkbxRenameEditEMLN.setValue(false);
@@ -891,6 +965,12 @@ qx.Class.define("webmln.Application",
                         this['_barChartdia'].replaceData(response.resbar);
                         this.__txtAResults.setValue(response.output);
                         this.__txtAResults.getContentElement().scrollToY(10000);
+
+                        this._imgRatio = response.condprob.ratio;
+                        this._condProb.resetSource();
+                        if (response.img !== '') {
+                          this._condProb.setSource('data:image/png;base64,' + response.condprob.png);
+                        }
 
                 }, this);
                 req.send();

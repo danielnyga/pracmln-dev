@@ -3,8 +3,10 @@ from flask import jsonify, session
 import re
 from fnmatch import fnmatch
 from pracmln.mln.methods import LearningMethods, InferenceMethods
+from pracmln.mln.util import out
 from pracmln.praclog import logger
 from pracmln.utils.config import PRACMLNConfig, query_config_pattern, learn_config_pattern
+from pracmln.utils.latexmath2png import math2png
 from webmln.gui.app import mlnApp, MLNSession
 
 FILEDIRS = {'mln': 'mln', 'pracmln': 'bin', 'db': 'db'}
@@ -14,20 +16,20 @@ DEFAULT_EXAMPLE = 'smokers'
 log = logger(__name__)
 
 
-def ensure_mln_session(session):
-    mln_session = mlnApp.session_store[session]
+def ensure_mln_session(cursession):
+    mln_session = mlnApp.session_store[cursession]
     if mln_session is None:
-        session['id'] = os.urandom(24)
-        mln_session = MLNSession(session)
+        cursession['id'] = os.urandom(24)
+        mln_session = MLNSession(cursession)
         mln_session.xmplFolder = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
         mln_session.xmplFolderLearning = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
         log.info('created new MLN session %s' % str(mln_session.id.encode('base-64')))
         mlnApp.session_store.put(mln_session)
-        initFileStorage()
+        init_file_storage()
     return mln_session
 
 
-def initFileStorage():
+def init_file_storage():
     if not os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'])):
         os.mkdir(os.path.join(mlnApp.app.config['UPLOAD_FOLDER']))
 
@@ -36,18 +38,18 @@ def initFileStorage():
 
 
 # returns content of given file, replaces includes by content of the included file
-def getFileContent(fDir, fName):
+def get_file_content(fdir, fname):
     c = ''
-    if os.path.isfile(os.path.join(fDir, fName)):
-        with open(os.path.join(fDir, fName), "r") as f:
+    if os.path.isfile(os.path.join(fdir, fname)):
+        with open(os.path.join(fdir, fname), "r") as f:
             c = f.readlines()
 
     content = ''
     for l in c:
         if '#include' in l:
             includefile = re.sub('#include ([\w,\s-]+\.[A-Za-z])', '\g<1>', l).strip()
-            if os.path.isfile(os.path.join(fDir, includefile)):
-                content += getFileContent(fDir, includefile)
+            if os.path.isfile(os.path.join(fdir, includefile)):
+                content += get_file_content(fdir, includefile)
             else:
                 content += l
         else:
@@ -130,3 +132,20 @@ def get_training_db_paths(pattern):
     if not dbs:
         raise Exception("No training data given; A training database must be selected or a pattern must be specified")
     else: return dbs
+
+
+def get_cond_prob_png(queries, db, filename='cond_prob', filedir='/tmp'):
+    declarations = r'''
+    \DeclareMathOperator*{\argmin}{\arg\!\min}
+    \DeclareMathOperator*{\argmax}{\arg\!\max}
+    \newcommand{\Pcond}[1]{\ensuremath{P\left(\begin{array}{c|c}#1\end{array}\right)}}
+    '''
+
+    evidencelist = []
+    out(db.evidence.keys())
+    evidencelist.extend([e if db.evidence[e] == 1.0 else '!'+e for e in db.evidence.keys() ])
+    query    = r'''\\'''.join([r'''\text{{ {0} }} '''.format(q.replace('_', '\_')) for q in queries])
+    evidence = r'''\\'''.join([r'''\text{{ {0} }} '''.format(e.replace('_', '\_')) for e in evidencelist])
+    eq       = r'''\argmax \Pcond{{ \begin{{array}}{{c}}{0}\end{{array}} & \begin{{array}}{{c}}{1}\end{{array}} }}'''.format(query, evidence)
+
+    return math2png(eq, filedir, declarations=[declarations], filename=filename, size=10)

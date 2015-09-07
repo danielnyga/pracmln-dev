@@ -3,7 +3,7 @@ import logging
 import os
 from pracmln.mln.methods import InferenceMethods, LearningMethods
 from pracmln.praclog import logger
-from utils import getFileContent, ensure_mln_session, get_example_files, \
+from utils import get_file_content, ensure_mln_session, get_example_files, \
     load_configurations
 from urlparse import urlparse
 from flask import render_template, send_from_directory, request, session, jsonify
@@ -76,11 +76,11 @@ def load_filecontent():
     text = ''
 
     if os.path.exists(os.path.join(mlnsession.xmplFolder, filename)):
-        text = getFileContent(mlnsession.xmplFolder, filename)
+        text = get_file_content(mlnsession.xmplFolder, filename)
     elif os.path.exists(os.path.join(mlnsession.xmplFolderLearning, filename)):
-        text = getFileContent(mlnsession.xmplFolderLearning, filename)
+        text = get_file_content(mlnsession.xmplFolderLearning, filename)
     elif os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], filename)):
-        text = getFileContent(os.path.join(mlnApp.app.config['UPLOAD_FOLDER']), filename)
+        text = get_file_content(os.path.join(mlnApp.app.config['UPLOAD_FOLDER']), filename)
 
     return jsonify({'text': text})
 
