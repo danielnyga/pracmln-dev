@@ -76,7 +76,10 @@
 
   {# Keep modernizr in head - http://modernizr.com/docs/#installing #}
   <script src="{{ pathto('_static/js/modernizr.min.js', 1) }}"></script>
-
+ {# import d3js #}
+  <script type="text/javascript" src="{{ pathto('_static/js/d3.min.js', 1) }}"></script>
+  <script type="text/javascript" src="{{ pathto('_static/js/d3.geom.min.js', 1) }}"></script>
+  <script type="text/javascript" src="{{ pathto('_static/js/d3.layout.min.js', 1) }}"></script>
 </head>
 
 <body class="wy-body-for-nav" role="document">
@@ -90,8 +93,8 @@
         {% if logo %}
           {# Not strictly valid HTML, but it's the only way to display/scale it properly, without weird scripting or heaps of work #}
           <img src="{{ pathto('_static/' + logo, 1) }}" class="logo" />
-          <a href="http://www.uni-bremen.de/en.html"  target="_blank"><img src={{ pathto('_static/img/uni-bremen.png', 1) }}/ style="opacity: 0.25; height: 40px; width: auto; left: 900px; position: absolute; top: 83px;"></a>
-          <a href="http://ai.uni-bremen.de"  target="_blank"><img src={{ pathto('_static/img/ai_logo_white.png', 1) }}/ style="opacity: 0.25; height: 50px; width: auto; left: 971px; position: absolute; top: 30px;"></a>
+          <a href="http://www.uni-bremen.de/en.html"  target="_blank"><img src="{{ pathto('_static/img/uni-bremen.png', 1) }}" style="opacity: 0.25; height: 40px; width: auto; left: 900px; position: absolute; top: 83px;"></a>
+          <a href="http://ai.uni-bremen.de"  target="_blank"><img src="{{ pathto('_static/img/ai_logo_white.png', 1) }}" style="opacity: 0.25; height: 50px; width: auto; left: 971px; position: absolute; top: 30px;"></a>
         {% endif %}
         </a>
     </div>

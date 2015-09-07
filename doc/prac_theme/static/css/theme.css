@@ -5368,4 +5368,9 @@ filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#afed90', end
  // end gradient
 }
 
+line.link {
+    stroke: #999;
+    stroke-opacity: 0.6;
+}
+
 /*# sourceMappingURL=theme.css.map */
