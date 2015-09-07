@@ -213,8 +213,11 @@ qx.Class.define("webmln.Application",
             var splitPane = new qx.ui.splitpane.Pane("horizontal");
             var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
-            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
-            graphVizContainer.setMinHeight(500);
+            // container for visualization elements
+            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Canvas()).set({
+                minHeight: 500
+            });
+            this._graphVizContainerInf = graphVizContainer;
 
             var vizEmbedGrp = new qx.ui.groupbox.GroupBox("Ground Markov Random Field");
             var vizLayout = new qx.ui.layout.Grow();
@@ -285,8 +288,11 @@ qx.Class.define("webmln.Application",
             var splitPane = new qx.ui.splitpane.Pane("horizontal");
             var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
-            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
-            graphVizContainer.setMinHeight(500);
+            // container for visualization elements
+            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Canvas()).set({
+                minHeight: 500
+            });
+            this._graphVizContainerLrn = graphVizContainer;
 
             var vizEmbedGrp = new qx.ui.groupbox.GroupBox("Learned MLN");
             var vizLayout = new qx.ui.layout.Grow();
@@ -922,6 +928,7 @@ qx.Class.define("webmln.Application",
         * Start the inference process
         */
         _start_inference : function(e) {
+                this._show_wait_animation("Inf", true);
                 var that = this;
                 this.loadGraph();
                 this.loadBarChart("dia");
@@ -958,6 +965,7 @@ qx.Class.define("webmln.Application",
                                     "verbose": this.__chkbxVerbose.getValue()});
                 req.addListener("success", function(e) {
                         var that = this;
+                        this._show_wait_animation("Inf", false);
                         var tar = e.getTarget();
                         var response = tar.getResponse();
 
