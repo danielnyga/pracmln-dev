@@ -1,17 +1,18 @@
-
-var w = 200,
-    h = 200,
-    fill = d3.scale.category20();
+var chartEl = document.getElementById("chart", true, true),
+    w = chartEl.offsetWidth,
+    h = chartEl.offsetHeight,
+    fill = ["grey", "#bee280", "orange"];
 
 var vis = d3.select("#chart")
   .append("svg:svg")
-    .attr("width", w)
-    .attr("height", h);
+    .attr("width", '100%')
+    .attr("height", '100%');
 
 d3.json("_static/js/mrfgraph.json", function(json) {
   var force = d3.layout.force()
       .charge(-120)
       .linkDistance(30)
+      .gravity(0.2)
       .nodes(json.nodes)
       .links(json.links)
       .size([w, h])
@@ -34,7 +35,7 @@ d3.json("_static/js/mrfgraph.json", function(json) {
       .attr("cx", function(d) { return d.x; })
       .attr("cy", function(d) { return d.y; })
       .attr("r", 5)
-      .style("fill", function(d) { return fill(d.group); })
+      .style("fill", function(d) { return fill[d.group]; })
       .call(force.drag);
 
   node.append("svg:title")
