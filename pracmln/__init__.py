@@ -23,3 +23,5 @@ from mln.database import Database
 from mln.constants import *
 from mlnlearn import MLNLearn
 from mlnquery import MLNQuery
+from mlnlearn import QUERY_PREDS, EVIDENCE_PREDS
+from utils.config import PRACMLNConfig
