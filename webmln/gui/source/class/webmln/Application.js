@@ -9,27 +9,26 @@
  *
  * @asset(webmln/*)
  */
-qx.Class.define("webmln.Application",
-{
+qx.Class.define("webmln.Application", {
 	extend : qx.application.Inline,
 
 
 
-  /*
-  *****************************************************************************
-     MEMBERS
-  *****************************************************************************
-  */
+    /*
+      *****************************************************************************
+         MEMBERS
+      *****************************************************************************
+      */
 
-  	members :
-  	{
+    members : {
 
-        /**
-         * This method contains the initial application code and gets called
-         * during startup of the application
-         *
-         * @lint ignoreDeprecated(alert)
-         */
+    /**
+     * This method contains the initial application code and gets called
+     * during startup of the application
+     *
+     * @lint ignoreDeprecated(alert)
+     */
+
         main : function() {
             // Call super class
             this.base(arguments);
@@ -55,6 +54,7 @@ qx.Class.define("webmln.Application",
             req.send();
             };
 
+            /* ********************** CREATE ELEMENTS ******************************/
             var mln_container = document.getElementById("mln_container", true, true);
             var contentIsle = new qx.ui.root.Inline(mln_container,true,true);
             this.__contentIsle = contentIsle;
@@ -62,6 +62,40 @@ qx.Class.define("webmln.Application",
             contentIsle.setHeight(document.getElementById("container", true, true).offsetHeight);
             contentIsle.setLayout(new qx.ui.layout.Grow());
 
+            // scrollable container
+            var mainScrollContainer = new qx.ui.container.Scroll().set({
+                width: 1024,
+                height: 768
+            });
+
+            // main container (contains from and visualization splitpane)
+            var container = new qx.ui.container.Composite(new qx.ui.layout.VBox());
+
+            // outer splitpane (contains inference settings and graph visualization container)
+            var inferencesplitPane = new qx.ui.splitpane.Pane("horizontal");
+            this._pane = splitPane;
+
+            // container for inference page
+            var inferenceformcontainer = this.getinferencepage();
+            this._inferenceformcontainer = inferenceformcontainer;
+
+            // container for learning page
+            var learningformcontainer = this.getlearningpage();
+            this._learningformcontainer = learningformcontainer;
+
+    //        var splitPaneInference = this.getsplitPaneInference();
+    //        var splitPaneLearning = this.getsplitPaneLearning();
+
+            var placeholder = new qx.ui.container.Composite();
+            placeholder.setHeight(100);
+
+            // container for visualization elements
+            var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Canvas()).set({
+            width: .79*document.getElementById("container", true, true).offsetWidth
+            });
+            this._graphVizContainer = graphVizContainer;
+
+            /* ************************ LISTENERS **********************************/
             mln_container.addEventListener("resize", function() {
                 var w = document.getElementById("container", true, true).offsetWidth;
                 var h = document.getElementById("container", true, true).offsetHeight;
@@ -131,10 +165,6 @@ qx.Class.define("webmln.Application",
             this.getRoot().add(condProbWin, {left:20, top:20});
 
 
-            var outerContainer = new qx.ui.container.Scroll();
-            var splitPaneInference = this.getsplitPaneInference();
-            var splitPaneLearning = this.getsplitPaneLearning();
-
             var tabView = new qx.ui.tabview.TabView('bottom');
             tabView.setContentPadding(2,2,2,2);
             this.__tabView = tabView;
@@ -143,7 +173,7 @@ qx.Class.define("webmln.Application",
             var inferencePage = new qx.ui.tabview.Page("Inference");
             this.__inferencePage = inferencePage;
             inferencePage.setLayout(new qx.ui.layout.Grow());
-            inferencePage.add(splitPaneInference, {width: "100%", height: "100%"});
+            inferencePage.add(inferenceformcontainer, {width: "100%", height: "100%"});
             tabView.add(inferencePage, {width: "100%", height: "100%"});
 
             ////////////////// LEARNING PAGE ////////////////////
@@ -158,7 +188,7 @@ qx.Class.define("webmln.Application",
                                 this._highlight('mlnResultArea');
                             }, this);
             learningPage.setLayout(new qx.ui.layout.Grow());
-            learningPage.add(splitPaneLearning, {width: "100%", height: "100%"});
+            learningPage.add(learningformcontainer, {width: "100%", height: "100%"});
             tabView.add(learningPage, {width: "100%", height: "100%"});
 
             ////////////////// DOKU PAGE ////////////////////
@@ -169,8 +199,8 @@ qx.Class.define("webmln.Application",
             aboutPage.add(iframe);
             tabView.add(aboutPage, {width: "100%", height: "100%"});
 
-            outerContainer.add(tabView, {width: "100%", height: "100%"});
-            contentIsle.add(outerContainer, { flex: 1});
+            mainScrollContainer.add(tabView, {width: "100%", height: "100%"});
+            contentIsle.add(mainScrollContainer, {width: "100%", height: "100%"});
             this._init();
         },
 
@@ -190,7 +220,7 @@ qx.Class.define("webmln.Application",
         /**
         * Build the outer splitpane containing the mln form and vizualization containers
         */
-        getsplitPaneInference : function() {
+        getinferencepage : function() {
             var waitImage = new qx.ui.basic.Image();
             waitImage.setSource('/mln/static/images/wait.gif');
             waitImage.getContentElement().setAttribute('id', 'waitImg');
@@ -218,7 +248,10 @@ qx.Class.define("webmln.Application",
 
             var mlnFormContainer = this.buildMLNForm();
 
-            var splitPane = new qx.ui.splitpane.Pane("horizontal");
+            var inferencevbox = new qx.ui.container.Composite(new qx.ui.layout.VBox()).set({
+                minWidth: .4*document.getElementById("container", true, true).offsetWidth
+            });
+
             var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
             // container for visualization elements
@@ -260,13 +293,12 @@ qx.Class.define("webmln.Application",
             innerMostSplitPane.add(diaContainer);
             innerMostSplitPane.add(textAreaResults);
             innerSplitPane.add(graphVizContainer);
-            innerSplitPane.add(innerMostSplitPane);
+            innerSplitPane.add(diaContainer);
 
-            splitPane.add(mlnFormContainer, {width: "40%"});
-            splitPane.add(innerSplitPane);
+            inferencevbox.add(mlnFormContainer, {width: "40%"});
+            inferencevbox.add(innerSplitPane);
 
-            return splitPane;
-
+            return inferencevbox;
         },
 
 
@@ -473,7 +505,7 @@ qx.Class.define("webmln.Application",
                         }, this);
             this.__chkbxRenameEditEvidence.addListener("changeValue", function(e) {
                             this.__txtFNameDB.setEnabled(e.getData());
-                        }, this);                        
+                        }, this);
             this.__btnSaveMLN.addListener("execute", function(e) {
                             var name = this.__slctMLN.getSelection()[0].getLabel();
                             var newName = this.__chkbxRenameEditMLN ? this.__txtFNameMLN.getValue() : null;
@@ -922,14 +954,14 @@ qx.Class.define("webmln.Application",
             var fileName = file.getFilename();
             console.log('uploading', fileName);
             this.__uploader.setAutoUpload(true);
-//            handler.beginUploads();
-//            console.log('handler', handler);
-//            file.setParam("MY_FILE_PARAM", "some-value");
-//            var progressListenerId = file.addListener("changeProgress", function(evt) {
-//                console.log("Upload " + file.getFilename() + ": " +
-//                    evt.getData() + " / " + file.getSize() + " - " +
-//                    Math.round(evt.getData() / file.getSize() * 100) + "%");
-//            }, this);
+    //            handler.beginUploads();
+    //            console.log('handler', handler);
+    //            file.setParam("MY_FILE_PARAM", "some-value");
+    //            var progressListenerId = file.addListener("changeProgress", function(evt) {
+    //                console.log("Upload " + file.getFilename() + ": " +
+    //                    evt.getData() + " / " + file.getSize() + " - " +
+    //                    Math.round(evt.getData() / file.getSize() * 100) + "%");
+    //            }, this);
         },
 
 
