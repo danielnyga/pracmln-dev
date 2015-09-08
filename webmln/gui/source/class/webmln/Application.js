@@ -202,6 +202,14 @@ qx.Class.define("webmln.Application",
             waitImage.hide();
             this._waitImageInf = waitImage;
 
+            var legendImage = new qx.ui.basic.Image();
+            legendImage.setSource('/mln/static/images/legend.png');
+            legendImage.getContentElement().setAttribute('id', 'legend');
+            legendImage.setWidth(56);
+            legendImage.setHeight(37);
+            legendImage.setScale(1);
+            this._legendImage = legendImage;
+
             var textAreaResults = new qx.ui.form.TextArea("").set({
                 font: qx.bom.Font.fromString("14px monospace")
             });
@@ -227,6 +235,7 @@ qx.Class.define("webmln.Application",
             vizEmbedGrp.add(vizEmbed);
             graphVizContainer.add(vizEmbedGrp, {width: "100%", height: "100%"});
             graphVizContainer.add(waitImage, { left: "50%", top: "50%"});
+            graphVizContainer.add(legendImage, { left: 10, top: 25});
 
             var barChartContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
             barChartContainer.getContentElement().setAttribute("id","dia");

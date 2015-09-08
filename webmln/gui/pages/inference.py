@@ -169,18 +169,22 @@ def get_emln():
 # the circle color during graph drawing
 def calculategraphres(resmrf, evidence, queries):
     permutations = []
+    linkformulas = []
     for formula in resmrf.itergroundings():
         gatoms = sorted(formula.gndatoms(), key=lambda entry: str(entry))
-        permutations.extend(perm(gatoms))
+        perms = perm(gatoms)
+        permutations.extend(perms)
+        linkformulas.extend([str(formula)]*len(perms))
     links = []
-    for p in permutations:
-        sourceev = "evidence" if str(p[0]) in evidence else "query" if p[0] in queries else "hidden"
-        targetev = "evidence" if str(p[1]) in evidence else "query" if p[1] in queries else "hidden"
+    for i, p in enumerate(permutations):
+        sourceev = "evidence" if str(p[0]) in evidence else "query" if p[0] in queries else "hiddenCircle"
+        targetev = "evidence" if str(p[1]) in evidence else "query" if p[1] in queries else "hiddenCircle"
 
         lnk = {'source': {'name': str(p[0]), 'type': sourceev},
                'target': {'name': str(p[1]), 'type': targetev},
-               'value': str(formula),
+               'value': linkformulas[i],
                'arcStyle': 'strokegreen'}
+
         if lnk in links: continue
         links.append(lnk)
     return links
