@@ -5357,13 +5357,13 @@ div.teaser-background {
     position: relative;
  // the gradient
  background: rgb(175,237,144);
-background: -moz-linear-gradient(-45deg,  rgba(175,237,144,1) 0%, rgba(98,201,86,1) 100%);
-background: -webkit-gradient(linear, left top, right bottom, color-stop(0%,rgba(175,237,144,1)), color-stop(100%,rgba(98,201,86,1)));
-background: -webkit-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(98,201,86,1) 100%);
-background: -o-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(98,201,86,1) 100%);
-background: -ms-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(98,201,86,1) 100%);
-background: linear-gradient(135deg,  rgba(175,237,144,1) 0%,rgba(98,201,86,1) 100%);
-filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#afed90', endColorstr='#62c956',GradientType=1 );
+background: -moz-linear-gradient(-45deg,  rgba(175,237,144,1) 0%, rgba(69,160,69,1) 100%);
+background: -webkit-gradient(linear, left top, right bottom, color-stop(0%,rgba(175,237,144,1)), color-stop(100%,rgba(69,160,69,1)));
+background: -webkit-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
+background: -o-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
+background: -ms-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
+background: linear-gradient(135deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
+filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#afed90', endColorstr='#45a045',GradientType=1 );
 
  // end gradient
 }

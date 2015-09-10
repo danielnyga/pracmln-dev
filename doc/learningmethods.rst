@@ -1,8 +1,26 @@
-Learning Methods in PRACMLN
----------------------------
+Learning Methods in `pracmln`
+-----------------------------
+
+.. autoclass:: pracmln.MLNLearn
+    :members: mln, db, output_filename, params, method, pattern, use_prior, prior_mean,
+              prior_stdev, incremental, shuffle, use_initial_weights, qpreds, epreds,
+              discr_preds, logic, grammar, multicore, profile, verbose, ignore_unknown_preds,
+              ignore_zero_weight_formulas, save
+
 
 Log-likelihood Learning
 ^^^^^^^^^^^^^^^^^^^^^^^
+
+The standard learning method using maximum likelihood. An optional 
+(gaussian zero-mean) prior distribution can be specified (by its standard deviation), 
+which guides the optimization algorithm. 
+
+* *no additional parameters*
+
+Discriminative log-likelihood learning
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Standard log-likelih
 
 Pseudo-likelihood Learning
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

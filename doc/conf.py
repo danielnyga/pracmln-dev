@@ -21,7 +21,6 @@ os.path.abspath('scripts/mln_server.py')
 sys.path.append(os.path.abspath('.'))
 
 import prac_theme
-import sphinx_rtd_theme
 
 # -- General configuration -----------------------------------------------------
 

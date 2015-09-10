@@ -3,13 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-========================================
-pracmln: Markov logic networks in Python
-========================================
-
-
 About
------
+=====
 
 pracmln is a toolbox for statistical relational learning and 
 reasoning and as such also includes tools for standard graphical 
@@ -56,19 +51,23 @@ Contents:
    apidoc
    
 
-Project Lead:
-^^^^^^^^^^^^^
+Credits
+^^^^^^^
 
-* Daniel Nyga (`nyga@cs.uni-bremen.de <mailto:nyga@cs.uni-bremen.de>`_)
+Lead Developer: 
+###############
+
+Daniel Nyga (`nyga@cs.uni-bremen.de <mailto:nyga@cs.uni-bremen.de>`_)
 
 Contributors:
-^^^^^^^^^^^^^
+#############
+
 * Mareike Picklum
 * Thiemo Wiedemeyer
 * Valentine Chiwome
 
 Former Contributors (from ProbCog):
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+###################################
 
 * Dominik Jain
 * Stefan Waldherr
@@ -80,15 +79,26 @@ Former Contributors (from ProbCog):
 * Philipp Meyer
 
 Acknowledgements
-^^^^^^^^^^^^^^^^
+################
 
-This work is supported in part by the EU FP7 projects
-`RoboHow <http://www.robohow.org>`_ (grant number 288533) and `ACAT <http://www.acat-project.eu>`_ (grant number
-600578).
+This work is supported in part by the EU FP7 projects `RoboHow <http://www.robohow.org>`_ (grant number 288533) and `ACAT <http://www.acat-project.eu>`_ (grant number
+600578):
+
+.. image:: _static/robohow-logo.png
+    :height: 70px
+    :target: http://www.robohow.eu
+.. image:: _static/acat-logo.png
+    :height: 70px
+    :target: http://www.acat-project.eu
+.. image:: _static/fp7-logo.png
+    :height: 70px
+    :target: http://ec.europa.eu/research/fp7/index_en.cfm
+
+
 
 
 Indices and tables
-==================
+^^^^^^^^^^^^^^^^^^
 
 * :ref:`genindex`
 * :ref:`modindex`

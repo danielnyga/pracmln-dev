@@ -64,7 +64,20 @@ EVIDENCE_PREDS = 1
 
 class MLNLearn(object):
     '''
-    Wrapper class for learning using a PRACMLN configuration
+    Wrapper class for learning using a PRACMLN configuration.
+    
+    :param config: Instance of a :class:`pracmln.PRACMLNConfig` class representing a serialized 
+                   configuration. Any parameter in the config object can be overwritten by a respective
+                   entry in the ``params`` dict.
+                   
+    :example:
+    
+        >>> conf = PRACMLNConfig('path/to/config/file')
+        >>> learn = MLNLearn(conf, mln=newmln, db=newdb) # overrides the MLN and database to be used.
+    
+    .. seealso::
+        :class:`pracmln.PRACMLNConfig`
+    
     '''
     
     def __init__(self, config=None, **params):
@@ -77,115 +90,218 @@ class MLNLearn(object):
     
     @property
     def mln(self):
+        '''
+        The :class:`pracmln.MLN` instance to be used for learning.
+        '''
         return self._config.get('mln')
     
     
     @property
     def db(self):
+        '''
+        The :class:`pracmln.Database` instance to be used for learning.
+        '''
         return  self._config.get('db')
     
     
     @property
     def output_filename(self):
+        '''
+        The name of the file the learnt MLN is to be saved to.
+        '''
         return self._config.get('output_filename')
     
     
     @property
     def params(self):
+        '''
+        A dictionary of additional parameters that are specific to a particular learning algorithm.
+        '''
         return eval("dict(%s)" % self._config.get('params', ''))
         
         
     @property
     def method(self):
+        '''
+        The string identifier of the learning method to use. Defaults to ``'BPLL'``.
+        '''
         return LearningMethods.clazz(self._config.get('method', 'BPLL'))
         
         
     @property
     def pattern(self):
+        '''
+        A Unix file pattern determining the database files for learning.
+        '''
         return self._config.get('pattern', '')
     
     
     @property
     def use_prior(self):
+        '''
+        Boolean specifying whether or not to use a prio distribution for parameter learning. Defaults to ``False``
+        '''
         return self._config.get('use_prior', False) 
     
 
     @property
     def prior_mean(self):
-        return float(self._config.get('prior_mean', 0))
+        '''
+        The mean of the gaussian prior on the weights. Defaults to ``0.0``.
+        '''
+        return float(self._config.get('prior_mean', 0.0))
     
     
     @property
     def prior_stdev(self):
-        return float(self._config.get('prior_stdev', 5))
+        '''
+        The standard deviation of the prior on the weights. Defaults to ``5.0``.
+        '''
+        return float(self._config.get('prior_stdev', 5.0))
     
     
     @property
     def incremental(self):
+        '''
+        Specifies whether or incremental learning shall be enabled. Defaults to ``False``.
+        
+        .. note::
+            This parameter is currently unused.
+            
+        '''
         return self._config.get('incremental', False)
 
 
     @property
     def shuffle(self):
+        '''
+        Specifies whether or not learning databases shall be shuffled before learning.
+        
+        .. note::
+            This parameter is currently unused.
+        '''
         self._config.get('shuffle', False)
         
         
     @property
     def use_initial_weights(self):
+        '''
+        Specifies whether or not the weights of the formulas prior to learning shall be used as
+        an initial guess for the optimizer. Default is ``False``.
+        '''
         return self._config.get('use_initial_weights', False)
     
     
     @property
     def qpreds(self):
+        '''
+        A list of predicate names specifying the query predicates in discriminative learning.
+        
+        .. note::
+            This parameters only affects discriminative learning methods and is mutually exclusive
+            with the :attr:`pracmln.MLNLearn.epreds` parameter.
+        '''
         return self._config.get('qpreds', '').split(',')
 
     
     @property
     def epreds(self):
+        '''
+        A list of predicate names specifying the evidence predicates in discriminative learning.
+        
+        .. note::
+            This parameters only affects discriminative learning methods and is mutually exclusive
+            with the :attr:`pracmln.MLNLearn.qpreds` parameter.
+        '''
         return self._config.get('epreds', '').split(',')
 
     
     @property
     def discr_preds(self):
+        '''
+        Specifies whether the query predicates or the evidence predicates shall be used. In either case,
+        the respective other case will be automatically determined, i.e. if a list of query predicates
+        is specified and ``disc_preds`` is ``pracmln.QUERY_PREDS``, then all other predicates
+        will represent the evidence predicates and vice versa. Possible values are ``pracmln.QUERY_PREDS``
+        and ``pracmln.EVIDENCE_PREDS``.
+        '''
         return self._config.get('discr_preds', QUERY_PREDS)
     
 
     @property
     def logic(self):
+        '''
+        String identifying the logical calculus to be used in the MLN. Must be either ``'FirstOrderLogic'``
+        or ``'FuzzyLogic'``.
+        
+        .. note::
+            It is discouraged to use the ``FuzzyLogic`` calculus for learning MLNs. Default is ``'FirstOrderLogic'``. 
+        '''        
         return self._config.get('logic', 'FirstOrderLogic')
     
     
     @property
     def grammar(self):
+        '''
+        String identifying the MLN syntax to be used. Allowed values are ``'StandardGrammar'`` and
+        ``'PRACGrammar'``. Default is ``'PRACGrammar'``.
+        '''
         return self._config.get('grammar', 'PRACGrammar')
     
     
     @property
     def multicore(self):
+        '''
+        Specifies if all cores of the CPU are to be used for learning. Default is ``False``.
+        '''
         return self._config.get('multicore', False) 
 
     
     @property
     def profile(self):
+        '''
+        Specifies whether or not the Python profiler shall be used. This is convenient for debugging
+        and optimizing your code in case you have developed own algorithms. Default is ``False``. 
+        '''
         return self._config.get('profile', False)
     
     
     @property
     def verbose(self):
+        '''
+        If ``True``, prints some useful output, status and progress information to the console. Default is ``False``.
+        '''
         return self._config.get('verbose', False)
     
     
     @property
     def ignore_unknown_preds(self):
+        '''
+        By default, if an atom occurs in a database that is not declared in the attached MLN, `pracmln` will raise
+        a :class:`NoSuchPredicateException`. If ``ignore_unknown_preds`` is ``True``, undeclared predicates will
+        just be ignored. 
+        '''
         return self._config.get('ignore_unknown_preds', False)
     
     @property
     def ignore_zero_weight_formulas(self):
+        '''
+        When formulas in MLNs get more complex, there might be the chance that some of the formulas retain a weight of
+        zero (because of strong independence assumptions in the Learner, for instance). Since such formulas have no
+        effect on the semantics of an MLN but on the runtime of inference, they can be omitted in the final learnt
+        MLN by settings ``ignore_zero_weight_formulas`` to ``True``.
+        '''
         return self._config.get('ignore_zero_weight_formulas', False)
 
 
     @property
     def save(self):
+        '''
+        Specifies whether or not the learnt MLN shall be saved to a file.
+        
+        .. seealso::
+            :attr:`pracmln.MLNLearn.output_filename`
+        '''        
         return self._config.get('save', False)
          
     
