@@ -58,8 +58,8 @@ qx.Class.define("webmln.Application", {
             var mln_container = document.getElementById("mln_container", true, true);
             var contentIsle = new qx.ui.root.Inline(mln_container,true,true);
             this.__contentIsle = contentIsle;
-            contentIsle.setWidth(document.getElementById("container", true, true).offsetWidth);
-            contentIsle.setHeight(document.getElementById("container", true, true).offsetHeight);
+            contentIsle.setWidth(document.getElementById("page", true, true).offsetWidth);
+            contentIsle.setHeight(document.getElementById("page", true, true).offsetHeight);
             contentIsle.setLayout(new qx.ui.layout.Grow());
 
             // scrollable container
@@ -70,10 +70,6 @@ qx.Class.define("webmln.Application", {
 
             // main container (contains from and visualization splitpane)
             var container = new qx.ui.container.Composite(new qx.ui.layout.VBox());
-
-            // outer splitpane (contains inference settings and graph visualization container)
-            var inferencesplitPane = new qx.ui.splitpane.Pane("horizontal");
-            this._pane = splitPane;
 
             // container for inference page
             var inferenceformcontainer = this.getinferencepage();
@@ -91,14 +87,14 @@ qx.Class.define("webmln.Application", {
 
             // container for visualization elements
             var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Canvas()).set({
-            width: .79*document.getElementById("container", true, true).offsetWidth
+            width: .79*document.getElementById("page", true, true).offsetWidth
             });
             this._graphVizContainer = graphVizContainer;
 
             /* ************************ LISTENERS **********************************/
             mln_container.addEventListener("resize", function() {
-                var w = document.getElementById("container", true, true).offsetWidth;
-                var h = document.getElementById("container", true, true).offsetHeight;
+                var w = document.getElementById("page", true, true).offsetWidth;
+                var h = document.getElementById("page", true, true).offsetHeight;
                 contentIsle.setWidth(w);
                 contentIsle.setHeight(h);
             }, this);
@@ -109,8 +105,8 @@ qx.Class.define("webmln.Application", {
             }, this);
 
             window.addEventListener("resize", function() {
-                var w = document.getElementById("container", true, true).offsetWidth;
-                var h = document.getElementById("container", true, true).offsetHeight;
+                var w = document.getElementById("page", true, true).offsetWidth;
+                var h = document.getElementById("page", true, true).offsetHeight;
                 contentIsle.setWidth(w);
                 contentIsle.setHeight(h);
             }, this);
@@ -124,8 +120,8 @@ qx.Class.define("webmln.Application", {
             this._condProb = condProb;
 
             var condProbWin = new qx.ui.window.Window("Conditional Probability");
-            condProbWin.setWidth(.2*document.getElementById("container", true, true).offsetWidth);
-            condProbWin.setHeight(.1*document.getElementById("container", true, true).offsetWidth);
+            condProbWin.setWidth(.2*document.getElementById("page", true, true).offsetWidth);
+            condProbWin.setHeight(.1*document.getElementById("page", true, true).offsetWidth);
             condProbWin.setShowMinimize(false);
             condProbWin.setLayout(new qx.ui.layout.Canvas());
             condProbWin.setContentPadding(4);
@@ -248,15 +244,15 @@ qx.Class.define("webmln.Application", {
 
             var mlnFormContainer = this.buildMLNForm();
 
-            var inferencevbox = new qx.ui.container.Composite(new qx.ui.layout.VBox()).set({
-                minWidth: .4*document.getElementById("container", true, true).offsetWidth
+            var inferencevbox = new qx.ui.container.Composite(new qx.ui.layout.HBox()).set({
+                minWidth: .9*document.getElementById("page", true, true).offsetWidth
             });
 
             var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
             // container for visualization elements
             var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Canvas()).set({
-                minHeight: 500
+                minHeight: .5*document.getElementById("page", true, true).offsetHeight
             });
             this._graphVizContainerInf = graphVizContainer;
 
@@ -293,10 +289,10 @@ qx.Class.define("webmln.Application", {
             innerMostSplitPane.add(diaContainer);
             innerMostSplitPane.add(textAreaResults);
             innerSplitPane.add(graphVizContainer);
-            innerSplitPane.add(diaContainer);
+            innerSplitPane.add(innerMostSplitPane);
 
-            inferencevbox.add(mlnFormContainer, {width: "40%"});
-            inferencevbox.add(innerSplitPane);
+            inferencevbox.add(mlnFormContainer, {width: "41%"});
+            inferencevbox.add(innerSplitPane, {flex: 1});
 
             return inferencevbox;
         },
@@ -305,7 +301,7 @@ qx.Class.define("webmln.Application", {
         /**
         * Build the outer splitpane containing the mln form and vizualization containers
         */
-        getsplitPaneLearning : function() {
+        getlearningpage : function() {
 
             var waitImage = new qx.ui.basic.Image();
             waitImage.setSource('/mln/static/images/wait.gif');
@@ -321,21 +317,27 @@ qx.Class.define("webmln.Application", {
             var textAreaResults = new qx.ui.form.TextArea("").set({
                 font: qx.bom.Font.fromString("14px monospace")
             });
-            this.__txtAResults_Learning = textAreaResults;
+            this.__txtAResultsLrn = textAreaResults;
             textAreaResults.setReadOnly(true);
 
             var mlnFormContainer = this.buildMLNLearningForm();
-            this.__mlnFormContainer_L = mlnFormContainer;
-            var splitPane = new qx.ui.splitpane.Pane("horizontal");
+
+            var learningvbox = new qx.ui.container.Composite(new qx.ui.layout.HBox()).set({
+                minWidth: .4*document.getElementById("page", true, true).offsetWidth
+            });
+            
             var innerSplitPane = new qx.ui.splitpane.Pane("vertical");
             var innerMostSplitPane = new qx.ui.splitpane.Pane("vertical");
             // container for visualization elements
             var graphVizContainer = new qx.ui.container.Composite(new qx.ui.layout.Canvas()).set({
-                minHeight: 500
+                minHeight: .7*document.getElementById("page", true, true).offsetHeight
             });
             this._graphVizContainerLrn = graphVizContainer;
 
-            var vizEmbedGrp = new qx.ui.groupbox.GroupBox("Learned MLN");
+            var vizEmbedGrp = new qx.ui.groupbox.GroupBox("Learned MLN").set({
+                minHeight: .69*document.getElementById("page", true, true).offsetHeight,
+                minWidth: .58*document.getElementById("page", true, true).offsetWidth
+            });
             var vizLayout = new qx.ui.layout.Grow();
             vizEmbedGrp.setLayout(vizLayout);
 
@@ -343,15 +345,15 @@ qx.Class.define("webmln.Application", {
             this.__txtAMLNviz.getContentElement().setAttribute("id", 'mlnResultArea');
             vizEmbedGrp.add(this.__txtAMLNviz);
 
-            graphVizContainer.add(vizEmbedGrp, {width: "100%", height: "100%"});
-            graphVizContainer.add(waitImage, { left: "50%", top: "50%"});
-            innerSplitPane.add(graphVizContainer, { height: "70%"});
+            graphVizContainer.add(vizEmbedGrp);
+            graphVizContainer.add(waitImage, {left: "50%", top: "50%"});
+            innerSplitPane.add(graphVizContainer);
             innerSplitPane.add(textAreaResults);
 
-            splitPane.add(mlnFormContainer, {width: "40%", height: "100%"});
-            splitPane.add(innerSplitPane);
+            learningvbox.add(mlnFormContainer, {width: "41%"});
+            learningvbox.add(innerSplitPane, {flex: 1});
 
-            return splitPane;
+            return learningvbox;
 
         },
 
@@ -1075,7 +1077,7 @@ qx.Class.define("webmln.Application", {
                         var output = response.output;
                         this.__txtAMLNviz.setValue(response.learnedmln);
                         this._highlight('mlnResultArea');
-                        this.__txtAResults_Learning.setValue(output);
+                        this.__txtAResultsLrn.setValue(output);
 
                 }, this);
                 req.send();
