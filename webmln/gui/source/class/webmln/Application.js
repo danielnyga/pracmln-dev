@@ -299,6 +299,7 @@ qx.Class.define("webmln.Application", {
             contentIsle.add(mainScrollContainer, {width: "100%", height: "100%"});
             this.getRoot().add(condProbWin, {left:20, top:20});
             this._init();
+            this._send_user_stats();
         },
 
 
@@ -444,13 +445,13 @@ qx.Class.define("webmln.Application", {
             this.__slctLogic.add(new qx.ui.form.ListItem("FuzzyLogic"));
 
             // listeners
+            this.__slctEMLN.addListener("changeSelection", this._update_emln_text, this);
             this.__btnStart.addListener("execute", this._start_inference, this);
             this.__chkbxUseModelExt.addListener("changeValue", this._showModelExtension, this);
             this.__slctMLN.addListener("changeSelection", this._update_mln_text, this);
             this.__slctXmplFldr.addListener("changeSelection", this._change_example_inf ,this);
             this.__slctEvidence.addListener("changeSelection", this._update_evidence_text, this);
             this.__uploader.addListener("addFile", this._upload, this);
-            this.__txtAEMLN.addListener("appear", this._update_emln_text, this);
             this.__chkbxShowLabels.addListener("changeValue", function(e) {
                             this._graph.showLabels(e.getData());
                         }, this);
@@ -549,6 +550,7 @@ qx.Class.define("webmln.Application", {
             mlnFormContainerLrnLayout.setColumnWidth(2, 160);
             mlnFormContainerLrnLayout.setColumnWidth(3, 110);
             mlnFormContainerLrnLayout.setColumnWidth(4, 220);
+            this.__mlnFormContainerLrnLayout = mlnFormContainerLrnLayout;
             var mlnFormContainerLrn = new qx.ui.container.Composite(mlnFormContainerLrnLayout).set({
                     padding: 5
             });
@@ -768,6 +770,40 @@ qx.Class.define("webmln.Application", {
 
 
         /**
+         * send user statistics to server
+         */
+        _send_user_stats : function() {
+            var currentdate = new Date();
+            var date = currentdate.getDate() + "/"
+                    + (currentdate.getMonth()+1)  + "/"
+                    + currentdate.getFullYear();
+            var time = currentdate.getHours() + ":"
+                    + currentdate.getMinutes() + ":"
+                    + currentdate.getSeconds();
+        //        var url = 'http://jsonip.appspot.com?callback=?';
+            var url = 'https://api.ipify.org?format=jsonp';
+            var req = new qx.bom.request.Jsonp();
+
+            var reqServer = new qx.io.request.Xhr();
+                reqServer.setUrl("/mln/_user_stats");
+                reqServer.setMethod("POST");
+                reqServer.setRequestHeader("Cache-Control", "no-cache");
+                reqServer.setRequestHeader("Content-Type", "application/json");
+
+            req.onload = function() {
+              reqServer.setRequestData({ 'ip': req.responseJson.ip, 'date': date, "time": time });
+              reqServer.send();
+            }
+            req.onerror = function() {
+              reqServer.setRequestData({ 'ip': null, 'date': date, "time": time });
+              reqServer.send();
+            }
+            req.open("GET", url);
+            req.send();
+        },
+
+
+        /**
         * Update fields when changing the example folder for learning
         */
         _refresh_list : function(field, mln){
@@ -812,8 +848,6 @@ qx.Class.define("webmln.Application", {
         * Update fields when changing the example folder for inference
         */
         _change_example_inf : function(e){
-                    console.log('STOP');
-
             var exampleFolder = e.getData()[0].getLabel();
             var req = new qx.io.request.Xhr("/mln/inference/_change_example", "POST");
             req.setRequestHeader("Content-Type", "application/json");
@@ -857,15 +891,15 @@ qx.Class.define("webmln.Application", {
                 this.__mlnFormContainerInf.add(this.__chkbxRenameEditEMLN, {row: 9, column: 1});
                 this.__mlnFormContainerInf.add(this.__txtFNameEMLN, {row: 10, column: 1, colSpan: 3});
                 this.__mlnFormContainerInf.add(this.__btnSaveEMLN, {row: 10, column: 4});
-                this.__mlnFormContainerInf.setRowHeight(8, 250);
+                this.__mlnFormContainerLrnLayout.setRowHeight(8, 250);
 
                 var req = new qx.io.request.Xhr("/mln/inference/_use_model_ext", "GET");
                 req.addListener("success", function(e) {
                     var tar = e.getTarget();
                     var that = this;
-                    var response = tar.getResponse().split(",");
-                    for (var i = 0; i < response.length; i++) {
-                        that.__slctEMLN.add(new qx.ui.form.ListItem(response[i]));
+                    var response = tar.getResponse();
+                    for (var i = 0; i < response.emlnfiles.length; i++) {
+                        that.__slctEMLN.add(new qx.ui.form.ListItem(response.emlnfiles[i]));
                     }
                 }, this);
                 req.send();
@@ -876,7 +910,7 @@ qx.Class.define("webmln.Application", {
                 this.__mlnFormContainerInf.remove(this.__chkbxRenameEditEMLN);
                 this.__mlnFormContainerInf.remove(this.__txtFNameEMLN);
                 this.__mlnFormContainerInf.remove(this.__btnSaveEMLN);
-                this.__mlnFormContainerInf.setRowHeight(8, 0);
+                this.__mlnFormContainerLrnLayout.setRowHeight(8, 0);
                 this.__slctEMLN.removeAll();
                 this.__txtAEMLN.setValue("");
                 this.__chkbxRenameEditEMLN.setValue(false);
@@ -1252,7 +1286,12 @@ qx.Class.define("webmln.Application", {
         * Update emln text field
         */
         _update_emln_text : function(e) {
-            this._highlight('emlnArea');
+            if (e.getData().length > 0) {
+                var selection = e.getData()[0].getLabel();
+                this._update_text(selection, this.__txtAEMLN);
+            } else {
+                this.__txtAEMLN.setValue('');
+            }
         },
 
 

@@ -151,14 +151,20 @@ def start_inference():
 @mlnApp.app.route('/mln/inference/_use_model_ext', methods=['GET', 'OPTIONS'])
 def get_emln():
     log.info('_use_model_ext')
-    emlns = []
-    for filename in os.listdir('.'):
-        if fnmatch(filename, '*.emln'):
-            emlns.append(filename)
-    emlns.sort()
-    if len(emlns) == 0:
-        emlns.append("(no %s files found)" % str('*.emln'))
-    return ','.join(emlns)
+    mln_session = mlnApp.session_store[session]
+    emlnfiles = []
+    log.info(mln_session.tmpsessionfolder)
+    if os.path.exists(mln_session.tmpsessionfolder):
+        for filename in os.listdir(mln_session.tmpsessionfolder):
+            if fnmatch(filename, '*.emln'):
+                log.info(filename)
+                emlnfiles.append(filename)
+
+    emlnfiles.sort()
+
+    if len(emlnfiles) == 0:
+        emlnfiles.append("(no %s files found)" % str('*.emln'))
+    return jsonify({"emlnfiles": emlnfiles})
 
 
 # calculates links from the mrf groundformulas
