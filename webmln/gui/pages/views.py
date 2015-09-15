@@ -181,21 +181,24 @@ def save_edited_file():
 
     data = json.loads(request.get_data())
     fname = data['fname']
+    rename = data['rename']
     newfname = data['newfname']
     fcontent = data['content']
     folder = data['folder']
-    name = newfname or fname
+    name = newfname if rename else fname
 
     # if file exists in examples folder, do not update it but create new one in
-    # UPLOAD_FOLDER with edited filename
-    if os.path.exists(os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], folder, fname)):
-        name = newfname or '_edited.'.join(fname.split('.'))
+    # UPLOAD_FOLDER with edited filename (filename is edited to avoid confusion
+    # with duplicate filenames in list)
+    if os.path.exists(os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], folder, name)):
+        splitted = name.split('.')
+        name = "{}_edited.{}".format(''.join(splitted[:-1]), splitted[-1])
 
     # rename existing file with new filename or create/overwrite
-    if os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], fname)) and newfname:
-        os.rename(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], fname), os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], name))
+    if os.path.exists(os.path.join(mlnsession.tmpsessionfolder, fname)) and rename:
+        os.rename(os.path.join(mlnsession.tmpsessionfolder, fname), os.path.join(mlnsession.tmpsessionfolder, name))
     else:
-        with open(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], name), 'w+') as f:
+        with open(os.path.join(mlnsession.tmpsessionfolder, name), 'w+') as f:
             f.write(fcontent)
 
     return jsonify({'fname': name})

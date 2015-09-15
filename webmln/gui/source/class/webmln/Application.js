@@ -466,15 +466,17 @@ qx.Class.define("webmln.Application", {
                         }, this);
             this.__btnSaveMLN.addListener("execute", function(e) {
                             var name = this.__slctMLN.getSelection()[0].getLabel();
-                            var newName = this.__chkbxRenameEditMLN ? this.__txtFNameMLN.getValue() : null;
+                            var newName = this.__txtFNameMLN.getValue();
                             var content = this.codeMirrormlnArea ? this.codeMirrormlnArea.doc.getValue() : "";
-                            this._save_file(name, newName, content);
+                            var rename = this.__chkbxRenameEditMLN.getValue();
+                            this._save_file(name, newName, rename, content);
                         }, this);
             this.__btnSaveDB.addListener("execute", function(e) {
                             var name = this.__slctEvidence.getSelection()[0].getLabel();
-                            var newName = this.__chkbxRenameEditEvidence ? this.__txtFNameDB.getValue() : null;
+                            var newName = this.__txtFNameDB.getValue();
                             var content = this.codeMirrordbArea ? this.codeMirrordbArea.doc.getValue() : "";
-                            this._save_file(name, newName, content);
+                            var rename = this.__chkbxRenameEditEvidence.getValue();
+                            this._save_file(name, newName, rename, content);
                         }, this);
             this.__btnRefreshMLN.addListener("execute", function(e) {
                         this._refresh_list(this.__slctMLN, true);
@@ -550,7 +552,6 @@ qx.Class.define("webmln.Application", {
             mlnFormContainerLrnLayout.setColumnWidth(2, 160);
             mlnFormContainerLrnLayout.setColumnWidth(3, 110);
             mlnFormContainerLrnLayout.setColumnWidth(4, 220);
-            this.__mlnFormContainerLrnLayout = mlnFormContainerLrnLayout;
             var mlnFormContainerLrn = new qx.ui.container.Composite(mlnFormContainerLrnLayout).set({
                     padding: 5
             });
@@ -700,15 +701,17 @@ qx.Class.define("webmln.Application", {
                         }, this);
             this.__btnSaveMLNLrn.addListener("execute", function(e) {
                             var name = this.__slctMLNLrn.getSelection()[0].getLabel();
-                            var newName = this.__chkbxRenameEditMLNLrn ? this.__txtFMLNNewNameLrn.getValue() : null;
+                            var newName = this.__txtFMLNNewNameLrn.getValue();
                             var content = this.codemirrormlnLArea ? this.codemirrormlnLArea.doc.getValue() : "";
-                            this._save_file(name, newName, content);
+                            var rename = this.__chkbxRenameEditMLNLrn.getValue();
+                            this._save_file(name, newName, rename, content);
                         }, this);
             this.__btnSaveTData.addListener("execute", function(e) {
                             var name = this.__slctTDataLrn.getSelection()[0].getLabel();
-                            var newName = this.__chkbxRenameEditTData ? this.__txtFTDATANewNameLrn.getValue() : null;
+                            var newName = this.__txtFTDATANewNameLrn.getValue();
                             var content = this.codeMirrortDataArea ? this.codeMirrortDataArea.doc.getValue() : "";
-                            this._save_file(name, newName, content);
+                            var rename = this.__chkbxRenameEditTData.getValue();
+                            this._save_file(name, newName, rename, content);
                         }, this);
             this.__btnRefreshMLNLrn.addListener("execute", function(e) {
                         this._refresh_list(this.__slctMLNLrn, true);
@@ -829,13 +832,13 @@ qx.Class.define("webmln.Application", {
         /**
         * Save edited file
         */
-        _save_file : function(fname, newname, fcontent) {
+        _save_file : function(fname, newname, rename, fcontent) {
             var isInfPage = this.__tabView.isSelected(this.__inferencePage);
             var xmplFldrSlctn = (isInfPage ? this.__slctXmplFldr : this.__slctXmplFldrLrn).getSelection()[0].getLabel();
 
             var req = new qx.io.request.Xhr("/mln/save_edited_file", "POST");
             req.setRequestHeader("Content-Type", "application/json");
-            req.setRequestData({"folder": xmplFldrSlctn, "fname": fname, "newfname": newname, "content": fcontent});
+            req.setRequestData({"folder": xmplFldrSlctn, "fname": fname, "newfname": newname, "rename": rename, "content": fcontent});
             req.addListener("success", function(e) {
                 var tar = e.getTarget();
                 var response = tar.getResponse();
@@ -891,7 +894,7 @@ qx.Class.define("webmln.Application", {
                 this.__mlnFormContainerInf.add(this.__chkbxRenameEditEMLN, {row: 9, column: 1});
                 this.__mlnFormContainerInf.add(this.__txtFNameEMLN, {row: 10, column: 1, colSpan: 3});
                 this.__mlnFormContainerInf.add(this.__btnSaveEMLN, {row: 10, column: 4});
-                this.__mlnFormContainerLrnLayout.setRowHeight(8, 250);
+                this.__mlnFormContainerLayout.setRowHeight(8, 250);
 
                 var req = new qx.io.request.Xhr("/mln/inference/_use_model_ext", "GET");
                 req.addListener("success", function(e) {
@@ -910,7 +913,7 @@ qx.Class.define("webmln.Application", {
                 this.__mlnFormContainerInf.remove(this.__chkbxRenameEditEMLN);
                 this.__mlnFormContainerInf.remove(this.__txtFNameEMLN);
                 this.__mlnFormContainerInf.remove(this.__btnSaveEMLN);
-                this.__mlnFormContainerLrnLayout.setRowHeight(8, 0);
+                this.__mlnFormContainerLayout.setRowHeight(8, 0);
                 this.__slctEMLN.removeAll();
                 this.__txtAEMLN.setValue("");
                 this.__chkbxRenameEditEMLN.setValue(false);
