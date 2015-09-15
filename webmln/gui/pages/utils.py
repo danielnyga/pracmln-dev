@@ -27,6 +27,7 @@ def ensure_mln_session(cursession):
         mln_session.xmplFolderLearning = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
         log.info('created new MLN session %s' % str(mln_session.id.encode('base-64')))
         mln_session.tmpsessionfolder = init_file_storage()
+        log.info('created tempfolder %s' % mln_session.tmpsessionfolder)
         mlnApp.session_store.put(mln_session)
     return mln_session
 
