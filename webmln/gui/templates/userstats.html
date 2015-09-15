@@ -1,0 +1,364 @@
+{% extends "layout.html" %}
+{% block title %}Log{% endblock %}
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="{{ url_for('download_mln_static', filename='css/log.css') }}">
+    <script type="text/javascript">
+      var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true&libraries=visualization"></script>
+    <script src="{{ url_for('download_mln_static', filename='script/d3.min.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<img src="{{ url_for('download_mln_static', filename='images/pracmln-logo.png') }}">
+ <div id="statistics">
+          <div id="subdivs"><h3>Subdivisions</h3></div>
+          <div id="country"><h3>Country</h3></div>
+          <div id="ip"><h3>IP</h3></div>
+      </div>
+      <textarea id="logcontainer"></textarea>
+      <div id="gmapcontainer"></div>
+        <div id="panel">
+      <button onclick="toggleHeatmap()">Toggle Heatmap</button><br>
+      <button onclick="toggleMarkers()">Toggle Markers</button><br>
+    </div>
+<script>
+var json; //result of callback, contains log data
+var logs;
+
+// load json data and initialize dom elements
+loadJSON(function(resp) {
+        logs = resp.responseText.replace(/\,\n$/, '');
+        json = JSON.parse('[' + logs + ']');
+        document.getElementById("logcontainer").value = logs;
+        var data_subdiv = mapData('subdivisions');
+        var data_country = mapData('country');
+        var data_ip = mapData('ip');
+        change("Subdivisions", svg_subdivs, data_subdiv);
+        change("Country", svg_country, data_country);
+        change("IP", svg_ip, data_ip);
+        initialize();
+});
+
+//----GOOGLE MAPS----//
+var markers = true;
+function loadJSON(callback) {
+    console.log('loadJSON');
+    var xobj = new XMLHttpRequest();
+    xobj.overrideMimeType("application/json");
+    xobj.open('GET', "{{ url_for('mlnlog_', filename='userstats.json') }}", true); // Replace 'my_data' with the path to your file
+    xobj.onreadystatechange = function () {
+      if (xobj.readyState == 4 && xobj.status == "200") {
+        callback(xobj);
+      }
+    };
+    xobj.send(null);
+}
+
+function initialize() {
+    console.log('initialize');
+    var centerLatlng = new google.maps.LatLng(53.0889, 8.7906);
+    var mapOptions = {
+        zoom: 2,
+        center: centerLatlng,
+        mapTypeId: google.maps.MapTypeId.SATELLITE
+    }
+
+    map = new google.maps.Map(document.getElementById('gmapcontainer'), mapOptions);
+    pArray = [];
+    mArray = [];
+    for (var i = 0; i<json.length; i++) {
+        if (typeof json[i].location != 'undefined') {
+            var myLatlng = new google.maps.LatLng(json[i].location[0],json[i].location[1]);
+            pArray.push(myLatlng);
+            var marker = new google.maps.Marker({
+                position: myLatlng,
+                map: map,
+                title: json[i].ip
+            });
+            mArray.push(marker);
+        }
+    }
+    var pointArray = new google.maps.MVCArray(pArray);
+    heatmap = new google.maps.visualization.HeatmapLayer({
+        data: pointArray
+    });
+    heatmap.setMap(map);
+}
+
+function toggleHeatmap() {
+  heatmap.setMap(heatmap.getMap() ? null : map);
+}
+
+function setAllMap(map) {
+  for (var i = 0; i < mArray.length; i++) {
+    mArray[i].setMap(map);
+  }
+}
+
+function toggleMarkers() {
+    markers ? setAllMap(null) : setAllMap(map);
+    markers = !markers;
+}
+function showStatistics() {
+
+}
+
+//----STATISTICS----//
+var width = document.getElementById("statistics", true, true).offsetWidth,
+    height = document.getElementById("statistics", true, true).offsetHeight,
+    radius = height / 6;
+    margin = {top: 5, right: 5, bottom: 5, left: 5};
+
+var pie = d3.layout.pie()
+    .padAngle(.01)
+    .sort(null)
+    .value(function(d) {
+        return d.value;
+    });
+
+var arc = d3.svg.arc()
+    .outerRadius(radius *.6)
+    .innerRadius(radius * .8)
+    .cornerRadius(5);
+
+var outerArc = d3.svg.arc()
+    .innerRadius(radius * 1.1)
+    .outerRadius(radius * .9);
+
+var key = function(d){ return d.data.label; };
+
+var color = d3.scale.ordinal()
+    .range(["#98abc5", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00", "#ffcece", "#ffc8f2", "#ffc8e3", "#ffcaf9", "#f5caff", "#f0cbfe", "#ddceff","#bcb4f3", "#a9c5eb", "#8cd1e6", "#bbbbff", "#bbdaff", "#cef0ff", "#acf3fd", "#b5fffc", "#a5fee3", "#b5ffc8", "#93eeaa", "#a6caa9", "#aafd8e", "#6fff44", "#abff73", "#ffff84", "#eef093"]);
+
+function mapData (keyword){
+    labels = {};
+    for (var i = 0; i < json.length; i++) {
+        var key = json[i][keyword] || 'N/A';
+        obj = json[i];
+        var objs = labels[key];
+        if (objs == null)
+            objs = [obj];
+        else
+            objs.push(obj);
+        labels[key] = objs;
+    }
+    return Object.keys(labels).map(function(entry){
+        var label = entry;
+        return { label: label, value: labels[entry].length, objs: labels[entry] }
+    });
+}
+
+function change(svgTitle, svg, data) {
+
+    /* ------- PIE SLICES -------*/
+    var slice = svg.select(".slices").selectAll("path.slice")
+        .data(pie(data), key);
+
+    slice.enter()
+        .insert("path")
+        .style("fill", function(d) { return color(d.data.label); })
+        .attr("class", "slice")
+        .append("svg:title")
+          .text(function(d, i) {
+                var s = '';
+                for (var a = 0; a<d.data.objs.length; a++) {
+                    s += a + ': ';
+                    for (var b in d.data.objs[a]) {
+                        s += '\t' + b + ': ' + d.data.objs[a][b] + '\n';
+                    }
+                    s += '\n';
+                }
+                return s; });
+
+    slice
+        .transition().duration(1000)
+        .attrTween("d", function(d) {
+            this._current = this._current || d;
+            var interpolate = d3.interpolate(this._current, d);
+            this._current = interpolate(0);
+            return function(t) {
+                return arc(interpolate(t));
+            };
+        })
+
+    slice.exit()
+        .remove();
+
+    /* ------- TEXT LABELS -------*/
+
+    var text = svg.select(".labels").selectAll("text")
+        .data(pie(data), key);
+
+    text.enter()
+        .append("text")
+        .attr("dy", ".35em")
+        .text(function(d) {
+            return d.data.label;
+        });
+
+    function midAngle(d){
+        return d.startAngle + (d.endAngle - d.startAngle)/2;
+    }
+
+    text.transition().duration(1000)
+        .attrTween("transform", function(d) {
+            this._current = this._current || d;
+            var interpolate = d3.interpolate(this._current, d);
+            this._current = interpolate(0);
+            return function(t) {
+                var d2 = interpolate(t);
+                var pos = outerArc.centroid(d2);
+                pos[0] = radius * (midAngle(d2) < Math.PI ? 1 : -1);
+                return "translate("+ pos +")";
+            };
+        })
+        .styleTween("text-anchor", function(d){
+            this._current = this._current || d;
+            var interpolate = d3.interpolate(this._current, d);
+            this._current = interpolate(0);
+            return function(t) {
+                var d2 = interpolate(t);
+                return midAngle(d2) < Math.PI ? "start":"end";
+            };
+        });
+
+    text.exit()
+        .remove();
+
+    /* ------- SLICE TO TEXT POLYLINES -------*/
+
+    var polyline = svg.select(".lines").selectAll("polyline")
+        .data(pie(data), key);
+
+    polyline.enter()
+        .append("polyline");
+
+    polyline.transition().duration(1000)
+        .attrTween("points", function(d){
+            this._current = this._current || d;
+            var interpolate = d3.interpolate(this._current, d);
+            this._current = interpolate(0);
+            return function(t) {
+                var d2 = interpolate(t);
+                var pos = outerArc.centroid(d2);
+                pos[0] = radius * 0.95 * (midAngle(d2) < Math.PI ? 1 : -1);
+                return [arc.centroid(d2), outerArc.centroid(d2), pos];
+            };
+        });
+
+    polyline.exit()
+        .remove();
+
+
+    /* ------- MORE TEXT LABELS -------*/
+
+    var text2 = svg.select(".ringlabels").selectAll("text")
+        .data(pie(data), key);
+
+    text2.enter()
+        .append("text")
+        .style("font-size","10px")
+        .style("font-weight","bold")
+        .attr("dy", ".25em")
+        .text(function(d) {
+            return d.data.objs.length;
+        });
+
+    function midAngle(d){
+        return d.startAngle + (d.endAngle - d.startAngle)/2;
+    }
+
+    text2.transition().duration(1000)
+        .attrTween("transform", function(d) {
+			this._current = this._current || d;
+			var interpolate = d3.interpolate(this._current, d);
+			this._current = interpolate(0);
+			return function(t) {
+				var d2 = interpolate(t);
+				return "translate("+ arc.centroid(d2) +")";
+			};
+		})
+        .styleTween("text-anchor", function(d){
+            this._current = this._current || d;
+            var interpolate = d3.interpolate(this._current, d);
+            this._current = interpolate(0);
+            return function(t) {
+                var d2 = interpolate(t);
+                return midAngle(d2) < Math.PI ? "start":"end";
+            };
+        });
+
+    text2.exit()
+        .remove();
+
+
+    var title = svg.select(".title").selectAll("text")
+        .data(pie(data), key);
+
+    title.enter()
+        .append("text")
+      .attr("class", "title")
+      .style("font-size","50px")
+      .style("font-weight","bold")
+      .attr("x", width/2)
+      .attr("y", 0 - (margin.top / 2))
+      .attr("text-anchor", "middle")
+      .text(svgTitle);
+
+};
+
+//----SVG SUBDIVS----//
+var svg_subdivs = d3.select("#subdivs")
+    .append("svg")
+    .append("g")
+
+svg_subdivs.append("g")
+    .attr("class", "slices");
+svg_subdivs.append("g")
+    .attr("class", "labels");
+svg_subdivs.append("g")
+    .attr("class", "ringlabels");
+svg_subdivs.append("g")
+    .attr("class", "lines");
+svg_subdivs.append("g")
+    .attr("class", "title");
+
+svg_subdivs.attr("transform", "translate(" + width/6 + "," + height/3 + ")");
+
+
+//----SVG COUNTRY----//
+var svg_country = d3.select("#country")
+    .append("svg")
+    .append("g")
+
+svg_country.append("g")
+    .attr("class", "slices");
+svg_country.append("g")
+    .attr("class", "labels");
+svg_country.append("g")
+    .attr("class", "ringlabels");
+svg_country.append("g")
+    .attr("class", "lines");
+
+svg_country.attr("transform", "translate(" + width/6 + "," + height/3 + ")");
+
+
+//----SVG IP----//
+var svg_ip = d3.select("#ip")
+    .append("svg")
+    .append("g")
+
+svg_ip.append("g")
+    .attr("class", "slices");
+svg_ip.append("g")
+    .attr("class", "labels");
+svg_ip.append("g")
+    .attr("class", "ringlabels");
+svg_ip.append("g")
+    .attr("class", "lines");
+
+svg_ip.attr("transform", "translate(" + width/6 + "," + height/3 + ")");
+</script>
+{% endblock %}

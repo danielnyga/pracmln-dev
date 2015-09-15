@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+{% block title %}Welcome{% endblock %}
+{% block head %}
+    {{ super() }}
+    <script>
+        window.onload = function () {
+        window.location = "/mln/home/";
+        }
+    </script>
+{% endblock %}
+
+{% block content %}
+    <img src="{{ url_for('download_mln_static', filename='images/pracmln-logo.png') }}" style="margin-top: 200px; display: block; width: 500px; height: auto; margin-left:auto; margin-right:auto;"></a>
+{% endblock %}
