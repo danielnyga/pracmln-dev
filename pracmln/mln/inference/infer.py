@@ -71,10 +71,10 @@ class Inference(object):
         # apply the closed world assumptions to the explicitly specified predicates
         if self.cwpreds:
             for pred in self.cwpreds:
-                if isinstance(self.mln.predicate(pred), pracmln.mln.FunctionalPredicate):
-                    raise Exception('Closed world assumption is inapplicable to functional predicate %s' % pred)
                 if isinstance(self.mln.predicate(pred), pracmln.mln.SoftFunctionalPredicate) and self.verbose:
                     logger.warning('Closed world assumption will be applied to soft functional predicate %s' % pred)
+                elif isinstance(self.mln.predicate(pred), pracmln.mln.FunctionalPredicate):
+                    raise Exception('Closed world assumption is inapplicable to functional predicate %s' % pred)
                 for gndatom in self.mrf.gndatoms:
                     if gndatom.predname != pred: continue
                     if self.mrf.evidence[gndatom.idx] is None:
