@@ -193,7 +193,7 @@ class AbstractLearner(object):
         # initial parameter vector: all zeros or weights from formulas
         self._w = [0] * len(self.mrf.formulas)
         for f in self.mrf.formulas:
-            if self.mrf.mln.fixweights[f.idx] or self.use_init_weights:
+            if self.mrf.mln.fixweights[f.idx] or self.use_init_weights or f.weight == HARD:
                 self._w[f.idx] = f.weight
         runs = 0
         while runs < self.maxrepeat:
