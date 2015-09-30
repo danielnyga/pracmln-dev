@@ -64,31 +64,37 @@ class BPLL(AbstractLearner):
     def _prepare(self):
         logger.debug("computing statistics...") 
         self._compute_statistics()
-#         print self._stat
+        print self._stat
     
     def _pl(self, varidx, w):
         '''
         Computes the pseudo-likelihoods for the given variable under weights w. 
         '''        
         var = self.mrf.variable(varidx)
+        out(varidx, repr(var))
         values = var.valuecount()
         gfs = self._varidx2fidx.get(varidx)
         if gfs is None: # no list was saved, so the truth of all formulas is unaffected by the variable's value
             # uniform distribution applies
             p = 1.0 / values
             return [p] * values
-        sums = numpy.zeros(values)
+        sums = [0] * values#numpy.zeros(values)
         for fidx in gfs:
+            out(self.mrf.mln.formulas[fidx])
             for validx, n in enumerate(self._stat[fidx][varidx]):
+                out('sums:', sums)
+                out(validx, n)
                 if w[fidx] == HARD: 
-                    # set the prob mass of every value violating a hard constraint to -1
+                    # set the prob mass of every value violating a hard constraint to None
                     # to indicate a globally inadmissible value. We will set those ones to 0 afterwards.
                     if n == 0: sums[validx] = None
-                elif sums[validx] != -1:
-                    # don't set it if this value has already been assigned marked as inadmissible.  
+                elif sums[validx] is not None:
+                    # don't set it if this value has already been assigned marked as inadmissible.
+                    out(n * w[fidx])  
                     sums[validx] += n * w[fidx]
-        expsums = numpy.exp(sums)
-        expsums = numpy.array([e if s is not None else 0 for s, e in zip(sums, expsums)]) # leave of the inadmissible values
+        out(sums)
+        expsums = [numpy.exp(s) if s is not None else 0 for s in sums]#numpy.exp(numpy.array(sums))
+#         expsums = numpy.array([e if s is not None else 0 for s, e in zip(sums, expsums)]) # leave of the inadmissible values
         z = sum(expsums)
         if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: all probability masses of variable %s are zero.' % str(var))
         return map(lambda w_: w_ / z, expsums)
@@ -151,7 +157,7 @@ class BPLL(AbstractLearner):
         '''
         self._stat = {}
         self._varidx2fidx = defaultdict(set)
-        grounder = DefaultGroundingFactory(self.mrf, simplify=False, unsatfailure=False, verbose=False)
+        grounder = DefaultGroundingFactory(self.mrf, simplify=False, unsatfailure=True, verbose=False)
         for f in grounder.itergroundings():
             for gndatom in f.gndatoms():
                 var = self.mrf.variable(gndatom)
