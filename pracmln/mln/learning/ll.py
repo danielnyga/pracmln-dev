@@ -62,15 +62,18 @@ class LL(AbstractLearner):
                 s = 0
                 hc_violation = False
                 for fidx, val in fvalues.iteritems():
-                    if self.mrf.mln.formulas[fidx.weight] == HARD and val == 0:
-                        hc_violation = True
-                        break
-                    s += val * w[fidx]
+                    if self.mrf.mln.formulas[fidx].weight == HARD:
+                        if val == 0:
+                            hc_violation = True
+                            break
+                    else:
+                        s += val * w[fidx]
                 if hc_violation: 
                     expsums.append(0)
                 else:
                     expsums.append(exp(s))
             z = sum(expsums)
+            out(z, expsums)
             if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: probability masses of all possible worlds are zero.')
             self._ls = map(lambda v: v / z, expsums) 
         return self._ls 
