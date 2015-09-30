@@ -1473,7 +1473,7 @@ class Logic(object):
         
         def simplify(self, world):
             truth = self.truth(world) 
-            if truth != None: return self.logic.true_false(truth)
+            if truth != None: return self.mln.logic.true_false(truth, mln=self.mln, idx=self.idx)
             return self.mln.logic.equality(list(self.args), negated=self.negated, mln=self.mln, idx=self.idx)
         
         

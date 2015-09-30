@@ -145,7 +145,7 @@ class Database(object):
         return db
     
     
-    def union(self, mln=None, *dbs):
+    def union(self, dbs, mln=None):
         '''
         Returns a new database consisting of the union of all databases
         given in the arguments. If mln is specified, the new database will
@@ -153,10 +153,13 @@ class Database(object):
         be used.
         '''
         db_ = Database(mln if mln is not None else self.mln)
-        for db in [self] + list(dbs):
-            for atom, truth in db:
-                try: db_ << (atom, truth)
-                except NoSuchPredicateError: pass
+        if type(dbs) is list:
+            dbs = [list(d) for d in dbs] + list(self)
+        if type(dbs) is Database:
+            dbs = list(dbs) + list(self)
+        for atom, truth in dbs:
+            try: db_ << (atom, truth)
+            except NoSuchPredicateError: pass
         return db_
     
 
@@ -310,11 +313,11 @@ class Database(object):
                 
                 
     def __add__(self, other):
-        return self.union(self.mln, other)
+        return self.union(other, mln=self.mln)
     
     
     def __iadd__(self, other):
-        return self.union(self.mln, other)
+        return self.union(other, mln=self.mln)
     
     
     def __setitem__(self, atom, truth):
