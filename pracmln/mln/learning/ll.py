@@ -73,7 +73,6 @@ class LL(AbstractLearner):
                 else:
                     expsums.append(exp(s))
             z = sum(expsums)
-            out(z, expsums)
             if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: probability masses of all possible worlds are zero.')
             self._ls = map(lambda v: v / z, expsums) 
         return self._ls 
