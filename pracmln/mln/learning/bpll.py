@@ -64,14 +64,13 @@ class BPLL(AbstractLearner):
     def _prepare(self):
         logger.debug("computing statistics...") 
         self._compute_statistics()
-        print self._stat
+#         print self._stat
     
     def _pl(self, varidx, w):
         '''
         Computes the pseudo-likelihoods for the given variable under weights w. 
         '''        
         var = self.mrf.variable(varidx)
-        out(varidx, repr(var))
         values = var.valuecount()
         gfs = self._varidx2fidx.get(varidx)
         if gfs is None: # no list was saved, so the truth of all formulas is unaffected by the variable's value
@@ -80,21 +79,15 @@ class BPLL(AbstractLearner):
             return [p] * values
         sums = [0] * values#numpy.zeros(values)
         for fidx in gfs:
-            out(self.mrf.mln.formulas[fidx])
             for validx, n in enumerate(self._stat[fidx][varidx]):
-                out('sums:', sums)
-                out(validx, n)
                 if w[fidx] == HARD: 
                     # set the prob mass of every value violating a hard constraint to None
                     # to indicate a globally inadmissible value. We will set those ones to 0 afterwards.
                     if n == 0: sums[validx] = None
                 elif sums[validx] is not None:
                     # don't set it if this value has already been assigned marked as inadmissible.
-                    out(n * w[fidx])  
                     sums[validx] += n * w[fidx]
-        out(sums)
         expsums = [numpy.exp(s) if s is not None else 0 for s in sums]#numpy.exp(numpy.array(sums))
-#         expsums = numpy.array([e if s is not None else 0 for s, e in zip(sums, expsums)]) # leave of the inadmissible values
         z = sum(expsums)
         if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: all probability masses of variable %s are zero.' % str(var))
         return map(lambda w_: w_ / z, expsums)
@@ -116,6 +109,7 @@ class BPLL(AbstractLearner):
         if self._pls is None or self._lastw is None or self._lastw != list(w):
             self._pls = [self._pl(var.idx, w) for var in self.mrf.variables]
             self._lastw = list(w)
+#             self.write_pls()
     
     
     def _f(self, w):
