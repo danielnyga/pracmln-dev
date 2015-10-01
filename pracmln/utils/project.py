@@ -137,11 +137,11 @@ class MLNProject(object):
                 else:
                     path, f = os.path.split(member)
                     if path == 'mlns':
-                        proj._mlns[f] = zf.open(member)
+                        proj._mlns[f] = zf.open(member).read()
                     elif path == 'emlns':
-                        proj._emlns[f] = zf.open(member)
+                        proj._emlns[f] = zf.open(member).read()
                     elif path == 'dbs':
-                        proj._dbs[f] = zf.open(member)
+                        proj._dbs[f] = zf.open(member).read()
         return proj
         
 
