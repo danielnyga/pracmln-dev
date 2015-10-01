@@ -54,6 +54,7 @@ learnwts_edit_outfile_when_done = False # if True, open the learnt output file t
 #  --- settings for the query tool ---
 
 query_mln_filemask = "*.mln"
+emln_filemask = "*.emln"
 query_db_filemask = ["*.db", "*.blogdb"]
 def query_output_filename(mlnfile, dbfile):
     if mlnfile[:4] == "wts.": mlnfile = mlnfile[4:]
