@@ -681,8 +681,9 @@ def parse_mln(text, searchPath='.', logic='FirstOrderLogic', grammar='PRACGramma
                 continue
             elif line.startswith('#fuzzy'):
                 if not isinstance(mln.logic, FuzzyLogic):
-                    raise Exception('Fuzzy declarations are not allowed in %s' % mln.logic.__class__.__name__)
-                fuzzy = True
+                    log.warning('Fuzzy declarations are not supported in %s. Assuming a binary predicate.' % mln.logic.__class__.__name__)
+                else:
+                    fuzzy = True
                 continue
             elif line.startswith("#include"):
                 filename = line[len("#include "):].strip(whitespace + '"')

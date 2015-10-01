@@ -86,8 +86,8 @@ def start_learning(savegeometry=True):
             raise Exception('no trainig data given!')
         if os.path.exists(os.path.join(mlnsession.xmplFolderLearning, db)):
             dbs = [os.path.join(mlnsession.xmplFolderLearning, db)]
-        elif os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], db)):
-            dbs = [os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], db)]
+        elif os.path.exists(os.path.join(mlnsession.tmpsessionfolder, db)):
+            dbs = [os.path.join(mlnsession.tmpsessionfolder, db)]
 
     mlnsession.learnconfig = learnconfig
 
@@ -120,8 +120,8 @@ def start_learning(savegeometry=True):
             # load the MLN
             if os.path.exists(os.path.join(mlnsession.xmplFolderLearning, tmpconfig["mln"])):
                 mlnfile = os.path.join(mlnsession.xmplFolderLearning, tmpconfig["mln"])
-            elif os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], tmpconfig["mln"])):
-                mlnfile = os.path.join(mlnApp.app.config['UPLOAD_FOLDER'], tmpconfig["mln"])
+            elif os.path.exists(os.path.join(mlnsession.tmpsessionfolder, tmpconfig["mln"])):
+                mlnfile = os.path.join(mlnsession.tmpsessionfolder, tmpconfig["mln"])
             mln = MLN(mlnfile=mlnfile, logic=tmpconfig['logic'], grammar=tmpconfig['grammar'])
 
             # load the databases

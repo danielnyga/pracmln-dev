@@ -71,7 +71,8 @@
       "library" :
       [
         {
-          "manifest" : "contrib://UploadMgr/trunk/Manifest.json"
+          "manifest" : "../../3rdparty/UploadMgr/trunk/Manifest.json"
+//          "manifest" : "contrib://UploadMgr/trunk/Manifest.json" // use local folder to avoid long time building source
         }
       ]
     }

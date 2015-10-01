@@ -48,7 +48,7 @@ class WCSPInference(Inference):
     def _run(self):
         result_ = {}
         with temporary_evidence(self.mrf):
-            self.converter = WCSPConverter(self.mrf)
+            self.converter = WCSPConverter(self.mrf, multicore=self.multicore)
             result = self.result_dict(verbose=self.verbose)
             for query in self.queries:
                 query = str(query)

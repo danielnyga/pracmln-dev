@@ -1,4 +1,6 @@
+import collections
 import os
+import tempfile
 from flask import jsonify, session
 import re
 from fnmatch import fnmatch
@@ -24,17 +26,37 @@ def ensure_mln_session(cursession):
         mln_session.xmplFolder = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
         mln_session.xmplFolderLearning = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
         log.info('created new MLN session %s' % str(mln_session.id.encode('base-64')))
+        mln_session.tmpsessionfolder = init_file_storage()
+        log.info('created tempfolder %s' % mln_session.tmpsessionfolder)
         mlnApp.session_store.put(mln_session)
-        init_file_storage()
     return mln_session
 
 
 def init_file_storage():
     if not os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'])):
         os.mkdir(os.path.join(mlnApp.app.config['UPLOAD_FOLDER']))
+    dirname = tempfile.mkdtemp(prefix='webmln', dir=mlnApp.app.config['UPLOAD_FOLDER'])
 
     if not os.path.exists(os.path.join(mlnApp.app.config['LOG_FOLDER'])):
         os.mkdir(os.path.join(mlnApp.app.config['LOG_FOLDER']))
+
+    return dirname
+
+
+def convert(data):
+    """
+    Converts a dictionary's keys/values from unicode to string
+    - data:    dictionary containing unicode keys and values
+    - returns:  the converted dictionary
+    """
+    if isinstance(data, basestring):
+        return str(data)
+    elif isinstance(data, collections.Mapping):
+        return dict(map(convert, data.iteritems()))
+    elif isinstance(data, collections.Iterable):
+        return type(data)(map(convert, data))
+    else:
+        return data
 
 
 # returns content of given file, replaces includes by content of the included file
@@ -80,7 +102,7 @@ def change_example(task, folder):
     load_configurations()
 
     mlnfiles, dbs = get_example_files(f)
-    usermlnfiles, userdbs = get_example_files(mlnApp.app.config['UPLOAD_FOLDER'])
+    usermlnfiles, userdbs = get_example_files(mlnsession.tmpsessionfolder)
 
     inferconfig = mlnsession.inferconfig.config.copy()
     inferconfig.update({"method": InferenceMethods.name(mlnsession.inferconfig.config['method'])})

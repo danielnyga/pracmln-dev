@@ -1,17 +1,17 @@
 <!doctype html>
 <html>
   <head>
-    <title>WebMLN - {% block title %}{% endblock %}</title>
+    <title>WebMLN {% block title %}{% endblock %}</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
-    <link rel="shortcut icon" href="{{ url_for('download_static', filename='images/favicon.ico') }}" />
-    <link rel="stylesheet" href="{{ url_for('download_static', filename='css/style.css') }}">
+    <link rel="shortcut icon" href="{{ url_for('download_mln_static', filename='images/favicon.ico') }}" />
+    <link rel="stylesheet" href="{{ url_for('download_mln_static', filename='css/style.css') }}">
     <script type="text/javascript">
       var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
     </script>  
     <style>
       /* DO NOT MOVE TO CSS FILE! */
-      #container {
+      #page {
         height: 100%;
         width: 100%;
         position: absolute;
@@ -27,7 +27,7 @@
     {% endblock %}
   </head>
   <body style="width: 100%; height: 100%; background-color: white; padding: 0px; margin: 0px">
-    <div id="container">
+    <div id="page">
     {% block content %}
       <div id="mln_container" style="width: 100%; height: 100%"></div>
     {% endblock  %}
