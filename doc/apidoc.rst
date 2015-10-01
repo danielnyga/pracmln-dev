@@ -1,5 +1,5 @@
-Introduction
-============
+API-Specification
+=================
 
 `pracmln` comes with an easy-to-use API, which lets you use the
 learning and reasoning methods provided by `pracmln` convently
