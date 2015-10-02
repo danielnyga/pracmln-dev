@@ -39,9 +39,15 @@ class MLNProject(object):
         self.queryconf = PRACMLNConfig()
         self._emlns = {}
         self._dbs = {}
-        self.dirty = False
-        
-        
+        self._results = {}
+        self._dirty = False
+
+
+    @property
+    def dirty(self):
+        return self._dirty or self.learnconf.dirty or self.queryconf.dirty
+
+
     @property
     def mlns(self):
         return self._mlns
@@ -50,7 +56,7 @@ class MLNProject(object):
     @mlns.setter
     def mlns(self, mlns):
         self._mlns = mlns
-        self.dirty = True
+        self._dirty = True
     
         
     @property
@@ -61,50 +67,72 @@ class MLNProject(object):
     @dbs.setter
     def dbs(self, dbs):
         self._dbs = dbs
-        self.dirty = True
+        self._dirty = True
         
         
     @property
     def emlns(self):
         return self._emlns
-    
-    
+
+
     @emlns.setter
     def emlns(self, emlns):
         self._emlns = emlns
-        self.dirty = True
-        
-    
+        self._dirty = True
+
+
+    @property
+    def results(self):
+        return self._results
+
+
+    @results.setter
+    def results(self, results):
+        self._results = results
+        self._dirty = True
+
+
+
     def add_mln(self, name, content=''):
         self._mlns[name] = content
-        self.dirty = True
+        self._dirty = True
     
     
     def add_db(self, name, content=''):
         self._dbs[name] = content
-        self.dirty = True
+        self._dirty = True
 
     
     def add_emln(self, name, content=''):
         self._emlns[name] = content
-        self.dirty = True
-        
-    
+        self._dirty = True
+
+
+    def add_result(self, name, content=''):
+        self._results[name] = content
+        self._dirty = True
+
+
     def rm_mln(self, name):
         del self._mlns[name]
-        self.dirty = True
+        self._dirty = True
     
     
     def rm_db(self, name):
         del self._dbs[name]
-        self.dirty = True
+        self._dirty = True
         
     
     def rm_emln(self, name):
-        del self._emln[name]
-        self.dirty = True
-        
-    
+        del self._emlns[name]
+        self._dirty = True
+
+
+    def rm_result(self, name):
+        del self._results[name]
+        self._dirty = True
+
+
     def save(self, dirpath='.'):
         filename = '%s.pracmln' % self.name
         with ZipFile(os.path.join(dirpath, filename), 'w', ZIP_DEFLATED) as zf:
@@ -121,6 +149,10 @@ class MLNProject(object):
             # save the DBs
             for name, db in self.dbs.iteritems():
                 zf.writestr(os.path.join('dbs', name), db)
+            # save the results
+            for name, result in self.results.iteritems():
+                zf.writestr(os.path.join('results', name), result)
+        self._dirty = False
         
     
     @staticmethod
@@ -131,9 +163,13 @@ class MLNProject(object):
         with ZipFile(filepath, 'r') as zf:
             for member in zf.namelist():
                 if member == 'learn.conf':
-                    proj.learnconf = PRACMLNConfig(zf.open(member).read())
+                    tmpconf = eval(zf.open(member).read())
+                    proj.learnconf = PRACMLNConfig()
+                    proj.learnconf.update(tmpconf)
                 elif member == 'query.conf':
-                    proj.queryconf = PRACMLNConfig(zf.open(member).read())
+                    tmpconf = eval(zf.open(member).read())
+                    proj.queryconf = PRACMLNConfig()
+                    proj.queryconf.update(tmpconf)
                 else:
                     path, f = os.path.split(member)
                     if path == 'mlns':
@@ -142,6 +178,8 @@ class MLNProject(object):
                         proj._emlns[f] = zf.open(member).read()
                     elif path == 'dbs':
                         proj._dbs[f] = zf.open(member).read()
+                    elif path == 'results':
+                        proj._results[f] = zf.open(member).read()
         return proj
         
 
@@ -157,8 +195,11 @@ class MLNProject(object):
         stream.write('dbs/\n')
         for name in self.dbs:
             stream.write('  ./%s\n' % name)
-        stream.write('emlms/\n')
+        stream.write('emlns/\n')
         for name in self.emlns:
+            stream.write('  ./%s\n' % name)
+        stream.write('results/\n')
+        for name in self.results:
             stream.write('  ./%s\n' % name)
         
         
@@ -167,8 +208,9 @@ if __name__ == '__main__':
 #     proj.add_mln('model.mln', '// predicate declarations\nfoo(x)')
 #     proj.add_db('data.db', 'foox(X)')
 #     proj.save()
-    proj = MLNProject.open('myproject.pracmln')
+    proj = MLNProject.open('/home/mareikep/Desktop/mln/test.pracmln')
     proj.write()
+    print proj.queryconf.config
     
     
     

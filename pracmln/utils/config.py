@@ -84,6 +84,7 @@ class PRACMLNConfig(object):
     def __init__(self, filepath=None):
         self.config_file = filepath
         self.config = {}
+        self._dirty = False
         if self.config_file is None or not os.path.exists(self.config_file):
             self.config = {}
         else:
@@ -91,14 +92,21 @@ class PRACMLNConfig(object):
                 self.config = convert(json.load(cf))
                 logger.debug('loaded %s config' % self.config_file)
             
-    
+
+    @property
+    def dirty(self):
+        return self._dirty
+
+
     def get(self, k, d=None):
         return self.config.get(k, d)
 
 
     def update(self, d):
         self.config.update(d)
-    
+        self._dirty = True
+
+
     def __getitem__(self, s):
         if type(s) is slice:
             prim = s.start
@@ -122,6 +130,7 @@ class PRACMLNConfig(object):
             p[sec] = v
         else:
             self.config[s] = v
+        self._dirty = True
             
     
     def dump(self):
@@ -129,9 +138,11 @@ class PRACMLNConfig(object):
             raise Exception('no filename specified')
         with open(self.config_file, 'w+') as cf:
             json.dump(self.config, cf, indent=4)
+        self._dirty = False
             
     
     def dumps(self):
+        self._dirty = False
         return json.dumps(self.config, indent=4)
 
         
