@@ -24,35 +24,32 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+import StringIO
 
 from Tkinter import *
+from Tkinter import _setit
 import sys
-import os
-import re
-import pickle
+import ntpath
+import logging
 import traceback
+from pracmln.mln.base import parse_mln
+from pracmln.utils.project import MLNProject
 from utils.widgets import *
-import subprocess
-import shlex
 import tkMessageBox
 from fnmatch import fnmatch
-from pprint import pprint
 from mln.methods import LearningMethods
-import cProfile
 from cProfile import Profile
-import logging
-from mln import MLN
-from logic import StandardGrammar, PRACGrammar
-from logic import FirstOrderLogic, FuzzyLogic
 from pracmln.utils import config
 from pracmln.mln.util import ifNone, out, headline, StopWatch, stop
 from tkMessageBox import showerror, askyesno
-from tkFileDialog import askdirectory
-from pracmln.utils.config import learn_config_pattern, PRACMLNConfig
-from pracmln import praclog
+from tkFileDialog import askdirectory, asksaveasfilename, askopenfilename
+from pracmln.utils.config import learn_config_pattern, PRACMLNConfig, \
+    query_mln_filemask, query_db_filemask, emln_filemask, \
+    global_config_filename
+from pracmln import praclog, MLN
 from tabulate import tabulate
 import pstats
-from pracmln.mln.database import Database
+from pracmln.mln.database import Database, parse_db
 from pracmln.mln.learning.common import DiscriminativeLearner
 
 logger = praclog.logger(__name__)
@@ -60,7 +57,9 @@ logger = praclog.logger(__name__)
 
 QUERY_PREDS = 0
 EVIDENCE_PREDS = 1
-
+DEFAULTNAME = 'unnamed{}'
+PRACMLN_HOME = os.getenv('PRACMLN_HOME', os.getcwd())
+DEFAULT_CONFIG = os.path.join(PRACMLN_HOME, global_config_filename)
 
 class MLNLearn(object):
     '''
@@ -323,7 +322,7 @@ class MLNLearn(object):
                 if fnmatch(fname, mask):
                     dbs.append(os.path.join(d, fname))
             if len(dbs) == 0:
-                raise Exception("The pattern '%s' matches no files in %s" % (pattern, self.dir.get()))
+                raise Exception("The pattern '%s' matches no files in %s" % (pattern, self.dir))
             logger.debug('loading training databases from pattern %s:')
             for p in dbs: logger.debug('  %s' % p)
         if not dbs:
@@ -339,11 +338,11 @@ class MLNLearn(object):
         if isinstance(self.mln, MLN):
             mln = self.mln
         elif isinstance(self.mln, basestring):
-            mlnfile = os.path.join(self.directory, self.mln)
+            mlnfile = os.path.join(self.directory, 'mln', self.mln)
             mln = MLN(mlnfile=mlnfile, logic=self.logic, grammar=self.grammar)
 
         # load the training databases
-        if type(self.db) is list and all(map(lambda e: isinstance(e, Database))):
+        if type(self.db) is list and all(map(lambda e: isinstance(e, Database), self.db)):
             dbs = self.db
         elif isinstance(self.db, Database):
             dbs = [self.db]
@@ -356,7 +355,7 @@ class MLNLearn(object):
             db = self.db
             if db is None or not db:
                 raise Exception('no trainig data given!')
-            dbpaths = [os.path.join(self.directory, db)]
+            dbpaths = [os.path.join(self.directory, 'db', db)]
             dbs = []
             for p in dbpaths:
                 dbs.extend(Database.load(mln, p, self.ignore_unknown_preds))
@@ -406,9 +405,6 @@ class MLNLearn(object):
                 print headline('LEARNT MARKOV LOGIC NETWORK')
                 print
                 mlnlearnt.write()
-            if self.save:
-                with open(os.path.join(self.directory, self.output_filename), 'w+') as outFile:
-                    mlnlearnt.write(outFile)
         except SystemExit:
             print 'Cancelled...'
         finally:
@@ -436,21 +432,40 @@ class MLNLearnGUI:
         
         self.master.bind('<Return>', self.learn)
         self.master.bind('<Escape>', lambda a: self.master.quit())
-        
+        self.master.protocol('WM_DELETE_WINDOW', self.quit)
+
+        self.project = MLNProject()
         self.gconf = gconf
-        self.config = None
+        self.config = self.project.learnconf
 
         self.frame = Frame(master)
         self.frame.pack(fill=BOTH, expand=1)
         self.frame.columnconfigure(1, weight=1)
 
-        row = 0        
+        row = 0
+        # pracmln project options
+        Label(self.frame, text='PRACMLN Project: ').grid(row=row, column=0, sticky='E')
+        project_container = Frame(self.frame)
+        project_container.grid(row=row, column=1, sticky="NEWS")
+
+        # new proj file
+        self.btn_newproj = Button(project_container, text='New Project...', command=self.new_project)
+        self.btn_newproj.grid(row=0, column=1, sticky="W")
+
+        # open proj file
+        self.btn_openproj = Button(project_container, text='Open Project...', command=self.load_project)
+        self.btn_openproj.grid(row=0, column=2, sticky="W")
+
+        # save proj file
+        self.btn_saveproj = Button(project_container, text='Save Project...', command=self.save_project)
+        self.btn_saveproj.grid(row=0, column=3, sticky="W")
 
         # grammar selection
+        row += 1
         Label(self.frame, text='Grammar: ').grid(row=row, column=0, sticky='E')
         grammars = ['StandardGrammar', 'PRACGrammar']
         self.selected_grammar = StringVar(master)
-        self.selected_grammar.trace('w', self.onChangeGrammar)
+        self.selected_grammar.trace('w', self.select_grammar)
         l = apply(OptionMenu, (self.frame, self.selected_grammar) + tuple(grammars))
         l.grid(row=row, column=1, sticky='NWE')
         
@@ -459,29 +474,48 @@ class MLNLearnGUI:
         Label(self.frame, text='Logic: ').grid(row=row, column=0, sticky='E')
         logics = ['FirstOrderLogic', 'FuzzyLogic']
         self.selected_logic = StringVar(master)
-        self.selected_logic.trace('w', self.onChangeLogic)
+        self.selected_logic.trace('w', self.select_logic)
         l = apply(OptionMenu, (self.frame, self.selected_logic) + tuple(logics))
         l.grid(row=row, column=1, sticky='NWE')
-        
-        # folder selection
-        row += 1
-        self.dir = StringVar(master)
-        Label(self.frame, text='Directory:').grid(row=row, column=0, sticky='NES')
-        self.text_dir = Entry(self.frame, textvariable=self.dir)
-        self.text_dir.grid(row=row, column=1, sticky="NEWS")
-        self.text_dir.bind('<FocusOut>', self.update_dir)
-        self.text_dir.bind('<Return>', self.update_dir)
-        self.btn_dir = Button(self.frame, text='Browse...', command=self.select_dir)
-        self.btn_dir.grid(row=row, column=1, sticky="NES")
-        
+
         # mln selection
         row += 1
-        Label(self.frame, text="MLN: ").grid(row=row, column=0, sticky='NE')
-        self.selected_mln = FilePickEdit(self.frame, config.learnwts_mln_filemask, '', 22, 
-                                         self.select_mln, rename_on_edit=0, 
-                                         font=config.fixed_width_font, coloring=True)
-        self.selected_mln.grid(row=row, column=1, sticky="NWES")
-        self.frame.rowconfigure(row, weight=1)
+        Label(self.frame, text="MLN: ").grid(row=row, column=0, sticky='E')
+        mln_container = Frame(self.frame)
+        mln_container.grid(row=row, column=1, sticky="NEWS")
+
+        self.selected_mln = StringVar(master)
+        mlnfiles = sorted(self.project.mlns.keys())
+        if len(mlnfiles) == 0: mlnfiles.append("(no %s files found)" % str(query_mln_filemask))
+        self.list_mlns = apply(OptionMenu, (mln_container, self.selected_mln) + tuple(mlnfiles))
+        self.list_mlns.grid(row=0, column=1, sticky="NWE")
+        self.selected_mln.trace("w", self.select_mln)
+
+        # new mln file
+        self.btn_newmln = Button(mln_container, text='New', command=self.new_mln)
+        self.btn_newmln.grid(row=0, column=2, sticky="E")
+
+        # import mln file
+        self.btn_importmln = Button(mln_container, text='Import', command=self.import_mln)
+        self.btn_importmln.grid(row=0, column=3, sticky="E")
+
+        # delete mln file
+        self.btn_delmln = Button(mln_container, text='Delete', command=self.delete_mln)
+        self.btn_delmln.grid(row=0, column=4, sticky="E")
+
+        # mln filename field & save button
+        self.mln_filename = StringVar(master, value='filename.mln')
+        self.save_edit_mln = Entry(mln_container, textvariable=self.mln_filename)
+        self.save_edit_mln.grid(row=0, column=5, sticky="E")
+
+        self.btn_savemln = Button(mln_container, text='Save', command=self.save_mln)
+        self.btn_savemln.grid(row=0, column=6, sticky="E")
+
+        # mln editor
+        row += 1
+        self.mln_editor = SyntaxHighlightingText(self.frame)
+        self.mln_editor.grid(row=row, column=1, sticky="NWES")
+
 
         # method selection
         row += 1
@@ -490,7 +524,7 @@ class MLNLearnGUI:
         methodnames = sorted(LearningMethods.names())
         self.list_methods = apply(OptionMenu, (self.frame, self.selected_method) + tuple(methodnames))
         self.list_methods.grid(row=row, column=1, sticky="NWE")
-        self.selected_method.trace("w", self.changedMethod)
+        self.selected_method.trace("w", self.select_method)
         
         # additional parametrization
         row += 1
@@ -533,6 +567,7 @@ class MLNLearnGUI:
         row += 1
         self.discrPredicates = IntVar()
         self.discrPredicates.trace('w', self.change_discr_preds)
+        self.discrPredicates.set(1)
         frame = Frame(self.frame)        
         frame.grid(row=row, column=1, sticky="NEWS")
         self.rbQueryPreds = Radiobutton(frame, text="Query preds:", variable=self.discrPredicates, value=QUERY_PREDS)
@@ -550,20 +585,43 @@ class MLNLearnGUI:
         self.entryEvidencePreds = Entry(frame, textvariable=self.evidencePreds)
         self.entryEvidencePreds.grid(row=0, column=3, sticky='NEWS')
 
-
-        # evidence database selection
+        # db selection
         row += 1
-        Label(self.frame, text="Training data: ").grid(row=row, column=0, sticky="NE")
-        self.frame.rowconfigure(row, weight=1)
-        
-        self.selected_db = FilePickEdit(self.frame, config.learnwts_db_filemask, '', 15, self.changedDB, font=config.fixed_width_font)
-        self.selected_db.grid(row=row, column=1, sticky="NEWS")
-        
-        # ignore unknown preds
-        self.ignore_unknown_preds = IntVar(master)
-        self.cb_ignore_unknown_preds = Checkbutton(self.selected_db.options_frame, text='ignore unkown predicates', variable=self.ignore_unknown_preds)
-        self.cb_ignore_unknown_preds.pack(side=LEFT)
-        
+        Label(self.frame, text="Training data: ").grid(row=row, column=0, sticky='E')
+        db_container = Frame(self.frame)
+        db_container.grid(row=row, column=1, sticky="NEWS")
+
+        self.selected_db = StringVar(master)
+        dbfiles = sorted(self.project.dbs.keys())
+        if len(dbfiles) == 0: dbfiles.append("(no %s files found)" % str(config.query_db_filemask))
+        self.list_dbs = apply(OptionMenu, (db_container, self.selected_db) + tuple(dbfiles))
+        self.list_dbs.grid(row=0, column=1, sticky="NWE")
+        self.selected_db.trace("w", self.select_db)
+
+        # new db file
+        self.btn_newdb = Button(db_container, text='New', command=self.new_db)
+        self.btn_newdb.grid(row=0, column=2, sticky="W")
+
+        # import db file
+        self.btn_importdb = Button(db_container, text='Import', command=self.import_db)
+        self.btn_importdb.grid(row=0, column=3, sticky="W")
+
+        # delete db file
+        self.btn_deldb = Button(db_container, text='Delete', command=self.delete_db)
+        self.btn_deldb.grid(row=0, column=4, sticky="W")
+
+        # db filename field & save button
+        self.db_filename = StringVar(master, value='filename.db')
+        self.save_edit_db = Entry(db_container, textvariable=self.db_filename)
+        self.save_edit_db.grid(row=0, column=5, sticky="WE")
+
+        self.btn_savedb = Button(db_container, text='Save', command=self.save_db)
+        self.btn_savedb.grid(row=0, column=6, sticky="E")
+
+        # db editor
+        row += 1
+        self.db_editor = SyntaxHighlightingText(self.frame)
+        self.db_editor.grid(row=row, column=1, sticky="NWES")
 
         # file patterns
         row += 1
@@ -587,12 +645,13 @@ class MLNLearnGUI:
         
         # options
         row += 1
+        Label(self.frame, text="Options: ").grid(row=row, column=0, sticky="E")
         option_container = Frame(self.frame)
         option_container.grid(row=row, column=1, sticky="NEWS")
 
         # multicore
-        self.use_multiCPU = IntVar()
-        self.cb_multicore = Checkbutton(option_container, text="Use all CPUs", variable=self.use_multiCPU)
+        self.multicore = IntVar()
+        self.cb_multicore = Checkbutton(option_container, text="Use all CPUs", variable=self.multicore)
         self.cb_multicore.grid(row=0, column=1, sticky=E)
         
         # profiling
@@ -608,6 +667,11 @@ class MLNLearnGUI:
         self.ignore_zero_weight_formulas = IntVar()
         self.cb_ignore_zero_weight_formulas = Checkbutton(option_container, text='remove 0-weight formulas', variable=self.ignore_zero_weight_formulas)
         self.cb_ignore_zero_weight_formulas.grid(row=0, column=5, sticky=W)
+
+        # ignore unknown preds
+        self.ignore_unknown_preds = IntVar(master)
+        self.cb_ignore_unknown_preds = Checkbutton(option_container, text='ignore unkown predicates', variable=self.ignore_unknown_preds)
+        self.cb_ignore_unknown_preds.grid(row=0, column=6, sticky="W")
 
         row += 1
         output_cont = Frame(self.frame)
@@ -627,44 +691,179 @@ class MLNLearnGUI:
         learn_button = Button(self.frame, text=" >> Learn << ", command=self.learn)
         learn_button.grid(row=row, column=1, sticky="EW")
 
-        self.set_dir(ifNone(directory, ifNone(gconf['prev_learnwts_path'], os.getcwd())))
-        if gconf['prev_learnwts_mln':self.dir.get()] is not None:
-            self.selected_mln.set(gconf['prev_learnwts_mln':self.dir.get()])
+        self.set_dir(ifNone(gconf['prev_learnwts_path'], DEFAULT_CONFIG))
+        if gconf['prev_learnwts_mln':self.dir] is not None:
+            self.selected_mln.set(gconf['prev_learnwts_mln':self.dir])
         
         self.master.geometry(gconf['window_loc_learn'])
         
         self.initialized = True
 
 
+    def quit(self):
+        if self.project.dirty:
+            if tkMessageBox.askokcancel("Save changes", "You have unsaved project changes. Do you want to save them before quitting?"):
+                self.project.save()
+        self.master.destroy()
+
+    ####################### PROJECT FUNCTIONS #################################
+    def new_project(self):
+        self.project = MLNProject()
+        self.set_config(self.project.learnconf)
+        self.update_mln_choices()
+        self.update_db_choices()
+
+
+    def load_project(self):
+        filename = askopenfilename(initialdir=self.dir, filetypes=[('PRACMLN project files', '.pracmln')], defaultextension=".pracmln")
+        self.dir, _ = ntpath.split(filename)
+        if filename:
+            proj = MLNProject.open(filename)
+            self.project = proj
+            self.set_config(self.project.learnconf.config)
+            self.update_mln_choices()
+            self.update_db_choices()
+            self.selected_mln.set(self.project.learnconf['mln'])
+            self.selected_db.set(self.project.learnconf['db'])
+
+
+    def save_project(self):
+        fullfilename = asksaveasfilename(confirmoverwrite=True)
+        if fullfilename:
+            fpath, fname = ntpath.split(fullfilename)
+            fname = fname.split('.')[0]
+            self.project.name = fname
+            self.update_settings()
+            self.project.save(fpath)
+
+
+    ####################### MLN FUNCTIONS #####################################
+    def new_mln(self):
+        self.mln_filename.set(DEFAULTNAME.format('.mln'))
+        self.project.add_mln(DEFAULTNAME.format(''), '')
+        self.update_mln_choices()
+        self.selected_mln.set(DEFAULTNAME.format('.mln'))
+
+
+    def import_mln(self):
+        filename = askopenfilename(initialdir=self.dir, filetypes=[('MLN files', '.mln')], defaultextension=".mln")
+        fpath, fname = ntpath.split(filename)
+        content = self.import_file(filename)
+        self.project.add_mln(fname, content)
+        self.update_mln_choices()
+        self.selected_mln.set(fname)
+
+
+    def delete_mln(self):
+        self.project.rm_mln(self.selected_mln.get())
+        self.update_mln_choices()
+
+    def save_mln(self):
+        oldfname = self.selected_mln.get()
+        newfname = self.mln_filename.get()
+        content = self.mln_editor.get("1.0", END).encode('utf-8')
+        self.project.rm_mln(oldfname)
+        self.project.add_mln(newfname, content)
+        self.update_mln_choices()
+        self.selected_mln.set(newfname)
+
+
+    def select_mln(self, *args):
+        mlnname = self.selected_mln.get()
+        if mlnname:
+            content = self.project.mlns.get(mlnname, '<<empty>>')
+            if content:
+                self.mln_editor.delete("1.0", END)
+                content = content.replace("\r", "")
+                self.mln_editor.insert(INSERT, content)
+        self.mln_filename.set(mlnname)
+        self.set_outputfilename()
+
+
+    def update_mln_choices(self):
+        self.selected_mln.set('')
+        self.list_mlns['menu'].delete(0, 'end')
+
+        new_mlns = sorted(self.project.mlns.keys())
+        for mln in new_mlns:
+            self.list_mlns['menu'].add_command(label=mln, command=_setit(self.selected_mln, mln))
+
+
+    ####################### DB FUNCTIONS ######################################
+    def new_db(self):
+        self.db_filename.set(DEFAULTNAME.format('.db'))
+        self.project.add_db(DEFAULTNAME.format(''), '')
+        self.update_db_choices()
+        self.selected_db.set(DEFAULTNAME.format('.db'))
+
+
+    def import_db(self):
+        filename = askopenfilename(initialdir=self.dir, filetypes=[('Database files', '.db')], defaultextension=".db")
+        fpath, fname = ntpath.split(filename)
+        content = self.import_file(filename)
+        self.project.add_db(fname, content)
+        self.update_db_choices()
+        self.selected_db.set(fname)
+
+
+    def delete_db(self):
+        self.project.rm_db(self.selected_db.get())
+        self.update_db_choices()
+
+
+    def save_db(self):
+        oldfname = self.selected_db.get()
+        newfname = self.db_filename.get()
+        content = self.db_editor.get("1.0", END).encode('utf-8')
+        self.project.rm_db(oldfname)
+        self.project.add_db(newfname, content)
+        self.update_db_choices()
+        self.selected_db.set(newfname)
+
+
+    def select_db(self, *args):
+        dbname = self.selected_db.get()
+        if dbname:
+            content = self.project.dbs.get(dbname, '<<empty>>')
+            if content:
+                self.db_editor.delete("1.0", END)
+                content = content.replace("\r", "")
+                self.db_editor.insert(INSERT, content)
+        self.db_filename.set(dbname)
+        self.set_outputfilename()
+
+
+    def update_db_choices(self):
+        self.selected_db.set('')
+        self.list_dbs['menu'].delete(0, 'end')
+
+        new_dbs = sorted(self.project.dbs.keys())
+        for db in new_dbs:
+            self.list_dbs['menu'].add_command(label=db, command=_setit(self.selected_db, db))
+
+
+    ####################### GENERAL FUNCTIONS #################################
+    def import_file(self, filename):
+        if os.path.exists(filename):
+            content = file(filename).read()
+            content = content.replace("\r", "")
+        else:
+            content = ""
+        return content
+
+
+    def set_dir(self, dirpath):
+        self.dir = os.path.abspath(dirpath)
+
+
     def update_dir(self, e):
-        d = self.dir.get()
+        d = self.dir
         if not os.path.exists(d):
             showerror('Directory not found', 'No such directory: "%s"' % d)
             self.set_dir(self.selected_mln.directory)
         else:
             self.set_dir(d)
-            
-            
-    def set_dir(self, dirpath):
-        dirpath = os.path.abspath(dirpath)
-        self.selected_mln.setDirectory(dirpath)
-        self.selected_db.setDirectory(dirpath)
-        self.dir.set(dirpath)
-        
-        
-    def select_dir(self):
-        dirname = askdirectory()
-        if dirname: self.set_dir(dirname)
 
-    
-    def select_mln(self, mlnname):
-        confname = os.path.join(self.dir.get(), learn_config_pattern % mlnname)
-        if self.config is None or not self.initialized or \
-            os.path.exists(confname) and askyesno('PRACMLN', 'A configuration file was found for the selected MLN.\nDo want to load the configuration?'):
-            self.set_config(PRACMLNConfig(confname))
-        self.mln_filename = mlnname
-        self.setOutputFilename()
-            
             
     def check_incremental(self):
         if self.incremental.get()==1:
@@ -675,23 +874,23 @@ class MLNLearnGUI:
             
             
     def change_pattern(self, *args):
-        self.selected_db.set_enabled(state=DISABLED if self.pattern.get() else NORMAL)
-                
+        self.list_dbs.config(state=DISABLED if self.pattern.get() else NORMAL)
+
 
     def check_prior(self, *args):
         self.en_prior_mean.configure(state=NORMAL if self.use_prior.get() else DISABLED)
         self.en_stdev.configure(state=NORMAL if self.use_prior.get() else DISABLED)
         
 
-    def isFile(self, f):
-        return os.path.exists(os.path.join(self.dir.get(), f))
+    def isfile(self, f):
+        return os.path.exists(os.path.join(self.dir, f))
 
 
-    def setOutputFilename(self):
+    def set_outputfilename(self):
         if not hasattr(self, "output_filename") or not hasattr(self, "db_filename") or not hasattr(self, "mln_filename"):
             return
-        mln = self.mln_filename
-        db = self.db_filename
+        mln = self.mln_filename.get()
+        db = self.db_filename.get()
         if "" in (mln, db): return
         if self.selected_method.get():
             method = LearningMethods.clazz(self.selected_method.get())
@@ -700,42 +899,28 @@ class MLNLearnGUI:
             self.output_filename.set(filename)
         
 
-    def changedMLN(self, name):
-        self.mln_filename = name
-        self.setOutputFilename()
-
-
-    def changedDB(self, name):
-        self.db_filename = name
-        self.setOutputFilename()
-
-
-    def onChangeLogic(self, name = None, index = None, mode = None):
+    def select_logic(self, name = None, index = None, mode = None):
         pass
 
     
-    def onChangeGrammar(self, name=None, index=None, mode=None):
-        if self.selected_grammar.get():
-            grammar = eval(self.selected_grammar.get())(None)
-            self.selected_mln.editor.grammar = grammar        
+    def select_grammar(self, name=None, index=None, mode=None):
+        self.grammar = self.selected_grammar.get()
 
-    def onChangeMethod(self):
-        self.change_discr_preds()
-        
-        
+
     def change_discr_preds(self, name = None, index = None, mode = None):
         methodname = self.selected_method.get()
-        method = LearningMethods.clazz(methodname)
-        state = NORMAL if issubclass(method, DiscriminativeLearner) else DISABLED
-        self.entry_nePreds.configure(state=state if self.discrPredicates.get() == 0 else DISABLED)
-        self.entryEvidencePreds.configure(state=state if self.discrPredicates.get() == 1 else DISABLED)
-        self.rbEvidencePreds.configure(state=state)
-        self.rbQueryPreds.configure(state=state)
+        if methodname:
+            method = LearningMethods.clazz(methodname)
+            state = NORMAL if issubclass(method, DiscriminativeLearner) else DISABLED
+            self.entry_nePreds.configure(state=state if self.discrPredicates.get() == 0 else DISABLED)
+            self.entryEvidencePreds.configure(state=state if self.discrPredicates.get() == 1 else DISABLED)
+            self.rbEvidencePreds.configure(state=state)
+            self.rbQueryPreds.configure(state=state)
         
 
-    def changedMethod(self, name, index, mode):
-        self.onChangeMethod()
-        self.setOutputFilename()
+    def select_method(self, name, index, mode):
+        self.change_discr_preds()
+        self.set_outputfilename()
 
     
     def get_training_db_paths(self):
@@ -745,13 +930,13 @@ class MLNLearnGUI:
         pattern = self.config["pattern"]
         if pattern is not None and pattern.strip():
             dbs = []
-            patternpath = os.path.join(self.dir.get(), pattern)
+            patternpath = os.path.join(self.dir, pattern)
             d, mask = os.path.split(os.path.abspath(patternpath))
             for fname in os.listdir(d):
                 if fnmatch(fname, mask):
                     dbs.append(os.path.join(d, fname))
             if len(dbs) == 0:
-                raise Exception("The pattern '%s' matches no files in %s" % (pattern, self.dir.get()))
+                raise Exception("The pattern '%s' matches no files in %s" % (pattern, self.dir))
             logger.debug('loading training databases from pattern %s:')
             for p in dbs: logger.debug('  %s' % p)
         if not dbs:
@@ -761,41 +946,54 @@ class MLNLearnGUI:
 
     def set_config(self, conf):
         self.config = conf
-#         self.selected_db.set(ifNone(self.config["db"], ''))
-        self.selected_grammar.set(ifNone(conf['grammar'], 'PRACGrammar'))
-        self.selected_logic.set(ifNone(conf['logic'], 'FirstOrderLogic'))
-        self.selected_db.select(ifNone(conf['db'], ''))
-        self.output_filename.set(ifNone(self.config["output_filename"], ''))
-        self.save.set(ifNone(self.config['save'], 1))
-        self.params.set(ifNone(self.config["params"], ''))
-        self.selected_method.set(ifNone(self.config["method"], LearningMethods.name('BPLL'), transform=LearningMethods.name))
-        self.pattern.set(ifNone(self.config["pattern"], ''))
-        self.use_prior.set(ifNone(self.config["use_prior"], False))
-        self.priorMean.set(ifNone(self.config["prior_mean"], 0))
-        self.priorStdDev.set(ifNone(self.config["prior_stdev"], 5))
-        self.incremental.set(ifNone(self.config["incremental"], False))
-        self.shuffle.set(ifNone(self.config["shuffle"], False))
-        self.use_initial_weights.set(ifNone(self.config["use_initial_weights"], False))
-        self.queryPreds.set(ifNone(self.config["qpreds"], ''))
-        self.evidencePreds.set(ifNone(self.config["epreds"], ''))
-        self.discrPredicates.set(ifNone(self.config["discr_preds"], 0)) 
-        self.use_multiCPU.set(ifNone(self.config['multicore'], False))
-        self.verbose.set(ifNone(conf['verbose'], 1))
-        self.profile.set(ifNone(conf['profile'], False))
-        self.ignore_unknown_preds.set(ifNone(conf['ignore_unknown_preds'], False))
-        self.ignore_zero_weight_formulas.set(ifNone(conf['ignore_zero_weight_formulas'], False))
+        self.selected_grammar.set(ifNone(conf.get('grammar'), 'PRACGrammar'))
+        self.selected_logic.set(ifNone(conf.get('logic'), 'FirstOrderLogic'))
+        self.selected_mln.set(ifNone(conf.get('mln'), "(no %s files found)" % str(query_mln_filemask)))
+        self.selected_db.set(ifNone(conf.get('db'), "(no %s files found)" % str(query_db_filemask)))
+        self.selected_method.set(ifNone(conf.get("method"), LearningMethods.name('BPLL'), transform=LearningMethods.name))
+        self.pattern.set(ifNone(conf.get('pattern'), ''))
+        self.multicore.set(ifNone(conf.get('multicore'), 0))
+        self.use_prior.set(ifNone(conf.get('use_prior'), 0))
+        self.priorMean.set(ifNone(conf.get('prior_mean'), 0))
+        self.priorStdDev.set(ifNone(conf.get('prior_stdev'), 5))
+        self.incremental.set(ifNone(conf.get('incremental'), 0))
+        self.shuffle.set(ifNone(conf.get('shuffle'), 0))
+        self.use_initial_weights.set(ifNone(conf.get('use_initial_weights'), 0))
+        self.profile.set(ifNone(conf.get('profile'), 0))
+        self.params.set(ifNone(conf.get('params'), ''))
+        self.verbose.set(ifNone(conf.get('verbose'), 1))
+        self.ignore_unknown_preds.set(ifNone(conf.get('ignore_unknown_preds'), 0))
+        self.output_filename.set(ifNone(conf.get('output_filename'), ''))
+        self.queryPreds.set(ifNone(conf.get('qpreds'), ''))
+        self.evidencePreds.set(ifNone(conf.get('epreds'), ''))
+        self.discrPredicates.set(ifNone(conf.get('discr_preds'), 0))
+        self.ignore_zero_weight_formulas.set(ifNone(conf.get('ignore_zero_weight_formulas'), 0))
+        self.save.set(ifNone(conf.get('save'), 0))
 
 
-    def learn(self, *args):
-        # update settings;
+    # returns content of given file, replaces includes by content of the included file
+    def get_file_content(self, fcontent, files):
+        content = ''
+        for l in fcontent:
+            if '#include' in l:
+                includefile = re.sub('#include ([\w,\s-]+\.[A-Za-z])', '\g<1>', l).strip()
+                if includefile in files:
+                    content += '{}\n'.format(self.get_file_content(files[includefile].splitlines(), files))
+                else:
+                    content += '{}\n'.format(l)
+            else:
+                content += '{}\n'.format(l)
+        return content
+
+
+    def update_settings(self):
         mln = self.selected_mln.get().encode('utf8')
         db = self.selected_db.get().encode('utf8')
-        if mln == "":
-            raise Exception("No MLN was selected")
+        output = self.output_filename.get().encode('utf8')
         methodname = self.selected_method.get().encode('utf8')
         params = self.params.get().encode('utf8')
-        output = str(self.output_filename.get()).encode('utf8')
-        self.config = PRACMLNConfig(os.path.join(self.dir.get(), learn_config_pattern % mln))
+
+        self.config = PRACMLNConfig()
         self.config["mln"] = mln
         self.config["db"] = db
         self.config["output_filename"] = self.output_filename.get()
@@ -813,27 +1011,44 @@ class MLNLearnGUI:
         self.config["discr_preds"] = self.discrPredicates.get()
         self.config['logic'] = self.selected_logic.get()
         self.config['grammar'] = self.selected_grammar.get()
-        self.config['multicore'] = self.use_multiCPU.get()
+        self.config['multicore'] = self.multicore.get()
         self.config['profile'] = self.profile.get()
         self.config['verbose'] = self.verbose.get()
         self.config['ignore_unknown_preds'] = self.ignore_unknown_preds.get()
         self.config['ignore_zero_weight_formulas'] = self.ignore_zero_weight_formulas.get()
         self.config['save'] = self.save.get()
-        
+        self.config["output_filename"] = output
+        self.project.learnconf = PRACMLNConfig()
+        self.project.learnconf.update(self.config.config.copy())
+        self.project.mlns[mln] = self.mln_editor.get("1.0", END).encode('utf8')
+        self.project.dbs[db] = self.db_editor.get("1.0", END).encode('utf8')
+
+
+    def learn(self, *args):
+        mln_content = self.get_file_content(self.mln_editor.get("1.0", END).encode('utf8').splitlines(), self.project.mlns)
+        db_content = self.get_file_content(self.db_editor.get("1.0", END).encode('utf8').splitlines(), self.project.dbs)
+
+        self.update_settings()
+
         # write settings
         logger.debug('writing config...')
-        self.gconf['prev_learnwts_path'] = self.dir.get()
-        self.gconf['prev_learnwts_mln':self.dir.get()] = self.selected_mln.get()
+        self.gconf['prev_learnwts_path'] = self.dir
+        self.gconf['prev_learnwts_mln':self.dir] = self.selected_mln.get()
         self.gconf['window_loc_learn'] = self.master.geometry()
         self.gconf.dump()
-        self.config.dump()
-        
+
         # hide gui
         self.master.withdraw()
         
         try:
-            learning = MLNLearn(self.config)
-            learning.run()
+            mlnobj = parse_mln(mln_content)
+            dbobj = parse_db(mlnobj, db_content)
+            learning = MLNLearn(config=self.config, mln=mlnobj, db=dbobj)
+            result = learning.run()
+            if self.save.get():
+                output = StringIO.StringIO()
+                result.write(output)
+                self.project.add_result(self.output_filename.get(), output.getvalue())
         except:
             traceback.print_exc()
         # restore gui
@@ -856,8 +1071,8 @@ if __name__ == '__main__':
 
     # run learning task/GUI
     root = Tk()
-    gconf = PRACMLNConfig()
-    app = MLNLearnGUI(root, gconf, directory=args[0] if args else None)
+    conf = PRACMLNConfig(DEFAULT_CONFIG)
+    app = MLNLearnGUI(root, conf, directory=args[0] if args else None)
     #print "options:", options
     if options.run:
         app.learn(saveGeometry=False)

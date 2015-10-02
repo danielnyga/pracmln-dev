@@ -432,7 +432,7 @@ class FilePickEdit(Frame):
         self.select(default_file)
         self.row = row
         
-    def setDirectory(self, directory):
+    def setDirectory(self, directory, keep=False):
         self.directory = directory
         self.updateList()
         self.makelist()
@@ -442,7 +442,9 @@ class FilePickEdit(Frame):
         # add the new ones
 #         for filename in self.files:
 #             menu.add_command(label=filename, command=_setit(self.picked_name, filename, None))
-        self.select("")
+        # if keep is true, only the files list will be updated but the content of the
+        # text area will not be altered/removed
+        if not keep: self.select("")
     
     def refresh(self):
         sel = self.get()
@@ -705,37 +707,89 @@ class FilePick(Frame):
         return self.picked_name.get()
 
 class DropdownList:
-    def __init__(self, master, items, default=None, allowNone=False, onSelChange=None):
-        if allowNone:
-            items = tuple([""] + list(items))
-        self.items = items
+    def __init__(self, master, filemask='*.mln', default=None, allowNone=False, onselchange=None, directory='.'):
+        self.allowNone = allowNone
+        self.directory = directory
+        self.list_frame = master
+        self.onchange = onselchange
+        if type(filemask) != list:
+            filemask = [filemask]
+        self.file_mask = filemask
+        self.updateList()
         if havePMW:
-            self.list = Pmw.ComboBox(master, selectioncommand = onSelChange, scrolledlist_items = items)
+            self.list = Pmw.ComboBox(master, selectioncommand = onselchange, scrolledlist_items = self.files)
             self.list.component('entryfield').component('entry').configure(state = 'readonly', relief = 'raised')
             self.picked_name = self.list
         else:
             self.picked_name = StringVar(master)
-            self.list = apply(OptionMenu, (master, self.picked_name) + tuple(items))
-            if onSelChange is not None:
-                self.picked_name.trace("w", onSelChange)
+            self.list = apply(OptionMenu, (master, self.picked_name) + tuple(self.files))
+            if onselchange is not None:
+                self.picked_name.trace("w", onselchange)
         if default is not None:
-            self.set(default)
+            self.select(default)
         else:
-            self.set(self.items[0])
+            self.select(self.files[0])
+
 
     def __getattr__(self, name):
         return getattr(self.list, name)
 
+
     def get(self):
         return self.picked_name.get()
 
-    def set(self, item):
-        if item in self.items:
+
+    def select(self, item):
+        if item in self.files:
             if not havePMW:
                 self.picked_name.set(item)
             else:
                 self.list.selectitem(item)
-                #self.onSelChange(default_file)
+
+
+    def updateList(self):
+        self.files = []
+        if self.allowNone:
+            self.files.append("")
+        if os.path.exists(self.directory):
+            for filename in os.listdir(self.directory):
+                for fm in self.file_mask:
+                    if fnmatch(filename, fm):
+                        self.files.append(filename)
+        self.files.sort()
+        if len(self.files) == 0 and not self.allowNone: self.files.append("(no %s files found)" % str(self.file_mask))
+
+
+
+    def makelist(self):
+        if havePMW:
+            self.list = Pmw.ComboBox(self.list_frame,
+                    selectioncommand = self.onSelChange,
+                    scrolledlist_items = self.files,
+            )
+            self.list.grid(row=0, column=0, padx=0, pady=0, sticky="NEWS")
+            self.list.component('entryfield').component('entry').configure(state = 'readonly', relief = 'raised')
+            self.picked_name = self.list
+        else:
+            self.list = apply(OptionMenu, (self.list_frame, self.picked_name) + tuple(self.files))
+            self.list.grid(row=0, column=0, sticky="NEW")
+            self.picked_name.trace("w", self.onSelChange)
+        self.select(self.files[0])
+
+    def setDirectory(self, directory, keep=False):
+        self.directory = directory
+        self.updateList()
+        self.makelist()
+        # if keep is true, only the files list will be updated but the content of the
+        # text area will not be altered/removed
+        if not keep: self.select("")
+
+
+    def onSelChange(self, name, index=0, mode=0):
+        filename = self.picked_name.get()
+        if self.onchange != None:
+            self.onchange(filename)
+
 
 class Checkbox(Checkbutton):
     def __init__(self, master, text, default=None, **args):

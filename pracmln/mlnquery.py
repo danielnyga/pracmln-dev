@@ -47,7 +47,8 @@ from tkMessageBox import showerror, askyesno
 from pracmln.mln.util import out, ifNone, trace, parse_queries,\
     headline, StopWatch, stop, stoptrace
 from pracmln.utils.config import PRACMLNConfig, query_config_pattern, \
-    query_mln_filemask, emln_filemask, query_db_filemask
+    query_mln_filemask, emln_filemask, query_db_filemask, \
+    global_config_filename
 from pracmln.mln.base import parse_mln, MLN
 from pracmln.mln.database import parse_db, Database
 from tabulate import tabulate
@@ -62,6 +63,8 @@ logger = praclog.logger(__name__)
 GUI_SETTINGS = ['window_loc', 'db', 'method', 'use_emln', 'save', 'output_filename', 'grammar', 'queries', 'emln']
 ALLOWED_EXTENSIONS = [('PRACMLN project files', '.pracmln'), ('MLN files', '.mln'), ('MLN extension files', '.emln'), ('Database files', '.db')]
 DEFAULTNAME = 'unnamed{}'
+PRACMLN_HOME = os.getenv('PRACMLN_HOME', os.getcwd())
+DEFAULT_CONFIG = os.path.join(PRACMLN_HOME, global_config_filename)
 
 class MLNQuery(object):
     
@@ -300,7 +303,7 @@ class MLNQueryGUI(object):
         Label(self.frame, text='Grammar: ').grid(row=row, column=0, sticky='E')
         grammars = ['StandardGrammar', 'PRACGrammar']
         self.selected_grammar = StringVar(master)
-        self.selected_grammar.trace('w', self.onChangeGrammar)
+        self.selected_grammar.trace('w', self.onchange_grammar)
         l = apply(OptionMenu, (self.frame, self.selected_grammar) + tuple(grammars))
         l.grid(row=row, column=1, sticky='NWE')
         
@@ -309,7 +312,7 @@ class MLNQueryGUI(object):
         Label(self.frame, text='Logic: ').grid(row=row, column=0, sticky='E')
         logics = ['FirstOrderLogic', 'FuzzyLogic']
         self.selected_logic = StringVar(master)
-        self.selected_logic.trace('w', self.onChangeLogic)
+        self.selected_logic.trace('w', self.onchange_logic)
         l = apply(OptionMenu, (self.frame, self.selected_logic) + tuple(logics))
         l.grid(row=row, column=1, sticky='NWE')
 
@@ -443,6 +446,7 @@ class MLNQueryGUI(object):
         self.list_methods_row = row
         Label(self.frame, text="Method: ").grid(row=row, column=0, sticky=E)
         self.selected_method = StringVar(master)
+        self.selected_method.trace('w', self.onchange_method)
         methodnames = sorted(InferenceMethods.names())
         self.list_methods = apply(OptionMenu, (self.frame, self.selected_method) + tuple(methodnames))
         self.list_methods.grid(row=self.list_methods_row, column=1, sticky="NWE")
@@ -498,7 +502,7 @@ class MLNQueryGUI(object):
         self.entry_cw.grid(row=0, column=0, sticky="NEWS")
         
         self.closed_world = IntVar()
-        self.closed_world.trace('w', self.onChangeClosedWorld)
+        self.closed_world.trace('w', self.onchange_cw)
         self.cb_closed_world = Checkbutton(cw_container, text="CW Assumption", variable=self.closed_world)
         self.cb_closed_world.grid(row=0, column=1, sticky='W')
 
@@ -523,9 +527,11 @@ class MLNQueryGUI(object):
         start_button = Button(self.frame, text=">> Start Inference <<", command=self.start)
         start_button.grid(row=row, column=1, sticky="NEW")
 
-        self.set_dir(ifNone(directory, ifNone(gconf['prev_query_path'], os.getcwd())))
-#         if gconf['prev_query_mln':self.dir.get()] is not None:
-#             self.selected_mln.set(gconf['prev_query_mln':self.dir.get()])
+
+        self.set_dir(ifNone(gconf['prev_query_path'], DEFAULT_CONFIG))
+
+        # if gconf['prev_query_mln':self.dir.get()] is not None:
+        #     self.selected_mln.set(gconf['prev_query_mln':self.dir.get()])
         
         self.master.geometry(gconf['window_loc_query'])
         self.initialized = True
@@ -548,7 +554,7 @@ class MLNQueryGUI(object):
 
 
     def load_project(self):
-        filename = askopenfilename(initialdir='.', filetypes=[('PRACMLN project files', '.pracmln')], defaultextension=".pracmln")
+        filename = askopenfilename(initialdir=self.dir, filetypes=[('PRACMLN project files', '.pracmln')], defaultextension=".pracmln")
         self.dir, _ = ntpath.split(filename)
         if filename:
             proj = MLNProject.open(filename)
@@ -613,6 +619,7 @@ class MLNQueryGUI(object):
                 content = content.replace("\r", "")
                 self.mln_editor.insert(INSERT, content)
         self.mln_filename.set(mlnname)
+        self.setOutputFilename()
 
 
     def update_mln_choices(self):
@@ -716,6 +723,7 @@ class MLNQueryGUI(object):
                 content = content.replace("\r", "")
                 self.db_editor.insert(INSERT, content)
         self.db_filename.set(dbname)
+        self.setOutputFilename()
 
 
     def update_db_choices(self):
@@ -741,8 +749,12 @@ class MLNQueryGUI(object):
         self.dir = os.path.abspath(dirpath)
 
 
-    def onChangeUseMultiCPU(self, *args):
+    def onchange_multicore(self, *args):
         pass
+
+
+    def onchange_method(self, *args):
+        self.setOutputFilename()
 
 
     def onchange_use_emln(self, *args):
@@ -756,18 +768,18 @@ class MLNQueryGUI(object):
             self.emln_editor.grid(row=self.emlncontainerrow+1, column=1, sticky="NWES")
 
 
-    def onChangeLogic(self, name = None, index = None, mode = None):
+    def onchange_logic(self, name = None, index = None, mode = None):
         pass
     
     
-    def onChangeClosedWorld(self, name=None, index=None, mode=None):
+    def onchange_cw(self, name=None, index=None, mode=None):
         if self.closed_world.get():
             self.entry_cw.configure(state=DISABLED)
         else:
             self.entry_cw.configure(state=NORMAL)
         
     
-    def onChangeGrammar(self, name=None, index=None, mode=None):
+    def onchange_grammar(self, name=None, index=None, mode=None):
         self.grammar = eval(self.selected_grammar.get())(None)
 
         
@@ -790,13 +802,13 @@ class MLNQueryGUI(object):
         self.closed_world.set(ifNone(conf.get('cw'), 0))
         self.save_results.set(ifNone(conf.get('save'), 0))
         self.query.set(ifNone(conf.get('queries'), 'foo, bar'))
-        self.onChangeClosedWorld()
+        self.onchange_cw()
         
         
     def setOutputFilename(self):
         if not self.initialized or not hasattr(self, "db_filename") or not hasattr(self, "mln_filename"):
             return
-        fn = config.query_output_filename(self.mln_filename, self.db_filename)
+        fn = config.query_output_filename(self.mln_filename.get(), self.db_filename.get())
         self.output_filename.set(fn)
 
 
@@ -862,6 +874,7 @@ class MLNQueryGUI(object):
         self.gconf['prev_query_path'] = self.dir
         self.gconf['prev_query_mln': self.dir] = self.selected_mln.get()
         self.gconf['window_loc_query'] = self.master.geometry()
+        self.gconf.dump()
 
         # hide main window
         self.master.withdraw()
@@ -909,7 +922,7 @@ if __name__ == '__main__':
         widgets.havePMW = False
     root = Tk()
     
-    conf = PRACMLNConfig()
+    conf = PRACMLNConfig(DEFAULT_CONFIG)
     app = MLNQueryGUI(root, conf, directory=args[0] if args else None)
     if options.run:
         app.start(saveGeometry=False)
