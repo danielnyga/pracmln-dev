@@ -164,7 +164,8 @@ class MLNQuery(object):
     @property
     def ignore_unknown_preds(self):
         return self._config.get('ignore_unknown_preds', False)
-    
+
+
     @property
     def save(self):
         return self._config.get('save', False)
@@ -176,10 +177,6 @@ class MLNQuery(object):
         # load the MLN
         if isinstance(self.mln, MLN):
             mln = self.mln
-        elif isinstance(self.mln, basestring):
-            raise Exception('WAAAAAAAAAH! MLN IS STRING')
-            # mlnfile = os.path.join(self.directory, self.mln)
-            # mln = MLN(mlnfile=mlnfile, logic=self.logic, grammar=self.grammar)
         else:
             raise Exception('No MLN specified')
         
@@ -1025,6 +1022,7 @@ class MLNQueryGUI(object):
         self.config['ignore_unknown_preds'] = self.ignore_unknown_preds.get()
         self.config['verbose'] = self.verbose.get()
         self.config['window_loc'] = self.master.winfo_geometry()
+        self.config['dir'] = self.dir
         self.project.queryconf = PRACMLNConfig()
         self.project.queryconf.update(self.config.config.copy())
         self.project.mlns[mln] = self.mln_editor.get("1.0", END).encode('utf8')
