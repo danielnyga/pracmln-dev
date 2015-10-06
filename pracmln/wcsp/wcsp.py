@@ -28,6 +28,7 @@ import bisect
 import re
 from collections import defaultdict
 from pracmln import praclog
+import platform
 
 
 logger = praclog.logger(__name__)
@@ -36,25 +37,26 @@ class MaxCostExceeded(Exception): pass
 
 temp_wcsp_file = os.path.join('/', 'tmp', 'temp%d.wcsp')
 
+toulbar_version = '0.9.7.0'
+
 def is_executable(path):
     return os.path.exists(path) and os.access(path, os.X_OK)
 
-def isToulbar2Installed():
-    '''
-    Checks if the 'toulbar2' executable can be located and is executable.
-    '''
-    toulbar2cmd = 'toulbar2'
-    for path in os.getenv('PATH').split(os.pathsep):
-        cmd_file = os.path.join(path, toulbar2cmd)
-        if is_executable(cmd_file):
-            return True
-    return False
+
+def toulbar2_path():
+    (osname, _, _, _, arch, _) = platform.uname() 
+    execname = 'toulbar2'
+    if osname == 'Windows': execname += '.exe'
+    path = os.path.join(os.getenv('PRACMLN_HOME'), '3rdparty', 'toulbar2-%s' % toulbar_version, arch, osname, execname)
+    path = os.path.abspath(path)
+    return path
 
 
 # Globally check if the toulbar2 executable can be found when
 # this module is loaded. Print a warning if not.
-if not isToulbar2Installed():
-    logger.warning('toulbar2 executable cannot be found. WCSP inference will not be possible. Make sure you have included the "toulbar2" executable in your PATH variable.')
+_tb2path = toulbar2_path()
+if not is_executable(_tb2path):
+    logger.error('toulbar2 was expected at %s but cannot be found. WCSP inference will not be possible.' % _tb2path)
 
 
 class Constraint(object):
@@ -324,14 +326,13 @@ class WCSP(object):
         :returns:    a generator of (idx, solution) tuples, where idx is the index and solution is a tuple
                      of variable value indices.
         '''
-        if not isToulbar2Installed():
-            raise Exception('toulbar2 cannot be found. Make sure it is in your PATH')
+        if not is_executable(toulbar2_path()):
+            raise Exception('toulbar2 cannot be found.')
         # append the process id to the filename to make it "process safe"
         wcspfilename = temp_wcsp_file % os.getpid()
-        f = open(wcspfilename, 'w+')
-        self.write(f)
-        f.close()
-        cmd = 'toulbar2 -s -a %s' % wcspfilename
+        with open(wcspfilename, 'w+') as f:
+            self.write(f)
+        cmd = '%s -s -a %s' % (toulbar2_path(), wcspfilename)
         logger.debug('solving WCSP...')
         p = Popen(cmd, shell=True, stderr=PIPE, stdout=PIPE)
         solution = None
@@ -354,14 +355,13 @@ class WCSP(object):
         Uses toulbar2 inference. Returns the best solution, i.e. a tuple
         of variable assignments.
         '''
-        if not isToulbar2Installed():
-            raise Exception('toulbar2 cannot be found. Make sure it is in your PATH')
+        if not is_executable(toulbar2_path()):
+            raise Exception('toulbar2 cannot be found.')
         # append the process id to the filename to make it "process safe"
         wcspfilename = temp_wcsp_file % os.getpid()
-        f = open(wcspfilename, 'w+')
-        self.write(f)
-        f.close()
-        cmd = 'toulbar2 -s %s' % wcspfilename
+        with open(wcspfilename, 'w+') as f:
+            self.write(f)
+        cmd = '%s -s %s' % (toulbar2_path(), wcspfilename)
         logger.debug('solving WCSP...')
         p = Popen(cmd, shell=True, stderr=PIPE, stdout=PIPE)
         solution = None
