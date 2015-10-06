@@ -24,11 +24,13 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+from PIL import ImageTk
 import StringIO
 
 from Tkinter import *
 from Tkinter import _setit
 import Tkinter
+import Image
 import sys
 import ntpath
 import logging
@@ -429,7 +431,9 @@ class MLNLearnGUI:
 
     def __init__(self, master, gconf, directory=None):
         self.master = master
-        img = Tkinter.Image("photo", file=os.path.join(PRACMLN_HOME, 'doc', '_static', 'favicon.ico'))
+        origimg = Image.open(os.path.join(PRACMLN_HOME, 'doc', '_static', 'pracmln-darkonbright-transp.png'))
+        resizedimg = origimg.resize((86,32), Image.ANTIALIAS)
+        img = ImageTk.PhotoImage(resizedimg)
         self.master.tk.call('wm', 'iconphoto', self.master._w, img)
 
         self.initialized = False
@@ -438,27 +442,36 @@ class MLNLearnGUI:
         self.master.bind('<Escape>', lambda a: self.master.quit())
         self.master.protocol('WM_DELETE_WINDOW', self.quit)
 
+        # logo = Label(self.master, image=img)
+        # logo.pack(side = "right", anchor='ne')
+
         self.frame = Frame(master)
         self.frame.pack(fill=BOTH, expand=1)
         self.frame.columnconfigure(1, weight=1)
 
         row = 0
         # pracmln project options
-        Label(self.frame, text='PRACMLN Project: ').grid(row=row, column=0, sticky='E')
+        Label(self.frame, text='PRACMLN Project: ').grid(row=row, column=0, sticky='ES')
         project_container = Frame(self.frame)
         project_container.grid(row=row, column=1, sticky="NEWS")
 
         # new proj file
         self.btn_newproj = Button(project_container, text='New Project...', command=self.new_project)
-        self.btn_newproj.grid(row=0, column=1, sticky="W")
+        self.btn_newproj.grid(row=0, column=1, sticky="WS")
 
         # open proj file
         self.btn_openproj = Button(project_container, text='Open Project...', command=self.ask_load_project)
-        self.btn_openproj.grid(row=0, column=2, sticky="W")
+        self.btn_openproj.grid(row=0, column=2, sticky="WS")
 
         # save proj file
         self.btn_saveproj = Button(project_container, text='Save Project as...', command=self.ask_save_project)
-        self.btn_saveproj.grid(row=0, column=3, sticky="W")
+        self.btn_saveproj.grid(row=0, column=3, sticky="WS")
+
+        # pracmln logo TODO: scale?
+        logo = Label(project_container, image=img)
+        logo.image = img # keep reference to img, otherwise logo might not show up
+        logo.grid(row=row, column=4, sticky="E")
+        project_container.columnconfigure(4, weight=2)
 
         # grammar selection
         row += 1
@@ -595,8 +608,6 @@ class MLNLearnGUI:
         db_container = Frame(self.frame)
         db_container.grid(row=row, column=1, sticky="NEWS")
         db_container.columnconfigure(1, weight=2)
-        self.frame.grid_rowconfigure(row, weight=1)
-        self.frame.grid_columnconfigure(row, weight=1)
 
         self.selected_db = StringVar(master)
         dbfiles = []
@@ -689,17 +700,17 @@ class MLNLearnGUI:
         output_cont.grid(row=row, column=1, sticky='NEWS')
         output_cont.columnconfigure(0, weight=1)
         
-        Label(self.frame, text="Output filename: ").grid(row=row, column=0, sticky="E")
+        Label(self.frame, text="Output: ").grid(row=row, column=0, sticky="E")
         self.output_filename = StringVar(master)
-        
-        Entry(output_cont, textvariable = self.output_filename).grid(row=0, column=0, sticky="EW")
+        self.entry_output_filename = Entry(output_cont, textvariable=self.output_filename)
+        self.entry_output_filename.grid(row=0, column=0, sticky="EW")
         
         self.save = IntVar(self.master)
         self.cb_save = Checkbutton(output_cont, text='save', variable=self.save)
         self.cb_save.grid(row=0, column=1, sticky='W')
         
         row += 1
-        learn_button = Button(self.frame, text=" >> Learn << ", command=self.learn)
+        learn_button = Button(self.frame, text=" >> Start Learning << ", command=self.learn)
         learn_button.grid(row=row, column=1, sticky="EW")
 
         self.gconf = gconf
@@ -723,6 +734,10 @@ class MLNLearnGUI:
             if savechanges is None: return
             elif savechanges:
                 self.project.save()
+
+        # write gui settings
+        self.write_config()
+
         self.master.destroy()
 
 
@@ -1134,10 +1149,10 @@ class MLNLearnGUI:
         mln_content = self.get_file_content(self.mln_editor.get("1.0", END).encode('utf8').splitlines(), self.project.mlns)
         db_content = self.get_file_content(self.db_editor.get("1.0", END).encode('utf8').splitlines(), self.project.dbs)
 
+        # create conf from current gui settings
         self.update_settings()
 
-        # write settings
-        logger.debug('writing config...')
+        # write gui settings
         self.write_config()
 
         # hide gui
@@ -1158,8 +1173,8 @@ class MLNLearnGUI:
         sys.stdout.flush()
         self.master.deiconify()
 
-# -- main app --
 
+# -- main app --
 if __name__ == '__main__':
     praclog.level(praclog.DEBUG)
     
