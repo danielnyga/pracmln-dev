@@ -33,19 +33,30 @@ class MLNProject(object):
     '''
     
     def __init__(self, name=None):
-        self.name = name
+        self._name = name if name is not None and '.pracmln' in name else '{}.pracmln'.format(name or 'unknown')
         self._mlns = {}
         self.learnconf = PRACMLNConfig()
         self.queryconf = PRACMLNConfig()
         self._emlns = {}
         self._dbs = {}
         self._results = {}
-        self._dirty = False
+        self._dirty = True
+        self.dirty_listeners = []
 
 
     @property
     def dirty(self):
         return self._dirty or self.learnconf.dirty or self.queryconf.dirty
+
+
+    @dirty.setter
+    def dirty(self, d):
+        self._dirty = d
+        for l in self.dirty_listeners: l(d)
+
+
+    def addlistener(self, listener):
+        self.dirty_listeners.append(listener)
 
 
     @property
@@ -56,9 +67,20 @@ class MLNProject(object):
     @mlns.setter
     def mlns(self, mlns):
         self._mlns = mlns
-        self._dirty = True
-    
-        
+        self.dirty = True
+
+
+    @property
+    def name(self):
+        return self._name
+
+
+    @name.setter
+    def name(self, name):
+        self._name = name if name is not None and '.pracmln' in name else '{}.pracmln'.format(name or 'unknown')
+        self.dirty = True
+
+
     @property
     def dbs(self):
         return self._dbs
@@ -67,7 +89,7 @@ class MLNProject(object):
     @dbs.setter
     def dbs(self, dbs):
         self._dbs = dbs
-        self._dirty = True
+        self.dirty = True
         
         
     @property
@@ -78,7 +100,7 @@ class MLNProject(object):
     @emlns.setter
     def emlns(self, emlns):
         self._emlns = emlns
-        self._dirty = True
+        self.dirty = True
 
 
     @property
@@ -89,52 +111,52 @@ class MLNProject(object):
     @results.setter
     def results(self, results):
         self._results = results
-        self._dirty = True
+        self.dirty = True
 
 
 
     def add_mln(self, name, content=''):
         self._mlns[name] = content
-        self._dirty = True
+        self.dirty = True
     
     
     def add_db(self, name, content=''):
         self._dbs[name] = content
-        self._dirty = True
+        self.dirty = True
 
     
     def add_emln(self, name, content=''):
         self._emlns[name] = content
-        self._dirty = True
+        self.dirty = True
 
 
     def add_result(self, name, content=''):
         self._results[name] = content
-        self._dirty = True
+        self.dirty = True
 
 
     def rm_mln(self, name):
         del self._mlns[name]
-        self._dirty = True
+        self.dirty = True
     
     
     def rm_db(self, name):
         del self._dbs[name]
-        self._dirty = True
+        self.dirty = True
         
     
     def rm_emln(self, name):
         del self._emlns[name]
-        self._dirty = True
+        self.dirty = True
 
 
     def rm_result(self, name):
         del self._results[name]
-        self._dirty = True
+        self.dirty = True
 
 
     def save(self, dirpath='.'):
-        filename = '%s.pracmln' % self.name
+        filename = self.name
         with ZipFile(os.path.join(dirpath, filename), 'w', ZIP_DEFLATED) as zf:
             # save the learn.conf
             zf.writestr('learn.conf', self.learnconf.dumps())
@@ -152,13 +174,12 @@ class MLNProject(object):
             # save the results
             for name, result in self.results.iteritems():
                 zf.writestr(os.path.join('results', name), result)
-        self._dirty = False
+        self.dirty = False
         
     
     @staticmethod
     def open(filepath):
         name = os.path.basename(filepath)
-        name = '.'.join(name.split('.')[:-1])
         proj = MLNProject(name)
         with ZipFile(filepath, 'r') as zf:
             for member in zf.namelist():
