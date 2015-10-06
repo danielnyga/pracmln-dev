@@ -54,7 +54,7 @@ def toulbar2_path():
 
 # Globally check if the toulbar2 executable can be found when
 # this module is loaded. Print a warning if not.
-_tb2path = toulbar2_path() + '='
+_tb2path = toulbar2_path()
 if not is_executable(_tb2path):
     logger.error('toulbar2 was expected at %s but cannot be found. WCSP inference will not be possible.' % _tb2path)
 
