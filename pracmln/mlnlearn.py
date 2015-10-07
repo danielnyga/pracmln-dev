@@ -786,9 +786,9 @@ class MLNLearnGUI:
             self.update_mln_choices()
             self.update_db_choices()
             if len(self.project.mlns) > 0:
-                self.selected_mln.set(self.project.queryconf['mln'] or self.project.mlns.keys()[0])
+                self.selected_mln.set(self.project.learnconf['mln'] or self.project.mlns.keys()[0])
             if len(self.project.dbs) > 0:
-                self.selected_db.set(self.project.queryconf['db'] or self.project.dbs.keys()[0])
+                self.selected_db.set(self.project.learnconf['db'] or self.project.dbs.keys()[0])
             self.settings_dirty.set(0)
             self.project_setdirty(False)
         else:
@@ -838,7 +838,7 @@ class MLNLearnGUI:
 
 
     def delete_mln(self):
-        fname = self.selected_mln.get()
+        fname = self.selected_mln.get().strip()
 
         # remove element from project mlns and buffer
         if fname in self.mln_buffer:
@@ -850,14 +850,19 @@ class MLNLearnGUI:
         # select first element from remaining list
         if len(self.project.mlns) > 0:
             self.selected_mln.set(self.project.mlns.keys()[0])
+        else:
+            self.selected_mln.set('')
+            self.mln_editor.delete("1.0", END)
+            self.mln_filename.set('')
+            self.list_mlns['menu'].delete(0, 'end')
 
 
     def save_mln(self):
-        oldfname = self.selected_mln.get()
-        newfname = self.mln_filename.get()
+        oldfname = self.selected_mln.get().strip()
+        newfname = self.mln_filename.get().strip()
         content = self.mln_editor.get("1.0", END).strip()
 
-        if oldfname.strip():
+        if oldfname:
             if oldfname in self.mln_buffer:
                 del self.mln_buffer[oldfname]
             if oldfname == newfname:
@@ -865,19 +870,20 @@ class MLNLearnGUI:
             else:
                 if oldfname in self.project.mlns:
                     self.project.rm_mln(oldfname)
-                self.project.add_mln(newfname, content)
+                if newfname != '':
+                    self.project.add_mln(newfname, content)
 
         self.update_mln_choices()
         self.project.save(dirpath=self.dir)
         self.write_config()
-        self.selected_mln.set(newfname)
+        if newfname != '': self.selected_mln.set(newfname)
         self.project_setdirty(False)
 
 
     def select_mln(self, *args):
-        mlnname = self.selected_mln.get()
+        mlnname = self.selected_mln.get().strip()
         self.project_setdirty(True)
-        if mlnname:
+        if mlnname and mlnname != '':
             if self._mln_editor_dirty:
                 #save current state to buffer
                 self.mln_buffer[self._dirty_mln_name] = self.mln_editor.get("1.0", END).strip()
@@ -903,6 +909,11 @@ class MLNLearnGUI:
                 self.mln_filename.set(mlnname)
                 self.set_outputfilename()
                 self._mln_editor_dirty = False
+        else:
+            self.selected_mln.set('')
+            self.mln_editor.delete("1.0", END)
+            self.mln_filename.set('')
+            self.list_mlns['menu'].delete(0, 'end')
 
 
     def update_mln_choices(self):
@@ -917,7 +928,7 @@ class MLNLearnGUI:
         if not self._mln_editor_dirty:
             self._mln_editor_dirty = True
             self.mln_reload = False
-            fname = self.selected_mln.get()
+            fname = self.selected_mln.get().strip()
             fname = '*' + fname if '*' not in fname else fname
             self._dirty_mln_name = fname
             self.mln_buffer[self._dirty_mln_name] = self.mln_editor.get("1.0", END).strip()
@@ -955,6 +966,10 @@ class MLNLearnGUI:
         # select first element from remaining list
         if len(self.project.dbs) > 0:
             self.selected_db.set(self.project.dbs.keys()[0])
+        else:
+            self.selected_db.set('')
+            self.db_editor.delete("1.0", END)
+            self.db_filename.set('')
 
 
     def save_db(self):
@@ -1184,11 +1199,11 @@ class MLNLearnGUI:
 
 
     def update_settings(self):
-        mln = self.selected_mln.get().encode('utf8').lstrip('*')
-        db = self.selected_db.get().encode('utf8').lstrip('*')
-        output = self.output_filename.get().encode('utf8')
-        methodname = self.selected_method.get().encode('utf8')
-        params = self.params.get().encode('utf8')
+        mln = self.selected_mln.get().strip()
+        db = self.selected_db.get().strip()
+        output = self.output_filename.get().strip()
+        methodname = self.selected_method.get().strip()
+        params = self.params.get().strip()
 
         self.config = PRACMLNConfig()
         self.config["mln"] = mln
@@ -1203,8 +1218,8 @@ class MLNLearnGUI:
         self.config["incremental"] = int(self.incremental.get())
         self.config["shuffle"] = int(self.shuffle.get())
         self.config["use_initial_weights"] = int(self.use_initial_weights.get())
-        self.config["qpreds"] = self.queryPreds.get().encode('utf8')
-        self.config["epreds"] = self.evidencePreds.get().encode('utf8')
+        self.config["qpreds"] = self.queryPreds.get().strip()
+        self.config["epreds"] = self.evidencePreds.get().strip()
         self.config["discr_preds"] = self.discrPredicates.get()
         self.config['logic'] = self.selected_logic.get()
         self.config['grammar'] = self.selected_grammar.get()
@@ -1217,8 +1232,8 @@ class MLNLearnGUI:
         self.config["output_filename"] = output
         self.project.learnconf = PRACMLNConfig()
         self.project.learnconf.update(self.config.config.copy())
-        self.project.mlns[mln] = self.mln_editor.get("1.0", END).strip()
-        self.project.dbs[db] = self.db_editor.get("1.0", END).strip()
+        if mln != '': self.project.mlns[mln] = self.mln_editor.get("1.0", END).strip()
+        if db != '': self.project.dbs[db] = self.db_editor.get("1.0", END).strip()
 
 
     def write_config(self, savegeometry=True):
@@ -1232,8 +1247,8 @@ class MLNLearnGUI:
 
 
     def learn(self, savegeometry=True, options={}, *args):
-        mln_content = self.get_file_content(self.mln_editor.get("1.0", END).encode('utf8').splitlines(), self.project.mlns)
-        db_content = self.get_file_content(self.db_editor.get("1.0", END).encode('utf8').splitlines(), self.project.dbs)
+        mln_content = self.get_file_content(self.mln_editor.get("1.0", END).strip().splitlines(), self.project.mlns)
+        db_content = self.get_file_content(self.db_editor.get("1.0", END).strip().splitlines(), self.project.dbs)
 
         # create conf from current gui settings
         self.update_settings()
@@ -1257,12 +1272,12 @@ class MLNLearnGUI:
                 dbobj = Database.load(mlnobj, dbfile=options.get('dbarg'), ignore_unknown_preds=True)
             else:
                 if self.config.get('pattern'):
-                    local, dblist = self.get_training_db_paths(self.config.get('pattern').encode('utf8'))
+                    local, dblist = self.get_training_db_paths(self.config.get('pattern').strip())
                     dbobj = []
                     # build database list from project dbs
                     if local:
                         for dbname in dblist:
-                            dbobj.extend(parse_db(mlnobj, self.project.dbs[dbname].encode('utf8')))
+                            dbobj.extend(parse_db(mlnobj, self.project.dbs[dbname].strip()))
                         out(dbobj)
                     # build database list from filesystem dbs
                     else:
