@@ -703,7 +703,6 @@ class MLNLearnGUI:
         self.settings_dirty = IntVar()
         self.project_dirty = IntVar()
 
-
         self.gconf = gconf
         self.project = None
         self.dir = '.'
@@ -786,8 +785,10 @@ class MLNLearnGUI:
             self.set_config(self.project.learnconf.config)
             self.update_mln_choices()
             self.update_db_choices()
-            self.selected_mln.set(self.project.learnconf['mln'])
-            self.selected_db.set(self.project.learnconf['db'])
+            if len(self.project.mlns) > 0:
+                self.selected_mln.set(self.project.queryconf['mln'] or self.project.mlns.keys()[0])
+            if len(self.project.dbs) > 0:
+                self.selected_db.set(self.project.queryconf['db'] or self.project.dbs.keys()[0])
             self.settings_dirty.set(0)
             self.project_setdirty(False)
         else:
@@ -902,6 +903,7 @@ class MLNLearnGUI:
                 self.mln_filename.set(mlnname)
                 self.set_outputfilename()
                 self._mln_editor_dirty = False
+
 
     def update_mln_choices(self):
         self.list_mlns['menu'].delete(0, 'end')
@@ -1243,6 +1245,9 @@ class MLNLearnGUI:
         self.master.withdraw()
 
         try:
+            print headline('PRAC LEARNING TOOL')
+            print
+
             if options.get('mlnarg') is not None:
                 mlnobj = MLN(mlnfile=os.path.abspath(options.get('mlnarg')))
             else:
@@ -1277,16 +1282,19 @@ class MLNLearnGUI:
                 result.write(output)
                 with open(os.path.abspath(options.get('outputfile')), 'w') as f:
                     f.write(output.getvalue())
+                logger.info('saved result to {}'.format(os.path.abspath(options.get('outputfile'))))
             elif self.save.get():
                 output = StringIO.StringIO()
                 result.write(output)
                 self.project.add_result(self.output_filename.get(), output.getvalue())
                 self.project.save(dirpath=self.dir)
+                logger.info('saved result to file results/{} in project {}'.format(self.output_filename.get(), self.project.name))
             else:
                 logger.debug('No output file given - results have not been saved.')
 
         except:
             traceback.print_exc()
+
         # restore gui
         sys.stdout.flush()
         self.master.deiconify()
@@ -1309,7 +1317,7 @@ if __name__ == '__main__':
     # run learning task/GUI
     root = Tk()
     conf = PRACMLNConfig(DEFAULT_CONFIG)
-    app = MLNLearnGUI(root, conf, args[0] if args else None)
+    app = MLNLearnGUI(root, conf, directory=args[0] if args else None)
 
     if opts.run:
         logger.debug('running mlnlearn without gui')
