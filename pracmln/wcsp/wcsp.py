@@ -46,6 +46,9 @@ def is_executable(path):
 def toulbar2_path():
     (osname, _, _, _, arch, _) = platform.uname() 
     execname = 'toulbar2'
+    if is_executable(execname): # use the version in PATH if it can be found
+        return execname
+    # fallback: try to load shipped toulbar2 binary
     if osname == 'Windows': execname += '.exe'
     path = os.path.join(os.getenv('PRACMLN_HOME'), '3rdparty', 'toulbar2-%s' % toulbar_version, arch, osname, execname)
     path = os.path.abspath(path)
