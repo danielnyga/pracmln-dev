@@ -42,7 +42,7 @@ import copy
 import os
 import logging
 from pracmln.mln.util import StopWatch, fstr, mergedom, colorize, stripComments, out,\
-    trace
+    trace, ifNone
 from pracmln.mln.mlnpreds import Predicate, FuzzyPredicate, SoftFunctionalPredicate,\
     FunctionalPredicate
 from pracmln.mln.database import Database
@@ -51,6 +51,7 @@ import sys
 import re
 import traceback
 from pracmln.mln.learning.bpll import BPLL
+from pracmln.utils.project import MLNProject
 
 
 logger = logging.getLogger(__name__)
@@ -323,38 +324,6 @@ class MLN(object):
     def __lshift__(self, input):
         parse_mln(input, '.', logic=None, grammar=None, mln=self)
     
-                
-    def infer(self, method, queries=None, evidence=None, **params):
-        log = logging.getLogger(self.__class__.__name__)
-        self.defaultInferenceMethod = method
-        
-        # apply closed world assumption
-        if params.get('closedWorld', False):
-            queries = filter(lambda x: x != "", map(str.strip, queries.split(",")))
-            cwPreds = set(params.get('cwPreds', []))
-            for p in self.predicates:
-                if p not in queries:
-                    cwPreds.add(p)
-            params['cwPreds'] = cwPreds
-        # self.setClosedWorldPred(*params.get('cwPreds', []))
-        if evidence_db is None:
-            evidence_db = Database(self)
-        materialized_mln = self.materializeFormulaTemplates([evidence_db], verbose=self.verbose)
-        mrf = materialized_mln.groundMRF(evidence_db, simplify=True, groundingMethod='FastConjunctionGrounding', **params)
-        
-        resultDict = mrf.infer(what=queries, given=None, **params)
-        log.debug(resultDict)
-        result_db = Database(self)
-        for atom in sorted(resultDict):
-            value = resultDict[atom]
-            result_db << (atom, value)
-            if value > 0:
-                log.info("%.3f    %s" % (value, atom))
-        if params.get('mergeDBs', True):
-            return result_db.union(None, evidence_db)
-        else:
-            return result_db 
-        
                 
     def materialize(self, *dbs):
         '''
@@ -689,19 +658,19 @@ def parse_mln(text, searchPath='.', logic='FirstOrderLogic', grammar='PRACGramma
                 filename = line[len("#include "):].strip(whitespace + '"')
                 # if the path is relative, look for the respective file 
                 # relatively to all paths specified. Take the first file matching.
-                if not os.path.isabs(filename):
-                    includefilename = None
-                    for d in dirs:
-                        if os.path.exists(os.path.join(d, filename)):
-                            includefilename = os.path.join(d, filename)
-                            break
-                    if includefilename is None:
-                        log.error('No such file: "%s"' % filename)
-                        raise Exception('File not found: %s' % filename)
-                else:
-                    includefilename = filename
-                log.debug('Including file: "%s"' % includefilename)
-                content = stripComments(file(includefilename, "r").read())
+#                 if not os.path.isabs(filename):
+#                     includefilename = None
+#                     for d in dirs:
+#                         if os.path.exists(os.path.join(d, filename)):
+#                             includefilename = os.path.join(d, filename)
+#                             break
+#                     if includefilename is None:
+#                         log.error('No such file: "%s"' % filename)
+#                         raise Exception('File not found: %s' % filename)
+#                 else:
+#                     includefilename = filename
+                log.debug('Including file: "%s"' % filename)
+                content = stripComments(mlnpath(filename).content)
                 lines = content.split("\n") + lines[iLine:]
                 iLine = 0
                 continue
@@ -844,6 +813,88 @@ def parse_mln(text, searchPath='.', logic='FirstOrderLogic', grammar='PRACGramma
 #     mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices
     return mln
 
+
+class mlnpath(object):
+    '''
+    Loads the MLN resource content from a location.
+    
+    A location can be a regular absolute or relative path to an `.mln` file. It may also refer
+    to an MLN inside a `.pracmln` project container. In the latter case, the `.mln` file name
+    needs to be separated from the `.pracmln` project location by a colon. Path specification 
+    may also contain references to system environment variables, which are referred to of the
+    form ``${var}``.  
+    
+    :Example:
+    
+    >>> mlnpath('~/mlns/classification.pracmln:model-1.mln').content
+    ...
+    
+    
+    '''
+    
+    
+    def __init__(self, path):
+        # split the path wrt slashes
+        tokens = path.split('/')
+        self._abspath = path.startswith('/')
+        if ':' in tokens[-1]: 
+            self.project, self.file = tokens[-1].split(':')
+        else:
+            self.project = None
+            self.file = tokens[-1] 
+        self.path = tokens[:-1]
+    
+    
+    def compose(self):
+        p = '/'.join(self.path)
+        if self.project is not None:
+            p += ('/' if p else '') + self.project
+            if self.file is not None:
+                p += ':' + str(self.file)
+        else:
+            p += ifNone(self.file, '', lambda x: '/' + str(x))
+        return p
+        
+    
+    def resolve_path(self):
+        p = os.path.join('/' if self._abspath else '', *self.path)
+        for f in (os.path.expanduser, os.path.expandvars, os.path.normpath):
+            p = f(p)
+        return p
+    
+    
+    @property
+    def content(self):
+        path = self.resolve_path()
+        if self.project is not None:
+            proj = MLNProject.open(os.path.join(path, self.project))
+            fileext = self.file.split('.')[-1]
+            if fileext == 'mln':
+                mln = proj.mlns.get(self.file)
+                if mln is None: raise Exception('Project %s does not contain and MLN named %s' % (self.project, self.file))
+                return mln
+            elif fileext == 'db':
+                db = proj.dbs.get(self.file)
+                if db is None: raise Exception('Project %s does not contain a database named %s' % (self.project, self.file))
+                return db
+            elif fileext == 'conf':
+                conf = {'query.conf': proj.queryconf, 'learn.conf': proj.learnconf}.get(self.file)
+                if conf is None: raise Exception('Project %s does not contain a config file named %s' % (self.project, self.file))
+        else:
+            with open(os.path.join(path, self.file)) as f:
+                return f.read()
+            
+
+    @property
+    def isabs(self):
+        return self._abspath
+
+    def __str__(self):
+        self.compose()
+
+
+    def __repr__(self):
+        return 'mlnpath(%s)' % str(self)
 
 
 
