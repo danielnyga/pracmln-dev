@@ -559,7 +559,6 @@ def parse_db(mln, content, ignore_unknown_preds=False, db=None):
             if gndatom  in db.evidence:
                 raise Exception("Duplicate soft evidence for '%s'" % gndatom)
             positive, predname, constants =   mln.logic.parse_literal(gndatom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
-            out(positive, predname, constants)
             if predname not in mln.prednames:
             # if mln.predicates(predname) is None:
                 if ignore_unknown_preds:
