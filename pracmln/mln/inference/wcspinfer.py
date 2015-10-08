@@ -48,7 +48,7 @@ class WCSPInference(Inference):
     def _run(self):
         result_ = {}
         with temporary_evidence(self.mrf):
-            self.converter = WCSPConverter(self.mrf, multicore=self.multicore)
+            self.converter = WCSPConverter(self.mrf, multicore=self.multicore, verbose=self.verbose)
             result = self.result_dict(verbose=self.verbose)
             for query in self.queries:
                 query = str(query)
@@ -134,7 +134,7 @@ class WCSPConverter(object):
             formulas.append(f.nnf())
         # preprocess the ground formulas
 #         grounder = DefaultGroundingFactory(self.mrf, formulas)
-        grounder = FastConjunctionGrounding(self.mrf, simplify=True, unsatfailure=True, formulas=formulas, multicore=self.multicore)
+        grounder = FastConjunctionGrounding(self.mrf, simplify=True, unsatfailure=True, formulas=formulas, multicore=self.multicore, verbose=self.verbose)
         for gf in grounder.itergroundings():
             if isinstance(gf, Logic.TrueFalse):
                 if gf.weight == HARD and gf.truth() == 0:
