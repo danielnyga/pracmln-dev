@@ -29,7 +29,6 @@ from PIL import ImageTk
 from Tkinter import *
 from Tkinter import _setit
 import Tkinter
-import Image
 from tkFileDialog import askdirectory, askopenfile, askopenfilename, \
     asksaveasfilename
 import os
@@ -269,20 +268,14 @@ class MLNQueryGUI(object):
 
     def __init__(self, master, gconf, directory=None):
         self.master = master
-        icon = Tkinter.Image("photo", file=os.path.join(PRACMLN_HOME, 'doc', '_static', 'favicon.ico'))
-        origimg = Image.open(os.path.join(PRACMLN_HOME, 'doc', '_static', 'pracmln-darkonbright-transp.png'))
-        resizedimg = origimg.resize((86,32), Image.ANTIALIAS)
-        img = ImageTk.PhotoImage(resizedimg)
-        self.master.tk.call('wm', 'iconphoto', self.master._w, icon)
+        # icon = Tkinter.Image("photo", file=os.path.join(PRACMLN_HOME, 'doc', '_static', 'favicon.ico'))
+        # self.master.tk.call('wm', 'iconphoto', self.master._w, icon)
 
         self.initialized = False
 
         self.master.bind('<Return>', self.infer)
         self.master.bind('<Escape>', lambda a: self.master.quit())
         self.master.protocol('WM_DELETE_WINDOW', self.quit)
-
-        # logo = Label(self.master, image=img)
-        # logo.pack(side = "right", anchor='ne')
 
         self.frame = Frame(master)
         self.frame.pack(fill=BOTH, expand=1)
@@ -309,13 +302,6 @@ class MLNQueryGUI(object):
         # save proj file as...
         self.btn_saveproj = Button(project_container, text='Save Project as...', command=self.ask_save_project)
         self.btn_saveproj.grid(row=0, column=4, sticky="WS")
-
-        # pracmln logo TODO: scale?
-        logo = Label(project_container, image=img)
-        logo.image = img # keep reference to img, otherwise logo might not show up
-        logo.grid(row=row, column=5, sticky="E")
-        project_container.columnconfigure(4, weight=2)
-        project_container.rowconfigure(row,weight=1)
 
         # grammar selection
         row += 1
