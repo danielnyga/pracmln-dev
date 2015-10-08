@@ -151,14 +151,14 @@ class BPLL(AbstractLearner):
         '''
         self._stat = {}
         self._varidx2fidx = defaultdict(set)
-        grounder = DefaultGroundingFactory(self.mrf, simplify=False, unsatfailure=True, verbose=False)
+        grounder = DefaultGroundingFactory(self.mrf, simplify=False, unsatfailure=True, verbose=self.verbose)
         for f in grounder.itergroundings():
             for gndatom in f.gndatoms():
                 var = self.mrf.variable(gndatom)
                 with temporary_evidence(self.mrf):
                     for validx, value in var.itervalues():
-                        world = var.setval(value, self.mrf.evidence)
-                        truth = f(world) 
+                        var.setval(value, self.mrf.evidence)
+                        truth = f(self.mrf.evidence) 
                         if truth != 0:
                             self._varidx2fidx[var.idx].add(f.idx)
                             self._addstat(f.idx, var.idx, validx, truth)
