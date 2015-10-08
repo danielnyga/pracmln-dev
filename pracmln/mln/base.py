@@ -588,24 +588,27 @@ class MLN(object):
         # read MLN file
         text = ''
         if files is not None:
-            if not type(files) == list:
+            if not type(files) is list:
                 files = [files]
+            projectpath = None
             for f in files:
                 if isinstance(f, basestring):
-                    text += mlnpath(f).content
+                    p = mlnpath(f)
+                    if p.project is not None: 
+                        projectpath = p.projectloc
+                    text += p.content
                 elif isinstance(f, mlnpath):
                     text += f.content
                 else: raise Exception('Unexpected file specification: %s' % str(f))
             dirs = [os.path.dirname(fn) for fn in files]
-            return parse_mln(text, searchpaths=dirs, logic=logic, grammar=grammar, mln=mln)
+            return parse_mln(text, searchpaths=dirs, projectpath=projectpath, logic=logic, grammar=grammar, mln=mln)
         raise Exception('No mln files given.')
 
 
-def parse_mln(text, searchpaths=['.'], logic='FirstOrderLogic', grammar='PRACGrammar', mln=None):
+def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic', grammar='PRACGrammar', mln=None):
     '''
     Reads an MLN from a stream providing a 'read' method.
     '''
-    log = logging.getLogger(__name__)
     dirs = [os.path.abspath(p) for p in searchpaths]
     formulatemplates = []
     text = str(text)
@@ -648,29 +651,40 @@ def parse_mln(text, searchpaths=['.'], logic='FirstOrderLogic', grammar='PRACGra
                 continue
             elif line.startswith('#fuzzy'):
                 if not isinstance(mln.logic, FuzzyLogic):
-                    log.warning('Fuzzy declarations are not supported in %s. Assuming a binary predicate.' % mln.logic.__class__.__name__)
+                    logger.warning('Fuzzy declarations are not supported in %s. Assuming a binary predicate.' % mln.logic.__class__.__name__)
                 else:
                     fuzzy = True
                 continue
             elif line.startswith("#include"):
-                filename = line[len("#include "):].strip(whitespace + '"')
-                # if the path is relative, look for the respective file 
-                # relatively to all paths specified. Take the first file matching.
-                if not mlnpath(filename).exists:
-                    includefilename = None
-                    for d in dirs:
-                        mlnp = '/'.join([d, filename])
-                        if mlnpath(mlnp).exists:
-                            includefilename = mlnp
-                            break
-                    if includefilename is None:
-                        raise Exception('File not found: %s' % filename)
+                filename = line[len("#include "):].strip()
+                m = re.match(r'"(?P<filename>.+)"', filename)
+                if m is not None:
+                    filename = m.group('filename')
+                    # if the path is relative, look for the respective file 
+                    # relatively to all paths specified. Take the first file matching.
+                    if not mlnpath(filename).exists:
+                        includefilename = None
+                        for d in dirs:
+                            mlnp = '/'.join([d, filename])
+                            if mlnpath(mlnp).exists:
+                                includefilename = mlnp
+                                break
+                        if includefilename is None:
+                            raise Exception('File not found: %s' % filename)
                 else:
-                    includefilename = filename
-                log.debug('Including file: "%s"' % includefilename)
-                content = stripComments(mlnpath(includefilename).content)
-                lines = content.split("\n") + lines[iLine:]
-                iLine = 0
+                    m = re.match(r'<(?P<filename>.+)>', filename)
+                    if m is not None:
+                        filename = m.group('filename')
+                    else:
+                        raise MLNParsingError('Malformed #include statement: %s' % line)
+                    if projectpath is None:
+                        raise MLNParsingError('No project specified: Cannot locate import from project: %s' % filename)
+                    includefilename = ':'.join(projectpath, filename)
+                logger.debug('Including file: "%s"' % includefilename)
+                p = mlnpath(includefilename)
+                parse_mln(text=mlnpath(includefilename).content, searchpaths=[p.resolve_path()]+dirs, 
+                          projectpath=ifNone(p.project, projectpath, lambda x: '/'.join(*(p.path+[x]))), 
+                          logic=logic, grammar=grammar, mln=mln)
                 continue
             elif line.startswith('#unique'):
                 try:
@@ -700,7 +714,7 @@ def parse_mln(text, searchpaths=['.'], logic='FirstOrderLogic', grammar='PRACGra
                     domName = str(domName)
                     constants = map(str, constants)
                     if domName in mln.domains: 
-                        log.debug("Domain redefinition: Domain '%s' is being updated with values %s." % (domName, str(constants)))
+                        logger.debug("Domain redefinition: Domain '%s' is being updated with values %s." % (domName, str(constants)))
                     if domName not in mln.domains:
                         mln.domains[domName] = []
                     mln.constant(domName, *constants)
@@ -882,6 +896,13 @@ class mlnpath(object):
             with open(os.path.join(path, self.file)) as f:
                 return f.read()
             
+
+    @property
+    def projectloc(self):
+        if self.project is None:
+            raise Exception('No project specified in the path.')
+        return os.path.join(self.resolve_path, self.project)
+        
 
     @property
     def exists(self):
