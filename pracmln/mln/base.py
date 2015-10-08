@@ -101,12 +101,7 @@ class MLN(object):
         self._materialized = False
         
         if mlnfile is not None:
-            if isinstance(mlnfile, basestring):
-                f = open(mlnfile, 'r')
-                MLN.load(mlnfile, logic=logic, grammar=grammar, mln=self)
-                f.close()
-            else:
-                MLN.load(mlnfile, logic=logic, grammar=grammar, mln=self)
+            MLN.load(mlnfile, logic=logic, grammar=grammar, mln=self)
             return
         
         self.closedWorldPreds = []
@@ -585,30 +580,33 @@ class MLN(object):
         '''
         Reads an MLN object from a file or a set of files.
         
-        :param files:     one or more file names of .mln files. If multiple file names are given,
+        :param files:     one or more :class:`pracmln.mlnpath` strings. If multiple file names are given,
                           the contents of all files will be concatenated.
         :param logic:     (string) the type of logic to be used. Either `FirstOrderLogic` or `FuzzyLogic`.
         :param grammar:   (string) the syntax to be used for parsing the MLN file. Either `PRACGrammar` or `StandardGrammar`.
         '''
         # read MLN file
-        text = ""
+        text = ''
         if files is not None:
             if not type(files) == list:
                 files = [files]
-            for filename in files:
-                f = file(filename)
-                text += f.read()
-                f.close()
-        dirs = [os.path.dirname(fn) for fn in files]
-        return parse_mln(text, searchPath=dirs[0], logic=logic, grammar=grammar, mln=mln)
+            for f in files:
+                if isinstance(f, basestring):
+                    text += mlnpath(f).content
+                elif isinstance(f, mlnpath):
+                    text += f.content
+                else: raise Exception('Unexpected file specification: %s' % str(f))
+            dirs = [os.path.dirname(fn) for fn in files]
+            return parse_mln(text, searchpaths=dirs, logic=logic, grammar=grammar, mln=mln)
+        raise Exception('No mln files given.')
 
 
-def parse_mln(text, searchPath='.', logic='FirstOrderLogic', grammar='PRACGrammar', mln=None):
+def parse_mln(text, searchpaths=['.'], logic='FirstOrderLogic', grammar='PRACGrammar', mln=None):
     '''
     Reads an MLN from a stream providing a 'read' method.
     '''
     log = logging.getLogger(__name__)
-    dirs = [os.path.abspath(searchPath)]
+    dirs = [os.path.abspath(p) for p in searchpaths]
     formulatemplates = []
     text = str(text)
     if text == "": 
@@ -658,19 +656,19 @@ def parse_mln(text, searchPath='.', logic='FirstOrderLogic', grammar='PRACGramma
                 filename = line[len("#include "):].strip(whitespace + '"')
                 # if the path is relative, look for the respective file 
                 # relatively to all paths specified. Take the first file matching.
-#                 if not os.path.isabs(filename):
-#                     includefilename = None
-#                     for d in dirs:
-#                         if os.path.exists(os.path.join(d, filename)):
-#                             includefilename = os.path.join(d, filename)
-#                             break
-#                     if includefilename is None:
-#                         log.error('No such file: "%s"' % filename)
-#                         raise Exception('File not found: %s' % filename)
-#                 else:
-#                     includefilename = filename
-                log.debug('Including file: "%s"' % filename)
-                content = stripComments(mlnpath(filename).content)
+                if not mlnpath(filename).exists:
+                    includefilename = None
+                    for d in dirs:
+                        mlnp = '/'.join([d, filename])
+                        if mlnpath(mlnp).exists:
+                            includefilename = mlnp
+                            break
+                    if includefilename is None:
+                        raise Exception('File not found: %s' % filename)
+                else:
+                    includefilename = filename
+                log.debug('Including file: "%s"' % includefilename)
+                content = stripComments(mlnpath(includefilename).content)
                 lines = content.split("\n") + lines[iLine:]
                 iLine = 0
                 continue
@@ -884,6 +882,11 @@ class mlnpath(object):
             with open(os.path.join(path, self.file)) as f:
                 return f.read()
             
+
+    @property
+    def exists(self):
+        return os.path.exists(os.path.join(self.resolve_path(), ifNone(self.project, self.file)))
+        
 
     @property
     def isabs(self):
