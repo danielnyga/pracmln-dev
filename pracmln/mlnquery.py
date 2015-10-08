@@ -589,14 +589,7 @@ class MLNQueryGUI(object):
             savechanges = tkMessageBox.askyesnocancel("Save changes", "You have unsaved project changes. Do you want to save them before quitting?")
             if savechanges is None: return
             elif savechanges:
-                fullfilename = asksaveasfilename(initialdir=self.dir, confirmoverwrite=True, filetypes=[('PRACMLN project files', '.pracmln')], defaultextension=".pracmln")
-                if fullfilename:
-                    fpath, fname = ntpath.split(fullfilename)
-                    fname = fname.split('.')[0]
-                    self.project.name = fname
-                    self.update_settings()
-                    self.project.save(dirpath=fpath)
-                    self.write_config()
+                self.save_project(os.path.join(self.dir, self.project.name))
             self.master.destroy()
         else:
             # write gui settings and destroy
