@@ -679,7 +679,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                         raise MLNParsingError('Malformed #include statement: %s' % line)
                     if projectpath is None:
                         raise MLNParsingError('No project specified: Cannot locate import from project: %s' % filename)
-                    includefilename = ':'.join(projectpath, filename)
+                    includefilename = ':'.join([projectpath, filename])
                 logger.debug('Including file: "%s"' % includefilename)
                 p = mlnpath(includefilename)
                 parse_mln(text=mlnpath(includefilename).content, searchpaths=[p.resolve_path()]+dirs, 
