@@ -683,7 +683,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                 logger.debug('Including file: "%s"' % includefilename)
                 p = mlnpath(includefilename)
                 parse_mln(text=mlnpath(includefilename).content, searchpaths=[p.resolve_path()]+dirs, 
-                          projectpath=ifNone(p.project, projectpath, lambda x: '/'.join(*(p.path+[x]))), 
+                          projectpath=ifNone(p.project, projectpath, lambda x: '/'.join(p.path+[x])), 
                           logic=logic, grammar=grammar, mln=mln)
                 continue
             elif line.startswith('#unique'):
