@@ -10,6 +10,7 @@ import imp
 sys.path.append(os.path.join(os.getcwd(), 'pracmln'))
 sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
 sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'pyparsing'))
+sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'tabulate-0.7.4'))
 
 from pracmln.mln.util import colorize
 
@@ -145,7 +146,6 @@ if __name__ == '__main__':
     # write shell script for environment setup
     appsDir = adapt("$PRACMLN_HOME/apps", arch)
     pyparsingDir = adapt("$PRACMLN_HOME/3rdparty/pyparsing", arch)
-    jythonDir = adapt("$PRACMLN_HOME/jython", arch)
     logutilsDir = adapt("$PRACMLN_HOME/3rdparty/logutils-0.3.3", arch)
     tabulateDir = adapt("$PRACMLN_HOME/3rdparty/tabulate-0.7.4", arch)
 
@@ -177,14 +177,17 @@ if __name__ == '__main__':
         print '    source %s' % adapt("$PRACMLN_HOME/env.sh", arch)
         print
     else:
-        f = file("env.bat", "w")
-        f.write("SET PATH=%%PATH%%;%s\r\n" % appsDir)
-        f.write("SET JYTHONPATH=%%JYTHONPATH%%;%s\r\n" % (jythonDir))
-        f.write("SET PROBCOG_HOME=%s\n" % adapt("$PRACMLN_HOME", arch))
-        f.close()
-        print 'To temporarily set up your environment for the current session, type:'
-        print '    env.bat'
-        print
-        print 'To permanently configure your environment, use Windows Control Panel to set the following environment variables:'
-        print '  To the PATH variable add the directory "%s"' % appsDir
-        print 'Should any of these variables not exist, simply create them.'
+		pypath = ';'.join([adapt("$PRACMLN_HOME", arch), logutilsDir, pyparsingDir, tabulateDir])
+		f = file("env.bat", "w")
+		f.write("@ECHO OFF\n")
+		f.write('SETX PATH "%%PATH%%;%s"\r\n' % appsDir)
+		f.write('SETX PRACMLN_HOME "%s"\r\n' % adapt("$PRACMLN_HOME", arch))
+		f.write('SETX PYTHONPATH "%%PYTHONPATH%%;%s"\r\n' % pypath)
+		f.write('SETX PRACMLN_EXPERIMENTS "%s"\r\n' % adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
+		f.close()
+		print 'To temporarily set up your environment for the current session, type:'
+		print '    env.bat'
+		print
+		print 'To permanently configure your environment, use Windows Control Panel to set the following environment variables:'
+		print '  To the PATH variable add the directory "%s"' % appsDir
+		print 'Should any of these variables not exist, simply create them.'
