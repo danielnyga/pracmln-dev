@@ -52,7 +52,7 @@ from pracmln.mln.util import out, ifNone, trace, parse_queries,\
 from pracmln.utils.config import PRACMLNConfig, query_config_pattern, \
     query_mln_filemask, emln_filemask, query_db_filemask, \
     global_config_filename
-from pracmln.mln.base import parse_mln, MLN
+from pracmln.mln.base import parse_mln, MLN, mlnpath
 from pracmln.mln.database import parse_db, Database
 from tabulate import tabulate
 from cProfile import Profile
@@ -68,8 +68,8 @@ ALLOWED_EXTENSIONS = [('PRACMLN project files', '.pracmln'), ('MLN files', '.mln
 DEFAULTNAME = 'unknown{}'
 PRACMLN_HOME = os.getenv('PRACMLN_HOME', os.getcwd())
 DEFAULT_CONFIG = os.path.join(PRACMLN_HOME, global_config_filename)
-WINDOWTITLE = 'PRACMLN Query Tool - {}/{}'
-WINDOWTITLEEDITED = 'PRACMLN Query Tool - {}/*{}'
+WINDOWTITLE = 'PRACMLN Query Tool - {}' + os.path.sep + '{}'
+WINDOWTITLEEDITED = 'PRACMLN Query Tool - {}' + os.path.sep + '*{}'
 
 
 class MLNQuery(object):
@@ -263,15 +263,6 @@ class MLNQuery(object):
             watch.finish()
             watch.printSteps()
         return result
-
-
-def import_file(filename):
-    if os.path.exists(filename):
-        content = file(filename).read()
-        content = content.replace("\r", "")
-    else:
-        content = ""
-    return content
 
 
 class MLNQueryGUI(object):
@@ -705,7 +696,7 @@ class MLNQueryGUI(object):
         filename = askopenfilename(initialdir=self.dir, filetypes=[('MLN files', '.mln')], defaultextension=".mln")
         if filename:
             fpath, fname = ntpath.split(filename)
-            content = import_file(filename)
+            content = mlnpath(filename).content
             self.project.add_mln(fname, content)
             self.update_mln_choices()
             self.selected_mln.set(fname)
@@ -821,7 +812,7 @@ class MLNQueryGUI(object):
         filename = askopenfilename(initialdir=self.dir, filetypes=[('MLN extension files', '.emln')], defaultextension=".emln")
         if filename:
             fpath, fname = ntpath.split(filename)
-            content = import_file(filename)
+            content = mlnpath(filename).content
             self.project.add_emln(fname, content)
             self.update_emln_choices()
             self.selected_emln.set(fname)
@@ -930,7 +921,7 @@ class MLNQueryGUI(object):
         filename = askopenfilename(initialdir=self.dir, filetypes=[('Database files', '.db')], defaultextension=".db")
         if filename:
             fpath, fname = ntpath.split(filename)
-            content = import_file(filename)
+            content = mlnpath(filename).content
             self.project.add_db(fname, content)
             self.update_db_choices()
             self.selected_db.set(fname)
@@ -1114,25 +1105,10 @@ class MLNQueryGUI(object):
             self.output_filename.set(filename)
 
 
-    # returns content of given file, replaces includes by content of the included file
-    def get_file_content(self, fcontent, files):
-        content = ''
-        for l in fcontent:
-            if '#include' in l:
-                includefile = re.sub('#include ([\w,\s-]+\.[A-Za-z])', '\g<1>', l).strip()
-                if includefile in files:
-                    content += '{}\n'.format(self.get_file_content(files[includefile].splitlines(), files))
-                else:
-                    content += '{}\n'.format(l)
-            else:
-                content += '{}\n'.format(l)
-        return content
-
-
     def update_settings(self):
-        mln = self.selected_mln.get().strip()
-        emln = self.selected_emln.get().strip()
-        db = self.selected_db.get().strip()
+        mln = self.selected_mln.get().strip().lstrip('*')
+        emln = self.selected_emln.get().strip().lstrip('*')
+        db = self.selected_db.get().strip().lstrip('*')
         output = self.output_filename.get().strip()
         methodname = self.selected_method.get().strip()
         params = self.params.get().strip()
@@ -1175,8 +1151,8 @@ class MLNQueryGUI(object):
 
 
     def infer(self, savegeometry=True, options={}, *args):
-        mln_content = self.get_file_content(self.mln_editor.get("1.0", END).strip().splitlines(), self.project.mlns)
-        db_content = self.get_file_content(self.db_editor.get("1.0", END).strip().splitlines(), self.project.dbs)
+        mln_content = self.mln_editor.get("1.0", END).encode('utf8').strip()
+        db_content = self.db_editor.get("1.0", END).encode('utf8').strip()
 
         # create conf from current gui settings
         self.update_settings()
@@ -1192,14 +1168,14 @@ class MLNQueryGUI(object):
             print
 
             if options.get('mlnarg') is not None:
-                mlnobj = MLN(mlnfile=os.path.abspath(options.get('mlnarg')))
+                mlnobj = MLN(mlnfile=os.path.abspath(options.get('mlnarg')), logic=self.config.get('logic', 'FirstOrderLogic'), grammar=self.config.get('grammar', 'PRACGrammar'))
             else:
-                mlnobj = parse_mln(mln_content)
+                mlnobj = parse_mln(mln_content, searchpaths=[self.dir], projectpath=os.path.join(self.dir, self.project.name), logic=self.config.get('logic', 'FirstOrderLogic'), grammar=self.config.get('grammar', 'PRACGrammar'))
 
             if options.get('emlnarg') is not None:
-                emln_content = import_file(options.get('emlnarg'))
+                emln_content = mlnpath(options.get('emlnarg')).content
             else:
-                emln_content = self.get_file_content(self.emln_editor.get("1.0", END).strip().splitlines(), self.project.emlns)
+                emln_content = self.emln_editor.get("1.0", END).encode('utf8').strip()
 
             if options.get('dbarg') is not None:
                 dbobj = Database.load(mlnobj, dbfile=options.get('dbarg'), ignore_unknown_preds=True)
