@@ -30,10 +30,11 @@ from pracmln.utils.multicore import with_tracing
 from itertools import imap
 import itertools
 from pracmln.mln.mlnpreds import FunctionalPredicate, SoftFunctionalPredicate
-from pracmln.mln.util import fstr, dict_union, stop, out
+from pracmln.mln.util import fstr, dict_union, stop, out, ProgressBar
 from pracmln.mln.errors import SatisfiabilityException
 from pracmln.mln.constants import HARD, auto
 from collections import defaultdict
+import multiprocessing
 
 logger = logging.getLogger(__name__)
     
@@ -43,6 +44,7 @@ global_fastConjGrounding = None
 
 # multiprocessing function
 def create_formula_groundings(formula):
+#     out(multiprocessing.current_process().name, formula)
     gfs = []
     if global_fastConjGrounding.mrf.mln.logic.islitconj(formula) or global_fastConjGrounding.mrf.mln.logic.isclause(formula):
         for gf in global_fastConjGrounding.itergroundings_fast(formula):
@@ -102,7 +104,8 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             t = 'conj'
         else:
             raise Exception('Unexpected formula: %s' % fstr(formula))
-        children = [formula] if  not hasattr(formula, 'children') else formula.children
+        children = [formula] if not hasattr(formula, 'children') else formula.children
+#         stop(formula)
         # make equality constraints access their variable domains
         # this is a _really_ dirty hack but it does the job ;-)
         variables = formula.vardoms()
@@ -127,8 +130,10 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         if truthpivot == 0 and typ == 'conj':
             if formula.weight == HARD:
                 raise SatisfiabilityException('MLN is unsatisfiable given evidence due to hard constraint violation: %s' % fstr(formula))
+#             out(' ' * (level * 2), 'pruning since', typ, map(str, gndlits), 'is false')
             return
         if truthpivot == 1 and typ == 'disj':
+#             out(' ' * (level * 2), 'pruning since', typ, map(str, gndlits), 'is true')
             return
         if not lits:
             if len(gndlits) == 1:
@@ -140,7 +145,9 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             if isinstance(gf, Logic.TrueFalse): 
                 if gf.weight == HARD and gf.value < 1:
                     raise SatisfiabilityException('MLN is unsatisfiable given evidence due to hard constraint violation: %s' % fstr(formula))
+#                 out(' ' * (level*2), gf, 'is rendered', gf.value)
             else: 
+#                 out(' '*(level*2), 'generated ground', typ, gf)
                 yield gf
             return
         lit = lits[0]
@@ -156,7 +163,9 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             setattr(lit, 'vardoms', types.MethodType(eqvardoms, lit))
 
         for varass in lit.itervargroundings(self.mrf):
+#             stop(' ' * (level * 2), 'grounding', lit, 'with', varass)
             ga = lit.ground(self.mrf, varass)
+#             out(' ' * (level*2), 'which is', ga.truth(self.mrf.evidence), 'by evidence')
             for gf in self._itergroundings_fast(typ, formula, domains, lits[1:], gndlits + [ga], dict_union(assignment, varass), pivot(typ)(truthpivot, ga.truth(self.mrf.evidence)), level+1):
                 yield gf
             
@@ -165,14 +174,22 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         # generate all groundings
         global global_fastConjGrounding
         global_fastConjGrounding = self
+        if self.verbose:
+            bar = ProgressBar(width=100, steps=len(self.formulas), color='green')
         if self.multicore:
             pool = Pool()
+            i = 1
             for gfs in pool.imap(with_tracing(create_formula_groundings), self.formulas):
+                if self.verbose: 
+                    bar.inc()
+                    bar.label(str(i))
+                    i += 1
                 for gf in gfs: yield gf
             pool.terminate()
             pool.join()
         else:
             for gfs in imap(create_formula_groundings, self.formulas):
+                if self.verbose: bar.inc()
                 for gf in gfs: yield gf
 
             
