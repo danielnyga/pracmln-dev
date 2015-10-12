@@ -54,20 +54,20 @@ Contents:
 Credits
 ^^^^^^^
 
-Lead Developer: 
-###############
+Lead Developer
+##############
 
 Daniel Nyga (`nyga@cs.uni-bremen.de <mailto:nyga@cs.uni-bremen.de>`_)
 
-Contributors:
-#############
+Contributors
+############
 
 * Mareike Picklum
 * Thiemo Wiedemeyer
 * Valentine Chiwome
 
-Former Contributors (from ProbCog):
-###################################
+Former Contributors (from ProbCog)
+##################################
 
 * Dominik Jain
 * Stefan Waldherr
@@ -78,8 +78,8 @@ Former Contributors (from ProbCog):
 * Martin Schuster
 * Philipp Meyer
 
-Acknowledgements
-################
+Acknowledgments
+###############
 
 This work is supported in part by the EU FP7 projects `RoboHow <http://www.robohow.org>`_ (grant number 288533) and `ACAT <http://www.acat-project.eu>`_ (grant number
 600578):
@@ -95,6 +95,12 @@ This work is supported in part by the EU FP7 projects `RoboHow <http://www.roboh
     :target: http://ec.europa.eu/research/fp7/index_en.cfm
 
 
+Publications
+^^^^^^^^^^^^
+
+.. bibliography:: refs.bib
+    :list: bullet
+    :all:
 
 
 Indices and tables
