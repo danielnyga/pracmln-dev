@@ -30,12 +30,11 @@ import StringIO
 from Tkinter import *
 from Tkinter import _setit
 import Tkinter
-import Image
 import sys
 import ntpath
 import logging
 import traceback
-from pracmln.mln.base import parse_mln
+from pracmln.mln.base import parse_mln, mlnpath
 from pracmln.utils.project import MLNProject
 from utils.widgets import *
 import tkMessageBox
@@ -63,8 +62,8 @@ EVIDENCE_PREDS = 1
 DEFAULTNAME = 'unknown{}'
 PRACMLN_HOME = os.getenv('PRACMLN_HOME', os.getcwd())
 DEFAULT_CONFIG = os.path.join(PRACMLN_HOME, global_config_filename)
-WINDOWTITLE = 'PRACMLN Learning Tool - {}/{}'
-WINDOWTITLEEDITED = 'PRACMLN Learning Tool - {}/*{}'
+WINDOWTITLE = 'PRACMLN Learning Tool - {}' + os.path.sep + '{}'
+WINDOWTITLEEDITED = 'PRACMLN Learning Tool - {}' + os.path.sep + '*{}'
 
 class MLNLearn(object):
     """
@@ -395,25 +394,13 @@ class MLNLearn(object):
         return mlnlearnt
 
 
-def import_file(filename):
-    if os.path.exists(filename):
-        content = file(filename).read()
-        content = content.replace("\r", "")
-    else:
-        content = ""
-    return content
-
-
 class MLNLearnGUI:
 
 
     def __init__(self, master, gconf, directory=None):
         self.master = master
-        icon = Tkinter.Image("photo", file=os.path.join(PRACMLN_HOME, 'doc', '_static', 'favicon.ico'))
-        origimg = Image.open(os.path.join(PRACMLN_HOME, 'doc', '_static', 'pracmln-darkonbright-transp.png'))
-        resizedimg = origimg.resize((86,32), Image.ANTIALIAS)
-        img = ImageTk.PhotoImage(resizedimg)
-        self.master.tk.call('wm', 'iconphoto', self.master._w, icon)
+        # icon = Tkinter.Image("photo", file=os.path.join(PRACMLN_HOME, 'doc', '_static', 'favicon.ico'))
+        # self.master.tk.call('wm', 'iconphoto', self.master._w, icon)
 
         self.initialized = False
         
@@ -449,12 +436,6 @@ class MLNLearnGUI:
         # save proj file as...
         self.btn_saveproj = Button(project_container, text='Save Project as...', command=self.ask_save_project)
         self.btn_saveproj.grid(row=0, column=4, sticky="WS")
-
-        # pracmln logo TODO: scale?
-        logo = Label(project_container, image=img)
-        logo.image = img # keep reference to img, otherwise logo might not show up
-        logo.grid(row=row, column=5, sticky="E")
-        project_container.columnconfigure(5, weight=2)
 
         # grammar selection
         row += 1
@@ -724,14 +705,7 @@ class MLNLearnGUI:
             savechanges = tkMessageBox.askyesnocancel("Save changes", "You have unsaved project changes. Do you want to save them before quitting?")
             if savechanges is None: return
             elif savechanges:
-                fullfilename = asksaveasfilename(initialdir=self.dir, confirmoverwrite=True, filetypes=[('PRACMLN project files', '.pracmln')], defaultextension=".pracmln")
-                if fullfilename:
-                    fpath, fname = ntpath.split(fullfilename)
-                    fname = fname.split('.')[0]
-                    self.project.name = fname
-                    self.update_settings()
-                    self.project.save(dirpath=fpath)
-                    self.write_config()
+                self.save_project(os.path.join(self.dir, self.project.name))
             self.master.destroy()
         else:
             # write gui settings and destroy
@@ -831,7 +805,7 @@ class MLNLearnGUI:
         filename = askopenfilename(initialdir=self.dir, filetypes=[('MLN files', '.mln')], defaultextension=".mln")
         if filename:
             fpath, fname = ntpath.split(filename)
-            content = import_file(filename)
+            content = mlnpath(filename).content
             self.project.add_mln(fname, content)
             self.update_mln_choices()
             self.selected_mln.set(fname)
@@ -947,7 +921,7 @@ class MLNLearnGUI:
         filename = askopenfilename(initialdir=self.dir, filetypes=[('Database files', '.db')], defaultextension=".db")
         if filename:
             fpath, fname = ntpath.split(filename)
-            content = import_file(filename)
+            content = mlnpath(filename).content
             self.project.add_db(fname, content)
             self.update_db_choices()
             self.selected_db.set(fname)
@@ -1151,21 +1125,6 @@ class MLNLearnGUI:
         self.save.set(ifNone(conf.get('save'), 0))
 
 
-    # returns content of given file, replaces includes by content of the included file
-    def get_file_content(self, fcontent, files):
-        content = ''
-        for l in fcontent:
-            if '#include' in l:
-                includefile = re.sub('#include ([\w,\s-]+\.[A-Za-z])', '\g<1>', l).strip()
-                if includefile in files:
-                    content += '{}\n'.format(self.get_file_content(files[includefile].splitlines(), files))
-                else:
-                    content += '{}\n'.format(l)
-            else:
-                content += '{}\n'.format(l)
-        return content
-
-
     def get_training_db_paths(self, pattern):
         """
         determine training databases(s)
@@ -1199,8 +1158,8 @@ class MLNLearnGUI:
 
 
     def update_settings(self):
-        mln = self.selected_mln.get().strip()
-        db = self.selected_db.get().strip()
+        mln = self.selected_mln.get().strip().lstrip('*')
+        db = self.selected_db.get().strip().lstrip('*')
         output = self.output_filename.get().strip()
         methodname = self.selected_method.get().strip()
         params = self.params.get().strip()
@@ -1247,8 +1206,8 @@ class MLNLearnGUI:
 
 
     def learn(self, savegeometry=True, options={}, *args):
-        mln_content = self.get_file_content(self.mln_editor.get("1.0", END).strip().splitlines(), self.project.mlns)
-        db_content = self.get_file_content(self.db_editor.get("1.0", END).strip().splitlines(), self.project.dbs)
+        mln_content = self.mln_editor.get("1.0", END).encode('utf8').strip()
+        db_content = self.db_editor.get("1.0", END).encode('utf8').strip()
 
         # create conf from current gui settings
         self.update_settings()
@@ -1264,9 +1223,9 @@ class MLNLearnGUI:
             print
 
             if options.get('mlnarg') is not None:
-                mlnobj = MLN(mlnfile=os.path.abspath(options.get('mlnarg')))
+                mlnobj = MLN(mlnfile=os.path.abspath(options.get('mlnarg')), logic=self.config.get('logic', 'FirstOrderLogic'), grammar=self.config.get('grammar', 'PRACGrammar'))
             else:
-                mlnobj = parse_mln(mln_content)
+                mlnobj = parse_mln(mln_content, searchpaths=[self.dir], projectpath=os.path.join(self.dir, self.project.name), logic=self.config.get('logic', 'FirstOrderLogic'), grammar=self.config.get('grammar', 'PRACGrammar'))
 
             if options.get('dbarg') is not None:
                 dbobj = Database.load(mlnobj, dbfile=options.get('dbarg'), ignore_unknown_preds=True)
@@ -1301,9 +1260,10 @@ class MLNLearnGUI:
             elif self.save.get():
                 output = StringIO.StringIO()
                 result.write(output)
-                self.project.add_result(self.output_filename.get(), output.getvalue())
+                self.project.add_mln(self.output_filename.get(), output.getvalue())
+                self.update_mln_choices()
                 self.project.save(dirpath=self.dir)
-                logger.info('saved result to file results/{} in project {}'.format(self.output_filename.get(), self.project.name))
+                logger.info('saved result to file mln/{} in project {}'.format(self.output_filename.get(), self.project.name))
             else:
                 logger.debug('No output file given - results have not been saved.')
 

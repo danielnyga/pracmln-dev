@@ -50,7 +50,7 @@ def toulbar2_path():
         return execname
     # fallback: try to load shipped toulbar2 binary
     if osname == 'Windows': execname += '.exe'
-    path = os.path.join(os.getenv('PRACMLN_HOME'), '3rdparty', 'toulbar2-%s' % toulbar_version, arch, osname, execname)
+    path = os.path.join(os.getenv('PRACMLN_HOME', '.'), '3rdparty', 'toulbar2-%s' % toulbar_version, arch, osname, execname)
     path = os.path.abspath(path)
     return path
 
