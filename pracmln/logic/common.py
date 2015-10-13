@@ -1067,8 +1067,8 @@ class Logic(object):
         
             
         def truth(self, world):
-#             return None
-            raise Exception('Literals do not have a truth value. Ground the literal first.')
+            return None
+#             raise Exception('Literals do not have a truth value. Ground the literal first.')
         
         
         def mintruth(self, world):
@@ -1108,7 +1108,7 @@ class Logic(object):
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 
 
-    class GroundLit(Formula): 
+    class GroundLit(Lit): 
         '''
         Represents a ground literal.
         '''
