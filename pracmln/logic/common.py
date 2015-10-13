@@ -328,16 +328,18 @@ class Logic(object):
             raise Exception("%s does not implement _ground_template" % str(type(self)))
     
     
-        def itervargroundings(self, mrf):
+        def itervargroundings(self, mrf, partial=None):
             '''
             Yields dictionaries mapping variable names to values
             this formula may be grounded with without grounding it. If there are not free
             variables in the formula, returns an empty dict.
             '''
-            try:
-                variables = self.vardoms()
-            except Exception, e:
-                raise Exception("Error finding variable assignments '%s': %s" % (str(self), str(e)))
+#             try:
+            variables = self.vardoms()
+            if partial is not None: 
+                for v in [p for p in partial if p in variables]: del variables[v]
+#             except Exception, e:
+#                 raise Exception("Error finding variable assignments '%s': %s" % (str(self), str(e)))
             for assignment in self._itervargroundings(mrf, variables, {}):
                 yield assignment
                 
@@ -1065,6 +1067,7 @@ class Logic(object):
         
             
         def truth(self, world):
+#             return None
             raise Exception('Literals do not have a truth value. Ground the literal first.')
         
         
@@ -1088,17 +1091,9 @@ class Logic(object):
             return constants
         
         
-#         def simplify(self, world):
-#             if any(map(self.mln.logic.isvar, self.args)):
-#                 return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
-#             s = "%s(%s)" % (self.predname, ",".join(self.args))
-#             truth = mrf.gndatom(s).truth(evidence)
-#             if truth is None:
-#                 return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
-#             else:
-#                 if self.negated: truth = 1 - truth
-#                 return self.mln.logic.true_false(truth, mln=self.mln, idx=self.idx)
-#             
+        def simplify(self, world):
+            return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
+
             
         def __eq__(self, other):
             return str(self) == str(other)
