@@ -9,12 +9,10 @@ import imp
 
 sys.path.append(os.path.join(os.getcwd(), 'pracmln'))
 sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
-sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'pyparsing'))
-sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'tabulate-0.7.4'))
 
 from pracmln.mln.util import colorize
 
-packages = [('numpy', 'numpy'), ('Pmw', 'pmw')]
+packages = [('numpy', 'numpy'), ('tabulate', 'tabulate'), ('pyparsing', 'pyparsing')]
 
 def check_package(pkg):
     try:
@@ -24,14 +22,13 @@ def check_package(pkg):
         print
     except ImportError: 
         print
-        print colorize('%s was not found. Please install by "sudo apt-get install python-%s"' % (pkg[0], pkg[1]), (None, 'yellow', True), True)
+        print colorize('%s was not found. Please install by "sudo pip install %s"' % (pkg[0], pkg[1]), (None, 'yellow', True), True)
     
 # check the package dependecies
 for pkg in packages:
     check_package(pkg)
     
 python_apps = [
-    {"name": "webmln", "script": "$PRACMLN_HOME/webmln/run.py"},
     {"name": "mlnquery", "script": "$PRACMLN_HOME/pracmln/mlnquery.py"},
     {"name": "mlnlearn", "script": "$PRACMLN_HOME/pracmln/mlnlearn.py"},
     {"name": "xval", "script": "$PRACMLN_HOME/pracmln/xval.py"},
@@ -79,12 +76,21 @@ def buildLibpracmln():
 
     return envSetup.format(installPath)
 
+def build_webmln():
+    # build qooxdoo
+    generate = adapt("$PRACMLN_HOME/webmln/gui/generate.py", arch)
+    os.system(generate + ' source-all')
+    os.system(generate + ' build')
+
+    python_apps.append({"name": "webmln", "script": "$PRACMLN_HOME/webmln/run.py"})
+
+
 if __name__ == '__main__':
 
     archs = ["win32", "linux_amd64", "linux_i386", "macosx", "macosx64"]
         
     print "PRACMLNs Apps Generator\n\n"
-    print "  usage: make_apps [--arch=%s] [--cppbindings]\n" % "|".join(archs)
+    print "  usage: make_apps [--arch=%s] [--cppbindings] [--webmln]\n" % "|".join(archs)
     print
     print
 
@@ -110,9 +116,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     buildlib = False
-    if len(args) > 0 and args[0] == "--cppbindings":
+    if "--cppbindings" in args:
         buildlib = True;
-        args = args[1:]
+#         args = args[1:]
 
     print 'Removing old app folder...'
     shutil.rmtree('apps', ignore_errors=True)
@@ -135,11 +141,9 @@ if __name__ == '__main__':
         f.write("python -O \"%s\" %s\n" % (adapt(app["script"], arch), allargs))
         f.close()
         if not isWindows: os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
-
-    # build qooxdoo
-    generate = adapt("$PRACMLN_HOME/webmln/gui/generate.py", arch)
-    os.system(generate + ' source-all')
-    os.system(generate + ' build')
+    
+    if '--webmln' in args:
+        build_webmln()
 
     print
 
@@ -147,7 +151,6 @@ if __name__ == '__main__':
     appsDir = adapt("$PRACMLN_HOME/apps", arch)
     pyparsingDir = adapt("$PRACMLN_HOME/3rdparty/pyparsing", arch)
     logutilsDir = adapt("$PRACMLN_HOME/3rdparty/logutils-0.3.3", arch)
-    tabulateDir = adapt("$PRACMLN_HOME/3rdparty/tabulate-0.7.4", arch)
 
     # make the experiments dir
     if not os.path.exists('experiments'):
@@ -163,7 +166,6 @@ if __name__ == '__main__':
         f.write("export PATH=$PATH:%s\n" % appsDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % logutilsDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % pyparsingDir)
-        f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % tabulateDir)
         f.write("export PRACMLN_HOME=%s\n" % adapt("$PRACMLN_HOME", arch))
         f.write("export PYTHONPATH=$PRACMLN_HOME:$PYTHONPATH\n")
         f.write("export PRACMLN_EXPERIMENTS=%s\n" % adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
@@ -177,17 +179,17 @@ if __name__ == '__main__':
         print '    source %s' % adapt("$PRACMLN_HOME/env.sh", arch)
         print
     else:
-		pypath = ';'.join([adapt("$PRACMLN_HOME", arch), logutilsDir, pyparsingDir, tabulateDir])
-		f = file("env.bat", "w")
-		f.write("@ECHO OFF\n")
-		f.write('SETX PATH "%%PATH%%;%s"\r\n' % appsDir)
-		f.write('SETX PRACMLN_HOME "%s"\r\n' % adapt("$PRACMLN_HOME", arch))
-		f.write('SETX PYTHONPATH "%%PYTHONPATH%%;%s"\r\n' % pypath)
-		f.write('SETX PRACMLN_EXPERIMENTS "%s"\r\n' % adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
-		f.close()
-		print 'To temporarily set up your environment for the current session, type:'
-		print '    env.bat'
-		print
-		print 'To permanently configure your environment, use Windows Control Panel to set the following environment variables:'
-		print '  To the PATH variable add the directory "%s"' % appsDir
-		print 'Should any of these variables not exist, simply create them.'
+        pypath = ';'.join([adapt("$PRACMLN_HOME", arch), logutilsDir, pyparsingDir])
+        f = file("env.bat", "w")
+        f.write("@ECHO OFF\n")
+        f.write('SETX PATH "%%PATH%%;%s"\r\n' % appsDir)
+        f.write('SETX PRACMLN_HOME "%s"\r\n' % adapt("$PRACMLN_HOME", arch))
+        f.write('SETX PYTHONPATH "%%PYTHONPATH%%;%s"\r\n' % pypath)
+        f.write('SETX PRACMLN_EXPERIMENTS "%s"\r\n' % adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
+        f.close()
+        print 'To temporarily set up your environment for the current session, type:'
+        print '    env.bat'
+        print
+        print 'To permanently configure your environment, use Windows Control Panel to set the following environment variables:'
+        print '  To the PATH variable add the directory "%s"' % appsDir
+        print 'Should any of these variables not exist, simply create them.'
