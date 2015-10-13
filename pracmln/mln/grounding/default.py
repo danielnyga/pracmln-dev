@@ -24,7 +24,7 @@
 from common import AbstractGroundingFactory
 import logging
 from pracmln.mln.util import fstr, dict_union, StopWatch, ProgressBar, out,\
-    ifNone
+    ifNone, stop
 from pracmln.mln.constants import auto, HARD
 from pracmln.mln.errors import SatisfiabilityException
 
@@ -137,48 +137,55 @@ class EqualityConstraintGrounder(object):
     Grounding factory for equality constraints only.
     '''
     
-    def __init__(self, mln, domains, *eq_constraints):
+    def __init__(self, mrf, domains, mode, eq_constraints):
         '''
         Initialize the equality constraint grounder with the given MLN
         and formula. A formula is required that contains all variables
         in the equalities in order to infer the respective domain names.
+        
+        :param mode: either ``alltrue`` or ``allfalse``
         '''
         self.constraints = eq_constraints
-        self.vardomains = domains
-        self.mln = mln
+        self.mrf = mrf
+        self.truth = {'alltrue': 1, 'allfalse': 0}[mode]
+        self.mode = mode
+        eqvars = [c for eq in eq_constraints for c in eq.args if self.mrf.mln.logic.isvar(c)]
+        self.vardomains = dict([(v, d) for v, d in domains.iteritems() if v in eqvars]) 
     
-    def iter_true_variable_assignments(self):
+    def iter_valid_variable_assignments(self):
         '''
         Yields all variable assignments for which all equality constraints
         evaluate to true.
         '''
-        for a in self._iter_true_variable_assignments(self.vardomains.keys(), {}, self.constraints):
-            yield a
+        return self._iter_valid_variable_assignments(self.vardomains.keys(), {}, self.constraints)
+
     
-    def _iter_true_variable_assignments(self, variables, assignments, eq_groundings):
+    def _iter_valid_variable_assignments(self, variables, assignments, eq_groundings):
         if not variables: 
             yield assignments
             return
+        eq_groundings = [eq for eq in eq_groundings if not all([not self.mrf.mln.logic.isvar(a) for a in eq.args])]
         variable = variables[0]
-        for value in self.mln.domains[self.vardomains[variable]]:
+        for value in self.mrf.domains[self.vardomains[variable]]:
             new_eq_groundings = []
-            continue_ = True
+            goon = True
             for eq in eq_groundings:
-                geq = eq.ground(None, {variable: value}, allowPartialGroundings=True)
-                if geq.isTrue(None) == 0:
-                    continue_ = False
+                geq = eq.ground(None, {variable: value}, partial=True)
+                t = geq(None)
+                if t is not None and t != self.truth:
+                    goon = False
                     break
                 new_eq_groundings.append(geq)
-            if not continue_: continue
-            for assignment in self._iter_true_variable_assignments(variables[1:], dict_union(assignments, {variable: value}), new_eq_groundings):
+            if not goon: continue
+            for assignment in self._iter_valid_variable_assignments(variables[1:], dict_union(assignments, {variable: value}), new_eq_groundings):
                 yield assignment
     
     @staticmethod
-    def getVarDomainsFromFormula(mln, formula, *varnames):
+    def vardoms_from_formula(mln, formula, *varnames):
         if isinstance(formula, basestring):
-            formula = mln.logic.parseFormula(formula)
+            formula = mln.logic.parse_formula(formula)
         vardomains = {}
-        f_vardomains = formula.getVariables(mln)
+        f_vardomains = formula.vardoms(mln)
         for var in varnames:
             if var not in f_vardomains:
                 raise Exception('Variable %s not bound to a domain by formula %s' % (var, fstr(formula)))
