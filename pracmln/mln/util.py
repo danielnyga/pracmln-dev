@@ -32,6 +32,7 @@ import os
 import traceback
 from pracmln.praclog.logformat import RainbowLoggingHandler
 from collections import defaultdict
+import random
 
 # math functions
 
@@ -130,6 +131,22 @@ def logx(x):
     if x == 0:
         return - 100
     return math.log(x) #used for weights -> no high precision (mpmath) necessary
+
+
+def batches(i, size):
+    batch = []
+    for e in i:
+        batch.append(e)
+        if len(batch) == size: 
+            yield batch
+            batch = []
+    if batch: yield batch
+    
+
+def rndbatches(i, size):
+    i = list(i)
+    random.shuffle(i)
+    return batches(i, size)
 
 
 def stripComments(text):
