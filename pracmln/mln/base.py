@@ -671,6 +671,8 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                                 break
                         if includefilename is None:
                             raise Exception('File not found: %s' % filename)
+                    else:
+                        includefilename = filename
                 else:
                     m = re.match(r'<(?P<filename>.+)>', filename)
                     if m is not None:
