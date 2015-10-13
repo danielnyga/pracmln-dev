@@ -1228,7 +1228,7 @@ class MLNLearnGUI:
                 mlnobj = parse_mln(mln_content, searchpaths=[self.dir], projectpath=os.path.join(self.dir, self.project.name), logic=self.config.get('logic', 'FirstOrderLogic'), grammar=self.config.get('grammar', 'PRACGrammar'))
 
             if options.get('dbarg') is not None:
-                dbobj = Database.load(mlnobj, dbfile=options.get('dbarg'), ignore_unknown_preds=True)
+                dbobj = Database.load(mlnobj, dbfile=options.get('dbarg'), ignore_unknown_preds=self.config.get('ignore_unknown_preds', True))
             else:
                 if self.config.get('pattern'):
                     local, dblist = self.get_training_db_paths(self.config.get('pattern').strip())
@@ -1236,12 +1236,12 @@ class MLNLearnGUI:
                     # build database list from project dbs
                     if local:
                         for dbname in dblist:
-                            dbobj.extend(parse_db(mlnobj, self.project.dbs[dbname].strip()))
+                            dbobj.extend(parse_db(mlnobj, self.project.dbs[dbname].strip(), ignore_unknown_preds=self.config.get('ignore_unknown_preds', True)))
                         out(dbobj)
                     # build database list from filesystem dbs
                     else:
                         for dbpath in dblist:
-                            dbobj.extend(Database.load(mlnobj, dbpath, self.ignore_unknown_preds))
+                            dbobj.extend(Database.load(mlnobj, dbpath, ignore_unknown_preds=self.config.get('ignore_unknown_preds', True)))
                 # build single db from currently selected db
                 else:
                     dbobj = parse_db(mlnobj, db_content)
