@@ -34,6 +34,7 @@ from pracmln.mln.constants import infty, HARD
 from pracmln.mln.grounding.fastconj import FastConjunctionGrounding
 from pracmln.mln.grounding.default import DefaultGroundingFactory
 from pracmln.mln.errors import SatisfiabilityException, MRFValueException
+import time
 
 
 logger = logging.getLogger(__name__)
@@ -128,12 +129,12 @@ class WCSPConverter(object):
         for f in self.mrf.formulas:
             if f.weight == 0: 
                 continue
-            if f.weight < 0 and f.weight != HARD:
+            if f.weight < 0:
                 f = logic.negate(f)
                 f.weight = -f.weight
             formulas.append(f.nnf())
         # preprocess the ground formulas
-#         grounder = DefaultGroundingFactory(self.mrf, formulas)
+#         grounder = DefaultGroundingFactory(self.mrf, formulas=formulas, simplify=True, unsatfailure=True, multicore=self.multicore, verbose=self.verbose)
         grounder = FastConjunctionGrounding(self.mrf, simplify=True, unsatfailure=True, formulas=formulas, multicore=self.multicore, verbose=self.verbose)
         for gf in grounder.itergroundings():
             if isinstance(gf, Logic.TrueFalse):
@@ -142,6 +143,7 @@ class WCSPConverter(object):
                 else:# formula is rendered true/false by the evidence -> equal in every possible world 
                     continue
             self.generate_constraint(gf)
+        logger.warning('finished grounding')
         self.mrf.mln.weights = self._weights
         return self.wcsp
 
@@ -175,7 +177,7 @@ class WCSPConverter(object):
         '''
         logic = self.mrf.mln.logic
         # we can treat conjunctions and disjunctions fairly efficiently
-        defaultProcedure = True
+        defaultProcedure = False
         conj = logic.islitconj(formula)
         disj = False
         if not conj:
@@ -207,7 +209,7 @@ class WCSPConverter(object):
                     varidx = self.atom2var[gndatom.idx] 
                     validx = self.val2idx[varidx][value]
                 # if there are two different values needed to render the formula true...
-                out(formula)
+#                 out(formula)
                 if assignment[varindices.index(varidx)] is not None and assignment[varindices.index(varidx)] != value:
                     if formula.weight == HARD:
                         if conj: # ...if it's a hard conjunction, the MLN is unsatisfiable -- e.g. foo(x) ^ !foo(x) 
