@@ -254,7 +254,7 @@ class Logic(object):
             Returns a list of all atomic logical constituents, optionally filtered
             by type. 
             
-            Example: f.getAtomicConstituents(Logic.Equality)
+            Example: f.atomic_constituents(oftype=Logic.Equality)
             
             returns a list of all equality constraints in this formula.
             '''
