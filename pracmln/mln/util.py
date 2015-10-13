@@ -334,6 +334,10 @@ def fstr(f):
     return s
 
 
+def cumsum(i, upto=None):
+    return 0 if (not i or upto == 0) else reduce(int.__add__, i[:ifNone(upto, len(i))])
+
+
 def evidence2conjunction(evidence):
     '''
     Converts the evidence obtained from a database (dict mapping ground atom names to truth values) to a conjunction (string)
@@ -396,10 +400,10 @@ class ProgressBar():
             sys.stdout.flush()
             
     
-    def inc(self):
+    def inc(self, steps=1):
         if self.steps is None:
             raise Exception('Cannot call inc() on a real-valued progress bar.')
-        self.step += 1
+        self.step += steps
         self.value = float(self.step) / self.steps
         self.update(self.value)
         
@@ -645,7 +649,11 @@ class temporary_evidence():
     
 if __name__ == '__main__':
     
-    out()
+    l = [1,2,3]
+    upto = 2
+    out(ifNone(upto, len(l)))
+    out(l[:ifNone(upto, len(l))])
+    out(cumsum(l,1))
     
 #     d = edict({1:2,2:3,'hi':'world'})
 #     print d
