@@ -1,10 +1,8 @@
-import os
 import json
 import logging
 import traceback
 import subprocess
 from StringIO import StringIO
-from fnmatch import fnmatch
 from flask import request, session, jsonify
 import sys
 from pracmln.mln.base import parse_mln
@@ -12,6 +10,7 @@ from pracmln.mln.database import parse_db
 from pracmln.mln.methods import InferenceMethods
 from pracmln.mln.util import parse_queries, out
 from pracmln.praclog import logger
+from pracmln.utils import config
 from pracmln.utils.config import query_config_pattern, PRACMLNConfig
 from utils import ensure_mln_session, GUI_SETTINGS, change_example, \
     get_cond_prob_png
@@ -61,27 +60,31 @@ def start_inference():
     mln_content = data['mln_text'].encode('utf8')
     db_content = data['db_text'].encode('utf8')
     emln_content = data['emln_text'].encode('utf8')
+    output = config.query_output_filename(data['mln'].encode('utf8'), InferenceMethods.id(data['method'].encode('utf8')), data['db'].encode('utf8'))
+    mln_name = data['mln'].encode('utf8')
+    db_name = data['db'].encode('utf8')
+    emln_name = data['emln'].encode('utf8')
 
     # update settings
-    inferconfig = PRACMLNConfig(os.path.join(mlnsession.xmplFolder, query_config_pattern % data['mln'].encode('utf8')))
-    inferconfig.update(mlnsession.inferconfig.config)
+    inferconfig = PRACMLNConfig()
+    inferconfig.update(mlnsession.projectinf.queryconf.config)
     inferconfig.update(
         dict(mln_rename=data['mln_rename_on_edit'],
-             db=data['db'].encode('utf8'), db_rename=data['db_rename_on_edit'],
+             db=db_name, db_rename=data['db_rename_on_edit'],
              method=data['method'].encode('utf8'),
              params=data['params'].encode('utf8'),
              queries=data['query'].encode('utf8'),
-             mln=data['mln'].encode('utf8'), emln=data['emln'].encode('utf8'),
-             output_filename="",
+             mln=mln_name, emln=emln_name,
+             output_filename=output,
              cw=data['closed_world'], cw_preds=data['cw_preds'],
              use_emln=data['use_emln'], logic=data['logic'].encode('utf8'),
              grammar=data['grammar'].encode('utf8'),
-             multicore=data['use_multicpu'], save=False,
+             multicore=data['multicore'], save=True,
              ignore_unknown_preds=data['ignore_unknown_preds'],
              verbose=data['verbose']))
 
     # store settings in session
-    mlnsession.inferconfig = inferconfig
+    mlnsession.projectinf.learnconf.conf = inferconfig.config.copy()
 
     barchartresults = []
     graphres = []
@@ -91,13 +94,13 @@ def start_inference():
         # expand the parameters
         tmpconfig = inferconfig.config.copy()
         if 'params' in tmpconfig:
-            params = eval("dict(%s)" % inferconfig['params'])
+            params = eval("dict(%s)" % inferconfig.get('params', ''))
             del tmpconfig['params']
             tmpconfig.update(params)
 
         # create the MLN and evidence database and the parse the queries
-        modelstr = mln_content + (emln_content if tmpconfig['use_emln'] not in (None, '') and emln_content != '' else '')
-        mln = parse_mln(modelstr, searchPath=mlnsession.xmplFolder, logic=tmpconfig['logic'], grammar=tmpconfig['grammar'])
+        modelstr = mln_content + (emln_content if tmpconfig.get('use_emln', False) and emln_content != '' else '')
+        mln = parse_mln(modelstr, searchpaths=[mlnsession.tmpsessionfolder], projectpath=mlnsession.tmpsessionfolder, logic=tmpconfig.get('logic', 'FirstOrderLogic'), grammar=tmpconfig.get('grammar', 'PRACGrammar'))
         db = parse_db(mln, db_content, ignore_unknown_preds=tmpconfig.get('ignore_unknown_preds', False))
 
         if type(db) is list and len(db) > 1:
@@ -106,10 +109,9 @@ def start_inference():
             db = db[0]
 
         # parse non-atomic params
-        queries = parse_queries(mln, str(tmpconfig['queries']))
-        cw_preds = filter(lambda x: x != "", map(str.strip, str(
-            tmpconfig["cw_preds"].split(",")))) if 'cw_preds' in tmpconfig else []
-        if tmpconfig['cw']:
+        queries = parse_queries(mln, str(tmpconfig.get('queries', '')))
+        cw_preds = filter(lambda x: x != '', map(str.strip, str(tmpconfig.get('cw_preds', '').split(","))))
+        if tmpconfig.get('cw', False):
             cw_preds = [p.name for p in mln.predicates if p.name not in queries]
 
         # extract and remove all non-algorithm
@@ -120,11 +122,13 @@ def start_inference():
         try:
             mln_ = mln.materialize(db)
             mrf = mln_.ground(db, cwpreds=cw_preds)
+
             if inferconfig.get('verbose', False):
                 streamlog.info('EVIDENCE VARIABLES')
                 mrf.print_evidence_vars(stream)
+
             inference = InferenceMethods.clazz(method)(mrf, queries, **tmpconfig)
-            inference.run()
+            result = inference.run()
 
             if inferconfig.get('verbose', False):
                 streamlog.info('INFERENCE RESULTS')
@@ -134,6 +138,18 @@ def start_inference():
             barchartresults =  [{"name":x, "value":inference.results[x]} for x in inference.results]
 
             png, ratio = get_cond_prob_png(queries, db)
+
+            # save settings to project
+            if inferconfig.get('save', False):
+                output = StringIO()
+                result.write(output)
+                fname = inferconfig.get('output_filename', 'inference.result')
+                mlnsession.projectinf.add_result(fname, output.getvalue())
+                mlnsession.projectinf.mlns[mln_name] = mln_content
+                mlnsession.projectinf.emlns[mln_name] = emln_content
+                mlnsession.projectinf.dbs[db_name] = db_content
+                mlnsession.projectinf.save(dirpath=mlnsession.tmpsessionfolder)
+                streamlog.info('saved result to file results/{} in project {}'.format(fname, mlnsession.projectinf.name))
 
         except SystemExit:
             streamlog.error('Cancelled...')
@@ -152,18 +168,9 @@ def start_inference():
 def get_emln():
     log.info('_use_model_ext')
     mln_session = mlnApp.session_store[session]
-    emlnfiles = []
-    log.info(mln_session.tmpsessionfolder)
-    if os.path.exists(mln_session.tmpsessionfolder):
-        for filename in os.listdir(mln_session.tmpsessionfolder):
-            if fnmatch(filename, '*.emln'):
-                log.info(filename)
-                emlnfiles.append(filename)
-
+    emlnfiles = mln_session.projectinf.emlns.keys()
     emlnfiles.sort()
 
-    if len(emlnfiles) == 0:
-        emlnfiles.append("(no %s files found)" % str('*.emln'))
     return jsonify({"emlnfiles": emlnfiles})
 
 

@@ -3,10 +3,11 @@ import logging
 import os
 import shutil
 from geoip import geolite2
+from pracmln.mln import mlnpath
 from pracmln.mln.methods import InferenceMethods, LearningMethods
+from pracmln.mln.util import out, stop
 from pracmln.praclog import logger
-from utils import get_file_content, ensure_mln_session, get_example_files, \
-    load_configurations, convert
+from utils import ensure_mln_session, convert
 from urlparse import urlparse
 from flask import render_template, send_from_directory, request, session, jsonify, \
     url_for
@@ -163,14 +164,12 @@ def load_filecontent():
     mlnsession = ensure_mln_session(session)
     data = json.loads(request.get_data())
     filename = data['filename']
+    proj = data.get('project', True)
     text = ''
 
-    if os.path.exists(os.path.join(mlnsession.xmplFolder, filename)):
-        text = get_file_content(mlnsession.xmplFolder, filename)
-    elif os.path.exists(os.path.join(mlnsession.xmplFolderLearning, filename)):
-        text = get_file_content(mlnsession.xmplFolderLearning, filename)
-    elif os.path.exists(os.path.join(mlnsession.tmpsessionfolder, filename)):
-        text = get_file_content(mlnsession.tmpsessionfolder, filename)
+    path = '{}:{}'.format(os.path.join(mlnsession.tmpsessionfolder, proj), filename)
+    if mlnpath(path).exists:
+        text = mlnpath(path).content
 
     return jsonify({'text': text})
 
@@ -203,27 +202,25 @@ def save_edited_file():
 
     return jsonify({'fname': name})
 
+
 @mlnApp.app.route('/mln/_init', methods=['GET'])
 def init_options():
     mlnsession = ensure_mln_session(session)
 
-    load_configurations()
+    mlnfiles = mlnsession.projectinf.mlns.keys()
+    dbfiles = mlnsession.projectinf.dbs.keys()
 
-    mlnfiles, dbfiles = get_example_files(mlnsession.xmplFolder)
+    examples = [y for y in os.listdir(mlnsession.tmpsessionfolder) if os.path.isfile(os.path.join(mlnsession.tmpsessionfolder, y)) and y.endswith('.pracmln')]
 
-    dirs = [x for x in os.listdir(mlnApp.app.config['EXAMPLES_FOLDER']) if
-            os.path.isdir(
-                os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], x))]
+    inferconfig = mlnsession.projectinf.queryconf.config.copy()
+    inferconfig.update({"method": InferenceMethods.name(mlnsession.projectinf.queryconf['method'])})
 
-    inferconfig = mlnsession.inferconfig.config.copy()
-    inferconfig.update({"method": InferenceMethods.name(mlnsession.inferconfig.config['method'])})
-
-    lrnconfig = mlnsession.learnconfig.config.copy()
-    lrnconfig.update({"method": LearningMethods.name(mlnsession.learnconfig.config['method'])})
+    lrnconfig = mlnsession.projectlearn.learnconf.config.copy()
+    lrnconfig.update({"method": LearningMethods.name(mlnsession.projectlearn.learnconf['method'])})
 
     resinference = {'methods': sorted(InferenceMethods.names()),
            'config': inferconfig}
     reslearn = {'methods': sorted(LearningMethods.names()),
            'config': lrnconfig}
 
-    return jsonify({"inference": resinference, "learning": reslearn, "mlnfiles": mlnfiles, "dbfiles": dbfiles, "examples": dirs})
+    return jsonify({"inference": resinference, "learning": reslearn, "mlnfiles": mlnfiles, "dbfiles": dbfiles, "examples": examples})
