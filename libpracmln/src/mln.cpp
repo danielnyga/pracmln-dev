@@ -2,19 +2,20 @@
 #include <Python.h>
 
 #include <pracmln/mln.h>
+#include <iostream>
 
 /*******************************************************************************
  * Defines
  ******************************************************************************/
 
-#define MODULE_MLN      "mln"
-#define MODULE_METHODS  "mln.methods"
-#define MODULE_DATABASE "mln.database"
+#define MODULE_MLN      "pracmln.mln"
+#define MODULE_METHODS  "pracmln.mln.methods"
+#define MODULE_DATABASE "pracmln.mln.database"
 
-#define NAME_CW_PREDS   "cwPreds"
-#define NAME_MAX_STEPS  "maxSteps"
-#define NAME_NUM_CHAINS "numChains"
-#define NAME_MULTI_CPU  "useMultiCPU"
+#define NAME_CW_PREDS   "cw_preds"
+#define NAME_MAX_STEPS  "maxsteps"
+#define NAME_NUM_CHAINS "chains"
+#define NAME_MULTI_CPU  "multicore"
 #define NAME_VERBOSE    "verbose"
 #define NAME_MERGE_DBS  "mergeDBs"
 
@@ -121,7 +122,7 @@ bool MLN::initialize()
     internal->module_database = python::import(MODULE_DATABASE);
     internal->dict_database = python::extract<python::dict>(internal->module_database.attr("__dict__"));
 
-    this->methods = listToVector<std::string>(python::extract<python::list>(internal->dict_methods["InferenceMethods"].attr("getNames")()));
+    this->methods = listToVector<std::string>(python::extract<python::list>(internal->dict_methods["InferenceMethods"].attr("ids")()));
 
     initialized = true;
     setMethod(this->methods[2]);
@@ -170,7 +171,7 @@ bool MLN::setMethod(const std::string &method)
   {
     if(oldValue != this->method)
     {
-      internal->method = internal->dict_methods["InferenceMethods"].attr("byName")(this->methods[this->method]);
+      internal->method = internal->dict_methods["InferenceMethods"].attr("clazz")(this->methods[this->method]);
     }
     return true;
   }
@@ -390,7 +391,7 @@ bool MLN::init()
   {
     if(updateMLN)
     {
-      internal->mln = internal->dict_mln["readMLNFromFile"](mln, logics[logic], grammars[grammar]);
+      internal->mln = internal->dict_mln["MLN.load"](mln, logics[logic], grammars[grammar]);
     }
 
     if(updateDB)
@@ -398,11 +399,11 @@ bool MLN::init()
       python::list dbs;
       if(dbIsFile)
       {
-        dbs = python::extract<python::list>(internal->dict_database["readDBFromFile"](internal->mln, db));
+        dbs = python::extract<python::list>(internal->dict_database["Database.load"](internal->mln, db));
       }
       else
       {
-        dbs = python::extract<python::list>(internal->dict_database["readDBFromString"](internal->mln, db));
+        dbs = python::extract<python::list>(internal->dict_database["parse_db"](internal->mln, db));
       }
       internal->db = dbs[0];
     }

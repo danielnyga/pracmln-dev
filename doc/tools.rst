@@ -70,7 +70,32 @@ beginning, the tools list the main input parameters for your
 convenience, and, once the task is completed, the query tool 
 additionally outputs the inference results to the console (so even 
 if you are using the Alchemy system, there is not really a need to 
-open the results file that is generated). Configuration
+open the results file that is generated).
+
+MLN Project Paths
+~~~~~~~~~~~~~~~~~
+
+Files located in a `.pracmln` project can be accessed my means  of
+the :class:`pracmln.mln.mlnpath` class. An `MLN Path` has the following form: ::
+
+  <path-to-project>:<file-in-project>
+  
+where ``<path-to-project>`` is a regular relative or absolute file path
+to a `.pracmln` project file and ``<file-in-project>`` is the name
+of the file in the project. For example, consider that there is a 
+project file ``my-project.pracmln`` in the user's home directory and we wish to access the
+file ``learnt.mln`` within that project. Then, this file can be
+accessed by the line ::
+ 
+  from pracmln import mlnpath
+  p = mlnpath('/home/nyga/my-project.pracmln:learnt.mln')
+  print p.content
+  
+``mlnpath`` returns an object of the type :class:`pracmln.mln.mlnpath`,
+which has the following members:
+
+.. autoclass:: pracmln.mln.mlnpath
+    :members: content, path, file, project, exists, projectloc
 
 
 Integrated Editors

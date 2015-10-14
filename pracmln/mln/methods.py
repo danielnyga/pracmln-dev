@@ -69,6 +69,8 @@ class Enum(object):
     def names(self):
         return self.id2name.values()
     
+    def ids(self):
+        return self.id2name.keys()
     
 InferenceMethods = Enum(
     (
