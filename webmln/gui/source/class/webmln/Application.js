@@ -514,7 +514,7 @@ qx.Class.define("webmln.Application", {
             // leave rows 7 - 10 empty for expanding model extension!
             row += 4;
             mlnFormContainer.add(evidenceLabel, {row: row, column: 0});
-            mlnFormContainer.add(this.__slctEvidence, {row: row, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__slctEvidence, {row: row, column: 1, colSpan: 3});
             mlnFormContainer.add(this.__btnUploadDBFileInf, {row: row, column: 4});
             row += 1;
             mlnFormContainer.add(this.__evidenceContainer, {row: row, column: 1, colSpan: 4});
@@ -758,7 +758,7 @@ qx.Class.define("webmln.Application", {
             mlnFormContainerLrn.add(radioBoxEPreds, {row: row, column: 3, colSpan: 2});
             row += 1;
             mlnFormContainerLrn.add(trainingDataLabel, {row: row, column: 0});
-            mlnFormContainerLrn.add(this.__slctTDataLrn, {row: row, column: 1, colSpan: 2});
+            mlnFormContainerLrn.add(this.__slctTDataLrn, {row: row, column: 1, colSpan: 3});
             mlnFormContainerLrn.add(this.__btnUploadTDataFileLrn, {row: row, column: 4});
             row += 1;
             mlnFormContainerLrn.add(this.__tDataContainer, {row: row, column: 1, colSpan: 4});
