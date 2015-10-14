@@ -498,7 +498,7 @@ qx.Class.define("webmln.Application", {
             mlnFormContainer.add(this.__slctLogic, {row: row, column: 1, colSpan: 4});
             row += 1;
             mlnFormContainer.add(mlnLabel, {row: row, column: 0});
-            mlnFormContainer.add(this.__slctMLN, {row: row, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__slctMLN, {row: row, column: 1, colSpan: 3});
             mlnFormContainer.add(this.__btnUploadMLNFile, {row: row, column: 4});
             row += 1;
             mlnFormContainer.add(this.__mlnAreaContainer, {row: row, column: 1, colSpan: 4});
@@ -731,7 +731,7 @@ qx.Class.define("webmln.Application", {
             mlnFormContainerLrn.add(this.__slctLogicLrn, {row: 2, column: 1, colSpan: 4});
             row += 1;
             mlnFormContainerLrn.add(mlnLabel, {row: row, column: 0});
-            mlnFormContainerLrn.add(this.__slctMLNLrn, {row: row, column: 1, colSpan: 2});
+            mlnFormContainerLrn.add(this.__slctMLNLrn, {row: row, column: 1, colSpan: 3});
             mlnFormContainerLrn.add(this.__btnUploadMLNFileLrn, {row: row, column: 4});
             row += 1;
             mlnFormContainerLrn.add(this.__containerMLNAreaLrn, {row: row, column: 1, colSpan: 4});

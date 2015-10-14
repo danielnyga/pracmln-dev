@@ -10,7 +10,7 @@ from pracmln.praclog import logger
 from utils import ensure_mln_session, convert
 from urlparse import urlparse
 from flask import render_template, send_from_directory, request, session, jsonify, \
-    url_for
+    url_for, current_app, make_response
 import time
 from werkzeug.utils import redirect
 from webmln.gui.app import mlnApp
@@ -33,8 +33,15 @@ def download_mln_docs(filename):
 
 @mlnApp.app.route('/mln/')
 def mln():
-    ensure_mln_session(session)
-    # return render_template('learn.html', **locals()) # for loading page without welcome screen
+    mlnsession = ensure_mln_session(session)
+
+    # # experimental
+    # response = make_response(render_template('welcome.html', **locals()))
+    # response.set_cookie('session_id', value=mlnsession.id)
+    # return response
+    # # get cookie in request with request.cookies.get('session_id')
+
+    # render learn.html instead for loading page without welcome screen
     return render_template('welcome.html', **locals())
 
 
@@ -156,7 +163,6 @@ def user_stats():
 @mlnApp.app.route('/mln/resource/<path:filename>')
 def resource_file(filename):
     return redirect('/mln/static/resource/{}'.format(filename))
-
 
 
 @mlnApp.app.route('/mln/_get_filecontent', methods=['POST'])
