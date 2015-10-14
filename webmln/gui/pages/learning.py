@@ -91,8 +91,6 @@ def start_learning(savegeometry=True):
         else:
             dbobj = parse_db(mlnobj, db_content, ignore_unknown_preds=learnconfig.get('ignore_unknown_preds', True))
 
-        # load the databases
-        if learnconfig.get('verbose', False): log.info('loaded {} database(s).'.format(len(dbobj)))
 
         # run the learner
         learning = MLNLearn(config=learnconfig, mln=mlnobj, db=dbobj)
@@ -103,8 +101,7 @@ def start_learning(savegeometry=True):
         learnedmln = output.getvalue()
 
         if learnconfig.get('verbose', False):
-            streamlog.info('LEARNT MARKOV LOGIC NETWORK')
-            result.write(stream, color=None)
+            streamlog.info('LEARNT MARKOV LOGIC NETWORK: \n' + learnedmln)
 
         # save settings to project
         if learnconfig.get('save', False):

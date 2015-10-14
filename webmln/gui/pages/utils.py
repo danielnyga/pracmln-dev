@@ -139,7 +139,6 @@ def get_cond_prob_png(queries, db, filename='cond_prob', filedir='/tmp'):
     '''
 
     evidencelist = []
-    out(db.evidence.keys())
     evidencelist.extend([e if db.evidence[e] == 1.0 else '!'+e for e in db.evidence.keys() ])
     query    = r'''\\'''.join([r'''\text{{ {0} }} '''.format(q.replace('_', '\_')) for q in queries])
     evidence = r'''\\'''.join([r'''\text{{ {0} }} '''.format(e.replace('_', '\_')) for e in evidencelist])

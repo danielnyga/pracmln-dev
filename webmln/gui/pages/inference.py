@@ -130,9 +130,12 @@ def start_inference():
             inference = InferenceMethods.clazz(method)(mrf, queries, **tmpconfig)
             result = inference.run()
 
+            output = StringIO()
+            result.write(output)
+            res = output.getvalue()
+
             if inferconfig.get('verbose', False):
-                streamlog.info('INFERENCE RESULTS')
-                inference.write(stream, color=None)
+                streamlog.info('INFERENCE RESULTS: \n' + res)
 
             graphres = calculategraphres(mrf, db.evidence.keys(), inference.queries)
             barchartresults =  [{"name":x, "value":inference.results[x]} for x in inference.results]
@@ -141,10 +144,8 @@ def start_inference():
 
             # save settings to project
             if inferconfig.get('save', False):
-                output = StringIO()
-                result.write(output)
                 fname = inferconfig.get('output_filename', 'inference.result')
-                mlnsession.projectinf.add_result(fname, output.getvalue())
+                mlnsession.projectinf.add_result(fname, res)
                 mlnsession.projectinf.mlns[mln_name] = mln_content
                 mlnsession.projectinf.emlns[mln_name] = emln_content
                 mlnsession.projectinf.dbs[db_name] = db_content
