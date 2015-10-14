@@ -1,5 +1,5 @@
 import os
-from flask import request, send_from_directory, session
+from flask import request, send_from_directory, session, jsonify
 from werkzeug import secure_filename
 from pracmln.mln import mlnpath
 from pracmln.mln.util import out
@@ -15,6 +15,12 @@ log = logger(__name__)
 def uploaded_file(path):
     mlnsession = ensure_mln_session(session)
     return mlnpath('{}/{}'.format(mlnsession.tmpsessionfolder, path)).content
+
+
+@mlnApp.app.route('/mln/projects/<path:path>')
+def download_proj(path):
+    mlnsession = ensure_mln_session(session)
+    return send_from_directory(mlnsession.tmpsessionfolder, path)
 
 
 def allowed_file(filename):
@@ -45,6 +51,19 @@ def upload():
             return '{} is not a valid file storage in project'.format(source[1])
 
         p.save(mlnsession.tmpsessionfolder)
+    else:
+        return 'File type not allowed. Allowed extensions: {}'.format(', '.join(mlnApp.app.config['ALLOWED_EXTENSIONS']))
+    return ''
+
+
+@mlnApp.app.route('/mln/proj_upload', methods=['GET', 'POST'])
+def uploadProj():
+    mlnsession = ensure_mln_session(session)
+    tmpfile = request.files['file']
+
+    if tmpfile and allowed_file(tmpfile.filename):
+        filename = secure_filename(tmpfile.filename)
+        tmpfile.save(os.path.join(mlnsession.tmpsessionfolder, filename))
     else:
         return 'File type not allowed. Allowed extensions: {}'.format(', '.join(mlnApp.app.config['ALLOWED_EXTENSIONS']))
     return ''

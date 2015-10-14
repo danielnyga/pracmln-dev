@@ -230,3 +230,10 @@ def init_options():
            'config': lrnconfig}
 
     return jsonify({"inference": resinference, "learning": reslearn, "mlnfiles": mlnfiles, "dbfiles": dbfiles, "examples": examples})
+
+
+@mlnApp.app.route('/mln/_get_project_list', methods=['GET'])
+def get_projects():
+    mlnsession = ensure_mln_session(session)
+    projects = [y for y in os.listdir(mlnsession.tmpsessionfolder) if os.path.isfile(os.path.join(mlnsession.tmpsessionfolder, y)) and y.endswith('.pracmln')]
+    return jsonify({"projects":  projects})

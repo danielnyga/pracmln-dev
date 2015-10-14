@@ -377,8 +377,13 @@ qx.Class.define("webmln.Application", {
             });
 
             // widgets
-            this.__slctXmplFldr = new qx.ui.form.SelectBox();
-            this.__btnNewProject = new qx.ui.form.Button("New Project", null);
+            this.__slctProjectInf = new qx.ui.form.SelectBox();
+            this.__btnUploadProject = new com.zenesis.qx.upload.UploadButton("Upload Project");
+            this.__btnUploadProject.setParam("SOURCE_PARAM", "INF");
+            this.__projUploader = new com.zenesis.qx.upload.UploadMgr(this.__btnUploadProject, "/mln/proj_upload");
+            this.__projUploader.setAutoUpload(false);
+
+            this.__btnDownloadProj = new qx.ui.form.Button("Download Project", null);
             this.__slctGrammar = new qx.ui.form.SelectBox();
             this.__slctLogic = new qx.ui.form.SelectBox();
             this.__slctMLN = new qx.ui.form.SelectBox();
@@ -449,9 +454,10 @@ qx.Class.define("webmln.Application", {
             this.__btnStart.addListener("execute", this._start_inference, this);
             this.__chkbxUseModelExt.addListener("changeValue", this._showModelExtension, this);
             this.__slctMLN.addListener("changeSelection", this._update_mln_text, this);
-            this.__slctXmplFldr.addListener("changeSelection", this._change_example_inf ,this);
+            this.__slctProjectInf.addListener("changeSelection", this._change_example_inf ,this);
             this.__slctEvidence.addListener("changeSelection", this._update_evidence_text, this);
             this.__uploader.addListener("addFile", this._upload, this);
+            this.__projUploader.addListener("addFile", this._uploadProj, this);
             this.__chkbxShowLabels.addListener("changeValue", function(e) {
                             this._graph.showLabels(e.getData());
                         }, this);
@@ -484,12 +490,17 @@ qx.Class.define("webmln.Application", {
                     else
                         this._condProbWin.hide();
                 }, this);
+            this.__btnDownloadProj.addListener('execute', function(e) {
+                this._download_project();
+            }, this);
 
 
             // add widgets to form
             var row = 0;
             mlnFormContainer.add(exampleFolderLabel, {row: row, column: 0});
-            mlnFormContainer.add(this.__slctXmplFldr, {row: row, column: 1, colSpan: 4});
+            mlnFormContainer.add(this.__slctProjectInf, {row: row, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__btnUploadProject, {row: row, column: 3});
+            mlnFormContainer.add(this.__btnDownloadProj, {row: row, column: 4});
             row += 1;
             mlnFormContainer.add(grammarLabel, {row: row, column: 0});
             mlnFormContainer.add(this.__slctGrammar, {row: row, column: 1, colSpan: 4});
@@ -597,7 +608,12 @@ qx.Class.define("webmln.Application", {
             });
 
             // widgets
-            this.__slctXmplFldrLrn = new qx.ui.form.SelectBox();
+            this.__slctProjectLrn = new qx.ui.form.SelectBox();
+            this.__btnUploadProjectLrn = new com.zenesis.qx.upload.UploadButton("Upload Project");
+            this.__btnUploadProjectLrn.setParam("SOURCE_PARAM", "LRN");
+            this.__projUploader.addWidget(this.__btnUploadProjectLrn);
+            this.__btnDownloadProjLrn = new qx.ui.form.Button("Download Project", null);
+
             this.__btnUploadMLNFileLrn = new qx.ui.form.Button("Browse...", null);
             this.__slctGrammarLrn = new qx.ui.form.SelectBox();
             this.__slctLogicLrn = new qx.ui.form.SelectBox();
@@ -689,7 +705,7 @@ qx.Class.define("webmln.Application", {
             this.__slctLogicLrn.add(new qx.ui.form.ListItem("FuzzyLogic"));
 
             // listeners
-            this.__slctXmplFldrLrn.addListener("changeSelection", this._change_example_lrn ,this);
+            this.__slctProjectLrn.addListener("changeSelection", this._change_example_lrn ,this);
             this.__btnStartLrn.addListener("execute", this._start_learning, this);
             this.__slctMLNLrn.addListener("changeSelection", this._update_mlnL_text, this);
             this.__slctTDataLrn.addListener("changeSelection", this._update_tData_text, this);
@@ -717,12 +733,17 @@ qx.Class.define("webmln.Application", {
                             var rename = this.__chkbxRenameEditTData.getValue();
                             this._save_file(name, newName, rename, content);
                         }, this);
+            this.__btnDownloadProjLrn.addListener('execute', function(e) {
+                this._download_project();
+            }, this);
 
 
             // add widgets to form
             var row = 0;
             mlnFormContainerLrn.add(exampleFolderLabel, {row: row, column: 0});
-            mlnFormContainerLrn.add(this.__slctXmplFldrLrn, {row: row, column: 1, colSpan: 4});
+            mlnFormContainerLrn.add(this.__slctProjectLrn, {row: row, column: 1, colSpan: 2});
+            mlnFormContainerLrn.add(this.__btnUploadProjectLrn, {row: row, column: 3});
+            mlnFormContainerLrn.add(this.__btnDownloadProjLrn, {row: row, column: 4});
             row += 1;
             mlnFormContainerLrn.add(grammarLabel, {row: row, column: 0});
             mlnFormContainerLrn.add(this.__slctGrammarLrn, {row: row, column: 1, colSpan: 4});
@@ -821,10 +842,19 @@ qx.Class.define("webmln.Application", {
 
 
         /**
+         * download currently selected project
+         */
+        _download_project : function() {
+            var project = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctProjectInf : this.__slctProjectLrn).getSelection()[0].getLabel();
+            window.open("/mln/projects/" + project,"_self");
+        },
+        
+
+        /**
         * Update fields when changing the example folder for learning
         */
         _refresh_list : function(field, mln){
-            var exampleFolder = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctXmplFldr : this.__slctXmplFldrLrn).getSelection()[0].getLabel();
+            var exampleFolder = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctProjectInf : this.__slctProjectLrn).getSelection()[0].getLabel();
             var url = "/mln/"+ (this.__tabView.isSelected(this.__inferencePage) ? 'inference' : 'learning') + "/_change_example";
             var req = new qx.io.request.Xhr(url, "POST");
             req.setRequestHeader("Content-Type", "application/json");
@@ -848,7 +878,7 @@ qx.Class.define("webmln.Application", {
         */
         _save_file : function(fname, newname, rename, fcontent) {
             var isInfPage = this.__tabView.isSelected(this.__inferencePage);
-            var xmplFldrSlctn = (isInfPage ? this.__slctXmplFldr : this.__slctXmplFldrLrn).getSelection()[0].getLabel();
+            var xmplFldrSlctn = (isInfPage ? this.__slctProjectInf : this.__slctProjectLrn).getSelection()[0].getLabel();
 
             var req = new qx.io.request.Xhr("/mln/save_edited_file", "POST");
             req.setRequestHeader("Content-Type", "application/json");
@@ -950,14 +980,26 @@ qx.Class.define("webmln.Application", {
             var fileName = file.getFilename();
             console.log('uploading', fileName);
             this.__uploader.setAutoUpload(true);
-    //            handler.beginUploads();
-    //            console.log('handler', handler);
-    //            file.setParam("MY_FILE_PARAM", "some-value");
-    //            var progressListenerId = file.addListener("changeProgress", function(evt) {
-    //                console.log("Upload " + file.getFilename() + ": " +
-    //                    evt.getData() + " / " + file.getSize() + " - " +
-    //                    Math.round(evt.getData() / file.getSize() * 100) + "%");
-    //            }, this);
+        },
+
+
+        /**
+        * Uploads a project file
+        */
+        _uploadProj : function(evt) {
+            var file = evt.getData();
+            var fileName = file.getFilename();
+            var progressListenerId = file.addListener("changeProgress", function(e) {
+                console.log("Upload " + fileName + ": " +
+                    e.getData() + " / " + file.getSize() + " - " +
+                    Math.round(e.getData() / file.getSize() * 100) + "%");
+
+            this.__slctProjectInf.add(new qx.ui.form.ListItem(fileName));
+            this.__slctProjectLrn.add(new qx.ui.form.ListItem(fileName));
+
+            }, this);
+            console.log('uploading project', fileName);
+            this.__projUploader.setAutoUpload(true);
         },
 
 
@@ -1091,8 +1133,8 @@ qx.Class.define("webmln.Application", {
 
                     // set examples for inference and learning
                     for (var i = 0; i < response.examples.length; i++) {
-                         this.__slctXmplFldr.add(new qx.ui.form.ListItem(response.examples[i]));
-                         this.__slctXmplFldrLrn.add(new qx.ui.form.ListItem(response.examples[i]));
+                         this.__slctProjectInf.add(new qx.ui.form.ListItem(response.examples[i]));
+                         this.__slctProjectLrn.add(new qx.ui.form.ListItem(response.examples[i]));
                     }
             }, this);
             req.send();
@@ -1363,7 +1405,7 @@ qx.Class.define("webmln.Application", {
         */
         _update_text : function(selection, area) {
             var that = this;
-            var project = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctXmplFldr : this.__slctXmplFldrLrn).getSelection()[0].getLabel();
+            var project = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctProjectInf : this.__slctProjectLrn).getSelection()[0].getLabel();
             var req = new qx.io.request.Xhr();
             req.setUrl("/mln/_get_filecontent");
             req.setMethod('POST');
