@@ -1,2 +1,0 @@
-//livesIn(p,pl) ^ livesIn(p,pl2) => (pl=pl2).
-
