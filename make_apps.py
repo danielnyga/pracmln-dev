@@ -25,8 +25,9 @@ def check_package(pkg):
         print colorize('%s was not found. Please install by "sudo pip install %s"' % (pkg[0], pkg[1]), (None, 'yellow', True), True)
     
 # check the package dependecies
-for pkg in packages:
-    check_package(pkg)
+def check_dependencies():
+    for pkg in packages:
+        check_package(pkg)
     
 python_apps = [
     {"name": "mlnquery", "script": "$PRACMLN_HOME/pracmln/mlnquery.py"},
@@ -85,16 +86,51 @@ def build_webmln():
     python_apps.append({"name": "webmln", "script": "$PRACMLN_HOME/webmln/run.py"})
 
 
+def test():
+    print colorize('Checking docker...', (None, None, True), True),
+    try:
+        import docker
+        print colorize('OK', (None, 'green', True), True)
+    except: 
+        print colorize('Docker is not installed. To install, conduct the following actions:', (None, 'red', True), True),
+        print '  wget https://get.docker.com/ | sh'
+        print '  sudo groupadd docker'
+        print '  sudo gpasswd -a $USER docker'
+        print '  sudo service docker restart'
+        print '  newgrp'
+        print 
+        print '  # test docker'
+        print '  docker run hello-world'
+        print 
+        print '  # install python bindings'
+        print '  sudo pip install docker-py'
+        exit(-1)
+    from docker import Client
+    c = Client(base_url='unix://var/run/docker.sock')
+    print colorize('Building docker image...', (None, None, True), True)
+    for line in c.build(path=os.path.join('test'), rm=True, tag='pracmln/testcontainer', nocache=False):
+        line = eval(line)
+        if 'stream' in line:
+#             print repr(line['stream'])
+            print line['stream'].decode('unicode_escape'),
+#         if 'progress' in line:
+#             sys.stdout.write('%s %s              ' % (line['progress'], line['status']))
+    print colorize('Building docker image...', (None, None, True), True),
+    print colorize('OK', (None, 'green', True), True)
+    
+
 if __name__ == '__main__':
 
     archs = ["win32", "linux_amd64", "linux_i386", "macosx", "macosx64"]
-        
-    print "PRACMLNs Apps Generator\n\n"
-    print "  usage: make_apps [--arch=%s] [--cppbindings] [--webmln]\n" % "|".join(archs)
-    print
-    print
 
     args = sys.argv[1:]
+
+    if '--help' in args:        
+        print "PRACMLNs Apps Generator\n\n"
+        print "  usage: make_apps [--arch=%s] [--cppbindings] [--webmln] [--test]\n" % "|".join(archs)
+        print
+        print
+        exit(0)
     
     # determine architecture
     arch = None
@@ -114,6 +150,14 @@ if __name__ == '__main__':
     if arch not in archs:
         print "Unknown architecture '%s'" % arch
         sys.exit(1)
+
+    if '--test' in args:
+        print 'testing pracmln installation only. no targets will be built'
+        test()
+        print 'testing finished'
+        exit(0)
+
+    check_dependencies()
 
     buildlib = False
     if "--cppbindings" in args:
