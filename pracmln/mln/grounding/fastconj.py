@@ -133,6 +133,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             return
         if cidx == len(constituents): # we have reached the end of the formula constituents
             gf = formula.ground(self.mrf, assignment, simplify=True)
+            gf.print_structure()
             if isinstance(gf, Logic.TrueFalse):
                 return
             yield gf
@@ -154,6 +155,8 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         
     def _itergroundings(self, simplify=True, unsatfailure=True):
         # generate all groundings
+        if not self.formulas:
+            return
         global global_fastConjGrounding
         global_fastConjGrounding = self
         batches = list(rndbatches(self.formulas, 20))

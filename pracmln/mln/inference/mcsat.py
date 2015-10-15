@@ -143,6 +143,8 @@ class MCSAT(MCMCInference):
         i_clause = 0
         # process all ground formulas
         for i_gf, gf in enumerate(self.gndformulas):
+            out(gf)
+            gf.print_structure()
             # get the list of clauses
             if isinstance(gf, Logic.Conjunction):
                 lc = gf.children
