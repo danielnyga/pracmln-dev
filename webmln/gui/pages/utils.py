@@ -2,18 +2,20 @@ import collections
 import os
 import tempfile
 from flask import jsonify, session
-import re
 from fnmatch import fnmatch
 from pracmln.mln.methods import LearningMethods, InferenceMethods
 from pracmln.mln.util import out
 from pracmln.praclog import logger
-from pracmln.utils.config import PRACMLNConfig, query_config_pattern, learn_config_pattern
 from pracmln.utils.latexmath2png import math2png
+from pracmln.utils.project import MLNProject
 from webmln.gui.app import mlnApp, MLNSession
+from shutil import copyfile
+import ntpath
 
 FILEDIRS = {'mln': 'mln', 'pracmln': 'bin', 'db': 'db'}
 GUI_SETTINGS = ['db_rename', 'mln_rename', 'db', 'method', 'use_emln', 'save', 'output', 'grammar', 'queries', 'emln']
 DEFAULT_EXAMPLE = 'smokers'
+DEFAULT_PROJECT = 'smokers.pracmln'
 
 log = logger(__name__)
 
@@ -23,11 +25,11 @@ def ensure_mln_session(cursession):
     if mln_session is None:
         cursession['id'] = os.urandom(24)
         mln_session = MLNSession(cursession)
-        mln_session.xmplFolder = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
-        mln_session.xmplFolderLearning = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], DEFAULT_EXAMPLE)
         log.info('created new MLN session %s' % str(mln_session.id.encode('base-64')))
         mln_session.tmpsessionfolder = init_file_storage()
         log.info('created tempfolder %s' % mln_session.tmpsessionfolder)
+        mln_session.projectinf = MLNProject.open(os.path.join(mln_session.tmpsessionfolder, DEFAULT_PROJECT))
+        mln_session.projectlearn = MLNProject.open(os.path.join(mln_session.tmpsessionfolder, DEFAULT_PROJECT))
         mlnApp.session_store.put(mln_session)
     return mln_session
 
@@ -36,6 +38,13 @@ def init_file_storage():
     if not os.path.exists(os.path.join(mlnApp.app.config['UPLOAD_FOLDER'])):
         os.mkdir(os.path.join(mlnApp.app.config['UPLOAD_FOLDER']))
     dirname = tempfile.mkdtemp(prefix='webmln', dir=mlnApp.app.config['UPLOAD_FOLDER'])
+
+    # copy project files from examples folder to tempdir so the user can edit them
+    # without messing anything up in the examples folder
+    for root, dirs, files in os.walk(mlnApp.app.config['EXAMPLES_FOLDER']):
+        for file in files:
+            if file.endswith('.pracmln'):
+                copyfile(os.path.join(root, file), os.path.join(dirname,file))
 
     if not os.path.exists(os.path.join(mlnApp.app.config['LOG_FOLDER'])):
         os.mkdir(os.path.join(mlnApp.app.config['LOG_FOLDER']))
@@ -59,80 +68,34 @@ def convert(data):
         return data
 
 
-# returns content of given file, replaces includes by content of the included file
-def get_file_content(fdir, fname):
-    c = ''
-    if os.path.isfile(os.path.join(fdir, fname)):
-        with open(os.path.join(fdir, fname), "r") as f:
-            c = f.readlines()
-
-    content = ''
-    for l in c:
-        if '#include' in l:
-            includefile = re.sub('#include ([\w,\s-]+\.[A-Za-z])', '\g<1>', l).strip()
-            if os.path.isfile(os.path.join(fdir, includefile)):
-                content += get_file_content(fdir, includefile)
-            else:
-                content += l
-        else:
-            content += l
-    return content
-
-
-def load_configurations():
-    log.info('loading configurations...')
-    mlnsession = ensure_mln_session(session)
-
-    inferconfig = PRACMLNConfig(os.path.join(mlnsession.xmplFolder, query_config_pattern % mlnsession.xmplFolder.split('/')[-1]))
-    learnconfig = PRACMLNConfig(os.path.join(mlnsession.xmplFolderLearning, learn_config_pattern % mlnsession.xmplFolderLearning.split('/')[-1]))
-
-    mlnsession.inferconfig = inferconfig
-    mlnsession.learnconfig = learnconfig
-
-
-def change_example(task, folder):
+def change_example(task, project):
     log.info('change_example')
     mlnsession = ensure_mln_session(session)
-    f = os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], folder)
+
+    tmpfolder = os.path.join(mlnsession.tmpsessionfolder, project)
+    if not os.path.exists(tmpfolder):
+        return False
+
     if task == 'inference':
-        mlnsession.xmplFolder = f
+        mlnsession.projectinf = MLNProject.open(tmpfolder)
+        dbfiles = mlnsession.projectinf.dbs.keys()
+        mlnfiles = mlnsession.projectinf.mlns.keys()
     else:
-        mlnsession.xmplFolderLearning = f
+        mlnsession.projectlearn = MLNProject.open(tmpfolder)
+        dbfiles = mlnsession.projectlearn.dbs.keys()
+        mlnfiles = mlnsession.projectlearn.mlns.keys()
 
-    load_configurations()
+    inferconfig = mlnsession.projectinf.queryconf.config.copy()
+    inferconfig.update({"method": InferenceMethods.name(mlnsession.projectinf.queryconf.get("method", 'MC-SAT'))})
+    lrnconfig = mlnsession.projectlearn.learnconf.config.copy()
+    lrnconfig.update({"method": LearningMethods.name(mlnsession.projectlearn.learnconf.get("method", 'BPLL'))})
 
-    mlnfiles, dbs = get_example_files(f)
-    usermlnfiles, userdbs = get_example_files(mlnsession.tmpsessionfolder)
-
-    inferconfig = mlnsession.inferconfig.config.copy()
-    inferconfig.update({"method": InferenceMethods.name(mlnsession.inferconfig.config['method'])})
-
-    lrnconfig = mlnsession.learnconfig.config.copy()
-    lrnconfig.update({"method": LearningMethods.name(mlnsession.learnconfig.config['method'])})
-
-    res = {'dbs': dbs + userdbs, 'mlns': mlnfiles + usermlnfiles,
+    res = {'dbs': dbfiles, 'mlns': mlnfiles,
            'lrnconfig': lrnconfig,
            'lrnmethods': sorted(LearningMethods.names()),
            'infconfig': inferconfig,
            'infmethods': sorted(InferenceMethods.names())}
     return jsonify(res)
-
-
-def get_example_files(path):
-    mlnfiles = []
-    dbfiles = []
-
-    if os.path.exists(path):
-        for filename in os.listdir(path):
-            if fnmatch(filename, '*.mln'):
-                mlnfiles.append(filename)
-            if fnmatch(filename, '*.db') or fnmatch(filename, '*.blogdb'):
-                dbfiles.append(filename)
-
-    mlnfiles.sort()
-    dbfiles.sort()
-
-    return mlnfiles, dbfiles
 
 
 def get_training_db_paths(pattern):
@@ -141,19 +104,31 @@ def get_training_db_paths(pattern):
     """
     mlnsession = ensure_mln_session(session)
     dbs = []
+    local = False
     if pattern is not None and pattern.strip():
-        patternpath = os.path.join(mlnsession.xmplFolderLearning, pattern)
-        d, mask = os.path.split(os.path.abspath(patternpath))
-        for fname in os.listdir(d):
-            if fnmatch(fname, mask):
-                dbs.append(os.path.join(d, fname))
-        if len(dbs) == 0:
-            raise Exception("The pattern '%s' matches no files in %s" % (pattern, mlnsession.xmplFolderLearning))
-        log.info('loading training databases from pattern %s:')
-        for p in dbs: log.info('  %s' % p)
+        fpath, pat = ntpath.split(pattern)
+        if not os.path.exists(fpath):
+            log.debug('%s does not exist. Searching for pattern %s in project %s...' % (fpath, pat, mlnsession.projectinf.name))
+            local = True
+            dbs = [db for db in mlnsession.projectinf.project.dbs if fnmatch(db, pattern)]
+            if len(dbs) == 0:
+                raise Exception("The pattern '%s' matches no files in your project %s" % (pat, mlnsession.projectinf.name))
+        else:
+            local = False
+            patternpath = os.path.join(mlnsession.tmpsessionfolder, pattern)
+
+            d, mask = os.path.split(os.path.abspath(patternpath))
+            for fname in os.listdir(d):
+                print fname
+                if fnmatch(fname, mask):
+                    dbs.append(os.path.join(d, fname))
+            if len(dbs) == 0:
+                raise Exception("The pattern '%s' matches no files in %s" % (pat, fpath))
+        log.debug('loading training databases from pattern %s:' % pattern)
+        for p in dbs: log.debug('  %s' % p)
     if not dbs:
         raise Exception("No training data given; A training database must be selected or a pattern must be specified")
-    else: return dbs
+    else: return local, dbs
 
 
 def get_cond_prob_png(queries, db, filename='cond_prob', filedir='/tmp'):
@@ -164,7 +139,6 @@ def get_cond_prob_png(queries, db, filename='cond_prob', filedir='/tmp'):
     '''
 
     evidencelist = []
-    out(db.evidence.keys())
     evidencelist.extend([e if db.evidence[e] == 1.0 else '!'+e for e in db.evidence.keys() ])
     query    = r'''\\'''.join([r'''\text{{ {0} }} '''.format(q.replace('_', '\_')) for q in queries])
     evidence = r'''\\'''.join([r'''\text{{ {0} }} '''.format(e.replace('_', '\_')) for e in evidencelist])

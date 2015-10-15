@@ -17,7 +17,6 @@ def register_routes(mlnapp=None):
     # settings for fileupload and logging
     home = expanduser("~")
     mlnApp.app.config['ALLOWED_EXTENSIONS'] = set(['mln','db','pracmln','emln'])
-    # mlnApp.app.config['UPLOAD_FOLDER'] = os.path.join(home, 'mlnfiles')
     mlnApp.app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
     mlnApp.app.config['EXAMPLES_FOLDER'] = os.path.join(mlnApp.app.root_path, '..', '..', 'examples')
     mlnApp.app.config['MLN_ROOT_PATH'] = os.path.join(mlnApp.app.root_path, '..', '..')

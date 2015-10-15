@@ -280,7 +280,7 @@ qx.Class.define("webmln.Application", {
                                 // highlighting does not work properly when the textareas
                                 // are not yet created
                                 this._highlight('tDataArea');
-                                this._highlight('mlnLArea');
+                                this._highlight('mlnAreaLrn');
                                 this._highlight('mlnResultArea');
                             }, this);
             learningPage.setLayout(new qx.ui.layout.Grow());
@@ -336,7 +336,7 @@ qx.Class.define("webmln.Application", {
 
             // labels
             var exampleFolderLabel = new qx.ui.basic.Label().set({
-                value: this._template('Example:', 'label'),
+                value: this._template('Project:', 'label'),
                 rich : true
             });
             var grammarLabel = new qx.ui.basic.Label().set({
@@ -377,13 +377,19 @@ qx.Class.define("webmln.Application", {
             });
 
             // widgets
-            this.__slctXmplFldr = new qx.ui.form.SelectBox();
+            this.__slctProjectInf = new qx.ui.form.SelectBox();
+            this.__btnUploadProject = new com.zenesis.qx.upload.UploadButton("Upload Project");
+            this.__btnUploadProject.setParam("SOURCE_PARAM", "INF");
+            this.__projUploader = new com.zenesis.qx.upload.UploadMgr(this.__btnUploadProject, "/mln/proj_upload");
+            this.__projUploader.setAutoUpload(false);
+
+            this.__btnDownloadProj = new qx.ui.form.Button("Download Project", null);
             this.__slctGrammar = new qx.ui.form.SelectBox();
             this.__slctLogic = new qx.ui.form.SelectBox();
             this.__slctMLN = new qx.ui.form.SelectBox();
-            this.__btnRefreshMLN = new qx.ui.form.Button("<- refresh", null);
+
             this.__btnUploadMLNFile = new com.zenesis.qx.upload.UploadButton("Load MLN File");
-            this.__btnUploadMLNFile.setParam("SOURCE_PARAM", "mlnuploadinf");
+            this.__btnUploadMLNFile.setParam("SOURCE_PARAM", "INFxMLN");
             this.__uploader = new com.zenesis.qx.upload.UploadMgr(this.__btnUploadMLNFile, "/mln/file_upload");
             this.__uploader.setAutoUpload(false);
             this.__chkbxRenameEditMLN = new qx.ui.form.CheckBox("rename on edit");
@@ -411,9 +417,8 @@ qx.Class.define("webmln.Application", {
             this.__emlnAreaContainer.add(this.__txtAEMLN);
 
             this.__slctEvidence = new qx.ui.form.SelectBox();
-            this.__btnRefreshDB = new qx.ui.form.Button("<- refresh", null);
             this.__btnUploadDBFileInf = new com.zenesis.qx.upload.UploadButton("Load DB File");
-            this.__btnUploadDBFileInf.setParam("SOURCE_PARAM", "dbuploadinf");
+            this.__btnUploadDBFileInf.setParam("SOURCE_PARAM", "INFxDB");
             this.__uploader.addWidget(this.__btnUploadDBFileInf)
             this.__chkbxRenameEditEvidence = new qx.ui.form.CheckBox("rename on edit");
             this.__chkbxShowCondProb = new qx.ui.form.CheckBox("show/hide cond. probability");
@@ -449,9 +454,10 @@ qx.Class.define("webmln.Application", {
             this.__btnStart.addListener("execute", this._start_inference, this);
             this.__chkbxUseModelExt.addListener("changeValue", this._showModelExtension, this);
             this.__slctMLN.addListener("changeSelection", this._update_mln_text, this);
-            this.__slctXmplFldr.addListener("changeSelection", this._change_example_inf ,this);
+            this.__slctProjectInf.addListener("changeSelection", this._change_example_inf ,this);
             this.__slctEvidence.addListener("changeSelection", this._update_evidence_text, this);
             this.__uploader.addListener("addFile", this._upload, this);
+            this.__projUploader.addListener("addFile", this._uploadProj, this);
             this.__chkbxShowLabels.addListener("changeValue", function(e) {
                             this._graph.showLabels(e.getData());
                         }, this);
@@ -478,63 +484,78 @@ qx.Class.define("webmln.Application", {
                             var rename = this.__chkbxRenameEditEvidence.getValue();
                             this._save_file(name, newName, rename, content);
                         }, this);
-            this.__btnRefreshMLN.addListener("execute", function(e) {
-                        this._refresh_list(this.__slctMLN, true);
-                        },this);
-            this.__btnRefreshDB.addListener("execute", function(e) {
-                        this._refresh_list(this.__slctEvidence, false);
-                        },this);
             this.__chkbxShowCondProb.addListener('changeValue', function(e) {
                     if (e.getData())
                         this._condProbWin.show();
                     else
                         this._condProbWin.hide();
                 }, this);
+            this.__btnDownloadProj.addListener('execute', function(e) {
+                this._download_project();
+            }, this);
 
 
             // add widgets to form
-            mlnFormContainer.add(exampleFolderLabel, {row: 0, column: 0});
-            mlnFormContainer.add(grammarLabel, {row: 1, column: 0});
-            mlnFormContainer.add(logicLabel, {row: 2, column: 0});
-            mlnFormContainer.add(mlnLabel, {row: 3, column: 0});
-            mlnFormContainer.add(evidenceLabel, {row: 11, column: 0});
-            mlnFormContainer.add(methodLabel, {row: 15, column: 0});
-            mlnFormContainer.add(queriesLabel, {row: 16, column: 0});
-            mlnFormContainer.add(addParamsLabel, {row: 19, column: 0});
-            mlnFormContainer.add(cwPredsLabel, {row: 20, column: 0});
-
-            mlnFormContainer.add(this.__slctXmplFldr, {row: 0, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__slctGrammar, {row: 1, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__slctLogic, {row: 2, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__slctMLN, {row: 3, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__btnRefreshMLN, {row: 3, column: 3});
-            mlnFormContainer.add(this.__btnUploadMLNFile, {row: 3, column: 4});
-            mlnFormContainer.add(this.__mlnAreaContainer, {row: 4, column: 1, colSpan: 4});
+            var row = 0;
+            mlnFormContainer.add(exampleFolderLabel, {row: row, column: 0});
+            mlnFormContainer.add(this.__slctProjectInf, {row: row, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__btnUploadProject, {row: row, column: 3});
+            mlnFormContainer.add(this.__btnDownloadProj, {row: row, column: 4});
+            row += 1;
+            mlnFormContainer.add(grammarLabel, {row: row, column: 0});
+            mlnFormContainer.add(this.__slctGrammar, {row: row, column: 1, colSpan: 4});
+            row += 1;
+            mlnFormContainer.add(logicLabel, {row: row, column: 0});
+            mlnFormContainer.add(this.__slctLogic, {row: row, column: 1, colSpan: 4});
+            row += 1;
+            mlnFormContainer.add(mlnLabel, {row: row, column: 0});
+            mlnFormContainer.add(this.__slctMLN, {row: row, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__btnUploadMLNFile, {row: row, column: 4});
+            row += 1;
+            mlnFormContainer.add(this.__mlnAreaContainer, {row: row, column: 1, colSpan: 4});
             mlnFormContainerLayout.setRowHeight(4, 250);
-            mlnFormContainer.add(this.__chkbxRenameEditMLN, {row: 5, column: 1});
-            mlnFormContainer.add(this.__chkbxUseModelExt, {row: 5, column: 2});
-            mlnFormContainer.add(this.__txtFNameMLN, {row: 6, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__btnSaveMLN, {row: 6, column: 4});
+            row += 1;
+            mlnFormContainer.add(this.__chkbxRenameEditMLN, {row: row, column: 1});
+            mlnFormContainer.add(this.__chkbxUseModelExt, {row: row, column: 2});
+            row += 1;
+            mlnFormContainer.add(this.__txtFNameMLN, {row: row, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__btnSaveMLN, {row: row, column: 4});
+            row += 1;
+            this._rowmodelext = row;
             // leave rows 7 - 10 empty for expanding model extension!
-            mlnFormContainer.add(this.__slctEvidence, {row: 11, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__btnRefreshDB, {row: 11, column: 3});
-            mlnFormContainer.add(this.__btnUploadDBFileInf, {row: 11, column: 4});
-            mlnFormContainer.add(this.__evidenceContainer, {row: 12, column: 1, colSpan: 4});
-            mlnFormContainerLayout.setRowHeight(12, 250);
-            mlnFormContainer.add(this.__chkbxRenameEditEvidence, {row: 13, column: 1});
-            mlnFormContainer.add(this.__chkbxShowCondProb, {row: 13, column: 2});
-            mlnFormContainer.add(this.__txtFNameDB, {row: 14, column: 1, colSpan: 3});
-            mlnFormContainer.add(this.__btnSaveDB, {row: 14, column: 4});
-            mlnFormContainer.add(this.__slctMethod, {row: 15, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__txtFQueries, {row: 16, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__txtFParams, {row: 19, column: 1, colSpan: 4});
-            mlnFormContainer.add(this.__txtFCWPreds, {row: 20, column: 1, colSpan: 2});
-            mlnFormContainer.add(this.__chkbxApplyCWOption, {row: 20, column: 3, colSpan:2});
-            mlnFormContainer.add(this.__chkbxVerbose, {row: 22, column: 1});
-            mlnFormContainer.add(this.__chkbxShowLabels, {row: 22, column: 2});
-            mlnFormContainer.add(this.__chkbxUseAllCPU, {row: 22, column: 3});
-            mlnFormContainer.add(this.__chkbxIgnoreUnknown, {row: 22, column: 4});
-            mlnFormContainer.add(this.__btnStart, {row: 23, column: 1, colSpan: 4});
+            row += 4;
+            mlnFormContainer.add(evidenceLabel, {row: row, column: 0});
+            mlnFormContainer.add(this.__slctEvidence, {row: row, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__btnUploadDBFileInf, {row: row, column: 4});
+            row += 1;
+            mlnFormContainer.add(this.__evidenceContainer, {row: row, column: 1, colSpan: 4});
+            mlnFormContainerLayout.setRowHeight(row, 250);
+            row += 1;
+            mlnFormContainer.add(this.__chkbxRenameEditEvidence, {row: row, column: 1});
+            mlnFormContainer.add(this.__chkbxShowCondProb, {row: row, column: 2});
+            row += 1;
+            mlnFormContainer.add(this.__txtFNameDB, {row: row, column: 1, colSpan: 3});
+            mlnFormContainer.add(this.__btnSaveDB, {row: row, column: 4});
+            row += 1;
+            mlnFormContainer.add(methodLabel, {row: row, column: 0});
+            mlnFormContainer.add(this.__slctMethod, {row: row, column: 1, colSpan: 4});
+            row += 1;
+            mlnFormContainer.add(queriesLabel, {row: row, column: 0});
+            mlnFormContainer.add(this.__txtFQueries, {row: row, column: 1, colSpan: 4});
+            row += 1;
+            mlnFormContainer.add(addParamsLabel, {row: row, column: 0});
+            mlnFormContainer.add(this.__txtFParams, {row: row, column: 1, colSpan: 4});
+            row += 1;
+            mlnFormContainer.add(cwPredsLabel, {row: row, column: 0});
+            mlnFormContainer.add(this.__txtFCWPreds, {row: row, column: 1, colSpan: 2});
+            mlnFormContainer.add(this.__chkbxApplyCWOption, {row: row, column: 3, colSpan:2});
+            row += 1;
+            mlnFormContainer.add(this.__chkbxVerbose, {row: row, column: 1});
+            mlnFormContainer.add(this.__chkbxShowLabels, {row: row, column: 2});
+            mlnFormContainer.add(this.__chkbxUseAllCPU, {row: row, column: 3});
+            mlnFormContainer.add(this.__chkbxIgnoreUnknown, {row: row, column: 4});
+            row += 1;
+            mlnFormContainer.add(this.__btnStart, {row: row, column: 1, colSpan: 4});
 
             return mlnFormContainer;
         },
@@ -558,7 +579,7 @@ qx.Class.define("webmln.Application", {
 
             // labels
             var exampleFolderLabel = new qx.ui.basic.Label().set({
-                value: this._template('Example:', 'label'),
+                value: this._template('Project:', 'label'),
                 rich : true
             });
             var grammarLabel = new qx.ui.basic.Label().set({
@@ -582,30 +603,30 @@ qx.Class.define("webmln.Application", {
                 rich : true
             });
             var addParamsLabel = new qx.ui.basic.Label().set({
-                value: this._template('ParamsLadida:', 'label'),
-                rich : true
-            });
-            var cwPredsLabel = new qx.ui.basic.Label().set({
-                value: this._template('CW Preds:', 'label'),
+                value: this._template('Params:', 'label'),
                 rich : true
             });
 
             // widgets
-            this.__slctXmplFldrLrn = new qx.ui.form.SelectBox();
+            this.__slctProjectLrn = new qx.ui.form.SelectBox();
+            this.__btnUploadProjectLrn = new com.zenesis.qx.upload.UploadButton("Upload Project");
+            this.__btnUploadProjectLrn.setParam("SOURCE_PARAM", "LRN");
+            this.__projUploader.addWidget(this.__btnUploadProjectLrn);
+            this.__btnDownloadProjLrn = new qx.ui.form.Button("Download Project", null);
+
             this.__btnUploadMLNFileLrn = new qx.ui.form.Button("Browse...", null);
             this.__slctGrammarLrn = new qx.ui.form.SelectBox();
             this.__slctLogicLrn = new qx.ui.form.SelectBox();
             this.__slctMLNLrn = new qx.ui.form.SelectBox();
-            this.__btnRefreshMLNLrn = new qx.ui.form.Button("<- refresh", null);
             this.__btnUploadMLNFileLrn = new com.zenesis.qx.upload.UploadButton("Load MLN File");
-            this.__btnUploadMLNFileLrn.setParam("SOURCE_PARAM", "mlnuploadlrn");
+            this.__btnUploadMLNFileLrn.setParam("SOURCE_PARAM", "LRNxMLN");
             this.__uploader.addWidget(this.__btnUploadMLNFileLrn);
             this.__btnSaveMLNLrn = new qx.ui.form.Button("save", null);
 
             var mlnAreaContainerLayout = new qx.ui.layout.Grow();
             this.__containerMLNAreaLrn = new qx.ui.container.Composite(mlnAreaContainerLayout);
             this.__txtAMLNLrn = new qx.ui.form.TextArea("");
-            this.__txtAMLNLrn.getContentElement().setAttribute("id", 'mlnLArea');
+            this.__txtAMLNLrn.getContentElement().setAttribute("id", 'mlnAreaLrn');
             this.__containerMLNAreaLrn.add(this.__txtAMLNLrn);
             this.__chkbxRenameEditMLNLrn = new qx.ui.form.CheckBox("rename on edit");
             this.__txtFMLNNewNameLrn = new qx.ui.form.TextField("");
@@ -652,9 +673,8 @@ qx.Class.define("webmln.Application", {
             new qx.ui.form.RadioGroup(radioBoxQPreds, radioBoxEPreds);
 
             this.__slctTDataLrn = new qx.ui.form.SelectBox();
-            this.__btnRefreshTDataLrn = new qx.ui.form.Button("<- refresh", null);
             this.__btnUploadTDataFileLrn = new com.zenesis.qx.upload.UploadButton("Load DB File");
-            this.__btnUploadTDataFileLrn.setParam("SOURCE_PARAM", "tdatauploadlrn");
+            this.__btnUploadTDataFileLrn.setParam("SOURCE_PARAM", "LRNxMLN");
             this.__uploader.addWidget(this.__btnUploadTDataFileLrn);
             this.__btnSaveTData = new qx.ui.form.Button("save", null);
 
@@ -685,7 +705,7 @@ qx.Class.define("webmln.Application", {
             this.__slctLogicLrn.add(new qx.ui.form.ListItem("FuzzyLogic"));
 
             // listeners
-            this.__slctXmplFldrLrn.addListener("changeSelection", this._change_example_lrn ,this);
+            this.__slctProjectLrn.addListener("changeSelection", this._change_example_lrn ,this);
             this.__btnStartLrn.addListener("execute", this._start_learning, this);
             this.__slctMLNLrn.addListener("changeSelection", this._update_mlnL_text, this);
             this.__slctTDataLrn.addListener("changeSelection", this._update_tData_text, this);
@@ -702,7 +722,7 @@ qx.Class.define("webmln.Application", {
             this.__btnSaveMLNLrn.addListener("execute", function(e) {
                             var name = this.__slctMLNLrn.getSelection()[0].getLabel();
                             var newName = this.__txtFMLNNewNameLrn.getValue();
-                            var content = this.codemirrormlnLArea ? this.codemirrormlnLArea.doc.getValue() : "";
+                            var content = this.codeMirrormlnAreaLrn ? this.codeMirrormlnAreaLrn.doc.getValue() : "";
                             var rename = this.__chkbxRenameEditMLNLrn.getValue();
                             this._save_file(name, newName, rename, content);
                         }, this);
@@ -713,60 +733,75 @@ qx.Class.define("webmln.Application", {
                             var rename = this.__chkbxRenameEditTData.getValue();
                             this._save_file(name, newName, rename, content);
                         }, this);
-            this.__btnRefreshMLNLrn.addListener("execute", function(e) {
-                        this._refresh_list(this.__slctMLNLrn, true);
-                        },this);
-            this.__btnRefreshTDataLrn.addListener("execute", function(e) {
-                        this._refresh_list(this.__slctTDataLrn, false);
-                        },this);
+            this.__btnDownloadProjLrn.addListener('execute', function(e) {
+                this._download_project();
+            }, this);
 
 
             // add widgets to form
-            mlnFormContainerLrn.add(exampleFolderLabel, {row: 0, column: 0});
-            mlnFormContainerLrn.add(grammarLabel, {row: 1, column: 0});
-            mlnFormContainerLrn.add(logicLabel, {row: 2, column: 0});
-            mlnFormContainerLrn.add(mlnLabel, {row: 3, column: 0});
-            mlnFormContainerLrn.add(methodLabel, {row: 7, column: 0});
-            mlnFormContainerLrn.add(trainingDataLabel, {row: 12, column: 0});
-            mlnFormContainerLrn.add(addParamsLabel, {row: 17, column: 0});
-
-            mlnFormContainerLrn.add(this.__slctXmplFldrLrn, {row: 0, column: 1, colSpan: 4});
-            mlnFormContainerLrn.add(this.__slctGrammarLrn, {row: 1, column: 1, colSpan: 4});
+            var row = 0;
+            mlnFormContainerLrn.add(exampleFolderLabel, {row: row, column: 0});
+            mlnFormContainerLrn.add(this.__slctProjectLrn, {row: row, column: 1, colSpan: 2});
+            mlnFormContainerLrn.add(this.__btnUploadProjectLrn, {row: row, column: 3});
+            mlnFormContainerLrn.add(this.__btnDownloadProjLrn, {row: row, column: 4});
+            row += 1;
+            mlnFormContainerLrn.add(grammarLabel, {row: row, column: 0});
+            mlnFormContainerLrn.add(this.__slctGrammarLrn, {row: row, column: 1, colSpan: 4});
+            row += 1;
+            mlnFormContainerLrn.add(logicLabel, {row: row, column: 0});
             mlnFormContainerLrn.add(this.__slctLogicLrn, {row: 2, column: 1, colSpan: 4});
-            mlnFormContainerLrn.add(this.__slctMLNLrn, {row: 3, column: 1, colSpan: 2});
-            mlnFormContainerLrn.add(this.__btnRefreshMLNLrn, {row: 3, column: 3});
-            mlnFormContainerLrn.add(this.__btnUploadMLNFileLrn, {row: 3, column: 4});
-            mlnFormContainerLrn.add(this.__containerMLNAreaLrn, {row: 4, column: 1, colSpan: 4});
-            mlnFormContainerLrnLayout.setRowHeight(4, 250);
-            mlnFormContainerLrn.add(this.__chkbxRenameEditMLNLrn, {row: 5, column: 1});
-            mlnFormContainerLrn.add(this.__txtFMLNNewNameLrn, {row: 6, column: 1, colSpan: 3});
-            mlnFormContainerLrn.add(this.__btnSaveMLNLrn, {row: 6, column: 4});
-            mlnFormContainerLrn.add(this.__slctMethodLrn, {row: 7, column: 1, colSpan: 4});
-            mlnFormContainerLrn.add(this.__chkbxUsePrior, {row: 8, column: 1});
-            mlnFormContainerLrn.add(this.__txtFMeanLrn, {row: 8, column: 2});
-            mlnFormContainerLrn.add(stdDevLabel, {row: 8, column: 3});
-            mlnFormContainerLrn.add(this.__txtFStdDevLrn, {row: 8, column: 4});
-            mlnFormContainerLrn.add(this.__chkbxUseInitWeights, {row: 9, column: 1});
-            mlnFormContainerLrn.add(this.__chkbxLearnIncrem, {row: 9, column: 2});
-            mlnFormContainerLrn.add(this.__chkbxShuffleDB, {row: 9, column: 3});
-            mlnFormContainerLrn.add(radioBoxQPreds, {row: 10, column: 1, colSpan: 2});
-            mlnFormContainerLrn.add(radioBoxEPreds, {row: 10, column: 3, colSpan: 2});
-            mlnFormContainerLrn.add(this.__slctTDataLrn, {row: 12, column: 1, colSpan: 2});
-            mlnFormContainerLrn.add(this.__btnRefreshTDataLrn, {row: 12, column: 3});
-            mlnFormContainerLrn.add(this.__btnUploadTDataFileLrn, {row: 12, column: 4});
-            mlnFormContainerLrn.add(this.__tDataContainer, {row: 13, column: 1, colSpan: 4});
-            mlnFormContainerLrnLayout.setRowHeight(13, 250);
-            mlnFormContainerLrn.add(this.__chkbxRenameEditTData, {row: 14, column: 1});
-            mlnFormContainerLrn.add(this.__chkbxIgnoreUnknownLrn, {row: 14, column: 2});
-            mlnFormContainerLrn.add(this.__txtFTDATANewNameLrn, {row: 15, column: 1, colSpan: 3});
-            mlnFormContainerLrn.add(this.__btnSaveTData, {row: 15, column: 4});
-            mlnFormContainerLrn.add(orFilePatternLabel, {row: 16, column: 1});
-            mlnFormContainerLrn.add(this.__txtFORFilePattern, {row: 16, column: 2, colSpan: 3});
-            mlnFormContainerLrn.add(this.__txtFParamsLrn, {row: 17, column: 1, colSpan: 4});
-            mlnFormContainerLrn.add(this.__chkbxUseAllCPU, {row: 18, column: 1});
-            mlnFormContainerLrn.add(this.__chkbxVerboseLrn, {row: 18, column: 2});
-            mlnFormContainerLrn.add(this.__chkbxLRemoveFormulas, {row: 18, column: 3, colSpan:2});
-            mlnFormContainerLrn.add(this.__btnStartLrn, {row: 20, column: 1, colSpan: 4});
+            row += 1;
+            mlnFormContainerLrn.add(mlnLabel, {row: row, column: 0});
+            mlnFormContainerLrn.add(this.__slctMLNLrn, {row: row, column: 1, colSpan: 3});
+            mlnFormContainerLrn.add(this.__btnUploadMLNFileLrn, {row: row, column: 4});
+            row += 1;
+            mlnFormContainerLrn.add(this.__containerMLNAreaLrn, {row: row, column: 1, colSpan: 4});
+            mlnFormContainerLrnLayout.setRowHeight(row, 250);
+            row += 1;
+            mlnFormContainerLrn.add(this.__chkbxRenameEditMLNLrn, {row: row, column: 1});
+            row += 1;
+            mlnFormContainerLrn.add(this.__txtFMLNNewNameLrn, {row: row, column: 1, colSpan: 3});
+            mlnFormContainerLrn.add(this.__btnSaveMLNLrn, {row: row, column: 4});
+            row += 1;
+            mlnFormContainerLrn.add(methodLabel, {row: row, column: 0});
+            mlnFormContainerLrn.add(this.__slctMethodLrn, {row: row, column: 1, colSpan: 4});
+            row += 1;
+            mlnFormContainerLrn.add(this.__chkbxUsePrior, {row: row, column: 1});
+            mlnFormContainerLrn.add(this.__txtFMeanLrn, {row: row, column: 2});
+            mlnFormContainerLrn.add(stdDevLabel, {row: row, column: 3});
+            mlnFormContainerLrn.add(this.__txtFStdDevLrn, {row: row, column: 4});
+            row += 1;
+            mlnFormContainerLrn.add(this.__chkbxUseInitWeights, {row: row, column: 1});
+            mlnFormContainerLrn.add(this.__chkbxLearnIncrem, {row: row, column: 2});
+            mlnFormContainerLrn.add(this.__chkbxShuffleDB, {row: row, column: 3});
+            row += 1;
+            mlnFormContainerLrn.add(radioBoxQPreds, {row: row, column: 1, colSpan: 2});
+            mlnFormContainerLrn.add(radioBoxEPreds, {row: row, column: 3, colSpan: 2});
+            row += 1;
+            mlnFormContainerLrn.add(trainingDataLabel, {row: row, column: 0});
+            mlnFormContainerLrn.add(this.__slctTDataLrn, {row: row, column: 1, colSpan: 3});
+            mlnFormContainerLrn.add(this.__btnUploadTDataFileLrn, {row: row, column: 4});
+            row += 1;
+            mlnFormContainerLrn.add(this.__tDataContainer, {row: row, column: 1, colSpan: 4});
+            mlnFormContainerLrnLayout.setRowHeight(row, 250);
+            row += 1;
+            mlnFormContainerLrn.add(this.__chkbxRenameEditTData, {row: row, column: 1});
+            mlnFormContainerLrn.add(this.__chkbxIgnoreUnknownLrn, {row: row, column: 2});
+            row += 1;
+            mlnFormContainerLrn.add(this.__txtFTDATANewNameLrn, {row: row, column: 1, colSpan: 3});
+            mlnFormContainerLrn.add(this.__btnSaveTData, {row: row, column: 4});
+            row += 1;
+            mlnFormContainerLrn.add(orFilePatternLabel, {row: row, column: 1});
+            mlnFormContainerLrn.add(this.__txtFORFilePattern, {row: row, column: 2, colSpan: 3});
+            row += 1;
+            mlnFormContainerLrn.add(addParamsLabel, {row: row, column: 0});
+            mlnFormContainerLrn.add(this.__txtFParamsLrn, {row: row, column: 1, colSpan: 4});
+            row += 1;
+            mlnFormContainerLrn.add(this.__chkbxUseAllCPULrn, {row: row, column: 1});
+            mlnFormContainerLrn.add(this.__chkbxVerboseLrn, {row: row, column: 2});
+            mlnFormContainerLrn.add(this.__chkbxLRemoveFormulas, {row: row, column: 3, colSpan:2});
+            row += 1;
+            mlnFormContainerLrn.add(this.__btnStartLrn, {row: row, column: 1, colSpan: 4});
 
             return mlnFormContainerLrn;
         },
@@ -807,10 +842,19 @@ qx.Class.define("webmln.Application", {
 
 
         /**
+         * download currently selected project
+         */
+        _download_project : function() {
+            var project = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctProjectInf : this.__slctProjectLrn).getSelection()[0].getLabel();
+            window.open("/mln/projects/" + project,"_self");
+        },
+        
+
+        /**
         * Update fields when changing the example folder for learning
         */
         _refresh_list : function(field, mln){
-            var exampleFolder = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctXmplFldr : this.__slctXmplFldrLrn).getSelection()[0].getLabel();
+            var exampleFolder = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctProjectInf : this.__slctProjectLrn).getSelection()[0].getLabel();
             var url = "/mln/"+ (this.__tabView.isSelected(this.__inferencePage) ? 'inference' : 'learning') + "/_change_example";
             var req = new qx.io.request.Xhr(url, "POST");
             req.setRequestHeader("Content-Type", "application/json");
@@ -834,7 +878,7 @@ qx.Class.define("webmln.Application", {
         */
         _save_file : function(fname, newname, rename, fcontent) {
             var isInfPage = this.__tabView.isSelected(this.__inferencePage);
-            var xmplFldrSlctn = (isInfPage ? this.__slctXmplFldr : this.__slctXmplFldrLrn).getSelection()[0].getLabel();
+            var xmplFldrSlctn = (isInfPage ? this.__slctProjectInf : this.__slctProjectLrn).getSelection()[0].getLabel();
 
             var req = new qx.io.request.Xhr("/mln/save_edited_file", "POST");
             req.setRequestHeader("Content-Type", "application/json");
@@ -887,14 +931,20 @@ qx.Class.define("webmln.Application", {
         * Show or hide fields for the mln model extension
         */
         _showModelExtension : function(e) {
+            row = this._rowmodelext;
             if (e.getData()) {
-                this.__mlnFormContainerInf.add(this.__emlnLabel, {row: 7, column: 0});
-                this.__mlnFormContainerInf.add(this.__slctEMLN, {row: 7, column: 1, colSpan: 4});
-                this.__mlnFormContainerInf.add(this.__emlnAreaContainer, {row: 8, column: 1, colSpan: 4});
-                this.__mlnFormContainerInf.add(this.__chkbxRenameEditEMLN, {row: 9, column: 1});
-                this.__mlnFormContainerInf.add(this.__txtFNameEMLN, {row: 10, column: 1, colSpan: 3});
-                this.__mlnFormContainerInf.add(this.__btnSaveEMLN, {row: 10, column: 4});
-                this.__mlnFormContainerLayout.setRowHeight(8, 250);
+                this.__mlnFormContainerInf.add(this.__emlnLabel, {row: row, column: 0});
+                this.__mlnFormContainerInf.add(this.__slctEMLN, {row: row, column: 1, colSpan: 4});
+                row += 1;
+                this._rowemlncontainer = row;
+                this.__mlnFormContainerInf.add(this.__emlnAreaContainer, {row: row, column: 1, colSpan: 4});
+                this.__mlnFormContainerLayout.setRowHeight(this._rowemlncontainer, 250);
+                row += 1;
+                this.__mlnFormContainerInf.add(this.__chkbxRenameEditEMLN, {row: row, column: 1});
+                row += 1;
+                this.__mlnFormContainerInf.add(this.__txtFNameEMLN, {row: row, column: 1, colSpan: 3});
+                this.__mlnFormContainerInf.add(this.__btnSaveEMLN, {row: row, column: 4});
+                row += 1;
 
                 var req = new qx.io.request.Xhr("/mln/inference/_use_model_ext", "GET");
                 req.addListener("success", function(e) {
@@ -913,7 +963,7 @@ qx.Class.define("webmln.Application", {
                 this.__mlnFormContainerInf.remove(this.__chkbxRenameEditEMLN);
                 this.__mlnFormContainerInf.remove(this.__txtFNameEMLN);
                 this.__mlnFormContainerInf.remove(this.__btnSaveEMLN);
-                this.__mlnFormContainerLayout.setRowHeight(8, 0);
+                this.__mlnFormContainerLayout.setRowHeight(this._rowemlncontainer, 0);
                 this.__slctEMLN.removeAll();
                 this.__txtAEMLN.setValue("");
                 this.__chkbxRenameEditEMLN.setValue(false);
@@ -930,14 +980,26 @@ qx.Class.define("webmln.Application", {
             var fileName = file.getFilename();
             console.log('uploading', fileName);
             this.__uploader.setAutoUpload(true);
-    //            handler.beginUploads();
-    //            console.log('handler', handler);
-    //            file.setParam("MY_FILE_PARAM", "some-value");
-    //            var progressListenerId = file.addListener("changeProgress", function(evt) {
-    //                console.log("Upload " + file.getFilename() + ": " +
-    //                    evt.getData() + " / " + file.getSize() + " - " +
-    //                    Math.round(evt.getData() / file.getSize() * 100) + "%");
-    //            }, this);
+        },
+
+
+        /**
+        * Uploads a project file
+        */
+        _uploadProj : function(evt) {
+            var file = evt.getData();
+            var fileName = file.getFilename();
+            var progressListenerId = file.addListener("changeProgress", function(e) {
+                console.log("Upload " + fileName + ": " +
+                    e.getData() + " / " + file.getSize() + " - " +
+                    Math.round(e.getData() / file.getSize() * 100) + "%");
+
+            this.__slctProjectInf.add(new qx.ui.form.ListItem(fileName));
+            this.__slctProjectLrn.add(new qx.ui.form.ListItem(fileName));
+
+            }, this);
+            console.log('uploading project', fileName);
+            this.__projUploader.setAutoUpload(true);
         },
 
 
@@ -977,7 +1039,7 @@ qx.Class.define("webmln.Application", {
                                     "use_emln": this.__chkbxUseModelExt.getValue(),
                                     "logic": logic,
                                     "grammar": grammar,
-                                    "use_multicpu": this.__chkbxUseAllCPU.getValue(),
+                                    "multicore": this.__chkbxUseAllCPU.getValue(),
                                     "ignore_unknown_preds": this.__chkbxIgnoreUnknown.getValue(),
                                     "verbose": this.__chkbxVerbose.getValue()});
                 req.addListener("success", function(e) {
@@ -1014,7 +1076,7 @@ qx.Class.define("webmln.Application", {
                 var method = (this.__slctMethodLrn.getSelectables().length != 0) ? this.__slctMethodLrn.getSelection()[0].getLabel() : "";
                 var logic = (this.__slctLogicLrn.getSelectables().length != 0) ? this.__slctLogicLrn.getSelection()[0].getLabel() : "";
                 var grammar = (this.__slctGrammarLrn.getSelectables().length != 0) ? this.__slctGrammarLrn.getSelection()[0].getLabel() : "";
-                var mlnText = this.codemirrormlnLArea ? this.codemirrormlnLArea.doc.getValue() : "";
+                var mlnText = this.codeMirrormlnAreaLrn ? this.codeMirrormlnAreaLrn.doc.getValue() : "";
                 var dbText = this.codeMirrortDataArea ? this.codeMirrortDataArea.doc.getValue() : "";
 
                 var req = new qx.io.request.Xhr("/mln/learning/_start_learning", "POST");
@@ -1052,6 +1114,7 @@ qx.Class.define("webmln.Application", {
                         this.__txtAMLNviz.setValue(response.learnedmln);
                         this._highlight('mlnResultArea');
                         this.__txtAResultsLrn.setValue(output);
+                        this._refresh_list(this.__slctMLNLrn, true);
 
                 }, this);
                 req.send();
@@ -1070,8 +1133,8 @@ qx.Class.define("webmln.Application", {
 
                     // set examples for inference and learning
                     for (var i = 0; i < response.examples.length; i++) {
-                         this.__slctXmplFldr.add(new qx.ui.form.ListItem(response.examples[i]));
-                         this.__slctXmplFldrLrn.add(new qx.ui.form.ListItem(response.examples[i]));
+                         this.__slctProjectInf.add(new qx.ui.form.ListItem(response.examples[i]));
+                         this.__slctProjectLrn.add(new qx.ui.form.ListItem(response.examples[i]));
                     }
             }, this);
             req.send();
@@ -1342,13 +1405,13 @@ qx.Class.define("webmln.Application", {
         */
         _update_text : function(selection, area) {
             var that = this;
-            var folder = this.__slctXmplFldr.getSelection()[0].getLabel();
+            var project = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctProjectInf : this.__slctProjectLrn).getSelection()[0].getLabel();
             var req = new qx.io.request.Xhr();
             req.setUrl("/mln/_get_filecontent");
             req.setMethod('POST');
             req.setRequestHeader("Cache-Control", "no-cache");
             req.setRequestHeader("Content-Type", 'application/json');
-            req.setRequestData({ "example": folder , "filename": selection });
+            req.setRequestData({ "project": project , "filename": selection });
             req.addListener("success", function(e) {
                 var tar = e.getTarget();
                 var response = tar.getResponse();

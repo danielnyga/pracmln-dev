@@ -4,15 +4,15 @@ import traceback
 from StringIO import StringIO
 from flask import json, request, session, jsonify
 import sys
+from pracmln.mln.base import parse_mln
+from pracmln.mln.database import parse_db
 from pracmln.praclog import logger
+from pracmln.utils import config
 from webmln.gui.app import mlnApp
 from webmln.gui.pages.utils import ensure_mln_session, change_example, get_training_db_paths
-from pracmln import MLN, Database
-from pracmln.mln.learning import DiscriminativeLearner
+from pracmln import Database, MLNLearn
 from pracmln.mln.methods import LearningMethods
-from pracmln.mln.util import headline, out
-from pracmln.utils.config import PRACMLNConfig, learn_config_pattern
-from tabulate import tabulate
+from pracmln.utils.config import PRACMLNConfig
 
 log = logger(__name__)
 
@@ -34,20 +34,25 @@ def start_learning(savegeometry=True):
 
     # load settings from webform
     data = json.loads(request.get_data())
+    mln_content = data['mln_text'].encode('utf8')
+    db_content = data['db_text'].encode('utf8')
+    output = config.learnwts_output_filename(data['mln'].encode('utf8'), LearningMethods.id(data['method'].encode('utf8')), data['db'].encode('utf8'))
+    mln_name = data['mln'].encode('utf8')
+    db_name = data['db'].encode('utf8')
 
     # update settings
-    learnconfig = PRACMLNConfig(os.path.join(mlnsession.xmplFolder, learn_config_pattern % data['mln'].encode('utf8')))
-    learnconfig.update(mlnsession.learnconfig.config)
+    learnconfig = PRACMLNConfig()
+    learnconfig.update(mlnsession.projectlearn.learnconf.config)
     learnconfig.update(
         dict(mln_rename=data['mln_rename_on_edit'],
-             db=data['db'].encode('utf8'), db_rename=data['db_rename_on_edit'],
+             db=db_name, db_rename=data['db_rename_on_edit'],
              method=data['method'].encode('utf8'),
              params=data['params'].encode('utf8'),
-             mln=data['mln'].encode('utf8'),
-             output_filename="",
+             mln=mln_name,
+             output_filename=output,
              logic=data['logic'].encode('utf8'),
              grammar=data['grammar'].encode('utf8'),
-             multicore=data['multicore'], save=False,
+             multicore=data['multicore'], save=True,
              ignore_unknown_preds=data['ignore_unknown_preds'],
              verbose=data['verbose'], use_prior=data['use_prior'],
              prior_mean=data['prior_mean'],
@@ -61,92 +66,59 @@ def start_learning(savegeometry=True):
              incremental=data['incremental'],
              pattern=data['pattern'].encode('utf8')))
 
-    if learnconfig['mln'] == "":
+    if learnconfig.get('mln', None) is None or learnconfig.get('mln', None) == "":
         raise Exception("No MLN was selected")
 
-    out(learnconfig.config)
-
     # store settings in session
-    mlnsession.learnconfig = learnconfig
+    mlnsession.projectlearn.learnconf.conf = learnconfig.config.copy()
 
-    # expand the parameters
-    tmpconfig = learnconfig.config.copy()
-    if 'params' in tmpconfig:
-        params = eval("dict(%s)" % learnconfig['params'])
-        del tmpconfig['params']
-        tmpconfig.update(params)
-
-    # load the training databases
-    pattern = tmpconfig["pattern"].strip()
-    if pattern:
-        dbs = get_training_db_paths(pattern)
-    else:
-        db = tmpconfig["db"]
-        if db is None or not db:
-            raise Exception('no trainig data given!')
-        if os.path.exists(os.path.join(mlnsession.xmplFolderLearning, db)):
-            dbs = [os.path.join(mlnsession.xmplFolderLearning, db)]
-        elif os.path.exists(os.path.join(mlnsession.tmpsessionfolder, db)):
-            dbs = [os.path.join(mlnsession.tmpsessionfolder, db)]
-
-    mlnsession.learnconfig = learnconfig
-
-    # invoke learner
     learnedmln = ''
     try:
-        # get the method class
-        method = LearningMethods.clazz(tmpconfig['method'])
+        mlnobj = parse_mln(mln_content, searchpaths=[mlnsession.tmpsessionfolder], projectpath=os.path.join(mlnsession.tmpsessionfolder, mlnsession.projectlearn.name), logic=learnconfig.get('logic', 'FirstOrderLogic'), grammar=learnconfig.get('grammar', 'PRACGrammar'))
 
-        if tmpconfig['verbose']:
-            conf = dict(tmpconfig)
-            print tabulate(
-                sorted(list(conf.viewitems()), key=lambda (key, value): str(key)), headers=('Parameter:', 'Value:'))
+        if learnconfig.get('pattern'):
+            local, dblist = get_training_db_paths(learnconfig.get('pattern', '').strip())
+            dbobj = []
+            # build database list from project dbs
+            if local:
+                for dbname in dblist:
+                    dbobj.extend(parse_db(mlnobj, mlnsession.projectlearn.dbs[dbname].strip(), ignore_unknown_preds=learnconfig.get('ignore_unknown_preds', True)))
+            # build database list from filesystem dbs
+            else:
+                for dbpath in dblist:
+                    dbobj.extend(Database.load(mlnobj, dbpath, ignore_unknown_preds=learnconfig.get('ignore_unknown_preds', True)))
+        # build single db from currently selected db
+        else:
+            dbobj = parse_db(mlnobj, db_content, ignore_unknown_preds=learnconfig.get('ignore_unknown_preds', True))
 
-        params = dict([(k, tmpconfig[k]) for k in ('multicore', 'verbose', 'ignore_zero_weight_formulas')])
 
-        # for discriminative learning
-        if issubclass(method, DiscriminativeLearner):
-            if not tmpconfig['discr_preds']:  # use query preds
-                params['qpreds'] = tmpconfig['qpreds'].split(',')
-            elif tmpconfig['discr_preds']:  # use evidence preds
-                params['epreds'] = tmpconfig['epreds'].split(',')
+        # run the learner
+        learning = MLNLearn(config=learnconfig, mln=mlnobj, db=dbobj)
+        result = learning.run()
 
-        # gaussian prior settings
-        if tmpconfig["use_prior"]:
-            params['prior_mean'] = float(tmpconfig["prior_mean"])
-            params['prior_stdev'] = float(tmpconfig["prior_stdev"])
+        output = StringIO()
+        result.write(output, color=None)
+        learnedmln = output.getvalue()
 
-        try:
-            # load the MLN
-            if os.path.exists(os.path.join(mlnsession.xmplFolderLearning, tmpconfig["mln"])):
-                mlnfile = os.path.join(mlnsession.xmplFolderLearning, tmpconfig["mln"])
-            elif os.path.exists(os.path.join(mlnsession.tmpsessionfolder, tmpconfig["mln"])):
-                mlnfile = os.path.join(mlnsession.tmpsessionfolder, tmpconfig["mln"])
-            mln = MLN(mlnfile=mlnfile, logic=tmpconfig['logic'], grammar=tmpconfig['grammar'])
+        if learnconfig.get('verbose', False):
+            streamlog.info('LEARNT MARKOV LOGIC NETWORK: \n' + learnedmln)
 
-            # load the databases
-            dbs = reduce(list.__add__, [Database.load(mln, dbfile, tmpconfig['ignore_unknown_preds']) for dbfile in dbs])
-            if tmpconfig['verbose']: log.info('loaded {} database(s).'.format(len(dbs)))
+        # save settings to project
+        if learnconfig.get('save', False):
+            fname = learnconfig.get('output_filename', 'result.mln')
+            mlnsession.projectlearn.add_mln(fname, learnedmln)
+            mlnsession.projectlearn.mlns[mln_name] = mln_content
+            mlnsession.projectlearn.dbs[db_name] = db_content
+            mlnsession.projectlearn.save(dirpath=mlnsession.tmpsessionfolder)
+            streamlog.info('saved result to file results/{} in project {}'.format(fname, mlnsession.projectlearn.name))
 
-            # run the learner
-            mlnlearnt = mln.learn(dbs, method, **params)
-
-            # save result for visualization or whatever
-            learnedmlnstream = StringIO()
-            mlnlearnt.write(learnedmlnstream, color=None)
-            learnedmln = learnedmlnstream.getvalue()
-
-            if tmpconfig['verbose']:
-                streamlog.info('LEARNT MARKOV LOGIC NETWORK')
-                mlnlearnt.write(stream, color=None)
-
-        except SystemExit:
-            log.error('Cancelled...')
-        finally:
-            log.info('FINISHED')
-            handler.flush()
+    except SystemExit:
+        log.error('Cancelled...')
     except:
         traceback.print_exc()
+    finally:
+        log.info('FINISHED')
+        handler.flush()
 
     output = stream.getvalue()
     res = {'output': output, 'learnedmln': learnedmln}
