@@ -80,8 +80,8 @@ class EnumerationAsk(Inference):
     
     def __init__(self, mrf, queries, **params):
         Inference.__init__(self, mrf, queries, **params)
-#         self.grounder = FastConjunctionGrounding(mrf, simplify=False, unsatfailure=False, formulas=mrf.formulas, cache=auto, verbose=False, multicore=self.multicore)
-        self.grounder = DefaultGroundingFactory(mrf, simplify=False, unsatfailure=False, formulas=list(mrf.formulas), cache=auto, verbose=False)
+        self.grounder = FastConjunctionGrounding(mrf, simplify=False, unsatfailure=False, formulas=mrf.formulas, cache=auto, verbose=False, multicore=self.multicore)
+        # self.grounder = DefaultGroundingFactory(mrf, simplify=False, unsatfailure=False, formulas=list(mrf.formulas), cache=auto, verbose=False)
         # check consistency of fuzzy and functional variables
         for variable in self.mrf.variables:
             variable.consistent(self.mrf.evidence, strict=isinstance(variable, FuzzyVariable))
@@ -141,7 +141,8 @@ class EnumerationAsk(Inference):
                 if self.verbose: bar.update(float(k) / worlds)
         logger.debug("%d worlds enumerated" % k)
         self._watch.finish('enumerating worlds')
-        self._watch.tags['grounding'] = self.grounder.watch['grounding']
+        if 'grounding' in self.grounder.watch.tags:
+            self._watch.tags['grounding'] = self.grounder.watch['grounding']
         if denominator == 0:
             raise SatisfiabilityException('MLN is unsatisfiable. All probability masses returned 0.')
         # normalize answers

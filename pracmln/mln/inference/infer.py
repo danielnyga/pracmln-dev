@@ -221,6 +221,7 @@ class Inference(object):
         total = float(self._watch['inference'].elapsedtime)
         stream.write(headline('INFERENCE RUNTIME STATISTICS'))
         print
+        self._watch.finish()
         for t in sorted(self._watch.tags.values(), key=lambda t: t.elapsedtime, reverse=True):
             stream.write('%s %s %s\n' % (barstr(width=30, percent=t.elapsedtime / total, color=col), elapsed_time_str(t.elapsedtime), t.label))
     

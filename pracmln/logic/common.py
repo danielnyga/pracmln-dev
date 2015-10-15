@@ -676,7 +676,7 @@ class Logic(object):
             final_variants = []
             for variant in variants:
                 if isinstance(self, Logic.Exist):
-                    final_variants.append(self.logic.exist(self.vars, variant[0], mln=self.mln))
+                    final_variants.append(self.mln.logic.exist(self.vars, variant[0], mln=self.mln))
                 else:
                     final_variants.append(self.mln.logic.create(type(self), variant, mln=self.mln))
             return final_variants
@@ -1138,6 +1138,15 @@ class Logic(object):
         @negated.setter
         def negated(self, negate):
             self._negated = negate
+
+
+        @property
+        def predname(self):
+            return self.gndatom.predname
+
+        @property
+        def args(self):
+            return self.gndatom.args
     
     
         def truth(self, world):
@@ -1787,9 +1796,9 @@ class Logic(object):
         def ground(self, mrf, assignment, partial=False, simplify=False):
             # find out variable domains
             vardoms = self.formula.vardoms()
-            if set(self.vars).issubset(vardoms):
+            if not set(self.vars).issubset(vardoms):
                 raise Exception('One or more variables do not appear in formula: %s' % str(set(self.vars).difference(vardoms)))
-            variables = dict([(k,v) for k,v in vardoms if k in self.vars])
+            variables = dict([(k,v) for k,v in vardoms.iteritems() if k in self.vars])
             # ground
             gndings = []
             self._ground(self.children[0], variables, assignment, gndings, mrf, partial=partial)
