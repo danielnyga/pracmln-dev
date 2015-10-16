@@ -133,7 +133,7 @@ class MCSAT(MCMCInference):
         # convert the MLN ground formulas to CNF
         logger.debug("converting formulas to CNF...")
         #self.mln._toCNF(allPositive=True)
-        grounder = FastConjunctionGrounding(self.mrf, simplify=True)
+        grounder = FastConjunctionGrounding(self.mrf, simplify=True, verbose=self.verbose)
         self.gndformulas, self.formulas = Logic.cnf(grounder.itergroundings(), self.mln.formulas, self.mln.logic, allpos=True)
         # get clause data
         logger.debug("gathering clause data...")
@@ -142,9 +142,8 @@ class MCSAT(MCMCInference):
         #self.GAoccurrences = {} # ground atom index -> list of clause indices (into self.clauses)
         i_clause = 0
         # process all ground formulas
+        logger.debug('constructing clauses')
         for i_gf, gf in enumerate(self.gndformulas):
-            out(gf)
-            gf.print_structure()
             # get the list of clauses
             if isinstance(gf, Logic.Conjunction):
                 lc = gf.children
@@ -290,12 +289,14 @@ class MCSAT(MCMCInference):
                     else:
                         NLC.append(gf)
             if M or NLC:
+                logger.debug('Running SampleSAT')
                 SampleSAT(self.mrf, chain.state, M, NLC, self, p=0.8).run() # Note: can't use p=1.0 because there is a chance of getting into an oscillating state
         
         if praclog.level == praclog.DEBUG:
             self.mrf.print_world_vars(chain.state)
             
         self.step = 1        
+        logger.debug('running MC-SAT')
         while self.step <= self.maxsteps:
             # take one step in each chain
             for chain in chaingroup.chains:
