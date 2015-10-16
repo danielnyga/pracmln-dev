@@ -1091,8 +1091,8 @@ class Logic(object):
             return constants
         
         
-        def simplify(self, world):
-            return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
+#         def simplify(self, world):
+#             return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
 
             
         def __eq__(self, other):
@@ -1102,13 +1102,12 @@ class Logic(object):
         def __ne__(self, other):
             return not self == other
         
-        
     
     
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 
 
-    class GroundLit(Lit): 
+    class GroundLit(Formula): 
         '''
         Represents a ground literal.
         '''
@@ -1784,12 +1783,11 @@ class Logic(object):
             newvars = self.formula.vardoms(None, constants)
             # remove the quantified variable(s)
             for var in self.vars:
-                try:
-                    del newvars[var]
+                try: del newvars[var]
                 except:
                     raise Exception("Variable '%s' in '%s' not bound to a domain!" % (var, str(self)))
-            # add the remaining ones and return
-            variables.update(newvars)
+            # add the remaining ones that are not None and return
+            variables.update(dict([(k, v) for k, v in newvars.iteritems() if v is not None]))
             return variables
 
              
