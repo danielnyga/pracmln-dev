@@ -52,6 +52,7 @@ import re
 import traceback
 from pracmln.mln.learning.bpll import BPLL
 from pracmln.utils.project import MLNProject
+from pracmln.logic.common import Logic
 
 
 logger = logging.getLogger(__name__)
@@ -416,12 +417,6 @@ class MLN(object):
                 mrf.gndatom(gndatom.predname, *gndatom.args)
         evidence = dict([(atom, value) for atom, value in db.evidence.iteritems() if mrf.gndatom(atom) is not None])
         mrf.set_evidence(evidence, erase=False)
-        # application of closed world was moved to the inference and learning classes
-#         if cw and cwpreds is not None:
-#             raise Exception('Conflicting parameters: cw and cwpreds are both given.')
-#         if cw: mrf.apply_cw()
-#         elif cwpreds is not None:
-#             mrf.apply_cw(*cwpreds)
         return mrf
 
 
@@ -878,7 +873,36 @@ class mlnpath(object):
     
     
     @property
+    def file(self):
+        '''
+        Returns the name of the file specified by this ``mlnpath``.
+        '''
+        return self._file
+    
+    
+    @file.setter
+    def file(self, f):
+        self._file = f
+    
+        
+    @property
+    def project(self):
+        '''
+        Returns the project name specified.
+        '''
+        return self._project
+    
+    
+    @project.setter
+    def project(self, p):
+        self._project = p
+        
+    
+    @property
     def content(self):
+        '''
+        Returns the content of the file specified by this ``mlnpath``.
+        '''
         path = self.resolve_path()
         if self.project is not None:
             proj = MLNProject.open(os.path.join(path, self.project))
@@ -901,6 +925,9 @@ class mlnpath(object):
 
     @property
     def projectloc(self):
+        '''
+        Returns the location of the project file, if any is specified.
+        '''
         if self.project is None:
             raise Exception('No project specified in the path.')
         return os.path.join(self.resolve_path, self.project)
@@ -908,6 +935,9 @@ class mlnpath(object):
 
     @property
     def exists(self):
+        '''
+        Checks if the file exists.
+        '''
         return os.path.exists(os.path.join(self.resolve_path(), ifNone(self.project, self.file)))
         
 
