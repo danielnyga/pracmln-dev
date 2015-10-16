@@ -40,22 +40,22 @@ Installation
 
 #. Generating Apps
 
-   Run the ``make_apps`` script: ::
+   Run the ``setup.y`` script: ::
     
-    python make_apps.py
+    python setup.py
 
    This will generate a number of shell scripts (or batch files for Windows) in the ``./apps`` directory. 
 
 #. Setting up your Environment
 
-   ``make_apps`` will report how to set up your environment.
+   ``setup.py`` will report how to set up your environment.
    
    To temporarily configure your environment, you can simply use the ``env`` script/batch
    file it creates to get everything set up.
    If you use `pracmln` a lot, consider adding the ``./apps`` directory to your ``PATH`` variable
    or copy the files created therein to an appropriate directory.
    If you intend to make use of scripting, also set ``PYTHONPATH`` as described
-   by ``make_apps``.
+   by ``setup``.
 
 C++ bindings
 ------------
@@ -70,9 +70,9 @@ C++ bindings
 
 * Installation:
 
- * Run the ``make_apps`` script with ``--cppbindings``: ::
+ * Run the ``setup`` script with ``--cppbindings``: ::
 
-    python make_apps.py --cppbindings
+    python setup.py --cppbindings
 
 * Usage:
 
