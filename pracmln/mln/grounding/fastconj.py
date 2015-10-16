@@ -125,11 +125,11 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             
             
     def _itergroundings_fast(self, formula, constituents, cidx, pivotfct, truthpivot, assignment, level=0):
-        if truthpivot == 0 and (isinstance(formula, Logic.Conjunction) or isinstance(formula, Logic.Lit)):
+        if truthpivot == 0 and (isinstance(formula, Logic.Conjunction) or self.mln.logic.islit(formula)):
             if formula.weight == HARD:
                 raise SatisfiabilityException('MLN is unsatisfiable given evidence due to hard constraint violation: %s' % str(formula))
             return
-        if truthpivot == 1 and (isinstance(formula, Logic.Disjunction) or isinstance(formula, Logic.Lit)):
+        if truthpivot == 1 and (isinstance(formula, Logic.Disjunction) or self.mln.logic.islit(formula)):
             return
         if cidx == len(constituents): # we have reached the end of the formula constituents
             gf = formula.ground(self.mrf, assignment, simplify=True)
