@@ -207,8 +207,8 @@ class SyntaxHighlightingText(ScrolledText2):
         # This should call colorize for the pasted lines.
         SelectedText = self.root.selection_get(selection='CLIPBOARD')
         Selection=self.get_selection_indices()
-        out('deleting', Selection)
-        self.delete(Selection[0],Selection[1])
+        if Selection is not None:
+            self.delete(Selection[0],Selection[1])
         self.insert(INSERT, SelectedText)
         self.onChange()
         return "break"
