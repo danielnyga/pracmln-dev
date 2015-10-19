@@ -646,6 +646,10 @@ class temporary_evidence():
         self.mrf.evidence = self.evidence_backup
         return True
         
+        
+        
+
+
     
 if __name__ == '__main__':
     

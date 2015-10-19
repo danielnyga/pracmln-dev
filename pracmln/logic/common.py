@@ -1455,7 +1455,7 @@ class Logic(object):
             return prednames
         
         
-        def truth(self, world):
+        def truth(self, world=None):
             if any(map(self.mln.logic.isvar, self.args)):
                 return None
             equals = 1 if (self.args[0] == self.args[1]) else 0
@@ -2141,8 +2141,8 @@ class Logic(object):
         
         Needs a formula since variables in equality constraints are not typed per se.
         '''
-        doms = f.vardoms(mln)
-        eqVars_ = eq.vardoms(mln)
+        doms = f.vardoms()
+        eqVars_ = eq.vardoms()
         if not set(eqVars_).issubset(doms):
             raise Exception('Variable in (in)equality constraint not bound to a domain: %s' % eq)
         eqVars = {}

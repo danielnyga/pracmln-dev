@@ -450,6 +450,12 @@ class MRF(object):
                 stream.write('  %s  %s\n' % (vstr, var.gndatoms[i])) 
             
 
+    def print_domains(self):
+        out('=== MRF DOMAINS ==', tb=2)
+        for dom, values in self.domains.iteritems():
+            print dom, '=', ','.join(values) 
+
+
     def evidence_dicts(self):
         '''
         Returns, from the current evidence list, a dictionary that maps ground atom names to truth values

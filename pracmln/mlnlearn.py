@@ -33,8 +33,8 @@ import sys
 import ntpath
 import logging
 import traceback
-from pracmln.mln.base import parse_mln, mlnpath
-from pracmln.utils.project import MLNProject
+from pracmln.mln.base import parse_mln
+from pracmln.utils.project import MLNProject, mlnpath
 from utils.widgets import *
 import tkMessageBox
 import fnmatch
@@ -429,7 +429,7 @@ class MLNLearnGUI:
         self.btn_openproj.grid(row=0, column=2, sticky="WS")
 
         # save proj file
-        self.btn_saveproj = Button(project_container, text='Save Project...', command=self.noask_save_project)
+        self.btn_saveproj = Button(project_container, text='Save Project', command=self.noask_save_project)
         self.btn_saveproj.grid(row=0, column=3, sticky="WS")
 
         # save proj file as...

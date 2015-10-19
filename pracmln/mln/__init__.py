@@ -31,4 +31,3 @@ from base import FunctionalPredicate
 from base import SoftFunctionalPredicate
 from database import Database
 from errors import *
-from base import mlnpath

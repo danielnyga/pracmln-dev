@@ -35,7 +35,7 @@ import ntpath
 import re
 import tkMessageBox
 import traceback
-from pracmln.utils.project import MLNProject
+from pracmln.utils.project import MLNProject, mlnpath
 from utils import widgets
 from mln.methods import InferenceMethods
 from mln.inference import *
@@ -50,7 +50,7 @@ from pracmln.mln.util import out, ifNone, trace, parse_queries,\
 from pracmln.utils.config import PRACMLNConfig, query_config_pattern, \
     query_mln_filemask, emln_filemask, query_db_filemask, \
     global_config_filename
-from pracmln.mln.base import parse_mln, MLN, mlnpath
+from pracmln.mln.base import parse_mln, MLN
 from pracmln.mln.database import parse_db, Database
 from tabulate import tabulate
 from cProfile import Profile

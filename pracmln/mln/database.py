@@ -24,7 +24,6 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
 
 from util import stripComments, mergedom
-import copy
 from pracmln.praclog import logging
 from pracmln.logic.common import Logic
 from errors import NoSuchPredicateError
@@ -32,10 +31,16 @@ from pracmln.logic.fol import FirstOrderLogic
 import os
 from StringIO import StringIO
 import sys
-from pracmln.mln.util import barstr, colorize, out
+from pracmln.mln.util import barstr, colorize, out, ifNone
 from pracmln.mln.errors import MLNParsingError
 import traceback
 from collections import defaultdict
+import re
+from pracmln import praclog
+from pracmln.utils.project import mlnpath
+
+
+logger = praclog.logger(__name__)
 
 
 class Database(object):
@@ -407,7 +412,7 @@ class Database(object):
                         
                         
     @staticmethod
-    def load(mln, dbfile, ignore_unknown_preds=False, db=None):
+    def load(mln, dbfiles, ignore_unknown_preds=False, db=None):
         '''
         Reads one or multiple database files containing literals and/or domains.
         Returns one or multiple databases where domains is dictionary mapping 
@@ -422,24 +427,21 @@ class Database(object):
           >>> mln = MLN()
           >>> db = Database.load(mln, './example.db')
         '''
-        if type(dbfile) is list:
-            dbs = []
-            for dbpath in dbfile:
-                dbobj = Database.load(mln, dbpath)
-                if type(dbobj) is list:
-                    dbs.extend(dbobj)
-                else:
-                    dbs.append(dbobj)
-            return dbs
+        if type(dbfiles) is not list:
+            dbfiles = [dbfiles]
         dbs = []
-        if isinstance(dbfile, basestring): 
-            # read file
-            f = file(dbfile, "r")
-            content = f.read()
-            f.close()
-        else:
-            content = dbfile.read()
-        dbs = parse_db(mln, content, ignore_unknown_preds, db)
+        for dbpath in dbfiles:
+            if isinstance(dbpath, basestring): 
+                dbpath = mlnpath(dbpath)
+            if isinstance(dbpath, mlnpath):
+                projectpath = None
+                if dbpath.project is not None:
+                    projectpath = dbpath.projectloc
+                dirs = [os.path.dirname(fp) for fp in dbfiles]
+                dbs_ = parse_db(mln, content=dbpath.content, ignore_unknown_preds=ignore_unknown_preds, db=db, dirs=dirs, projectpath=projectpath)
+                dbs.extend(dbs_)
+            else:
+                raise Exception('Illegal db file specifier: %s' % dbpath)
         if len(dbs) > 1 and db is not None:
             raise Exception('Cannot attach multiple databases to a single database object. Use Database.load(..., db=None).')
         else: 
@@ -514,7 +516,7 @@ class Database(object):
                 yield assignment
                 
 
-def parse_db(mln, content, ignore_unknown_preds=False, db=None):
+def parse_db(mln, content, ignore_unknown_preds=False, db=None, dirs=['.'], projectpath=None):
     '''
     Reads one or more databases in a string representation and returns
     the respective Database objects.
@@ -549,6 +551,39 @@ def parse_db(mln, content, ignore_unknown_preds=False, db=None):
         elif "{" in l:
             domname, constants = db.mln.logic.parse_domain(l)
             domnames = [domname for _ in constants]
+        # include
+        elif l.startswith('#include'):
+            filename = l[len("#include "):].strip()
+            m = re.match(r'"(?P<filename>.+)"', filename)
+            if m is not None:
+                filename = m.group('filename')
+                # if the path is relative, look for the respective file 
+                # relatively to all paths specified. Take the first file matching.
+                if not mlnpath(filename).exists:
+                    includefilename = None
+                    for d in dirs:
+                        mlnp = '/'.join([d, filename])
+                        if mlnpath(mlnp).exists:
+                            includefilename = mlnp
+                            break
+                    if includefilename is None:
+                        raise Exception('File not found: %s' % filename)
+                else:
+                    includefilename = filename
+            else:
+                m = re.match(r'<(?P<filename>.+)>', filename)
+                if m is not None:
+                    filename = m.group('filename')
+                else:
+                    raise MLNParsingError('Malformed #include statement: %s' % line)
+                if projectpath is None:
+                    raise MLNParsingError('No project specified: Cannot locate import from project: %s' % filename)
+                includefilename = ':'.join([projectpath, filename])
+            logger.debug('Including file: "%s"' % includefilename)
+            p = mlnpath(includefilename)
+            parse_db(content=mlnpath(includefilename).content, dirs=[p.resolve_path()]+dirs, 
+                      projectpath=ifNone(p.project, projectpath, lambda x: '/'.join(p.path+[x])), mln=mln)
+            continue
         # valued evidence
         elif l[0] in "0123456789":
             s = l.find(" ")
