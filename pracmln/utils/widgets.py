@@ -23,12 +23,13 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from Tkinter import _setit, Menu, TclError, Frame, StringVar, Button, Text,\
-    IntVar, Checkbutton, Entry, OptionMenu
+    IntVar, Checkbutton, Entry, OptionMenu, Scrollbar, Grid, Place, Pack
 from ScrolledText import ScrolledText
 from string import ascii_letters, digits, punctuation
 import re
-from Tkconstants import NONE, INSERT, LEFT, W, END, DISABLED, NORMAL
-from pracmln.mln.util import trace
+from Tkconstants import NONE, INSERT, LEFT, W, END, DISABLED, NORMAL, RIGHT, Y,\
+    TOP, BOTTOM, X, BOTH, HORIZONTAL, SEL
+from pracmln.mln.util import trace, out
 try:
     import Pmw  # @UnresolvedImport
     havePMW = True
@@ -41,10 +42,39 @@ from fnmatch import fnmatch
 BOLDFONT = '*-Monospace-Bold-R-Normal-*-12-*'
 ITALICFONT = '*-Monospace-Medium-O-Normal-*-12-*'
 
-class ScrolledText2(ScrolledText):
-    def __init__(self, root, change_hook = None):
-        ScrolledText.__init__(self,root,wrap=NONE,bd=0,width=80,height=25,undo=1,maxundo=50,padx=0,pady=0,background="white",foreground="black")
+class ScrolledText2(Text):
+    
+    def __init__(self, master=None, change_hook=None, **kw):
+        self.frame = Frame(master)
+        self.vbar = Scrollbar(self.frame)
+        self.vbar.pack(side=RIGHT, fill=Y)
 
+        self.hbar = Scrollbar(self.frame, orient=HORIZONTAL)
+        self.hbar.pack(side=BOTTOM,fill=X)
+
+        kw.update({'yscrollcommand': self.vbar.set})
+        kw.update({'xscrollcommand': self.hbar.set})
+        kw.update({'wrap': 'none'})
+        Text.__init__(self, self.frame, **kw)
+        self.pack(side=LEFT, fill=BOTH, expand=True)
+        self.vbar['command'] = self.yview
+        self.hbar['command'] = self.xview
+
+        # Copy geometry methods of self.frame without overriding Text
+        # methods -- hack!
+        text_meths = vars(Text).keys()
+        methods = vars(Pack).keys() + vars(Grid).keys() + vars(Place).keys()
+        methods = set(methods).difference(text_meths)
+
+        for m in methods:
+            if m[0] != '_' and m != 'config' and m != 'configure':
+                setattr(self, m, getattr(self.frame, m))
+
+    def __str__(self):
+        return str(self.frame)
+
+        
+        
 class Highlighter(object):
     
     def __init__(self):
@@ -149,6 +179,14 @@ class SyntaxHighlightingText(ScrolledText2):
         except TclError:
             return None
 
+    # Select all the text in textbox
+    def select_all(self):
+        self.tag_add(SEL, "1.0", END)
+        self.mark_set(INSERT, END)
+        self.see(INSERT)
+        self.focus_set()
+        return 'break'
+
     def cut(self,event=0):
         self.clipboard_clear()
         Selection=self.get_selection_indices()
@@ -168,6 +206,9 @@ class SyntaxHighlightingText(ScrolledText2):
     def paste(self,event=0):
         # This should call colorize for the pasted lines.
         SelectedText = self.root.selection_get(selection='CLIPBOARD')
+        Selection=self.get_selection_indices()
+        out('deleting', Selection)
+        self.delete(Selection[0],Selection[1])
         self.insert(INSERT, SelectedText)
         self.onChange()
         return "break"
@@ -226,8 +267,17 @@ class SyntaxHighlightingText(ScrolledText2):
                 if pos in range or pos in second_range:
                     self.tag_remove('mlcom', range[0], range[1])
                 i += 2
-        # notify of change if any
-        if key.char != '' or key.keysym in ("BackSpace", "Delete"):
+        # notify of change if any. masks for the key.state variable
+        # 0x0001     Shift.
+        # 0x0002     Caps Lock.
+        # 0x0004     Control.
+        # 0x0008     Left-hand Alt.
+        # 0x0010     Num Lock.
+        # 0x0080     Right-hand Alt.
+        # 0x0100     Mouse button 1.
+        # 0x0200     Mouse button 2.
+        # 0x0400     Mouse button 3. 
+        if key.char != '' and not (key.state & 4) or key.keysym in ("BackSpace", "Delete"):
             self.onChange()
         else:
             pass
@@ -238,10 +288,12 @@ class SyntaxHighlightingText(ScrolledText2):
             self.change_hook()
 
     def ctrl(self, key):
-        #if key.keysym == 'c': self.copy()
-        #elif key.keysym == 'x': self.cut()
-        #elif key.keysym == 'v': self.paste()
-        pass # apparently now implemented in the control itself
+        if key.keysym == 'c': return self.copy()
+        elif key.keysym == 'x': return self.cut()
+        elif key.keysym == 'v': return self.paste()
+        elif key.keysym == 'a': return self.select_all()
+        #pass # apparently now implemented in the control itself
+        # edit: yes, but with counterintuitive behavior
 
     def colorize(self, cline):
         cursorPos = self.index(INSERT)
