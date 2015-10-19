@@ -258,10 +258,10 @@ class Database(object):
             else:
                 bar = ''
             if color:
-                strout = '%s  %s\n' % (bar if bars else  colorize('%.2f' % truth, (None, 'magenta', False), True), 
+                strout = '%s  %s\n' % (bar if bars else  colorize('%.6f' % truth, (None, 'magenta', False), True), 
                                        FirstOrderLogic.Lit(False, pred, params, self.mln).cstr(color))
             else:
-                strout = '%s  %s\n' % (bar if bars else  '%.2f' % truth, FirstOrderLogic.Lit(False, pred, params, self.mln).cstr(color))
+                strout = '%s  %s\n' % (bar if bars else  '%.6f' % truth, FirstOrderLogic.Lit(False, pred, params, self.mln).cstr(color))
             stream.write(strout)
             
                 
