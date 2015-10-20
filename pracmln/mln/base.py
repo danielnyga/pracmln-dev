@@ -53,6 +53,7 @@ import traceback
 from pracmln.mln.learning.bpll import BPLL
 from pracmln.utils.project import MLNProject, mlnpath
 from pracmln.logic.common import Logic
+from pracmln.utils.multicore import make_memsafe
 
 
 logger = logging.getLogger(__name__)
@@ -64,8 +65,6 @@ if platform.architecture()[0] == '32bit':
         psyco.full()
     except:
         logger.warning("Note: Psyco (http://psyco.sourceforge.net) was not loaded. On 32bit systems, it is recommended to install it for improved performance.")
-
-
 
 
 
@@ -401,7 +400,7 @@ class MLN(object):
         return self
 
 
-    def ground(self, db, **params):#cw=False, cwpreds=None, **params):
+    def ground(self, db):
         '''
         Creates and returns a ground Markov Random Field for the given database.
         
@@ -409,7 +408,6 @@ class MLN(object):
         :param cw:         if the closed-world assumption shall be applied (to all predicates)
         :param cwpreds:    a list of predicate names the closed-world assumption shall be applied.
         '''
-        logger = logging.getLogger(self.__class__.__name__)
         logger.debug('creating ground MRF...')
         mrf = MRF(self, db)
         for pred in self.predicates:

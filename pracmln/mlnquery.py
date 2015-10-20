@@ -1161,6 +1161,7 @@ class MLNQueryGUI(object):
             if options.get('dbarg') is not None:
                 dbobj = Database.load(mlnobj, dbfile=options.get('dbarg'), ignore_unknown_preds=self.config.get('ignore_unknown_preds', True))
             else:
+                out(self.config.get('ignore_unknown_preds', True))
                 dbobj = parse_db(mlnobj, db_content, ignore_unknown_preds=self.config.get('ignore_unknown_preds', True))
 
             if options.get('queryarg') is not None:

@@ -1238,7 +1238,7 @@ class MLNLearnGUI:
                     # build database list from project dbs
                     if local:
                         for dbname in dblist:
-                            dbobj.extend(parse_db(mlnobj, self.project.dbs[dbname].strip(), ignore_unknown_preds=self.config.get('ignore_unknown_preds', True)))
+                            dbobj.extend(parse_db(mlnobj, self.project.dbs[dbname].strip(), ignore_unknown_preds=self.config.get('ignore_unknown_preds', True), projectpath=os.path.join(self.dir, self.project.name)))
                         out(dbobj)
                     # build database list from filesystem dbs
                     else:
@@ -1246,7 +1246,7 @@ class MLNLearnGUI:
                             dbobj.extend(Database.load(mlnobj, dbpath, ignore_unknown_preds=self.config.get('ignore_unknown_preds', True)))
                 # build single db from currently selected db
                 else:
-                    dbobj = parse_db(mlnobj, db_content)
+                    dbobj = parse_db(mlnobj, db_content, projectpath=os.path.join(self.dir, self.project.name), dirs=[self.dir])
 
 
             learning = MLNLearn(config=self.config, mln=mlnobj, db=dbobj)
