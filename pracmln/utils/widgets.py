@@ -287,11 +287,24 @@ class SyntaxHighlightingText(ScrolledText2):
         if self.change_hook is not None:
             self.change_hook()
 
+    def delete_current_line(self):
+        selection = self.get_selection_indices()
+        if selection is None:
+            start  = int(self.index(INSERT).split('.')[0])
+            end = start
+        else:
+            start = int(selection[0].split('.')[0])
+            end = int(selection[1].split('.')[0])
+        self.delete('%d.0' % start, '%d.end' % end)
+        self.onChange()
+#         return 'break'
+
     def ctrl(self, key):
         if key.keysym == 'c': return self.copy()
         elif key.keysym == 'x': return self.cut()
         elif key.keysym == 'v': return self.paste()
         elif key.keysym == 'a': return self.select_all()
+        elif key.keysym == 'd': return self.delete_current_line() 
         #pass # apparently now implemented in the control itself
         # edit: yes, but with counterintuitive behavior
 
