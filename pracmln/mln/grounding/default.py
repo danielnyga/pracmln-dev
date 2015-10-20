@@ -84,7 +84,8 @@ class DefaultGroundingFactory:
     
     
     def _cacheinit(self):
-        if self.total_gf > self._cachesize:
+        out('cacheinit')
+        if False:#self.total_gf > self._cachesize:
             logger.warning('Number of formula groundings (%d) exceeds cache size (%d). Caching is disabled.' % (self.total_gf, self._cachesize))
         else:
             self._cache = []

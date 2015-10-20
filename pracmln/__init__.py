@@ -25,3 +25,4 @@ from mlnlearn import MLNLearn
 from mlnquery import MLNQuery
 from mlnlearn import QUERY_PREDS, EVIDENCE_PREDS
 from utils.config import PRACMLNConfig
+from utils.project import mlnpath

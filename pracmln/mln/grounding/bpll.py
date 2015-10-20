@@ -29,7 +29,8 @@ from pracmln.logic.common import Logic, Lit, GroundLit
 import sys
 import logging
 import types
-from pracmln.utils.multicore import with_tracing
+from pracmln.utils.multicore import with_tracing, CtrlCException, make_memsafe,\
+    checkmem
 from multiprocessing.pool import Pool
 from pracmln.mln.util import unifyDicts, temporary_evidence, fstr, dict_union,\
     out, stop
@@ -45,12 +46,15 @@ global_bpll_grounding = None
 
 # multiprocessing function
 def create_formula_groundings(formula, unsatfailure=True):
+    checkmem()
     results = []
     if global_bpll_grounding.mrf.mln.logic.islitconj(formula):
         for res in global_bpll_grounding.itergroundings_fast(formula):
+            checkmem()
             results.append(res)
     else:
         for gf in formula.itergroundings(global_bpll_grounding.mrf, simplify=False):
+            checkmem()
             stat = []
             for gndatom in gf.gndatoms():
                 world = list(global_bpll_grounding.mrf.evidence) 
@@ -75,7 +79,7 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
     learning.
     '''
     
-    def __init__(self, mrf, formulas=None, cache=auto, **params):
+    def __init__(self, mrf, formulas=None, cache=None, **params):
         FastConjunctionGrounding.__init__(self, mrf, simplify=False, unsatfailure=False, formulas=formulas, cache=cache, **params)
         self._stat = {}
         self._varidx2fidx = defaultdict(set)
@@ -93,55 +97,37 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
         # this is a _really_ dirty hack but it does the job ;-)
         vardoms = formula.vardoms()
         def eqvardoms(self, v=None, c=None):
-            if v is None:
-                v = defaultdict(set)
+            if v is None: v = defaultdict(set)
             for a in self.args:
                 if self.mln.logic.isvar(a):
                     v[a] = vardoms[a]
             return v 
         for child in children:
             if isinstance(child, Logic.Equality):
-                # replace the vardoms method in this equality instance
-                # by our customized one
                 setattr(child, 'vardoms', types.MethodType(eqvardoms, child))
         lits = sorted(children, key=self._conjsort)
-        for gf in self._itergroundings_fast(formula, vardoms, lits, gndlits=[], assignment={}, variables=[]):
+        for gf in self._itergroundings_fast(formula, lits, 0, assignment={}, variables=[]):
             yield gf
     
     
-    def _itergroundings_fast(self, formula, domains, lits, gndlits, assignment, variables, level=0, falsevar=None):
-        if not lits:
+    def _itergroundings_fast(self, formula, constituents, cidx, assignment, variables, falsevar=None, level=0):
+        if cidx == len(constituents):
             # no remaining literals to ground. return the ground formula and statistics
             stat = [(varidx, validx, count) for (varidx, validx, count) in variables]
-            if len(gndlits) == 1:
-                yield gndlits[0].copy(), stat
-            else:
-                yield self.mrf.mln.logic.conjunction(gndlits, mln=self.mrf.mln, idx=formula.idx), stat
+            yield formula.idx, stat
             return
-        # get the first literal and ground it with the previous variable assignments
-        # provide a vardoms() method for equality constraints
-        lit = lits[0]
-        lit = lit.ground(self.mrf, assignment, partial=True)
-        if isinstance(lit, Logic.Equality):
-            def eqvardoms(self, v=None, c=None):
-                if v is None:
-                    v = defaultdict(set)
-                for a in self.args:
-                    if self.mln.logic.isvar(a):
-                        v[a] = domains[a]
-                return v 
-            setattr(lit, 'vardoms', types.MethodType(eqvardoms, lit))
-        # go through all remaining groundings of the current lit
-        for varass in lit.itervargroundings(self.mrf):
-            gnd = lit.ground(self.mrf, varass)
+        c = constituents[cidx]
+        # go through all remaining groundings of the current constituent
+        for varass in c.itervargroundings(self.mrf, partial=assignment):
+            gnd = c.ground(self.mrf, dict_union(varass, assignment))
             # check if it violates a hard constraint
             if formula.weight == HARD and gnd(self.mrf.evidence) < 1:
                 raise SatisfiabilityException('MLN is unsatisfiable by evidence due to hard constraint violation %s (see above)' % global_bpll_grounding.mrf.formulas[formula.idx])
             if isinstance(gnd, Logic.Equality):
                 # if an equality grounding is false in a conjunction, we can stop since the 
                 # conjunction cannot be rendered true in any grounding that follows
-                if gnd.truth() == 0: continue
-                for gf in self._itergroundings_fast(formula, domains, lits[1:], gndlits + [gnd], dict_union(assignment, varass), variables, level+1, falsevar):
+                if gnd.truth(None) == 0: continue
+                for gf in self._itergroundings_fast(formula, constituents, cidx+1, dict_union(assignment, varass), variables, falsevar, level+1):
                     yield gf
             else:
                 var = self.mrf.variable(gnd.gndatom)
@@ -154,7 +140,7 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
                     var.setval(value, world_)
                     truth = gnd(world_)
                     if truth == 0 and value == var.evidence_value():
-                        # if the evidence value renders the current literal false
+                        # if the evidence value renders the current consituent false
                         # and there was already a false literal in the grounding path,
                         # we can prune the tree since no grounding will be true 
                         if falsevar is not None and falsevar != var.idx:
@@ -177,7 +163,7 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
                     stat = set(variables).intersection(stat)
                     skip = not bool(stat) # skip if no values remain
                 if skip: continue
-                for gf in self._itergroundings_fast(formula, domains, lits[1:], gndlits + [gnd], dict_union(assignment, varass), vars_ + stat, level+1, falsevar=falsevar_):
+                for gf in self._itergroundings_fast(formula, constituents, cidx+1, dict_union(assignment, varass), vars_ + stat, falsevar=falsevar_, level=level+1):
                     yield gf
         
         
@@ -185,22 +171,27 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
         global global_bpll_grounding
         global_bpll_grounding = self
         if self.multicore:
-            pool = Pool()
-            for gndresult in pool.imap(with_tracing(create_formula_groundings), self.formulas):
-                for gf, stat in gndresult:
-                    for (varidx, validx, val) in stat: 
-                        self._varidx2fidx[varidx].add(gf.idx)
-                        self._addstat(gf.idx, varidx, validx, val)
-                    yield gf
-            pool.terminate()
+            pool = Pool(maxtasksperchild=1)
+            try:
+                for gndresult in pool.imap(with_tracing(create_formula_groundings), self.formulas):
+                    for fidx, stat in gndresult:
+                        for (varidx, validx, val) in stat: 
+                            self._varidx2fidx[varidx].add(fidx)
+                            self._addstat(fidx, varidx, validx, val)
+                        checkmem()
+                    yield None
+            except CtrlCException as e:
+                pool.terminate()
+                raise e
+            pool.close()
             pool.join()
         else:
             for gndresult in imap(create_formula_groundings, self.formulas):
-                for gf, stat in gndresult:
+                for fidx, stat in gndresult:
                     for (varidx, validx, val) in stat: 
-                        self._varidx2fidx[varidx].add(gf.idx)
-                        self._addstat(gf.idx, varidx, validx, val)
-                    yield gf
+                        self._varidx2fidx[varidx].add(fidx)
+                        self._addstat(fidx, varidx, validx, val)
+                yield None
                     
                     
     def _addstat(self, fidx, varidx, validx, inc=1):

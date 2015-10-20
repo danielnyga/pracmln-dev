@@ -25,7 +25,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import os
 import sys
 from pracmln.utils.config import PRACMLNConfig
-from pracmln.mln.util import out
+from pracmln.mln.util import out, ifNone
 
 
 class MLNProject(object):
@@ -229,7 +229,140 @@ class MLNProject(object):
         for name in self.results:
             stream.write('  ./%s\n' % name)
         
+
+class mlnpath(object):
+    '''
+    Loads the MLN resource content from a location.
+    
+    A location can be a regular absolute or relative path to an `.mln` file. It may also refer
+    to an MLN inside a `.pracmln` project container. In the latter case, the `.mln` file name
+    needs to be separated from the `.pracmln` project location by a colon. Path specification 
+    may also contain references to system environment variables, which are referred to of the
+    form ``${var}``.  
+    
+    :Example:
+    
+    >>> mlnpath('~/mlns/classification.pracmln:model-1.mln').content
+    ...
+    
+    
+    '''
+    
+    
+    def __init__(self, path):
+        # split the path wrt slashes
+        tokens = path.split('/')
+        self._abspath = path.startswith('/')
+        if ':' in tokens[-1]: 
+            self.project, self.file = tokens[-1].split(':')
+        else:
+            self.project = None
+            self.file = tokens[-1] 
+        self.path = tokens[:-1]
+    
+    
+    def compose(self):
+        p = '/'.join(self.path)
+        if self.project is not None:
+            p += ('/' if p else '') + self.project
+            if self.file is not None:
+                p += ':' + str(self.file)
+        else:
+            p += ifNone(self.file, '', lambda x: '/' + str(x))
+        return p
         
+    
+    def resolve_path(self):
+        p = os.path.join('/' if self._abspath else '', *self.path)
+        for f in (os.path.expanduser, os.path.expandvars, os.path.normpath):
+            p = f(p)
+        return p
+    
+    
+    @property
+    def file(self):
+        '''
+        Returns the name of the file specified by this ``mlnpath``.
+        '''
+        return self._file
+    
+    
+    @file.setter
+    def file(self, f):
+        self._file = f
+    
+        
+    @property
+    def project(self):
+        '''
+        Returns the project name specified.
+        '''
+        return self._project
+    
+    
+    @project.setter
+    def project(self, p):
+        self._project = p
+        
+    
+    @property
+    def content(self):
+        '''
+        Returns the content of the file specified by this ``mlnpath``.
+        '''
+        path = self.resolve_path()
+        if self.project is not None:
+            proj = MLNProject.open(os.path.join(path, self.project))
+            fileext = self.file.split('.')[-1]
+            if fileext == 'mln':
+                mln = proj.mlns.get(self.file)
+                if mln is None: raise Exception('Project %s does not contain and MLN named %s' % (self.project, self.file))
+                return mln
+            elif fileext == 'db':
+                db = proj.dbs.get(self.file)
+                if db is None: raise Exception('Project %s does not contain a database named %s' % (self.project, self.file))
+                return db
+            elif fileext == 'conf':
+                conf = {'query.conf': proj.queryconf, 'learn.conf': proj.learnconf}.get(self.file)
+                if conf is None: raise Exception('Project %s does not contain a config file named %s' % (self.project, self.file))
+        else:
+            with open(os.path.join(path, self.file)) as f:
+                return f.read()
+            
+
+    @property
+    def projectloc(self):
+        '''
+        Returns the location of the project file, if any is specified.
+        '''
+        if self.project is None:
+            raise Exception('No project specified in the path.')
+        return os.path.join(self.resolve_path, self.project)
+        
+
+    @property
+    def exists(self):
+        '''
+        Checks if the file exists.
+        '''
+        return os.path.exists(os.path.join(self.resolve_path(), ifNone(self.project, self.file)))
+        
+
+    @property
+    def isabs(self):
+        return self._abspath
+
+    def __str__(self):
+        return self.compose()
+
+
+    def __repr__(self):
+        return 'mlnpath(%s)' % str(self)
+
+
+
+
+
 if __name__ == '__main__':
 #     proj = MLNProject('myproject')
 #     proj.add_mln('model.mln', '// predicate declarations\nfoo(x)')

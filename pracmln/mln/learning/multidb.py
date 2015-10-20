@@ -25,7 +25,8 @@ import sys
 from pracmln.mln.util import StopWatch, ProgressBar, edict, out
 from multiprocessing import Pool
 import logging
-from pracmln.utils.multicore import with_tracing, _methodcaller
+from pracmln.utils.multicore import with_tracing, _methodcaller, make_memsafe,\
+    checkmem
 import numpy
 
 
@@ -33,7 +34,8 @@ logger = logging.getLogger(__name__)
 
 
 def _setup_learner((i, mln_, db, method, params)):
-    mrf = mln_.ground(db, cw=True, **params)
+    checkmem()
+    mrf = mln_.ground(db)
     algo = method(mrf, **params)
     return i, algo
 
@@ -65,18 +67,18 @@ class MultipleDatabaseLearner(AbstractLearner):
         if self.verbose:
             bar = ProgressBar(width=100, steps=len(dbs), color='green')
         if self.multicore:
-            pool = Pool()
+            pool = Pool(maxtasksperchild=1)
             logger.debug('Setting up multi-core processing for %d cores' % pool._processes)
             for i, learner in  pool.imap(with_tracing(_setup_learner), self._iterdbs(method)):
                 self.learners[i] = learner
                 if self.verbose:
                     bar.label('Database %d, %s' % ((i+1), learner.name)) 
                     bar.inc()
-            pool.terminate()
+            pool.close()
             pool.join()
         else:
             for i, db in enumerate(self.dbs):
-                _, learner = _setup_learner((i, self.mln, db, method, self._params))
+                _, learner = _setup_learner((i, self.mln, db, method, self._params + {'multicore': False}))
                 self.learners[i] = learner 
                 if self.verbose:
                     bar.label('Database %d, %s' % ((i+1), learner.name)) 
@@ -88,7 +90,7 @@ class MultipleDatabaseLearner(AbstractLearner):
 
     def _iterdbs(self, method):
         for i, db in enumerate(self.dbs):
-            yield i, self.mln, db, method, self._params + {'verbose': not self.multicore} 
+            yield i, self.mln, db, method, self._params + {'verbose': not self.multicore, 'multicore': False} 
         
     
     @property
@@ -146,11 +148,13 @@ class MultipleDatabaseLearner(AbstractLearner):
         if self.verbose:
             bar = ProgressBar(width=100, steps=len(self.dbs), color='green')
         if self.multicore:
-            for i, (_, d_) in enumerate(Pool().imap(with_tracing(_methodcaller('_prepare', sideeffects=True)), self.learners)):
+            for i, (_, d_) in enumerate(Pool(maxtasksperchild=1).imap(with_tracing(_methodcaller('_prepare', sideeffects=True)), self.learners)):
+                checkmem()
                 self.learners[i].__dict__ = d_
                 if self.verbose: bar.inc()
         else:
             for learner in self.learners:
+                checkmem()
                 learner._prepare()
                 if self.verbose: bar.inc()
 

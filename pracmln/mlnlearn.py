@@ -33,8 +33,8 @@ import sys
 import ntpath
 import logging
 import traceback
-from pracmln.mln.base import parse_mln, mlnpath
-from pracmln.utils.project import MLNProject
+from pracmln.mln.base import parse_mln
+from pracmln.utils.project import MLNProject, mlnpath
 from utils.widgets import *
 import tkMessageBox
 import fnmatch
@@ -429,7 +429,7 @@ class MLNLearnGUI:
         self.btn_openproj.grid(row=0, column=2, sticky="WS")
 
         # save proj file
-        self.btn_saveproj = Button(project_container, text='Save Project...', command=self.noask_save_project)
+        self.btn_saveproj = Button(project_container, text='Save Project', command=self.noask_save_project)
         self.btn_saveproj.grid(row=0, column=3, sticky="WS")
 
         # save proj file as...
@@ -1308,7 +1308,7 @@ class MLNLearnGUI:
                     # build database list from project dbs
                     if local:
                         for dbname in dblist:
-                            dbobj.extend(parse_db(mlnobj, self.project.dbs[dbname].strip(), ignore_unknown_preds=self.config.get('ignore_unknown_preds', True)))
+                            dbobj.extend(parse_db(mlnobj, self.project.dbs[dbname].strip(), ignore_unknown_preds=self.config.get('ignore_unknown_preds', True), projectpath=os.path.join(self.dir, self.project.name)))
                         out(dbobj)
                     # build database list from filesystem dbs
                     else:
@@ -1316,7 +1316,7 @@ class MLNLearnGUI:
                             dbobj.extend(Database.load(mlnobj, dbpath, ignore_unknown_preds=self.config.get('ignore_unknown_preds', True)))
                 # build single db from currently selected db
                 else:
-                    dbobj = parse_db(mlnobj, db_content)
+                    dbobj = parse_db(mlnobj, db_content, projectpath=os.path.join(self.dir, self.project.name), dirs=[self.dir])
 
 
             learning = MLNLearn(config=self.config, mln=mlnobj, db=dbobj)
