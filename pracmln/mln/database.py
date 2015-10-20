@@ -581,8 +581,8 @@ def parse_db(mln, content, ignore_unknown_preds=False, db=None, dirs=['.'], proj
                 includefilename = ':'.join([projectpath, filename])
             logger.debug('Including file: "%s"' % includefilename)
             p = mlnpath(includefilename)
-            parse_db(content=mlnpath(includefilename).content, dirs=[p.resolve_path()]+dirs, 
-                      projectpath=ifNone(p.project, projectpath, lambda x: '/'.join(p.path+[x])), mln=mln)
+            dbs.extend(parse_db(content=mlnpath(includefilename).content, ignore_unknown_preds=ignore_unknown_preds, dirs=[p.resolve_path()]+dirs, 
+                      projectpath=ifNone(p.project, projectpath, lambda x: '/'.join(p.path+[x])), mln=mln)) 
             continue
         # valued evidence
         elif l[0] in "0123456789":
@@ -593,14 +593,11 @@ def parse_db(mln, content, ignore_unknown_preds=False, db=None, dirs=['.'], proj
                 raise Exception('Valued evidence must be in [0,1]') 
             if gndatom  in db.evidence:
                 raise Exception("Duplicate soft evidence for '%s'" % gndatom)
-            positive, predname, constants =   mln.logic.parse_literal(gndatom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
-            if predname not in mln.prednames:
-            # if mln.predicates(predname) is None:
-                if ignore_unknown_preds:
-                    log.debug('Predicate "%s" is undefined.' % predname)
-                    continue
-                else: 
-                    raise Exception('Predicate "%s" is undefined.' % predname)
+            try:
+                positive, predname, constants =   mln.logic.parse_literal(gndatom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
+            except NoSuchPredicateError, e:
+                if ignore_unknown_preds: continue
+                else: raise e
             domnames = mln.predicate(predname).argdoms
             db << (gndatom, value)
         # literal
