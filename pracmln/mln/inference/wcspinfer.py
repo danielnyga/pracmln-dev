@@ -135,7 +135,7 @@ class WCSPConverter(object):
             formulas.append(f.nnf())
         # preprocess the ground formulas
 #         grounder = DefaultGroundingFactory(self.mrf, formulas=formulas, simplify=True, unsatfailure=True, multicore=self.multicore, verbose=self.verbose)
-        grounder = FastConjunctionGrounding(self.mrf, simplify=True, unsatfailure=True, formulas=formulas, multicore=self.multicore, verbose=self.verbose)
+        grounder = FastConjunctionGrounding(self.mrf, simplify=True, unsatfailure=True, formulas=formulas, multicore=self.multicore, verbose=self.verbose, cache=0)
         for gf in grounder.itergroundings():
             if isinstance(gf, Logic.TrueFalse):
                 if gf.weight == HARD and gf.truth() == 0:
@@ -201,21 +201,26 @@ class WCSPConverter(object):
                 variable = self.variables[self.atom2var[gndatom.idx]]
                 # in case there are multiple values of a variable that may render the formula true
                 # we cannot apply this efficient implementation and have to fall back to the naive impl. 
-                tmp_evidence = dict_union(variable.value2dict(variable.evidence_value()), {gndatom.idx: val})
+                tmp_evidence = variable.value2dict(variable.evidence_value())
+                evval = tmp_evidence.get(gndatom.idx)
+                if evval is not None and evval != val:
+                    # the supposed value of the variable and the evidence value mismatch,
+                    # so the conjunction (disjunction) can never be rendered true (false)
+                    return  
+                tmp_evidence = dict_union(tmp_evidence, {gndatom.idx: val})
                 if variable.valuecount(tmp_evidence) > 1:
                     defaultProcedure = True
                     break
+                # there is only one value remaining
                 for _, value in variable.itervalues(tmp_evidence):
                     varidx = self.atom2var[gndatom.idx] 
                     validx = self.val2idx[varidx][value]
                 # if there are two different values needed to render the formula true...
-#                 out(formula)
                 if assignment[varindices.index(varidx)] is not None and assignment[varindices.index(varidx)] != value:
                     if formula.weight == HARD:
                         if conj: # ...if it's a hard conjunction, the MLN is unsatisfiable -- e.g. foo(x) ^ !foo(x) 
                             raise SatisfiabilityException('Knowledge base is unsatisfiable due to hard constraint violation: %s' % formula)
                         elif disj: # ...if it's a hard disjunction, it's a tautology -- e.g. foo(x) v !foo(x)
-                            out('ignoring')
                             continue
                     else: # for soft constraints, unsatisfiable formulas and tautologies  can be ignored
                         return None
