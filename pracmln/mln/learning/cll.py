@@ -109,8 +109,6 @@ class CLL(AbstractLearner):
     
 
     def _compute_statistics(self):
-        watch = StopWatch()
-        watch.tag('grounding')
         self._stat = {}
         self.partition2formulas = defaultdict(set)
         for formula in self.mrf.formulas:
@@ -123,8 +121,6 @@ class CLL(AbstractLearner):
             if isconj:
                 literals = sorted(lits, key=lambda l: -1 if isinstance(l, Logic.Equality) else 1)
             self._compute_stat_rec(literals, [], {}, formula, isconj=isconj)
-        watch.finish()
-        watch.printSteps()
     
     
     def _compute_stat_rec(self, literals, gndliterals, var_assign, formula, f_gndlit_parts=None, processed=None, isconj=False):

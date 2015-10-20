@@ -151,7 +151,7 @@ class BPLL(AbstractLearner):
         '''
         self._stat = {}
         self._varidx2fidx = defaultdict(set)
-        grounder = DefaultGroundingFactory(self.mrf, simplify=False, unsatfailure=True, verbose=self.verbose)
+        grounder = DefaultGroundingFactory(self.mrf, simplify=False, unsatfailure=True, verbose=self.verbose, cache=0)
         for f in grounder.itergroundings():
             for gndatom in f.gndatoms():
                 var = self.mrf.variable(gndatom)
@@ -198,8 +198,16 @@ class DPLL(BPLL, DiscriminativeLearner):
 class BPLL_CG(BPLL):
     
     def _prepare(self):
-        grounder = BPLLGroundingFactory(self.mrf)
-        out(grounder)
+        grounder = BPLLGroundingFactory(self.mrf, multicore=self.multicore, verbose=self.verbose)
+        for _ in grounder.itergroundings(): pass
+        self._stat = grounder._stat
+        self._varidx2fidx = grounder._varidx2fidx
+        
+
+class DBPLL_CG(DPLL):
+    
+    def _prepare(self):
+        grounder = BPLLGroundingFactory(self.mrf, multicore=self.multicore, verbose=self.verbose)
         for _ in grounder.itergroundings(): pass
         self._stat = grounder._stat
         self._varidx2fidx = grounder._varidx2fidx
