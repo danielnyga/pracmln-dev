@@ -489,8 +489,8 @@ class MLNLearnGUI:
         self.save_edit_mln = Entry(mln_container, textvariable=self.mln_filename)
         self.save_edit_mln.grid(row=0, column=5, sticky="E")
 
-        self.btn_savemln = Button(mln_container, text='Save', command=self.save_mln)
-        self.btn_savemln.grid(row=0, column=6, sticky="E")
+        self.btn_updatemln = Button(mln_container, text='Update', command=self.update_mln)
+        self.btn_updatemln.grid(row=0, column=6, sticky="E")
 
         # mln editor
         row += 1
@@ -602,8 +602,8 @@ class MLNLearnGUI:
         self.save_edit_db = Entry(db_container, textvariable=self.db_filename)
         self.save_edit_db.grid(row=0, column=5, sticky="WE")
 
-        self.btn_savedb = Button(db_container, text='Save', command=self.save_db)
-        self.btn_savedb.grid(row=0, column=6, sticky="E")
+        self.btn_updatedb = Button(db_container, text='Update', command=self.update_db)
+        self.btn_updatedb.grid(row=0, column=6, sticky="E")
 
         # db editor
         row += 1
@@ -685,10 +685,10 @@ class MLNLearnGUI:
 
         self.gconf = gconf
         self.project = None
-        self.dir = '.'
-        self.set_dir(ifNone(gconf['prev_learnwts_path'], DEFAULT_CONFIG))
-        if gconf['prev_learnwts_project': self.dir] is not None:
-            self.load_project(os.path.join(self.dir, gconf['prev_learnwts_project': self.dir]))
+        self.dir = os.path.abspath(ifNone(gconf['prev_learnwts_path'], DEFAULT_CONFIG))
+        self.project_dir = os.path.abspath(ifNone(gconf['prev_learnwts_path'], DEFAULT_CONFIG))
+        if gconf['prev_learnwts_project': self.project_dir] is not None:
+            self.load_project(os.path.join(self.project_dir, gconf['prev_learnwts_project': self.project_dir]))
         else:
             self.new_project()
         self.config = self.project.learnconf
@@ -708,7 +708,7 @@ class MLNLearnGUI:
             self.master.destroy()
         else:
             # write gui settings and destroy
-            self.write_config()
+            self.write_gconfig()
             self.master.destroy()
 
 
@@ -725,7 +725,7 @@ class MLNLearnGUI:
 
 
     def project_setdirty(self, isdirty, *args):
-        self.project_dirty.set(isdirty)
+        self.project_dirty.set(isdirty or self.mln_buffer != {} or self.db_buffer != {})
         self.changewindowtitle()
 
 
@@ -735,7 +735,7 @@ class MLNLearnGUI:
 
 
     def changewindowtitle(self):
-        title = (WINDOWTITLEEDITED if (self.settings_dirty.get() or self.project_dirty.get()) else WINDOWTITLE).format(self.dir, self.project.name)
+        title = (WINDOWTITLEEDITED if (self.settings_dirty.get() or self.project_dirty.get()) else WINDOWTITLE).format(self.project_dir, self.project.name)
         self.master.title(title)
 
 
@@ -751,7 +751,8 @@ class MLNLearnGUI:
     def load_project(self, filename):
         if filename and os.path.exists(filename):
             projdir, _ = ntpath.split(filename)
-            self.set_dir(projdir)
+            self.dir = os.path.abspath(projdir)
+            self.project_dir = os.path.abspath(projdir)
             self.project = MLNProject.open(filename)
             self.project.addlistener(self.project_setdirty)
             self.reset_gui()
@@ -771,13 +772,13 @@ class MLNLearnGUI:
 
     def noask_save_project(self):
         if self.project.name and not self.project.name == DEFAULTNAME.format('.pracmln'):
-            self.save_project(os.path.join(self.dir, self.project.name))
+            self.save_project(os.path.join(self.project_dir, self.project.name))
         else:
             self.ask_save_project()
 
 
     def ask_save_project(self):
-        fullfilename = asksaveasfilename(initialdir=self.dir, confirmoverwrite=True, filetypes=[('PRACMLN project files', '.pracmln')], defaultextension=".pracmln")
+        fullfilename = asksaveasfilename(initialdir=self.project_dir, confirmoverwrite=True, filetypes=[('PRACMLN project files', '.pracmln')], defaultextension=".pracmln")
         self.save_project(fullfilename)
 
 
@@ -786,12 +787,13 @@ class MLNLearnGUI:
             fpath, fname = ntpath.split(fullfilename)
             fname = fname.split('.')[0]
             self.project.name = fname
-            self.set_dir(fpath)
-            self.save_mln()
-            self.save_db()
-            self.update_settings()
-            self.project.save(dirpath=fpath)
-            self.write_config()
+            self.dir = os.path.abspath(fpath)
+            self.project_dir = os.path.abspath(fpath)
+            self.save_all_mlns()
+            self.save_all_dbs()
+            self.update_config()
+            self.project.save(dirpath=self.project_dir)
+            self.write_gconfig()
             self.load_project(fullfilename)
             self.settings_dirty.set(0)
 
@@ -807,6 +809,7 @@ class MLNLearnGUI:
         filename = askopenfilename(initialdir=self.dir, filetypes=[('MLN files', '.mln')], defaultextension=".mln")
         if filename:
             fpath, fname = ntpath.split(filename)
+            self.dir = os.path.abspath(fpath)
             content = mlnpath(filename).content
             self.project.add_mln(fname, content)
             self.update_mln_choices()
@@ -815,12 +818,15 @@ class MLNLearnGUI:
 
     def delete_mln(self):
         fname = self.selected_mln.get().strip()
+        fnamestr = fname.strip('*')
 
         # remove element from project mlns and buffer
         if fname in self.mln_buffer:
             del self.mln_buffer[fname]
         if fname in self.project.mlns:
             self.project.rm_mln(fname)
+        if fnamestr in self.project.mlns:
+            self.project.rm_mln(fnamestr)
         self.update_mln_choices()
 
         # select first element from remaining list
@@ -833,7 +839,29 @@ class MLNLearnGUI:
             self.list_mlns['menu'].delete(0, 'end')
 
 
-    def save_mln(self):
+    def save_all_mlns(self):
+        current = self.selected_mln.get().strip()
+        for mln in self.mln_buffer:
+            mlnstr = mln.strip('*')
+            content = self.mln_buffer[mln]
+            if mln == current:
+                content = self.mln_editor.get("1.0", END).strip()
+                out(content)
+            if mlnstr in self.project.mlns:
+                self.project.rm_mln(mlnstr)
+            self.project.add_mln(mlnstr, content)
+
+        # reset buffer, dirty flag for editor and update mln selections
+        self.mln_buffer.clear()
+        self._mln_editor_dirty = False
+        self.update_mln_choices()
+
+        self.project.save(dirpath=self.project_dir)
+        self.write_gconfig()
+        self.project_setdirty(False)
+
+
+    def update_mln(self):
         oldfname = self.selected_mln.get().strip()
         newfname = self.mln_filename.get().strip()
         content = self.mln_editor.get("1.0", END).strip()
@@ -849,9 +877,12 @@ class MLNLearnGUI:
                 if newfname != '':
                     self.project.add_mln(newfname, content)
 
+        # reset dirty flag for editor and update mln selections
+        self._mln_editor_dirty = False
         self.update_mln_choices()
-        self.project.save(dirpath=self.dir)
-        self.write_config()
+
+        self.project.save(dirpath=self.project_dir)
+        self.write_gconfig()
         if newfname != '': self.selected_mln.set(newfname)
         self.project_setdirty(False)
 
@@ -859,15 +890,18 @@ class MLNLearnGUI:
     def select_mln(self, *args):
         mlnname = self.selected_mln.get().strip()
         self.project_setdirty(True)
-        if mlnname and mlnname != '':
+
+        if mlnname is not None and mlnname != '':
+            # filename is neither None nor empty
             if self._mln_editor_dirty:
-                #save current state to buffer
+                # save current state to buffer before updating editor
                 self.mln_buffer[self._dirty_mln_name] = self.mln_editor.get("1.0", END).strip()
                 self._mln_editor_dirty = True if '*' in mlnname else False
                 if not self.mln_reload:
                     self.mln_reload = True
                     return
             if '*' in mlnname:# is edited
+                # load previously edited content from buffer instead of mln file in project
                 content = self.mln_buffer.get(mlnname, '').strip()
                 self.mln_editor.delete("1.0", END)
                 content = content.replace("\r", "")
@@ -878,6 +912,7 @@ class MLNLearnGUI:
                 self._dirty_mln_name = '*' + mlnname if '*' not in mlnname else mlnname
                 return
             if mlnname in self.project.mlns:
+                # load content from mln file in project
                 content = self.project.mlns.get(mlnname, '').strip()
                 self.mln_editor.delete("1.0", END)
                 content = content.replace("\r", "")
@@ -886,7 +921,7 @@ class MLNLearnGUI:
                 self.set_outputfilename()
                 self._mln_editor_dirty = False
         else:
-            self.selected_mln.set('')
+            # should not happen
             self.mln_editor.delete("1.0", END)
             self.mln_filename.set('')
             self.list_mlns['menu'].delete(0, 'end')
@@ -895,7 +930,7 @@ class MLNLearnGUI:
     def update_mln_choices(self):
         self.list_mlns['menu'].delete(0, 'end')
 
-        new_mlns = sorted([i if '*'+i not in self.mln_buffer else '*'+i for i in self.project.mlns.keys()])
+        new_mlns = sorted([i for i in self.project.mlns.keys() if '*'+i not in self.mln_buffer] + self.mln_buffer.keys())
         for mln in new_mlns:
             self.list_mlns['menu'].add_command(label=mln, command=_setit(self.selected_mln, mln))
 
@@ -923,6 +958,7 @@ class MLNLearnGUI:
         filename = askopenfilename(initialdir=self.dir, filetypes=[('Database files', '.db')], defaultextension=".db")
         if filename:
             fpath, fname = ntpath.split(filename)
+            self.dir = os.path.abspath(fpath)
             content = mlnpath(filename).content
             self.project.add_db(fname, content)
             self.update_db_choices()
@@ -931,12 +967,15 @@ class MLNLearnGUI:
 
     def delete_db(self):
         fname = self.selected_db.get()
+        fnamestr = fname.strip('*')
 
         # remove element from project dbs and buffer
         if fname in self.db_buffer:
             del self.db_buffer[fname]
         if fname in self.project.dbs:
             self.project.rm_db(fname)
+        if fnamestr in self.project.dbs:
+            self.project.rm_db(fnamestr)
         self.update_db_choices()
 
         # select first element from remaining list
@@ -946,9 +985,31 @@ class MLNLearnGUI:
             self.selected_db.set('')
             self.db_editor.delete("1.0", END)
             self.db_filename.set('')
+            self.list_dbs['menu'].delete(0, 'end')
 
 
-    def save_db(self):
+    def save_all_dbs(self):
+        current = self.selected_db.get().strip()
+        for db in self.db_buffer:
+            dbstr = db.strip('*')
+            content = self.db_buffer[db]
+            if db == current:
+                content = self.db_editor.get("1.0", END).strip()
+            if dbstr in self.project.dbs:
+                self.project.rm_db(dbstr)
+            self.project.add_db(dbstr, content)
+
+        # reset buffer, dirty flag for editor and update mln selections
+        self.db_buffer.clear()
+        self._db_editor_dirty = False
+        self.update_db_choices()
+
+        self.project.save(dirpath=self.project_dir)
+        self.write_gconfig()
+        self.project_setdirty(False)
+
+
+    def update_db(self):
         oldfname = self.selected_db.get()
         newfname = self.db_filename.get()
         content = self.db_editor.get("1.0", END).strip()
@@ -961,27 +1022,34 @@ class MLNLearnGUI:
             else:
                 if oldfname in self.project.dbs:
                     self.project.rm_db(oldfname)
-                self.project.add_db(newfname, content)
+                if newfname != '':
+                    self.project.add_db(newfname, content)
 
+        # reset dirty flag for editor and update db selections
+        self._db_editor_dirty = False
         self.update_db_choices()
-        self.project.save(dirpath=self.dir)
-        self.write_config()
-        self.selected_db.set(newfname)
+
+        self.project.save(dirpath=self.project_dir)
+        self.write_gconfig()
+        if newfname != '': self.selected_db.set(newfname)
         self.project_setdirty(False)
 
 
     def select_db(self, *args):
-        dbname = self.selected_db.get()
+        dbname = self.selected_db.get().strip()
         self.project_setdirty(True)
-        if dbname:
+
+        if dbname is not None and dbname != '':
+            # filename is neither None nor empty
             if self._db_editor_dirty:
-                #save current state to buffer
+                # save current state to buffer before updating editor
                 self.db_buffer[self._dirty_db_name] = self.db_editor.get("1.0", END).strip()
                 self._db_editor_dirty = True if '*' in dbname else False
                 if not self.db_reload:
                     self.db_reload = True
                     return
             if '*' in dbname:# is edited
+                # load previously edited content from buffer instead of db file in project
                 content = self.db_buffer.get(dbname, '').strip()
                 self.db_editor.delete("1.0", END)
                 content = content.replace("\r", "")
@@ -992,6 +1060,7 @@ class MLNLearnGUI:
                 self._dirty_db_name = '*' + dbname if '*' not in dbname else dbname
                 return
             if dbname in self.project.dbs:
+                # load content from db file in project
                 content = self.project.dbs.get(dbname, '').strip()
                 self.db_editor.delete("1.0", END)
                 content = content.replace("\r", "")
@@ -999,12 +1068,17 @@ class MLNLearnGUI:
                 self.db_filename.set(dbname)
                 self.set_outputfilename()
                 self._db_editor_dirty = False
+        else:
+            # should not happen
+            self.db_editor.delete("1.0", END)
+            self.db_filename.set('')
+            self.list_dbs['menu'].delete(0, 'end')
 
 
     def update_db_choices(self):
         self.list_dbs['menu'].delete(0, 'end')
 
-        new_dbs = sorted([i if '*' + i not in self.db_buffer else '*'+i for i in self.project.dbs.keys()])
+        new_dbs = sorted([i for i in self.project.dbs.keys() if '*'+i not in self.db_buffer] + self.db_buffer.keys())
         for db in new_dbs:
             self.list_dbs['menu'].add_command(label=db, command=_setit(self.selected_db, db))
 
@@ -1013,7 +1087,7 @@ class MLNLearnGUI:
         if not self._db_editor_dirty:
             self._db_editor_dirty = True
             self.db_reload = False
-            fname = self.selected_db.get()
+            fname = self.selected_db.get().strip()
             fname = '*' + fname if '*' not in fname else fname
             self._dirty_db_name = fname
             self.db_buffer[self._dirty_db_name] = self.db_editor.get("1.0", END).strip()
@@ -1022,9 +1096,6 @@ class MLNLearnGUI:
 
 
     ####################### GENERAL FUNCTIONS #################################
-    def set_dir(self, dirpath):
-        self.dir = os.path.abspath(dirpath)
-
 
     def onchange_incremental(self):
         if self.incremental.get()==1:
@@ -1159,19 +1230,15 @@ class MLNLearnGUI:
         else: return local, dbs
 
 
-    def update_settings(self):
-        mln = self.selected_mln.get().strip().lstrip('*')
-        db = self.selected_db.get().strip().lstrip('*')
-        output = self.output_filename.get().strip()
-        methodname = self.selected_method.get().strip()
-        params = self.params.get().strip()
+    def update_config(self):
+        out('update_config')
 
         self.config = PRACMLNConfig()
-        self.config["mln"] = mln
-        self.config["db"] = db
+        self.config["mln"] = self.selected_mln.get().strip().lstrip('*')
+        self.config["db"] = self.selected_db.get().strip().lstrip('*')
         self.config["output_filename"] = self.output_filename.get()
-        self.config["params"] = params
-        self.config["method"] = LearningMethods.id(methodname)
+        self.config["params"] = self.params.get().strip()
+        self.config["method"] = LearningMethods.id(self.selected_method.get().strip())
         self.config["pattern"] = self.pattern.get()
         self.config["use_prior"] = int(self.use_prior.get())
         self.config["prior_mean"] = self.priorMean.get()
@@ -1190,16 +1257,19 @@ class MLNLearnGUI:
         self.config['ignore_unknown_preds'] = self.ignore_unknown_preds.get()
         self.config['ignore_zero_weight_formulas'] = self.ignore_zero_weight_formulas.get()
         self.config['save'] = self.save.get()
-        self.config["output_filename"] = output
+        self.config["output_filename"] = self.output_filename.get().strip()
         self.project.learnconf = PRACMLNConfig()
         self.project.learnconf.update(self.config.config.copy())
-        if mln != '': self.project.mlns[mln] = self.mln_editor.get("1.0", END).strip()
-        if db != '': self.project.dbs[db] = self.db_editor.get("1.0", END).strip()
 
 
-    def write_config(self, savegeometry=True):
-        self.gconf['prev_learnwts_path'] = self.dir
-        self.gconf['prev_learnwts_project': self.dir] = self.project.name
+    def update_project(self):
+        self.update_mln()
+        self.update_db()
+
+
+    def write_gconfig(self, savegeometry=True):
+        self.gconf['prev_learnwts_path'] = self.project_dir
+        self.gconf['prev_learnwts_project': self.project_dir] = self.project.name
 
         # save geometry
         if savegeometry:
@@ -1212,10 +1282,10 @@ class MLNLearnGUI:
         db_content = self.db_editor.get("1.0", END).encode('utf8').strip()
 
         # create conf from current gui settings
-        self.update_settings()
+        self.update_config()
 
         # write gui settings
-        self.write_config(savegeometry=savegeometry)
+        self.write_gconfig(savegeometry=savegeometry)
 
         # hide gui
         self.master.withdraw()
@@ -1227,7 +1297,7 @@ class MLNLearnGUI:
             if options.get('mlnarg') is not None:
                 mlnobj = MLN(mlnfile=os.path.abspath(options.get('mlnarg')), logic=self.config.get('logic', 'FirstOrderLogic'), grammar=self.config.get('grammar', 'PRACGrammar'))
             else:
-                mlnobj = parse_mln(mln_content, searchpaths=[self.dir], projectpath=os.path.join(self.dir, self.project.name), logic=self.config.get('logic', 'FirstOrderLogic'), grammar=self.config.get('grammar', 'PRACGrammar'))
+                mlnobj = parse_mln(mln_content, searchpaths=[self.project_dir], projectpath=os.path.join(self.project_dir, self.project.name), logic=self.config.get('logic', 'FirstOrderLogic'), grammar=self.config.get('grammar', 'PRACGrammar'))
 
             if options.get('dbarg') is not None:
                 dbobj = Database.load(mlnobj, dbfile=options.get('dbarg'), ignore_unknown_preds=self.config.get('ignore_unknown_preds', True))
@@ -1264,7 +1334,7 @@ class MLNLearnGUI:
                 result.write(output)
                 self.project.add_mln(self.output_filename.get(), output.getvalue())
                 self.update_mln_choices()
-                self.project.save(dirpath=self.dir)
+                self.project.save(dirpath=self.project_dir)
                 logger.info('saved result to file mln/{} in project {}'.format(self.output_filename.get(), self.project.name))
             else:
                 logger.debug('No output file given - results have not been saved.')
