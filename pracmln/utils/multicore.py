@@ -3,6 +3,8 @@ from multiprocessing import Pool
 import sys
 import signal
 import os
+from pracmln.mln.errors import OutOfMemoryError
+import psutil
 
 class CtrlCException(Exception): pass
 
@@ -44,6 +46,7 @@ class _methodcaller:
         self.sideeffects = sideeffects
         
     def __call__(self, args):
+        checkmem()
         if type(args) is list or type(args) is tuple:
             inst = args[0]
             args = args[1:]
@@ -55,7 +58,22 @@ class _methodcaller:
             return ret, inst.__dict__
         return getattr(inst, self.method)(*args)
     
+
+def checkmem():
+    if float(psutil.phymem_usage().percent) > 75.:
+        raise OutOfMemoryError('Aborting due to excessive memory consumption.')
+
+def make_memsafe():
+    if sys.platform.startswith('linux'):
+        import resource
+        import psutil
+        for rsrc in (resource.RLIMIT_AS, resource.RLIMIT_DATA):
+            freemem = psutil.virtmem_usage().free
+            hard = int(round(freemem *.8))
+            soft = hard
+            resource.setrlimit(rsrc, (soft, hard)) #limit to 80% of available memory
     
+
 # exmaple how to be used
 if __name__ == '__main__':
     def f(x):
