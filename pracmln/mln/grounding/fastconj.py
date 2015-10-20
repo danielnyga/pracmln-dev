@@ -26,7 +26,7 @@ import logging
 from pracmln.logic.common import Logic
 import types
 from multiprocessing.pool import Pool
-from pracmln.utils.multicore import with_tracing
+from pracmln.utils.multicore import with_tracing, make_memsafe
 from itertools import imap
 from pracmln.mln.mlnpreds import FunctionalPredicate, SoftFunctionalPredicate,\
     FuzzyPredicate
@@ -49,7 +49,7 @@ global_fastConjGrounding = None
 
 # multiprocessing function
 def create_formula_groundings(formulas):
-#     out(multiprocessing.current_process().name, formula)
+    make_memsafe()
     gfs = []
     for formula in sorted(formulas, key=global_fastConjGrounding._fsort):
         if global_fastConjGrounding.mrf.mln.logic.islitconj(formula) or global_fastConjGrounding.mrf.mln.logic.isclause(formula):
@@ -68,7 +68,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
     equality constraints are evaluated first.
     '''
     
-    def __init__(self, mrf, simplify=False, unsatfailure=False, formulas=None, cache=auto, **params):
+    def __init__(self, mrf, simplify=False, unsatfailure=False, formulas=None, cache=None, **params):
         DefaultGroundingFactory.__init__(self, mrf, simplify=simplify, unsatfailure=unsatfailure, formulas=formulas, cache=cache, **params)
             
     
@@ -125,15 +125,14 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             
             
     def _itergroundings_fast(self, formula, constituents, cidx, pivotfct, truthpivot, assignment, level=0):
-        if truthpivot == 0 and (isinstance(formula, Logic.Conjunction) or self.mln.logic.islit(formula)):
+        if truthpivot == 0 and (isinstance(formula, Logic.Conjunction) or self.mrf.mln.logic.islit(formula)):
             if formula.weight == HARD:
                 raise SatisfiabilityException('MLN is unsatisfiable given evidence due to hard constraint violation: %s' % str(formula))
             return
-        if truthpivot == 1 and (isinstance(formula, Logic.Disjunction) or self.mln.logic.islit(formula)):
+        if truthpivot == 1 and (isinstance(formula, Logic.Disjunction) or self.mrf.mln.logic.islit(formula)):
             return
         if cidx == len(constituents): # we have reached the end of the formula constituents
             gf = formula.ground(self.mrf, assignment, simplify=True)
-            gf.print_structure()
             if isinstance(gf, Logic.TrueFalse):
                 return
             yield gf
