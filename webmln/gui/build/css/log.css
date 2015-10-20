@@ -49,21 +49,14 @@ svg {
 
 #subdivs {
     text-align:center;
-    width: 33%;
+    width: 50%;
     height: 100%;
     float:left;
 }
 
 #country {
     text-align:center;
-    width: 33%;
-    height: 100%;
-    float:left;
-}
-
-#ip {
-    text-align:center;
-    width: 33%;
+    width: 50%;
     height: 100%;
     float: left;
 }

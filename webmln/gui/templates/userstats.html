@@ -13,9 +13,8 @@
 {% block content %}
 <img src="{{ url_for('download_mln_static', filename='images/pracmln-logo.png') }}">
  <div id="statistics">
-          <div id="subdivs"><h3>Subdivisions</h3></div>
-          <div id="country"><h3>Country</h3></div>
-          <div id="ip"><h3>IP</h3></div>
+          <div id="subdivs"></div>
+          <div id="country"></div>
       </div>
       <textarea id="logcontainer"></textarea>
       <div id="gmapcontainer"></div>
@@ -34,10 +33,8 @@ loadJSON(function(resp) {
         document.getElementById("logcontainer").value = logs;
         var data_subdiv = mapData('subdivisions');
         var data_country = mapData('country');
-        var data_ip = mapData('ip');
         change("Subdivisions", svg_subdivs, data_subdiv);
         change("Country", svg_country, data_country);
-        change("IP", svg_ip, data_ip);
         initialize();
 });
 
@@ -108,7 +105,8 @@ function showStatistics() {
 //----STATISTICS----//
 var width = document.getElementById("statistics", true, true).offsetWidth,
     height = document.getElementById("statistics", true, true).offsetHeight,
-    radius = height / 6;
+    radius = height/3;
+    thickness = 10;
     margin = {top: 5, right: 5, bottom: 5, left: 5};
 
 var pie = d3.layout.pie()
@@ -119,13 +117,13 @@ var pie = d3.layout.pie()
     });
 
 var arc = d3.svg.arc()
-    .outerRadius(radius *.6)
-    .innerRadius(radius * .8)
-    .cornerRadius(5);
+    .outerRadius(radius - thickness)
+    .innerRadius(radius - 2*thickness)
+    .cornerRadius(thickness/2);
 
 var outerArc = d3.svg.arc()
-    .innerRadius(radius * 1.1)
-    .outerRadius(radius * .9);
+    .outerRadius(radius)
+    .innerRadius(radius - thickness)
 
 var key = function(d){ return d.data.label; };
 
@@ -161,7 +159,7 @@ function change(svgTitle, svg, data) {
         .style("fill", function(d) { return color(d.data.label); })
         .attr("class", "slice")
         .append("svg:title")
-          .text(function(d, i) {
+          .text(function(d, i) { //this is the text shown when hovering over
                 var s = '';
                 for (var a = 0; a<d.data.objs.length; a++) {
                     s += a + ': ';
@@ -193,7 +191,7 @@ function change(svgTitle, svg, data) {
 
     text.enter()
         .append("text")
-        .attr("dy", ".35em")
+        .attr("dy", thickness)
         .text(function(d) {
             return d.data.label;
         });
@@ -300,11 +298,11 @@ function change(svgTitle, svg, data) {
     title.enter()
         .append("text")
       .attr("class", "title")
-      .style("font-size","50px")
+      .style("font-size","20px")
       .style("font-weight","bold")
-      .attr("x", width/2)
-      .attr("y", 0 - (margin.top / 2))
-      .attr("text-anchor", "middle")
+      .attr("dx", -radius)
+      .attr("dy", -radius -15)
+      .attr("text-anchor", "start")
       .text(svgTitle);
 
 };
@@ -315,6 +313,8 @@ var svg_subdivs = d3.select("#subdivs")
     .append("g")
 
 svg_subdivs.append("g")
+    .attr("class", "title");
+svg_subdivs.append("g")
     .attr("class", "slices");
 svg_subdivs.append("g")
     .attr("class", "labels");
@@ -322,10 +322,8 @@ svg_subdivs.append("g")
     .attr("class", "ringlabels");
 svg_subdivs.append("g")
     .attr("class", "lines");
-svg_subdivs.append("g")
-    .attr("class", "title");
 
-svg_subdivs.attr("transform", "translate(" + width/6 + "," + height/3 + ")");
+svg_subdivs.attr("transform", "translate(" + width/5 + "," + height/2 + ")");
 
 
 //----SVG COUNTRY----//
@@ -341,24 +339,10 @@ svg_country.append("g")
     .attr("class", "ringlabels");
 svg_country.append("g")
     .attr("class", "lines");
+svg_country.append("g")
+    .attr("class", "title");
 
-svg_country.attr("transform", "translate(" + width/6 + "," + height/3 + ")");
+svg_country.attr("transform", "translate(" + width/5 + "," + height/2 + ")");
 
-
-//----SVG IP----//
-var svg_ip = d3.select("#ip")
-    .append("svg")
-    .append("g")
-
-svg_ip.append("g")
-    .attr("class", "slices");
-svg_ip.append("g")
-    .attr("class", "labels");
-svg_ip.append("g")
-    .attr("class", "ringlabels");
-svg_ip.append("g")
-    .attr("class", "lines");
-
-svg_ip.attr("transform", "translate(" + width/6 + "," + height/3 + ")");
 </script>
 {% endblock %}

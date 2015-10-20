@@ -931,7 +931,7 @@ qx.Class.define("webmln.Application", {
         * Show or hide fields for the mln model extension
         */
         _showModelExtension : function(e) {
-            row = this._rowmodelext;
+            var row = this._rowmodelext;
             if (e.getData()) {
                 this.__mlnFormContainerInf.add(this.__emlnLabel, {row: row, column: 0});
                 this.__mlnFormContainerInf.add(this.__slctEMLN, {row: row, column: 1, colSpan: 4});
