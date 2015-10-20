@@ -28,10 +28,8 @@ import StringIO
 
 from Tkinter import *
 from Tkinter import _setit
-import Tkinter
 import sys
 import ntpath
-import logging
 import traceback
 from pracmln.mln.base import parse_mln
 from pracmln.utils.project import MLNProject, mlnpath
@@ -41,12 +39,9 @@ import fnmatch
 from mln.methods import LearningMethods
 from cProfile import Profile
 from pracmln.utils import config
-from pracmln.mln.util import ifNone, out, headline, StopWatch, stop
-from tkMessageBox import showerror
+from pracmln.mln.util import ifNone, out, headline, StopWatch
 from tkFileDialog import askdirectory, asksaveasfilename, askopenfilename
-from pracmln.utils.config import learn_config_pattern, PRACMLNConfig, \
-    query_mln_filemask, query_db_filemask, emln_filemask, \
-    global_config_filename
+from pracmln.utils.config import PRACMLNConfig, global_config_filename
 from pracmln import praclog, MLN
 from tabulate import tabulate
 import pstats

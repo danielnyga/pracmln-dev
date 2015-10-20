@@ -27,29 +27,20 @@
 
 from Tkinter import *
 from Tkinter import _setit
-import Tkinter
-from tkFileDialog import askdirectory, askopenfile, askopenfilename, \
-    asksaveasfilename
+from tkFileDialog import askopenfilename, asksaveasfilename
 import os
 import ntpath
-import re
 import tkMessageBox
 import traceback
 from pracmln.utils.project import MLNProject, mlnpath
 from utils import widgets
 from mln.methods import InferenceMethods
 from mln.inference import *
-from utils.widgets import FilePickEdit, DropdownList, SyntaxHighlightingText
-from logic.grammar import StandardGrammar, PRACGrammar  # @UnusedImport
-import logging
+from utils.widgets import SyntaxHighlightingText
 from utils import config
 from pracmln import praclog
-from tkMessageBox import showerror, askyesno
-from pracmln.mln.util import out, ifNone, trace, parse_queries,\
-    headline, StopWatch, stop, stoptrace
-from pracmln.utils.config import PRACMLNConfig, query_config_pattern, \
-    query_mln_filemask, emln_filemask, query_db_filemask, \
-    global_config_filename
+from pracmln.mln.util import out, ifNone, parse_queries, headline, StopWatch
+from pracmln.utils.config import PRACMLNConfig, global_config_filename
 from pracmln.mln.base import parse_mln, MLN
 from pracmln.mln.database import parse_db, Database
 from tabulate import tabulate
@@ -295,8 +286,8 @@ class MLNQueryGUI(object):
         self.btn_openproj.grid(row=0, column=2, sticky="WS")
 
         # save proj file
-        self.btn_saveproj = Button(project_container, text='Save Project...', command=self.noask_save_project)
-        self.btn_saveproj.grid(row=0, column=3, sticky="WS")
+        self.btn_updateproj = Button(project_container, text='Save Project...', command=self.noask_save_project)
+        self.btn_updateproj.grid(row=0, column=3, sticky="WS")
 
         # save proj file as...
         self.btn_saveproj = Button(project_container, text='Save Project as...', command=self.ask_save_project)
@@ -355,8 +346,8 @@ class MLNQueryGUI(object):
         self.save_edit_mln = Entry(mln_container, textvariable=self.mln_filename)
         self.save_edit_mln.grid(row=0, column=5, sticky="E")
 
-        self.btn_savemln = Button(mln_container, text='Save', command=self.save_mln)
-        self.btn_savemln.grid(row=0, column=6, sticky="E")
+        self.btn_updatemln = Button(mln_container, text='Save', command=self.update_mln)
+        self.btn_updatemln.grid(row=0, column=6, sticky="E")
 
         # mln editor
         row += 1
@@ -407,8 +398,8 @@ class MLNQueryGUI(object):
         self.save_edit_emln = Entry(self.emln_container, textvariable=self.emln_filename)
         self.save_edit_emln.grid(row=0, column=5, sticky="WE")
 
-        self.btn_saveemln = Button(self.emln_container, text='Save', command=self.save_emln)
-        self.btn_saveemln.grid(row=0, column=6, sticky="E")
+        self.btn_updateemln = Button(self.emln_container, text='Save', command=self.update_emln)
+        self.btn_updateemln.grid(row=0, column=6, sticky="E")
 
         # emln editor
         row += 1
@@ -452,8 +443,8 @@ class MLNQueryGUI(object):
         self.save_edit_db = Entry(db_container, textvariable=self.db_filename)
         self.save_edit_db.grid(row=0, column=5, sticky="WE")
 
-        self.btn_savedb = Button(db_container, text='Save', command=self.save_db)
-        self.btn_savedb.grid(row=0, column=6, sticky="E")
+        self.btn_updatedb = Button(db_container, text='Save', command=self.update_db)
+        self.btn_updatedb.grid(row=0, column=6, sticky="E")
 
         # db editor
         row += 1
@@ -578,7 +569,7 @@ class MLNQueryGUI(object):
             self.master.destroy()
         else:
             # write gui settings and destroy
-            self.write_config()
+            self.write_gconfig()
             self.master.destroy()
 
 
@@ -1197,8 +1188,8 @@ class MLNQueryGUI(object):
             self.output_filename.set(filename)
 
 
-    def update_settings(self):
-        out('update_settings')
+    def update_config(self):
+        out('update_config')
 
         self.config = PRACMLNConfig()
         self.config["db"] = self.selected_db.get().strip().lstrip('*')
@@ -1222,9 +1213,6 @@ class MLNQueryGUI(object):
         self.config['dir'] = self.dir
         self.project.queryconf = PRACMLNConfig()
         self.project.queryconf.update(self.config.config.copy())
-        self.save_mln()
-        self.save_emln()
-        self.save_db()
 
 
     def write_gconfig(self, savegeometry=True):
@@ -1242,7 +1230,7 @@ class MLNQueryGUI(object):
         db_content = self.db_editor.get("1.0", END).encode('utf8').strip()
 
         # create conf from current gui settings
-        self.update_settings()
+        self.update_config()
 
         # write gui settings
         self.write_gconfig(savegeometry=savegeometry)
@@ -1265,7 +1253,7 @@ class MLNQueryGUI(object):
                 emln_content = self.emln_editor.get("1.0", END).encode('utf8').strip()
 
             if options.get('dbarg') is not None:
-                dbobj = Database.load(mlnobj, dbfile=options.get('dbarg'), ignore_unknown_preds=self.config.get('ignore_unknown_preds', True))
+                dbobj = Database.load(mlnobj, dbfiles=[options.get('dbarg')], ignore_unknown_preds=self.config.get('ignore_unknown_preds', True))
             else:
                 out(self.config.get('ignore_unknown_preds', True))
                 dbobj = parse_db(mlnobj, db_content, ignore_unknown_preds=self.config.get('ignore_unknown_preds', True))
