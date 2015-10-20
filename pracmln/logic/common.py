@@ -1091,8 +1091,8 @@ class Logic(object):
             return constants
         
         
-#         def simplify(self, world):
-#             return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
+        def simplify(self, world):
+            return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
 
             
         def __eq__(self, other):
