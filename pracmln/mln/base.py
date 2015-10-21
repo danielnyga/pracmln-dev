@@ -486,8 +486,8 @@ class MLN(object):
             weights = list(newmln.weights)
             fix = list(newmln.fixweights)
             newmln._rmformulas()
-            for f, w in zip(formulas, weights, fix):
-                if f.weight != 0: newmln.formula(f, w)
+            for f, w,fi in zip(formulas, weights, fix):
+                if w != 0: newmln.formula(f, w, fi)
         return newmln
 
 
