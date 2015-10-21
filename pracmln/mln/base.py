@@ -99,7 +99,7 @@ class MLN(object):
         self._unique_templvars = []
         self._probreqs = []
         self._materialized = False
-        
+        self.fuzzypreds = [] # for saving fuzzy predicates that have been converted to binary preds
         if mlnfile is not None:
             MLN.load(mlnfile, logic=logic, grammar=grammar, mln=self)
             return
@@ -187,6 +187,7 @@ class MLN(object):
         mln_.domains = dict(self.domains)
         mln_.vars = dict(self.vars)
         mln_._probreqs = list(self.probreqs)
+        mln_.fuzzypreds = list(self.fuzzypreds)
         return mln_
     
     
@@ -529,7 +530,7 @@ class MLN(object):
         stream.write('\n')
         stream.write(colorize("\n// predicate declarations\n", comment_color, color))
         for predicate in self.iterpreds():
-            if isinstance(predicate, FuzzyPredicate):
+            if isinstance(predicate, FuzzyPredicate) or predicate.name in self.fuzzypreds:
                 stream.write('#fuzzy\n')
             stream.write("%s(%s)\n" % (colorize(predicate.name, predicate_color, color), predicate.argstr()))
         stream.write(colorize("\n// formulas\n", comment_color, color))
@@ -621,6 +622,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
     idxGroup = -1
     fixWeightOfNextFormula = False
     fuzzy = False
+    pseudofuzzy = False
     uniquevars = None
     fixedWeightTemplateIndices = []
     lines = text.split("\n")
@@ -644,7 +646,8 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                 continue
             elif line.startswith('#fuzzy'):
                 if not isinstance(mln.logic, FuzzyLogic):
-                    logger.warning('Fuzzy declarations are not supported in %s. Assuming a binary predicate.' % mln.logic.__class__.__name__)
+                    logger.warning('Fuzzy declarations are not supported in %s. Treated as a binary predicate.' % mln.logic.__class__.__name__)
+                    pseudofuzzy = True
                 else:
                     fuzzy = True
                 continue
@@ -774,6 +777,9 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                         fuzzy = False
                     else:
                         pred = Predicate(predname, argdoms)
+                        if pseudofuzzy: 
+                            mln.fuzzypreds.append(predname)
+                            pseudofuzzy = False
                     mln.predicate(pred)
                     continue
                 else:
