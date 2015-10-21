@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 from geoip import geolite2
-from pracmln.mln import mlnpath
+from pracmln import mlnpath
 from pracmln.mln.methods import InferenceMethods, LearningMethods
 from pracmln.mln.util import out, stop
 from pracmln.praclog import logger

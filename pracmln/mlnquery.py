@@ -48,6 +48,7 @@ from cProfile import Profile
 import pstats
 import StringIO
 import pracmln
+import logging
 
 
 logger = praclog.logger(__name__)

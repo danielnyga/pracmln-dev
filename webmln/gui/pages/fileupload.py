@@ -1,7 +1,7 @@
 import os
 from flask import request, send_from_directory, session, jsonify
 from werkzeug import secure_filename
-from pracmln.mln import mlnpath
+from pracmln import mlnpath
 from pracmln.mln.util import out
 from pracmln.praclog import logger
 from webmln.gui.app import mlnApp
