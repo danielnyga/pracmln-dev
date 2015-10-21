@@ -28,7 +28,7 @@ from pracmln.mln.database import Database
 from pracmln.mln.constants import ALL
 from pracmln.mln.mrfvars import MutexVariable, SoftMutexVariable, FuzzyVariable
 from pracmln.mln.util import StopWatch, barstr, colorize, elapsed_time_str, out,\
-    headline, tty
+    headline, tty, edict
 import sys
 from pracmln.mln.errors import NoSuchPredicateError
 
@@ -55,7 +55,7 @@ class Inference(object):
     def __init__(self, mrf, queries=ALL, **params):
         self.mrf = mrf
         self.mln = mrf.mln 
-        self._params = params
+        self._params = edict(params)
         if not queries:
             self.queries = [self.mln.logic.gnd_lit(ga, negated=False, mln=self.mln) for ga in self.mrf.gndatoms if self.mrf.evidence[ga.idx] is None]
         else:
