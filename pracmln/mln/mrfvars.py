@@ -259,7 +259,7 @@ class FuzzyVariable(MRFVariable):
     
     def valuecount(self, evidence=None):
         if evidence is None or evidence[self.gndatoms[0].idx] is None:
-            raise MRFValueException('Cannot count number of values of an unassigned FuzzyVariable.')
+            raise MRFValueException('Cannot count number of values of an unassigned FuzzyVariable: %s' % str(self))
         else:
             return 1
 
