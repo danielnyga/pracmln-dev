@@ -49,7 +49,6 @@ global_fastConjGrounding = None
 
 # multiprocessing function
 def create_formula_groundings(formulas):
-    make_memsafe()
     gfs = []
     for formula in sorted(formulas, key=global_fastConjGrounding._fsort):
         if global_fastConjGrounding.mrf.mln.logic.islitconj(formula) or global_fastConjGrounding.mrf.mln.logic.isclause(formula):

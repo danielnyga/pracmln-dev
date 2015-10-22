@@ -80,7 +80,7 @@ class EnumerationAsk(Inference):
     
     def __init__(self, mrf, queries, **params):
         Inference.__init__(self, mrf, queries, **params)
-        self.grounder = FastConjunctionGrounding(mrf, simplify=False, unsatfailure=False, formulas=mrf.formulas, cache=auto, verbose=False, multicore=self.multicore)
+        self.grounder = FastConjunctionGrounding(mrf, simplify=False, unsatfailure=False, formulas=mrf.formulas, cache=auto, verbose=False, multicore=False)
         # self.grounder = DefaultGroundingFactory(mrf, simplify=False, unsatfailure=False, formulas=list(mrf.formulas), cache=auto, verbose=False)
         # check consistency of fuzzy and functional variables
         for variable in self.mrf.variables:
@@ -96,7 +96,7 @@ class EnumerationAsk(Inference):
         '''
         # check consistency with hard constraints:
         self._watch.tag('check hard constraints')
-        hcgrounder = FastConjunctionGrounding(self.mrf, simplify=False, unsatfailure=True, formulas=[f for f in self.mrf.formulas if f.weight == HARD], **self._params)
+        hcgrounder = FastConjunctionGrounding(self.mrf, simplify=False, unsatfailure=True, formulas=[f for f in self.mrf.formulas if f.weight == HARD], **(self._params + {'multicore': False}))
         for gf in hcgrounder.itergroundings():
             if isinstance(gf, Logic.TrueFalse) and gf.truth() == .0:
                 raise SatisfiabilityException('MLN is unsatisfiable due to hard constraint violation by evidence: %s (%s)' % (str(gf), str(self.mln.formula(gf.idx))))
