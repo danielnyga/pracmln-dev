@@ -553,6 +553,7 @@ class MLNQueryGUI(object):
             self.load_project(os.path.join(self.project_dir, gconf['prev_query_project': self.project_dir]))
         else:
             self.new_project()
+
         self.config = self.project.queryconf
         self.project.addlistener(self.project_setdirty)
 
@@ -693,7 +694,7 @@ class MLNQueryGUI(object):
 
         # select first element from remaining list
         if len(self.project.mlns) > 0:
-            self.selected_mln.set(self.project.mlns.keys()[0])
+            self.list_mlns['menu'].invoke(0)
         else:
             self.selected_mln.set('')
             self.mln_editor.delete("1.0", END)

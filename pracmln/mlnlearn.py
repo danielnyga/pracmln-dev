@@ -47,6 +47,7 @@ from tabulate import tabulate
 import pstats
 from pracmln.mln.database import Database, parse_db
 from pracmln.mln.learning.common import DiscriminativeLearner
+import logging
 
 logger = praclog.logger(__name__)
 
