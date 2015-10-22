@@ -163,7 +163,7 @@ class Inference(object):
         return equeries
     
     
-    def _run(self, verbose=False, **args):
+    def _run(self):
         raise Exception('%s does not implement _run()' % self.__class__.__name__)
 
 
