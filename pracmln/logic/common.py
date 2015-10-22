@@ -2134,6 +2134,36 @@ class Logic(object):
         return ret
     
     
+    def conjugate(self, children, mln=None, idx=inherit):
+        '''
+        Returns a conjunction of the given children.
+        
+        Performs rudimentary simplification in the sense that if children 
+        has only one element, it returns this element (e.g. one literal)
+        '''
+        if not children:
+            return self.true_false(0, mln=ifNone(mln, self.mln), idx=idx)
+        elif len(children) == 1:
+            return children[0].copy(mln=ifNone(mln, self.mln), idx=idx)
+        else:
+            return self.conjunction(children, mln=ifNone(mln,self.mln), idx=idx)
+        
+    
+    def disjugate(self, children, mln=None, idx=inherit):
+        '''
+        Returns a conjunction of the given children.
+        
+        Performs rudimentary simplification in the sense that if children 
+        has only one element, it returns this element (e.g. one literal)
+        '''
+        if not children:
+            return self.true_false(0, mln=ifNone(mln, self.mln), idx=idx)
+        elif len(children) == 1:
+            return children[0].copy(mln=ifNone(mln, self.mln), idx=idx)
+        else:
+            return self.disjunction(children, mln=ifNone(mln,self.mln), idx=idx)
+    
+    
     @staticmethod
     def iter_eq_varassignments(eq, f, mln):
         '''
