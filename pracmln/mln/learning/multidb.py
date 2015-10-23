@@ -28,6 +28,7 @@ import logging
 from pracmln.utils.multicore import with_tracing, _methodcaller, make_memsafe,\
     checkmem
 import numpy
+from pracmln.mln.constants import HARD
 
 
 logger = logging.getLogger(__name__)
@@ -165,14 +166,14 @@ class MultipleDatabaseLearner(AbstractLearner):
         '''
         if len(v) != len(self.mln.formulas):
             raise Exception('Vector must have same length as formula weights')
-        return [v[i] for i in range(len(self.mln.formulas)) if not self.mln.fixweights[i]]
+        return [v[i] for i in range(len(self.mln.formulas)) if not self.mln.fixweights[i] and self.mrf.mln.weights[i] != HARD]
 
     
     def _add_fixweights(self, w):
         i = 0
         w_ = []
         for f in self.mln.formulas:
-            if self.mln.fixweights[f.idx]:
+            if self.mln.fixweights[f.idx] or f.weight == HARD:
                 w_.append(self._w[f.idx])
             else:
                 w_.append(w[i])
