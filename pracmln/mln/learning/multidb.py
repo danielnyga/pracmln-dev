@@ -166,7 +166,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         '''
         if len(v) != len(self.mln.formulas):
             raise Exception('Vector must have same length as formula weights')
-        return [v[i] for i in range(len(self.mln.formulas)) if not self.mln.fixweights[i] and self.mrf.mln.weights[i] != HARD]
+        return [v[i] for i in range(len(self.mln.formulas)) if not self.mln.fixweights[i] and self.mln.weights[i] != HARD]
 
     
     def _add_fixweights(self, w):
