@@ -336,6 +336,8 @@ class MLNLearn(object):
         if self.verbose:
             conf = dict(self._config.config)
             conf.update(eval("dict(%s)" % self.params))
+            if type(conf.get('db', None)) is list:
+                conf['db'] = '%d Databases' % len(conf['db'])
             print tabulate(sorted(list(conf.viewitems()), key=lambda (k,v): str(k)), headers=('Parameter:', 'Value:'))
 
         params = dict([(k, getattr(self, k)) for k in ('multicore', 'verbose', 'profile', 'ignore_zero_weight_formulas')])
