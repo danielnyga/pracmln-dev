@@ -396,7 +396,7 @@ class ProgressBar():
         if label is not None: self._label = label
         if value == 1: self._label = ''
         if tty(sys.stdout):
-            sys.stdout.write(barstr(self.width, value, color=self.color) + ' ' + self._label[:min(len(self._label), 100)].ljust(100, ' ') +  ('\r' if value < 1. else '\n'))
+            sys.stdout.write(barstr(self.width, value, color=self.color) + ' ' + self._label[:min(len(self._label), 20)].ljust(20, ' ') +  ('\r' if value < 1. else '\n'))
             sys.stdout.flush()
             
     
