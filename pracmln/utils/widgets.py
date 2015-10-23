@@ -29,6 +29,11 @@ from string import ascii_letters, digits, punctuation
 import re
 from Tkconstants import NONE, INSERT, LEFT, W, END, DISABLED, NORMAL, RIGHT, Y,\
     TOP, BOTTOM, X, BOTH, HORIZONTAL, SEL
+from tkFileDialog import askopenfilename
+import tkMessageBox
+import tkSimpleDialog
+from pracmln import praclog
+from pracmln.utils.project import mlnpath
 from pracmln.mln.util import trace, out
 try:
     import Pmw  # @UnresolvedImport
@@ -36,11 +41,15 @@ try:
 except:
     havePMW = False
 import os
+import ntpath
 from fnmatch import fnmatch
 #import keyword
 
 BOLDFONT = '*-Monospace-Bold-R-Normal-*-12-*'
 ITALICFONT = '*-Monospace-Medium-O-Normal-*-12-*'
+logger = praclog.logger(__name__)
+
+
 
 class ScrolledText2(Text):
     
@@ -425,6 +434,264 @@ class SyntaxHighlightingText(ScrolledText2):
         Text.insert(self, index, text, *args)
         for i in range(text.count("\n")):
             self.colorize(str(line+i))
+
+
+class FileEditBar(Frame, object):
+
+
+    def __init__(self, master, dir='.', filesettings=None, defaultname='*unknown{}', importhook=None,
+                 deletehook=None, projecthook=None, filecontenthook=None, selectfilehook=None,
+                 fileslisthook=None, updatehook=None, onchangehook=None):
+
+        self.master = master
+
+        self._dirty = False
+        self._dirty_file_name = ''
+        self._editor_dirty = False
+
+        self.dir = dir
+        self.fsettings = filesettings
+        self.defaultname = defaultname
+
+        # hooks
+        self.import_hook = importhook
+        self.delete_hook = deletehook
+        self.save_project_hook = projecthook
+        self.filecontent_hook = filecontenthook
+        self.update_hook = updatehook
+        self.select_file_hook = selectfilehook
+        self.files_list_hook = fileslisthook
+        self.onchange_hook = onchangehook
+
+
+        Frame.__init__(self, master)
+        row = 0
+        self.columnconfigure(1, weight=2)
+
+        self.selected_file = StringVar(master)
+        files = []
+        self.file_buffer = {}
+        self.file_reload = True
+        if len(files) == 0: files.append("")
+        self.list_files = apply(OptionMenu, (self, self.selected_file) + tuple(files))
+        self.list_files.grid(row=0, column=1, sticky="NWE")
+        self.selected_file.trace("w", self.select_file)
+
+        # new file
+        self.btn_newfile = Button(self, text='New', command=self.new_file)
+        self.btn_newfile.grid(row=0, column=2, sticky="E")
+
+        # import file
+        self.btn_importfile = Button(self, text='Import', command=self.import_file)
+        self.btn_importfile.grid(row=0, column=3, sticky="E")
+
+        # delete file
+        self.btn_delfile = Button(self, text='Delete', command=self.delete_file)
+        self.btn_delfile.grid(row=0, column=4, sticky="E")
+
+        # save button
+        self.btn_update_file = Button(self, text='Save', command=self.save_file)
+        self.btn_update_file.grid(row=0, column=6, sticky="E")
+
+        # save as.. button
+        self.btn_saveas_file = Button(self, text='Save as...', command=self.saveas_file)
+        self.btn_saveas_file.grid(row=0, column=7, sticky="E")
+
+        # mln editor
+        self.editor = SyntaxHighlightingText(self, change_hook=self.onchange_filecontent)
+        self.editor.grid(row=1, column=1, columnspan=7, sticky="NWES")
+        self.rowconfigure(row, weight=1)
+
+
+    @property
+    def dirty(self):
+        return self._dirty or self.file_buffer != {}
+
+
+    @dirty.setter
+    def dirty(self, d):
+        self._dirty = (d or self.file_buffer != {})
+        if self.onchange_hook:
+            self.onchange_hook(dirty=self._dirty)
+
+
+    def new_file(self):
+        self.list_files['menu'].add_command(label=self.defaultname.format(self.fsettings.get('extension', '.mln')), command=_setit(self.selected_file, self.defaultname.format(self.fsettings.get('extension', '.mln'))))
+        self.selected_file.set(self.defaultname.format(self.fsettings.get('extension', '.mln')))
+        self.file_buffer[self.defaultname.format(self.fsettings.get('extension', '.mln'))] = ''
+        self.editor.delete("1.0", END)
+        self.dirty = True
+
+
+    def import_file(self):
+        filename = askopenfilename(initialdir=self.dir, filetypes=self.fsettings.get('ftypes'), defaultextension=self.fsettings.get('extension', '.mln'))
+        if filename:
+            fpath, fname = ntpath.split(filename)
+            self.dir = os.path.abspath(fpath)
+            content = mlnpath(filename).content
+            if self.import_hook is not None:
+                self.import_hook(fname, content)
+            self.update_file_choices()
+            self.selected_file.set(fname)
+            self.dirty = True
+
+
+    def delete_file(self):
+        fname = self.selected_file.get().strip()
+
+        # remove element from project mlns and buffer
+        if fname in self.file_buffer:
+            del self.file_buffer[fname]
+
+        if self.delete_hook is not None:
+            self.delete_hook(fname)
+
+        f = self.update_file_choices()
+        out(f)
+        # select first element from remaining list
+        if f: self.list_files['menu'].invoke(0)
+        else:
+            self.selected_file.set('')
+            self.editor.delete("1.0", END)
+        self.dirty = True
+
+
+
+    def save_all_files(self):
+        current = self.selected_file.get().strip()
+        for f in self.file_buffer:
+            content = self.file_buffer[f]
+            if f == current:
+                content = self.editor.get("1.0", END).strip()
+
+            if self.update_hook is not None:
+                self.update_hook(f, f.strip('*'), content)
+
+        # reset buffer, dirty flag for editor and update mln selections
+        self.file_buffer.clear()
+        self._editor_dirty = False
+        self.update_file_choices()
+        self.dirty = False
+
+        if self.save_project_hook is not None:
+            self.save_project_hook()
+
+
+    def save_file(self):
+        oldfname = self.selected_file.get().strip()
+        if oldfname == self.defaultname.format(self.fsettings.get('extension', '.mln')):
+            self.saveas_file()
+        else:
+            self.update_file(oldfname, new=oldfname.strip('*'), askoverwrite=False)
+
+
+    def saveas_file(self):
+        oldfname = self.selected_file.get().strip()
+        res = tkSimpleDialog.askstring('Save as', "Enter a filename", initialvalue=oldfname.strip('*'))
+        if res is None: return
+        elif res:
+            if not res.endswith(self.fsettings.get('extension')):
+                res = res + self.fsettings.get('extension')
+            self.update_file(oldfname, new=res)
+
+
+    def update_file(self, old, new=None, askoverwrite=True):
+        success = 1
+        content = self.editor.get("1.0", END).strip()
+
+        if self.update_hook is not None:
+            success = self.update_hook(old.strip('*'), new, content, askoverwrite=askoverwrite)
+
+        if success != -1:
+            if old in self.file_buffer:
+                del self.file_buffer[old]
+
+            # reset dirty flag for editor and update mln selections
+            self._editor_dirty = False
+            self.update_file_choices()
+
+            fn = new if new is not None and new != '' else old
+            if new != '': self.selected_file.set(fn)
+            self.dirty = False
+
+            if self.save_project_hook is not None:
+                self.save_project_hook()
+
+
+    def select_file(self, *args):
+        filename = self.selected_file.get().strip()
+        self.dirty = True
+
+        if filename is not None and filename != '':
+            # filename is neither None nor empty
+            if self._editor_dirty:
+                # save current state to buffer before updating editor
+                self.file_buffer[self._dirty_file_name] = self.editor.get("1.0", END).strip()
+                self._editor_dirty = True if '*' in filename else False
+                if not self.file_reload:
+                    self.file_reload = True
+                    return
+            if '*' in filename:# is edited
+                # load previously edited content from buffer instead of mln file in project
+                content = self.file_buffer.get(filename, '').strip()
+                self.editor.delete("1.0", END)
+                content = content.replace("\r", "")
+                self.editor.insert(INSERT, content)
+                self._editor_dirty = True
+                self._dirty_file_name = '*' + filename if '*' not in filename else filename
+                return
+
+            if self.files_list_hook is not None and self.filecontent_hook is not None:
+                files = self.files_list_hook()
+                if filename in files:
+                    # load content from mln file in project
+                    content = self.filecontent_hook(filename)
+                    self.editor.delete("1.0", END)
+                    content = content.replace("\r", "")
+                    self.editor.insert(INSERT, content)
+                    self._editor_dirty = False
+
+        else:
+            # should not happen
+            self.editor.delete("1.0", END)
+            self.list_files['menu'].delete(0, 'end')
+
+
+    def update_file_choices(self):
+        self.list_files['menu'].delete(0, 'end')
+        files = []
+        if self.files_list_hook is not None:
+            files = self.files_list_hook()
+
+        new_files = sorted([i for i in files if '*'+i not in self.file_buffer] + self.file_buffer.keys())
+        for f in new_files:
+            self.list_files['menu'].add_command(label=f, command=_setit(self.selected_file, f))
+
+        return new_files
+
+
+    def onchange_filecontent(self, *args):
+        if not self._editor_dirty:
+            self._editor_dirty = True
+            self.dirty = True
+            self.file_reload = False # do not reload file, only change filename to *filename
+            fname = self.selected_file.get().strip()
+            fname = '*' + fname if '*' not in fname else fname
+            self._dirty_file_name = fname
+            self.file_buffer[self._dirty_file_name] = self.editor.get("1.0", END).strip()
+            self.update_file_choices()
+            self.selected_file.set(self._dirty_file_name)
+
+
+    def clear(self, keep=False):
+        self.file_buffer.clear()
+
+        if not keep:
+            self.editor.delete("1.0", END)
+
+        self.dirty = False
+
+
 
 class FilePickEdit(Frame):
     
