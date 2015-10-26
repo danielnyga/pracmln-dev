@@ -474,32 +474,33 @@ class FileEditBar(Frame, object):
         self.file_reload = True
         if len(files) == 0: files.append("")
         self.list_files = apply(OptionMenu, (self, self.selected_file) + tuple(files))
-        self.list_files.grid(row=0, column=1, sticky="NWE")
+        self.list_files.grid(row=row, column=1, sticky="NWE")
         self.selected_file.trace("w", self.select_file)
 
         # new file
         self.btn_newfile = Button(self, text='New', command=self.new_file)
-        self.btn_newfile.grid(row=0, column=2, sticky="E")
+        self.btn_newfile.grid(row=row, column=2, sticky="E")
 
         # import file
         self.btn_importfile = Button(self, text='Import', command=self.import_file)
-        self.btn_importfile.grid(row=0, column=3, sticky="E")
+        self.btn_importfile.grid(row=row, column=3, sticky="E")
 
         # delete file
         self.btn_delfile = Button(self, text='Delete', command=self.delete_file)
-        self.btn_delfile.grid(row=0, column=4, sticky="E")
+        self.btn_delfile.grid(row=row, column=4, sticky="E")
 
         # save button
         self.btn_update_file = Button(self, text='Save', command=self.save_file)
-        self.btn_update_file.grid(row=0, column=6, sticky="E")
+        self.btn_update_file.grid(row=row, column=6, sticky="E")
 
         # save as.. button
         self.btn_saveas_file = Button(self, text='Save as...', command=self.saveas_file)
-        self.btn_saveas_file.grid(row=0, column=7, sticky="E")
+        self.btn_saveas_file.grid(row=row, column=7, sticky="E")
 
         # editor
+        row += 1
         self.editor = SyntaxHighlightingText(self, change_hook=self.onchange_filecontent)
-        self.editor.grid(row=1, column=1, columnspan=7, sticky="NWES")
+        self.editor.grid(row=row, column=1, columnspan=7, sticky="NWES")
         self.rowconfigure(row, weight=1)
 
 
