@@ -12,7 +12,9 @@ sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
 
 from pracmln.mln.util import colorize
 
-packages = [('numpy', 'numpy'), ('tabulate', 'tabulate'), ('pyparsing', 'pyparsing'), ('psutil', 'psutil')]
+packages = [('numpy', 'numpy', False), ('tabulate', 'tabulate', False), ('pyparsing', 'pyparsing', False), ('psutil', 'psutil', False)]
+webmlnpackages = [('flask', 'Flask', False), ('werkzeug', 'werkzeug', False), ('PIL', 'Pillow', False), ('jinja2', 'Jinja2', False), ('geoip', 'python-geoip python-geoip-geolite2', True)]
+
 
 def check_package(pkg):
     try:
@@ -22,7 +24,7 @@ def check_package(pkg):
         print
     except ImportError: 
         print
-        print colorize('%s was not found. Please install by "sudo pip install %s"' % (pkg[0], pkg[1]), (None, 'yellow', True), True)
+        print colorize('%s was not found. Please install by "sudo pip install %s" %s' % (pkg[0], pkg[1], '(optional)' if pkg[2] else ''), (None, 'yellow', True), True)
     
 # check the package dependecies
 def check_dependencies():
@@ -79,9 +81,12 @@ def buildLibpracmln():
 
 def build_webmln():
     # build qooxdoo
-    generate = adapt("$PRACMLN_HOME/webmln/gui/generate.py", arch)
+    generate = adapt("$PRACMLN_HOME/webmln/gui/generate.py -q", arch)
     os.system(generate + ' source-all')
     os.system(generate + ' build')
+
+    for pkg in webmlnpackages:
+        check_package(pkg)
 
     python_apps.append({"name": "webmln", "script": "$PRACMLN_HOME/webmln/run.py"})
 

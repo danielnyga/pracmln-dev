@@ -75,7 +75,6 @@ def stripComments(s):
 
 def getQxPath():
     path = QOOXDOO_PATH
-    print 'path1', path
     # OS env takes precedence
     if os.environ.has_key("QOOXDOO_PATH"):
         path = os.environ["QOOXDOO_PATH"]

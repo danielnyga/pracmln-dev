@@ -2,10 +2,10 @@ import json
 import logging
 import os
 import shutil
-from geoip import geolite2
+import imp
 from pracmln import mlnpath
 from pracmln.mln.methods import InferenceMethods, LearningMethods
-from pracmln.mln.util import out, stop
+from pracmln.mln.util import out, stop, colorize
 from pracmln.praclog import logger
 from utils import ensure_mln_session, convert
 from urlparse import urlparse
@@ -132,26 +132,31 @@ def user_stats():
               "Access Time:\t{time}")
 
     try:
-        geolite = geolite2.lookup(ip)
-        stats.update(geolite.to_dict())
-        stats['subdivisions'] = ', '.join(
-            stats['subdivisions'])  # prettify for log
-    except AttributeError:
-        logstr = ("Wrote log entry:\n"
-                  "IP:\t\t\t\t{ip}\n"
-                  "Access Date:\t{date}\n"
-                  "Access Time:\t{time}")
-    except ValueError:
-        log.error('Not a valid ip address: {}'.format(ip))
-    except KeyError:
-        logstr = ("Wrote log entry:\n"
-                  "IP:\t\t\t\t{ip}\n"
-                  "Country:\t\t{country}\n"
-                  "Continent:\t\t{continent}\n"
-                  "Timezone:\t\t{timezone}\n"
-                  "Location:\t\t{location}\n"
-                  "Access Date:\t{date}\n"
-                  "Access Time:\t{time}")
+        imp.find_module('geoip')
+        from geoip import geolite2
+        try:
+            geolite = geolite2.lookup(ip)
+            stats.update(geolite.to_dict())
+            stats['subdivisions'] = ', '.join(
+                stats['subdivisions'])  # prettify for log
+        except AttributeError:
+            logstr = ("Wrote log entry:\n"
+                      "IP:\t\t\t\t{ip}\n"
+                      "Access Date:\t{date}\n"
+                      "Access Time:\t{time}")
+        except ValueError:
+            log.error('Not a valid ip address: {}'.format(ip))
+        except KeyError:
+            logstr = ("Wrote log entry:\n"
+                      "IP:\t\t\t\t{ip}\n"
+                      "Country:\t\t{country}\n"
+                      "Continent:\t\t{continent}\n"
+                      "Timezone:\t\t{timezone}\n"
+                      "Location:\t\t{location}\n"
+                      "Access Date:\t{date}\n"
+                      "Access Time:\t{time}")
+    except ImportError:
+        print colorize('geoip module was not found. Install by "sudo pip install python-geoip python-geoip-geolite2" if you want to request geoip information', (None, 'yellow', True), True)
     finally:
         stats.update({'ip': ip, 'date': data['date'], 'time': data['time']})
         ulog.info(json.dumps(stats))
