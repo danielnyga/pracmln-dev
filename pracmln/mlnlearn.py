@@ -630,6 +630,10 @@ class MLNLearnGUI:
         self.config = self.project.learnconf
         self.project.addlistener(self.project_setdirty)
 
+        self.mln_container.dirty = False
+        self.db_container.dirty = False
+        self.project_setdirty(dirty=False)
+
         self.master.geometry(gconf['window_loc_learn'])
         
         self.initialized = True
@@ -865,7 +869,8 @@ class MLNLearnGUI:
 
             
     def onchange_pattern(self, *args):
-        self.list_dbs.config(state=DISABLED if self.pattern.get() else NORMAL)
+        self.db_container.editor.disable(self.pattern.get())
+        self.db_container.list_files.config(state=DISABLED if self.pattern.get() else NORMAL)
         self.settings_setdirty()
 
 

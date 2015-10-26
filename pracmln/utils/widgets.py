@@ -435,6 +435,9 @@ class SyntaxHighlightingText(ScrolledText2):
         for i in range(text.count("\n")):
             self.colorize(str(line+i))
 
+    def disable(self, disable):
+        Text.config(self, state=DISABLED if disable else NORMAL)
+
 
 class FileEditBar(Frame, object):
 
@@ -444,6 +447,8 @@ class FileEditBar(Frame, object):
                  fileslisthook=None, updatehook=None, onchangehook=None):
 
         self.master = master
+
+        Frame.__init__(self, master)
 
         self._dirty = False
         self._dirty_file_name = ''
