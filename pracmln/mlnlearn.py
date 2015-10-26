@@ -761,6 +761,7 @@ class MLNLearnGUI:
                 self.selected_mln.set(self.project.learnconf['mln'] or self.project.mlns.keys()[0])
             if len(self.project.dbs) > 0:
                 self.selected_db.set(self.project.learnconf['db'] or self.project.dbs.keys()[0])
+            self.write_gconfig()
             self.settings_dirty.set(0)
             self.project_setdirty(False)
         else:

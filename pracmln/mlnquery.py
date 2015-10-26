@@ -626,6 +626,7 @@ class MLNQueryGUI(object):
                 self.selected_mln.set(self.project.queryconf['mln'] or self.project.mlns.keys()[0])
             if len(self.project.dbs) > 0:
                 self.selected_db.set(self.project.queryconf['db'] or self.project.dbs.keys()[0])
+            self.write_gconfig()
             self.settings_dirty.set(0)
             self.project_setdirty(False)
         else:
@@ -1305,13 +1306,8 @@ if __name__ == '__main__':
     parser.add_option("-e", "--evidence", dest="dbarg", help="the evidence database file")
     parser.add_option("-r", "--results-file", dest="outputfile", help="the results file to save")
     parser.add_option("--run", action="store_true", dest="run", default=False, help="run with last settings (without showing GUI)")
-    parser.add_option("--noPMW", action="store_true", dest="nopmw", default=False, help="do not use Python mega widgets even if available")
     (opts, args) = parser.parse_args()
     options = vars(opts)
-
-    # create gui
-    if opts.nopmw:
-        widgets.havePMW = False
 
     root = Tk()
     conf = PRACMLNConfig(DEFAULT_CONFIG)
