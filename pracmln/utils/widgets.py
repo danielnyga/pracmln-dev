@@ -497,7 +497,7 @@ class FileEditBar(Frame, object):
         self.btn_saveas_file = Button(self, text='Save as...', command=self.saveas_file)
         self.btn_saveas_file.grid(row=0, column=7, sticky="E")
 
-        # mln editor
+        # editor
         self.editor = SyntaxHighlightingText(self, change_hook=self.onchange_filecontent)
         self.editor.grid(row=1, column=1, columnspan=7, sticky="NWES")
         self.rowconfigure(row, weight=1)
