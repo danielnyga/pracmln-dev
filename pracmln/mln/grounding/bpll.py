@@ -68,7 +68,7 @@ def create_formula_groundings(formula, unsatfailure=True):
                         print
                         gf.print_structure(global_bpll_grounding.mrf.evidence)
                         raise SatisfiabilityException('MLN is unsatisfiable due to hard constraint violation %s (see above)' % global_bpll_grounding.mrf.formulas[gf.idx])
-            results.append((gf, stat))
+            results.append((gf.idx, stat))
     return results
 
     

@@ -462,7 +462,7 @@ class MLN(object):
         for f in newmln.formulas: logger.debug('%s %s' % (str(f.weight).ljust(10, ' '), f))
         # run learner
         if len(dbs) == 1:
-            mrf = newmln.ground(dbs[0], simplify=False, cw=True, **params)
+            mrf = newmln.ground(dbs[0])
             logger.debug('Loading %s-Learner' % method.__name__)
             learner = method(mrf, **params)
         else:
