@@ -289,7 +289,7 @@ class DiscriminativeLearner(AbstractLearner):
             qpreds = self._params.get('qpreds', [])
             if 'epreds' in self._params:
                 epreds = self._params['epreds']
-                qpreds.extend([p for p in self.mrf.predicates if p not in epreds])
+                qpreds.extend([p.name for p in self.mrf.predicates if p.name not in epreds])
                 if not set(qpreds).isdisjoint(epreds):
                     raise Exception('Query predicates and evidence predicates must be disjoint.')
             if len(qpreds) == 0:
