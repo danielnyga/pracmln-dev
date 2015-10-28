@@ -143,7 +143,6 @@ class WCSPConverter(object):
                 else:# formula is rendered true/false by the evidence -> equal in every possible world 
                     continue
             self.generate_constraint(gf)
-        logger.warning('finished grounding')
         self.mrf.mln.weights = self._weights
         return self.wcsp
 

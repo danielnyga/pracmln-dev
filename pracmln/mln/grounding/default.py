@@ -117,6 +117,7 @@ class DefaultGroundingFactory:
                     yield gf
             else: return
         self.watch.finish('grounding')
+        if self.verbose: print
             
             
     def _itergroundings(self, simplify=False, unsatfailure=False):

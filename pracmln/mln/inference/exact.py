@@ -95,8 +95,8 @@ class EnumerationAsk(Inference):
         debugLevel: level of detail for debug mode
         '''
         # check consistency with hard constraints:
-        self._watch.tag('check hard constraints')
-        hcgrounder = FastConjunctionGrounding(self.mrf, simplify=False, unsatfailure=True, formulas=[f for f in self.mrf.formulas if f.weight == HARD], **(self._params + {'multicore': False}))
+        self._watch.tag('check hard constraints', verbose=self.verbose)
+        hcgrounder = FastConjunctionGrounding(self.mrf, simplify=False, unsatfailure=True, formulas=[f for f in self.mrf.formulas if f.weight == HARD], **(self._params + {'multicore': False, 'verbose': False}))
         for gf in hcgrounder.itergroundings():
             if isinstance(gf, Logic.TrueFalse) and gf.truth() == .0:
                 raise SatisfiabilityException('MLN is unsatisfiable due to hard constraint violation by evidence: %s (%s)' % (str(gf), str(self.mln.formula(gf.idx))))

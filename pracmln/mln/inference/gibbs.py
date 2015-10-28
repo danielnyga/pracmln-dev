@@ -50,11 +50,11 @@ class GibbsSampler(MCMCInference):
     
     @property
     def chains(self):
-        return self._params['chains']
+        return self._params.get('chains', 1)
     
     @property
     def maxsteps(self):
-        return self._params['maxsteps']
+        return self._params.get('maxsteps', 500)
     
     
     

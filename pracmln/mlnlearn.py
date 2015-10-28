@@ -79,11 +79,13 @@ class MLNLearn(object):
     """
     
     def __init__(self, config=None, **params):
+        self.configfile = None
         if config is None:
             self._config = {}
-        else:
-            self._config = config
-        self._config.config.update(params)
+        elif isinstance(config, PRACMLNConfig):
+            self._config = config.config
+            self.configfile = config
+        self._config.update(params)
         
     
     @property
@@ -334,7 +336,7 @@ class MLNLearn(object):
         watch = StopWatch()
 
         if self.verbose:
-            conf = dict(self._config.config)
+            conf = dict(self._config)
             conf.update(eval("dict(%s)" % self.params))
             if type(conf.get('db', None)) is list:
                 conf['db'] = '%d Databases' % len(conf['db'])
