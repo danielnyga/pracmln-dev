@@ -129,23 +129,3 @@ def get_training_db_paths(pattern):
     if not dbs:
         raise Exception("No training data given; A training database must be selected or a pattern must be specified")
     else: return local, dbs
-
-
-def get_cond_prob_png(queries, dbs, filename='cond_prob', filedir='/tmp'):
-    declarations = r'''
-    \DeclareMathOperator*{\argmin}{\arg\!\min}
-    \DeclareMathOperator*{\argmax}{\arg\!\max}
-    \newcommand{\Pcond}[1]{\ensuremath{P\left(\begin{array}{c|c}#1\end{array}\right)}}
-    '''
-
-    evidencelist = []
-    if isinstance(dbs, list):
-        for db in dbs:
-            evidencelist.extend([e for e in db.evidence.keys() if db.evidence[e] == 1.0])
-    else:
-        evidencelist.extend([e if dbs.evidence[e] == 1.0 else '!'+e for e in dbs.evidence.keys() ])
-    query    = r'''\\'''.join([r'''\text{{ {0} }} '''.format(q.replace('_', '\_')) for q in queries])
-    evidence = r'''\\'''.join([r'''\text{{ {0} }} '''.format(e.replace('_', '\_')) for e in evidencelist])
-    eq       = r'''\argmax \Pcond{{ \begin{{array}}{{c}}{0}\end{{array}} & \begin{{array}}{{c}}{1}\end{{array}} }}'''.format(query, evidence)
-
-    return math2png(eq, filedir, declarations=[declarations], filename=filename, size=10)

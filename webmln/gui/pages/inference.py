@@ -12,8 +12,8 @@ from pracmln.mln.util import parse_queries, out
 from pracmln.praclog import logger
 from pracmln.utils import config
 from pracmln.utils.config import PRACMLNConfig
-from utils import ensure_mln_session, GUI_SETTINGS, change_example, \
-    get_cond_prob_png
+from pracmln.utils.visualization import get_cond_prob_png
+from utils import ensure_mln_session, GUI_SETTINGS, change_example
 from webmln.gui.app import mlnApp
 import pracmln
 
@@ -55,7 +55,6 @@ def start_inference():
     streamlog.addHandler(handler)
     streamlog.info('STARTING INFERENCE')
     sys.stdout = stream
-
 
     # load settings from webform
     data = json.loads(request.get_data())
@@ -154,10 +153,11 @@ def start_inference():
                 mlnsession.projectinf.save(dirpath=mlnsession.tmpsessionfolder)
                 streamlog.info('saved result to file results/{} in project {}'.format(fname, mlnsession.projectinf.name))
 
+            streamlog.info('FINISHED')
+
         except SystemExit:
             streamlog.error('Cancelled...')
         finally:
-            streamlog.info('FINISHED')
             handler.flush()
     except:
         traceback.print_exc()
