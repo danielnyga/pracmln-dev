@@ -25,7 +25,7 @@ from pracmln.mln.learning.common import AbstractLearner, DiscriminativeLearner
 import random
 from collections import defaultdict
 from pracmln.mln.util import fsum, StopWatch, dict_union, temporary_evidence,\
-    out
+    out, stop
 from numpy.ma.core import log, sqrt
 import numpy
 from pracmln.logic.common import Logic
@@ -112,14 +112,14 @@ class CLL(AbstractLearner):
         self._stat = {}
         self.partition2formulas = defaultdict(set)
         for formula in self.mrf.formulas:
-            lits = []
+            literals = []
             for lit in formula.literals():
-                lits.append(lit)
+                literals.append(lit)
             # in case of a conjunction, rearrange the literals such that 
             # equality constraints are evaluated first
             isconj = self.mrf.mln.logic.islitconj(formula)
             if isconj:
-                literals = sorted(lits, key=lambda l: -1 if isinstance(l, Logic.Equality) else 1)
+                literals = sorted(literals, key=lambda l: -1 if isinstance(l, Logic.Equality) else 1)
             self._compute_stat_rec(literals, [], {}, formula, isconj=isconj)
     
     
@@ -221,20 +221,22 @@ class CLL(AbstractLearner):
     def _compute_probs(self, w):
         probs = {}#numpy.zeros(len(self.partitions))
         for pidx in range(len(self.partitions)):
-            sums = numpy.zeros(self.valuecounts[pidx])
+            expsums = [0] * self.valuecounts[pidx]
             for fidx in self.partition2formulas[pidx]:
                 for i, v in enumerate(self._stat[fidx][pidx]):
-                    if self.mrf.formulas[fidx].weight == HARD and v == 0:
-                        out(self.mrf.formulas[fidx], 'is hard')
-                        sums[i] = None
-                    elif sums[i] is not None:
-                        sums[i] += v * w[fidx]
+                    if w[fidx] == HARD:
+                        if v == 0: expsums[i] = None
+                    elif expsums[i] is not None:
+#                         out('adding', v, '*', w[fidx], 'to', i)
+                        expsums[i] += v * w[fidx]
+#                         stop(expsums)
 #             sum_max = numpy.max(sums)
 #             sums -= sum_max
 #             expsums = numpy.sum(numpy.exp(sums))
 #             s = numpy.log(expsums)
 #             probs[pidx] = numpy.exp(sums - s)
-            expsum = numpy.array([numpy.exp(s) if s is not None else 0 for s in sums])# leave out the inadmissible values
+#             out(w)
+            expsum = numpy.array([numpy.exp(s) if s is not None else 0 for s in expsums])# leave out the inadmissible values
             z = fsum(expsum)
             if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: all probability masses of partition %s are zero.' % str(self.partitions[pidx]))
             probs[pidx] = expsum / z
