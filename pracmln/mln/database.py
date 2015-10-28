@@ -298,8 +298,9 @@ class Database(object):
             for arg, arg_, dom, dom_ in zip(args, args_, doms, doms_):
                 if arg == arg_ and dom == dom_: dontremove.add((dom, arg))
         for (dom, arg) in zip(doms, args):
-            if (dom, arg) not in dontremove: 
-                self._domains[dom].remove(arg)
+            if (dom, arg) not in dontremove:
+                if arg in self._domains[dom]:
+                    self._domains[dom].remove(arg)
                 if not self.domain(dom): del self._domains[dom]   
                 
                 
@@ -310,7 +311,16 @@ class Database(object):
         for a, _ in dict(self._evidence).iteritems():
             _, pred, _ = self.mln.logic.parse_literal(a)
             if pred == predname: del self[a] 
-        
+
+
+    def rmval(self, domain, value):
+        for atom in list(self.evidence):
+            _, predname, args = self.mln.logic.parse_literal(atom)
+            for dom, val in zip(self.mln.predicate(predname).argdoms, args):
+                if dom == domain and val == value:
+                    del self.evidence[atom]
+        self.domains[domain].remove(value)
+
         
     def __iter__(self):
         for atom, truth in self._evidence.iteritems():
