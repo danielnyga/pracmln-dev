@@ -508,13 +508,14 @@ class MRF(object):
             worldidx.value += 1
             return
         variable = variables[0]
-        world_ = list(world)
         if isinstance(variable, FuzzyVariable):
+            world_ = list(world)
             value = variable.evidence_value(evidence)
             for res in self._iterworlds(variables[1:], variable.setval(value, world_), worldidx, evidence):
                 yield res 
         else:
             for _, value in variable.itervalues(evidence):
+                world_ = list(world)
                 for res in self._iterworlds(variables[1:], variable.setval(value, world_), worldidx, evidence):
                     yield res 
 
