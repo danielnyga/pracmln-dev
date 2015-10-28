@@ -22,7 +22,9 @@ from mln.base import MLN
 from mln.database import Database
 from mln.constants import *
 from mlnlearn import MLNLearn
+from mlnlearn import MLNLearn as learn
 from mlnquery import MLNQuery
+from mlnquery import MLNQuery as query
 from mlnlearn import QUERY_PREDS, EVIDENCE_PREDS
 from utils.config import PRACMLNConfig
 from utils.project import mlnpath
