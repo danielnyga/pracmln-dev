@@ -199,7 +199,6 @@ if __name__ == '__main__':
 
     # write shell script for environment setup
     appsDir = adapt("$PRACMLN_HOME/apps", arch)
-    pyparsingDir = adapt("$PRACMLN_HOME/3rdparty/pyparsing", arch)
     logutilsDir = adapt("$PRACMLN_HOME/3rdparty/logutils-0.3.3", arch)
 
     # make the experiments dir
@@ -215,7 +214,6 @@ if __name__ == '__main__':
         f.write('#!/bin/bash\n')
         f.write("export PATH=$PATH:%s\n" % appsDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % logutilsDir)
-        f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % pyparsingDir)
         f.write("export PRACMLN_HOME=%s\n" % adapt("$PRACMLN_HOME", arch))
         f.write("export PYTHONPATH=$PRACMLN_HOME:$PYTHONPATH\n")
         f.write("export PRACMLN_EXPERIMENTS=%s\n" % adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
@@ -229,7 +227,7 @@ if __name__ == '__main__':
         print '    source %s' % adapt("$PRACMLN_HOME/env.sh", arch)
         print
     else:
-        pypath = ';'.join([adapt("$PRACMLN_HOME", arch), logutilsDir, pyparsingDir])
+        pypath = ';'.join([adapt("$PRACMLN_HOME", arch), logutilsDir])
         f = file("env.bat", "w")
         f.write("@ECHO OFF\n")
         f.write('SETX PATH "%%PATH%%;%s"\r\n' % appsDir)

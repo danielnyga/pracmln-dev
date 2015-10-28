@@ -9,6 +9,9 @@ import numpy as np
 from matplotlib import rc
 import itertools
 from numpy.ma.core import floor, ceil
+from pracmln.mln.util import parse_queries, out
+from pracmln.utils.latexmath2png import math2png
+
 
 COLORS = ['blue', 'green', 'red', 'orange']
 CVALUE = {'blue': '#355FD6',
@@ -74,7 +77,32 @@ def plot_KLDiv_with_logscale(series):
     plt.ylabel(r'$F_1$')
     plt.xlabel(r'$k$')
     
-    
+
+def get_cond_prob_png(queries, dbs, filename='cond_prob', filedir='/tmp'):
+    out(queries)
+    if isinstance(queries, str):
+        queries = queries.split(',')
+        out(queries)
+
+    declarations = r'''
+    \DeclareMathOperator*{\argmin}{\arg\!\min}
+    \DeclareMathOperator*{\argmax}{\arg\!\max}
+    \newcommand{\Pcond}[1]{\ensuremath{P\left(\begin{array}{c|c}#1\end{array}\right)}}
+    '''
+
+    evidencelist = []
+    if isinstance(dbs, list):
+        for db in dbs:
+            evidencelist.extend([e for e in db.evidence.keys() if db.evidence[e] == 1.0])
+    else:
+        evidencelist.extend([e if dbs.evidence[e] == 1.0 else '!'+e for e in dbs.evidence.keys() ])
+    query    = r'''\\'''.join([r'''\text{{ {0} }} '''.format(q.replace('_', '\_')) for q in queries])
+    evidence = r'''\\'''.join([r'''\text{{ {0} }} '''.format(e.replace('_', '\_')) for e in evidencelist])
+    eq       = r'''\argmax \Pcond{{ \begin{{array}}{{c}}{0}\end{{array}} & \begin{{array}}{{c}}{1}\end{{array}} }}'''.format(query, evidence)
+
+    return math2png(eq, filedir, declarations=[declarations], filename=filename, size=10)
+
+
 if __name__ == '__main__':
 #     fol = [[0.40, 0.41, 0.41, 0.42, 0.44, 0.49, 0.44, 0.46, 0.51],
 #            [0.27, 0.29, 0.29, 0.32, 0.29, 0.34, 0.38, 0.36, 0.38],
