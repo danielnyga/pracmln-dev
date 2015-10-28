@@ -253,8 +253,12 @@ class mlnpath(object):
         # split the path wrt slashes
         tokens = path.split('/')
         self._abspath = path.startswith('/')
-        if ':' in tokens[-1]: 
-            self.project, self.file = tokens[-1].split(':')
+        if ':' in tokens[-1] or tokens[-1].endswith('.pracmln'):
+            res =  tokens[-1].split(':')
+            if len(res) == 2:
+                self.project, self.file = res
+            elif len(res) == 1:
+                self.project, self.file = res[0], None 
         else:
             self.project = None
             self.file = tokens[-1] 
@@ -312,7 +316,9 @@ class mlnpath(object):
         '''
         path = self.resolve_path()
         if self.project is not None:
-            proj = MLNProject.open(os.path.join(path, self.project))
+            proj = MLNProject.open(os.path.join(self.resolve_path(), self.project))
+            if self.file is None:
+                return proj
             fileext = self.file.split('.')[-1]
             if fileext == 'mln':
                 mln = proj.mlns.get(self.file)
@@ -337,7 +343,7 @@ class mlnpath(object):
         '''
         if self.project is None:
             raise Exception('No project specified in the path.')
-        return os.path.join(self.resolve_path, self.project)
+        return os.path.join(self.resolve_path(), self.project)
         
 
     @property
