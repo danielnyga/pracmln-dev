@@ -29,7 +29,8 @@ from pracmln.logic.common import Logic, Disjunction
 import logging
 import time
 import math
-from pracmln.mln.util import fstr, out, item, stop, crash, eset, ProgressBar
+from pracmln.mln.util import fstr, out, item, stop, crash, eset, ProgressBar,\
+    trace, stoptrace
 from pracmln.mln.database import Database
 from pracmln.mln.inference.infer import Inference
 from pracmln.mln.inference.mcmc import MCMCInference
@@ -73,13 +74,13 @@ class MCSAT(MCMCInference):
 #         w_stdev = numpy.std(softweights)
 #         for f in self.mrf.formulas:
 #             if f.ishard: continue
-#             f.weight  = min(w_stdev, f.weight)  
+#             f.weight  = min(w_stdev, f.weight)
         grounder = FastConjunctionGrounding(self.mrf, formulas=self.formulas, simplify=True, verbose=self.verbose)
         self.gndformulas = []
         for gf in grounder.itergroundings():
             if isinstance(gf, Logic.TrueFalse): continue
             self.gndformulas.append(gf.cnf())
-            
+        self._watch.tags.update(grounder.watch.tags)
 #         self.gndformulas, self.formulas = Logic.cnf(grounder.itergroundings(), self.mln.formulas, self.mln.logic, allpos=True)
         # get clause data
         logger.debug("gathering clause data...")
@@ -147,7 +148,7 @@ class MCSAT(MCMCInference):
     
     @property
     def maxsteps(self):
-        return self._params.get('maxsteps', 5000)
+        return self._params.get('maxsteps', 500)
     
     @property
     def softevidence(self):
@@ -229,6 +230,7 @@ class MCSAT(MCMCInference):
             self.mrf.print_world_vars(chain.state)
         self.step = 1        
         logger.debug('running MC-SAT with %d chains' % len(chaingroup.chains))
+        self._watch.tag('running MC-SAT', self.verbose)
         if self.verbose:
             bar = ProgressBar(width=100, steps=self.maxsteps, color='green')
         while self.step <= self.maxsteps:
