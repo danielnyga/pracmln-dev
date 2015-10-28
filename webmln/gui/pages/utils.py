@@ -13,7 +13,7 @@ from shutil import copyfile
 import ntpath
 
 FILEDIRS = {'mln': 'mln', 'pracmln': 'bin', 'db': 'db'}
-GUI_SETTINGS = ['db_rename', 'mln_rename', 'db', 'method', 'use_emln', 'save', 'output', 'grammar', 'queries', 'emln']
+GUI_SETTINGS = ['db_rename', 'mln_rename', 'db', 'method', 'use_emln', 'save', 'output_filename', 'window_loc', 'grammar', 'queries', 'emln']
 DEFAULT_EXAMPLE = 'smokers'
 DEFAULT_PROJECT = 'smokers.pracmln'
 

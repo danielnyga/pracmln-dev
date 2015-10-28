@@ -11,10 +11,12 @@ from pracmln.mln.methods import InferenceMethods
 from pracmln.mln.util import parse_queries, out
 from pracmln.praclog import logger
 from pracmln.utils import config
-from pracmln.utils.config import query_config_pattern, PRACMLNConfig
+from pracmln.utils.config import PRACMLNConfig
 from utils import ensure_mln_session, GUI_SETTINGS, change_example, \
     get_cond_prob_png
 from webmln.gui.app import mlnApp
+import pracmln
+
 
 log = logger(__name__)
 
@@ -76,7 +78,7 @@ def start_inference():
              queries=data['query'].encode('utf8'),
              mln=mln_name, emln=emln_name,
              output_filename=output,
-             cw=data['closed_world'], cw_preds=data['cw_preds'],
+             cw=data['closed_world'], cw_preds=map(str.strip, str(data['cw_preds']).split(',')),
              use_emln=data['use_emln'], logic=data['logic'].encode('utf8'),
              grammar=data['grammar'].encode('utf8'),
              multicore=data['multicore'], save=True,
@@ -109,25 +111,25 @@ def start_inference():
             db = db[0]
 
         # parse non-atomic params
-        queries = parse_queries(mln, str(tmpconfig.get('queries', '')))
-        cw_preds = filter(lambda x: x != '', map(str.strip, str(tmpconfig.get('cw_preds', '').split(","))))
-        if tmpconfig.get('cw', False):
-            cw_preds = [p.name for p in mln.predicates if p.name not in queries]
+        queries = tmpconfig.get('queries', pracmln.ALL)
+        if isinstance(queries, basestring):
+            queries = parse_queries(mln, queries)
+        tmpconfig['cw_preds'] = filter(lambda x: bool(x), tmpconfig['cw_preds'])
 
         # extract and remove all non-algorithm
-        method = tmpconfig.get('method', 'MCSAT')
+        method = InferenceMethods.clazz(tmpconfig.get('method', 'MCSAT'))
         for s in GUI_SETTINGS:
             if s in tmpconfig: del tmpconfig[s]
 
         try:
             mln_ = mln.materialize(db)
-            mrf = mln_.ground(db, cwpreds=cw_preds)
+            mrf = mln_.ground(db)
 
             if inferconfig.get('verbose', False):
                 streamlog.info('EVIDENCE VARIABLES')
                 mrf.print_evidence_vars(stream)
 
-            inference = InferenceMethods.clazz(method)(mrf, queries, **tmpconfig)
+            inference = method(mrf, queries, **tmpconfig)
             result = inference.run()
 
             output = StringIO()
@@ -138,7 +140,7 @@ def start_inference():
                 streamlog.info('INFERENCE RESULTS: \n' + res)
 
             graphres = calculategraphres(mrf, db.evidence.keys(), inference.queries)
-            barchartresults =  [{"name":x, "value":inference.results[x]} for x in inference.results]
+            barchartresults = [{"name": x, "value":inference.results[x]} for x in inference.results]
 
             png, ratio = get_cond_prob_png(queries, db)
 
