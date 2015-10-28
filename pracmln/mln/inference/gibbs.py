@@ -28,124 +28,137 @@ from pracmln.mln.mrfvars import BinaryVariable
 from pracmln.mln.inference.mcmc import MCMCInference
 import random
 import math
-
+from pracmln.mln.constants import ALL
+from pracmln.mln.util import ProgressBar, out, stop
+import numpy
+from collections import defaultdict
+from pracmln.mln.grounding.fastconj import FastConjunctionGrounding
+from pracmln.logic.common import Logic
+from pracmln.mln.errors import SatisfiabilityException
 
 class GibbsSampler(MCMCInference):
 
+
+    def __init__(self, mrf, queries=ALL, **params):
+        MCMCInference.__init__(self, mrf, queries, **params)
+        self.var2gf = defaultdict(set)
+        grounder = FastConjunctionGrounding(mrf, simplify=True, unsatfailure=True, cache=None)
+        for gf in grounder.itergroundings():
+            if isinstance(gf, Logic.TrueFalse): continue
+            vars_ = set(map(lambda a: self.mrf.variable(a).idx, gf.gndatoms()))
+            for v in vars_: self.var2gf[v].add(gf)
+    
+    @property
+    def chains(self):
+        return self._params['chains']
+    
+    @property
+    def maxsteps(self):
+        return self._params['maxsteps']
+    
+    
     
     class Chain(MCMCInference.Chain):
     
         
         def __init__(self, infer, queries):
-            MCMCInference.Chain.__init__(self, infer, queries)            
-            self.mws = SAMaxWalkSAT(self.infer.mrf)
-            self.mws.run()
-    
+            MCMCInference.Chain.__init__(self, infer, queries)
+            mrf = infer.mrf
             
-        def _var_expsums(self, var, world):
-            sums = [0] * len(var.gndatoms)
-            for gf in self.mws.var2gf[var.idx]:
-                for i, value in var.itervalues():
-                    world_ = list(world)
-                    var.setval(value, world_)
-                    sums[i] += gf.weight * gf(world_)
-            return map(math.exp, sums)
-
+        def _valueprobs(self, var, world):
+            sums = [0] * var.valuecount()
+            for gf in self.infer.var2gf[var.idx]:
+                possible_values = []
+                for i, value in var.itervalues(self.infer.mrf.evidence):
+                    possible_values.append(i)
+                    world_ = var.setval(value, list(world))
+                    truth = gf(world_)
+                    if truth == 0 and gf.ishard:
+                        sums[i] = None
+                    elif sums[i] is not None and not gf.ishard:
+                        sums[i] += gf.weight * truth
+                # set all impossible values to None (i.e. prob 0) since they
+                # might still be have a value of 0 in sums 
+                for i in [j for j in range(len(sums)) if j not in possible_values]: sums[i] = None
+            expsums = numpy.array([numpy.exp(s) if s is not None else 0 for s in sums])
+            Z = sum(expsums) 
+            probs = expsums / Z
+            return probs
         
         def step(self):
             mrf = self.infer.mrf
             # reassign values by sampling from the conditional distributions given the Markov blanket
-            for var in self.mrf.variables:
+            state = list(self.state)
+            for var in mrf.variables:
                 # compute distribution to sample from
-                evdict = var.value2dict(var.evidence_value(self.mrf.evidence))
-                valuecount = var.valuecount(evdict) 
-                if valuecount == 1: # do not sample if we have evidence 
+                values = list(var.values())
+                if len(values) == 1: # do not sample if we have evidence 
                     continue  
-                expsums = self._var_expsums(var, self.state)
-                Z = sum(expsums)
+                probs = self._valueprobs(var, self.state)
                 # check for soft evidence and greedily satisfy it if possible                
                 idx = None
-                if isinstance(var, BinaryVariable):
-                    atom = var.gndatoms[0]
-                    p = mrf.evidence[var.gndatoms[0]]
-                    if p is not None:
-                        belief = self.soft_evidence_frequency(atom)
-                        if p > belief and expsums[1] > 0:
-                            idx = 1
-                        elif p < belief and expsums[0] > 0:
-                            idx = 0
+#                 if isinstance(var, BinaryVariable):
+#                     atom = var.gndatoms[0]
+#                     p = mrf.evidence[var.gndatoms[0]]
+#                     if p is not None:
+#                         belief = self.soft_evidence_frequency(atom)
+#                         if p > belief and expsums[1] > 0:
+#                             idx = 1
+#                         elif p < belief and expsums[0] > 0:
+#                             idx = 0
                 # sample value
                 if idx is None:
-                    r = random.uniform(0, Z)                    
+                    r = random.uniform(0, 1)                    
                     idx = 0
-                    s = expsums[0]
+                    s = probs[0]
                     while r > s:
                         idx += 1
-                        s += expsums[idx]                
-                # make assignment
-                if block != None:
-                    for i, idxGA in enumerate(block):
-                        tv = (i == idx)
-                        self.state[idxGA] = tv
-                    if debug: print "  setting block %s to %s, odds = %s" % (str(map(lambda x: str(mln.gndAtomsByIdx[x]), block)), str(mln.gndAtomsByIdx[block[idx]]), str(expsums))
-                else:
-                    self.state[idxGA] = bool(idx)
-                    if debug: print "  setting atom %s to %s" % (str(mln.gndAtomsByIdx[idxGA]), bool(idx))
+                        s += probs[idx]
+                var.setval(values[idx], self.state)
             # update results
-            self.update()
+            self.update(self.state)
     
-    def __init__(self, mln):
-        print "initializing Gibbs sampler...",
-        self.useConvergenceTest = False
-        MCMCInference.__init__(self, mln)
-        # check compatibility with MLN
-        for f in mln.formulas:
-            if not f.isLogical():
-                raise Exception("GibbsSampler does not support non-logical constraints such as '%s'!" % fstr(f))
-        # get the pll blocks
-        mln._getPllBlocks()
-        # get the list of relevant ground atoms for each block
-        mln._getBlockRelevantGroundFormulas()
-        print "done."
 
-    # infer one or more probabilities P(F1 | F2)
-    #   what: a ground formula (string) or a list of ground formulas (list of strings) (F1)
-    #   given: a formula as a string (F2)
-    def _infer(self, verbose=True, numChains=3, maxSteps=5000, shortOutput=False, details=False, debug=False, debugLevel=1, infoInterval=10, resultsInterval=100, softEvidence=None, **args):
-        random.seed(time.time())
-        # set evidence according to given conjunction (if any)
-        self._readEvidence()
-        if softEvidence is None:
-            self.softEvidence = self.mln.softEvidence
-        else:
-            self.softEvidence = softEvidence
+    def _run(self, **params):
+        '''
+        infer one or more probabilities P(F1 | F2)
+        what: a ground formula (string) or a list of ground formulas (list of strings) (F1)
+        given: a formula as a string (F2)
+        set evidence according to given conjunction (if any)
+        '''
+#         if softEvidence is None:
+#             self.softEvidence = self.mln.softEvidence
+#         else:
+#             self.softEvidence = softEvidence
         # initialize chains
-        if verbose and details:
-            print "initializing %d chain(s)..." % numChains
-        chainGroup = MCMCInference.ChainGroup(self)
-        for i in range(numChains):
-            chain = GibbsSampler.Chain(self)
-            chainGroup.addChain(chain)
-            if self.softEvidence is not None:
-                chain.setSoftEvidence(self.softEvidence)
+        chains = MCMCInference.ChainGroup(self)
+        for i in range(self.chains):
+            chain = GibbsSampler.Chain(self, self.queries)
+            chains.chain(chain)
+#             if self.softEvidence is not None:
+#                 chain.setSoftEvidence(self.softEvidence)
         # do Gibbs sampling
-        if verbose and details: print "sampling..."
+#         if verbose and details: print "sampling..."
         converged = 0
-        numSteps = 0
-        minSteps = 200
-        while converged != numChains and numSteps < maxSteps:
+        steps = 0
+        if self.verbose:
+            bar = ProgressBar(width=100, color='green', steps=self.maxsteps)
+        while converged != self.chains and steps < self.maxsteps:
             converged = 0
-            numSteps += 1
-            for chain in chainGroup.chains:
-                chain.step(debug=debug)
-                if self.useConvergenceTest:
-                    if chain.converged and numSteps >= minSteps:
-                        converged += 1
-            if verbose and details:
-                if numSteps % infoInterval == 0:
-                    print "step %d (fraction converged: %.2f)" % (numSteps, float(converged) / numChains)
-                if numSteps % resultsInterval == 0:
-                    chainGroup.getResults()
-                    chainGroup.printResults(shortOutput=True)
+            steps += 1
+            for chain in chains.chains:
+                chain.step()
+            if self.verbose:
+                bar.inc()
+                bar.label('%d / %d' % (steps, self.maxsteps))
+#                 if self.useConvergenceTest:
+#                     if chain.converged and numSteps >= minSteps:
+#                         converged += 1
+#             if verbose and details:
+#                 if numSteps % infoInterval == 0:
+#                     print "step %d (fraction converged: %.2f)" % (numSteps, float(converged) / numChains)
+#                 if numSteps % resultsInterval == 0:
+#                     chainGroup.getResults()
+#                     chainGroup.printResults(shortOutput=True)
         # get the results
-        return chainGroup.getResults()
+        return chains.results()[0]

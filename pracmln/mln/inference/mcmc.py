@@ -29,6 +29,7 @@ import random
 import logging
 from pracmln.mln.inference.infer import Inference
 from pracmln.mln.util import fstr, out, stop
+from pracmln.mln.constants import ALL
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,11 @@ class MCMCInference(Inference):
     '''
     Abstract super class for Markov chain Monte Carlo-based inference.
     '''
+    
+    def __init__(self, mrf, queries=ALL, **params):
+        Inference.__init__(self, mrf, queries, **params)
+        
+    
     
     def random_world(self, evidence=None):
         '''
@@ -75,22 +81,13 @@ class MCMCInference(Inference):
             # copy the current  evidence as this chain's state
             # initialize remaining variables randomly (but consistently with the evidence)
             self.state = infer.random_world()
-#             out('initialized chain with state')
-#             self.infer.mrf.print_world_vars(self.state)
         
         
         def update(self, state):
             self.steps += 1
-#             out('old state', self.state)
-#             out('new state', state)
             self.state = state
             # keep track of counts for queries
             for i, q in enumerate(self.queries):
-#                 out('checking for query', q)
-#                 out('in state')
-#                 self.infer.mrf.print_world_vars(self.state)
-#                 if q(self.state) > 0:
-#                     stop(q, 'is true')
                 self.truths[i] += q(self.state)
             # check if converged !!! TODO check for all queries
             if self.steps % 50 == 0:

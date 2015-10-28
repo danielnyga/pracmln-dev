@@ -29,7 +29,7 @@ from pracmln.logic.common import Logic, Disjunction
 import logging
 import time
 import math
-from pracmln.mln.util import fstr, out, item, stop, crash, eset
+from pracmln.mln.util import fstr, out, item, stop, crash, eset, ProgressBar
 from pracmln.mln.database import Database
 from pracmln.mln.inference.infer import Inference
 from pracmln.mln.inference.mcmc import MCMCInference
@@ -38,81 +38,9 @@ from pracmln import praclog
 import random
 from collections import defaultdict
 from pracmln.mln.grounding.fastconj import FastConjunctionGrounding
+import numpy
 
 logger = praclog.logger(__name__)
-
-
-class FuzzyMCSAT(Inference):
-    '''
-    MC-SAT version supporting fuzzy evidence atoms.
-    '''
-    
-    def __init__(self, mrf, verbose=False):
-        # find the fuzzy evidence atoms
-        Inference.__init__(self, mrf)
-        
-    def _infer(self, *args, **kwargs):
-        self.fuzzy = []
-        self.fuzzyEvidence = [None] * len(self.mrf.gndAtoms)
-        log = logging.getLogger(self.__class__.__name__)
-        for atomIdx, truth in enumerate(self.mrf.evidence):
-            if truth > 0 and truth < 1:
-                predName = self.mrf.gndAtomsByIdx[atomIdx].predName
-                if not predName in self.fuzzy:
-                    self.fuzzy.append(predName)
-        log.info('detected %d fuzzy evidence vars: %s' % (len(self.fuzzy), str(self.fuzzy)))
-        # check if all fuzzy ground atoms are given
-        for pred in self.fuzzy:
-            for atomIdx in self.mrf._getPredGroundingsAsIndices(pred):
-                truth = self.mrf.evidence[atomIdx]
-                if truth is None:
-                    raise Exception('Not all fuzzy ground atoms have truth values: %s' % pred)
-                self.fuzzyEvidence[atomIdx] = truth
-        
-        # create the transformed MLN without fuzzy evidence
-        mln = self.mln.duplicate()
-#         mln.domains = {}
-        mln.formulas = []
-        # remove fuzzy preds
-        for p in self.fuzzy:
-            del mln.predicates[p]
-        mrf = self.mrf
-        evidenceBackup = list(mrf.evidence)
-        mrf.printEvidence()
-        mrf.evidence = self.fuzzyEvidence
-        for gndFormula in mrf.gndFormulas:
-            cnf = gndFormula.simplify(mrf).toCNF()
-            if isinstance(cnf, Logic.TrueFalse) or not hasattr(cnf, 'children'): continue
-            # get the smallest maximum of all atoms in the disjunctions
-            # and remove the constants
-            maxtruth = cnf.maxTruth(mrf.evidence)
-            for c in list(cnf.children):
-                if isinstance(c, Logic.TrueFalse):
-                    cnf.children.remove(c)
-            cnf = cnf.simplify(mrf)
-            wt = maxtruth * gndFormula.weight
-            mln.addFormula(cnf, wt)
-        mrf.evidence = evidenceBackup
-        # perform standard MCSAT on the transformed MLN
-        db = Database(mln)
-        for t, e in mrf.db.iterGroundLiteralStrings(mln.predicates):
-            db.addGroundAtom(e, t)
-        mln = mln.materializeFormulaTemplates([db])  
-        mrf_ = mln.groundMRF(db)
-        # the query and evidence need to be adapted to the new MRF
-        self.queries = map(lambda a: a.ground(mrf_, {}), self.queries)
-        if self.given is not None:
-            evidence = map(str, self.given)
-        else: evidence = None
-        mcsat = MCSAT(mrf_)
-        log.debug(args)
-        log.debug(kwargs)
-        mcsat.queries = self.queries
-        mcsat.additionalQueryInfo = self.additionalQueryInfo
-        result = mcsat._infer(handleSoftEvidence=False, **kwargs)
-#         result = .inferMCSAT(queries, evidence, handleSoftEvidence=False, *args, **kwargs)
-        log.debug(result)
-        return result
 
 
 
@@ -126,15 +54,33 @@ class MCSAT(MCMCInference):
         self._weight_backup = list(self.mrf.mln.weights)
  
     
-    def _initKB(self, verbose=False):
+    def _initkb(self, verbose=False):
         '''
         Initialize the knowledge base to the required format and collect structural information for optimization purposes
         '''
         # convert the MLN ground formulas to CNF
-        logger.debug("converting formulas to CNF...")
+        logger.debug("converting formulas to cnf...")
         #self.mln._toCNF(allPositive=True)
-        grounder = FastConjunctionGrounding(self.mrf, simplify=True, verbose=self.verbose)
-        self.gndformulas, self.formulas = Logic.cnf(grounder.itergroundings(), self.mln.formulas, self.mln.logic, allpos=True)
+        self.formulas = []
+        for f in self.mrf.formulas:
+            if f.weight < 0:
+                f.weight = -f.weight
+                f = self.mln.logic.negate(f)
+            self.formulas.append(f)
+#         softweights = [1 - 1 / numpy.exp(w) for w in self.mln.weights if w != HARD]
+#         stop(sorted(softweights, reverse=True))
+#         w_mean = numpy.mean(softweights)
+#         w_stdev = numpy.std(softweights)
+#         for f in self.mrf.formulas:
+#             if f.ishard: continue
+#             f.weight  = min(w_stdev, f.weight)  
+        grounder = FastConjunctionGrounding(self.mrf, formulas=self.formulas, simplify=True, verbose=self.verbose)
+        self.gndformulas = []
+        for gf in grounder.itergroundings():
+            if isinstance(gf, Logic.TrueFalse): continue
+            self.gndformulas.append(gf.cnf())
+            
+#         self.gndformulas, self.formulas = Logic.cnf(grounder.itergroundings(), self.mln.formulas, self.mln.logic, allpos=True)
         # get clause data
         logger.debug("gathering clause data...")
         self.gf2clauseidx = {} # ground formula index -> tuple (idxFirstClause, idxLastClause+1) for use with range
@@ -142,16 +88,16 @@ class MCSAT(MCMCInference):
         #self.GAoccurrences = {} # ground atom index -> list of clause indices (into self.clauses)
         i_clause = 0
         # process all ground formulas
-        logger.debug('constructing clauses')
         for i_gf, gf in enumerate(self.gndformulas):
             # get the list of clauses
             if isinstance(gf, Logic.Conjunction):
-                lc = gf.children
-            else:
-                lc = [gf]
-            self.gf2clauseidx[i_gf] = (i_clause, i_clause + len(lc))
+                clauses = [clause for clause in gf.children if not isinstance(clause, Logic.TrueFalse)]
+            elif not isinstance(gf, Logic.TrueFalse):
+                clauses = [gf]
+            else: continue
+            self.gf2clauseidx[i_gf] = (i_clause, i_clause + len(clauses))
             # process each clause
-            for c in lc:
+            for c in clauses:
                 if hasattr(c, "children"):
                     lits = c.children
                 else: # unit clause
@@ -250,17 +196,8 @@ class MCSAT(MCMCInference):
         handleSoftEvidence: if False, ignore all soft evidence in the MCMC sampling (but still compute softe evidence statistics if soft evidence is there)
         '''
         logger.debug("starting MC-SAT with maxsteps=%d, softevidence=%s" % (self.maxsteps, self.softevidence))
-
         # initialize the KB and gather required info
-        self._initKB()
-        # get the list of relevant ground atoms for each block (!!! only needed for SAMaxWalkSAT actually)
-#         self.mrf._getBlockRelevantGroundFormulas()
-        
-        self.history = []
-        if self.historyfile is not None:
-            self.resulthistory = True
-        self.reference_results = None
-        
+        self._initkb()
         # print CNF KB
         logger.debug("CNF KB:")
         for gf in self.gndformulas:
@@ -269,12 +206,9 @@ class MCSAT(MCMCInference):
         # set the random seed if it was given
         if self.rndseed is not None:
             random.seed(self.rndseed)
-            
         # create chains
         chaingroup = MCMCInference.ChainGroup(self)
         self.chaingroup = chaingroup
-        self.wt = [f.weight for f in self.formulas]
-        
         for i in range(self.chains):
             chain = MCMCInference.Chain(self, self.queries)
             chaingroup.chain(chain)
@@ -290,13 +224,13 @@ class MCSAT(MCMCInference):
                         NLC.append(gf)
             if M or NLC:
                 logger.debug('Running SampleSAT')
-                SampleSAT(self.mrf, chain.state, M, NLC, self, p=0.8).run() # Note: can't use p=1.0 because there is a chance of getting into an oscillating state
-        
+                chain.state = SampleSAT(self.mrf, chain.state, M, NLC, self, p=self.p).run() # Note: can't use p=1.0 because there is a chance of getting into an oscillating state
         if praclog.level == praclog.DEBUG:
             self.mrf.print_world_vars(chain.state)
-            
         self.step = 1        
-        logger.debug('running MC-SAT')
+        logger.debug('running MC-SAT with %d chains' % len(chaingroup.chains))
+        if self.verbose:
+            bar = ProgressBar(width=100, steps=self.maxsteps, color='green')
         while self.step <= self.maxsteps:
             # take one step in each chain
             for chain in chaingroup.chains:
@@ -304,10 +238,11 @@ class MCSAT(MCMCInference):
                 state = self._satisfy_subset(chain)
                 # update chain counts
                 chain.update(state)
+            if self.verbose:
+                bar.inc()
+                bar.label('%d / %d' % (self.step, self.maxsteps))
             # intermediate results
             self.step += 1
-            #termination condition
-            #TODO:
         # get results
         self.step -= 1
         results = chaingroup.results()
@@ -322,8 +257,9 @@ class MCSAT(MCMCInference):
         M = []
         NLC = []
         for gfidx, gf in enumerate(self.gndformulas):
-            if gf(chain.state) == 1:
-                u = random.uniform(0, math.exp(self.wt[gf.idx]))
+            if gf(chain.state) == 1 or gf.ishard:
+                expweight = math.exp(gf.weight)
+                u = random.uniform(0, expweight)
                 if u > 1:
                     if gf.islogical():
                         clause_range = self.gf2clauseidx[gfidx]
@@ -356,7 +292,7 @@ class MCSAT(MCMCInference):
                         M.extend(range(*se["idxClauseNegative"]))
                     #print "negative case: add=%s, %s, %f should become %f" % (add, map(str, [map(str, self.clauses[i]) for i in range(*se["idxClauseNegative"])]), p, se["p"])
         # (uniformly) sample a state that satisfies them
-        return list(SampleSAT(self.mrf, chain.state, M, NLC, self, p=self.p).run())
+        return SampleSAT(self.mrf, chain.state, M, NLC, self, p=self.p).run()
     
     
     def _prob_constraints_deviation(self):
@@ -390,7 +326,7 @@ class SampleSAT:
     Sample-SAT algorithm.
     '''
     
-    def __init__(self, mrf, state, clause_indices, nlcs, infer, p=0.1):
+    def __init__(self, mrf, state, clause_indices, nlcs, infer, p=1):
         '''
         clause_indices: list of indices of clauses to satisfy
         p: probability of performing a greedy WalkSAT move
@@ -405,43 +341,56 @@ class SampleSAT:
         # initialize the state randomly (considering the evidence) and obtain block info
         self.blockInfo = {}
         self.state = self.infer.random_world()
-        self.init = list(self.state)
+#         out(self.state, '(initial state)')
+        self.init = list(state)
         # these are the variables we need to consider for SampleSAT
-        self.variables = [v for v in self.mrf.variables if v.valuecount() > 1]
+#         self.variables = [v for v in self.mrf.variables if v.valuecount(self.mrf.evidence) > 1]
         # list of unsatisfied constraints
         self.unsatisfied = set()
         # keep a map of bottlenecks: index of the ground atom -> list of constraints where the corresponding lit is a bottleneck
         self.bottlenecks = defaultdict(list) # bottlenecks are clauses with exactly one true literal
         # ground atom occurrences in constraints: ground atom index -> list of constraints
-        self.var2constraint = defaultdict(set)
-        self.constraints = {}
+        self.var2clauses = defaultdict(set)
+        self.clauses = {}
         # instantiate clauses        
-        for cidx in clause_indices:            
+        for cidx in clause_indices:  
             clause = SampleSAT._Clause(self.infer.clauses[cidx], self.state, cidx, self.mrf)
-            self.constraints[cidx] = clause
+            self.clauses[cidx] = clause
             if clause.unsatisfied: 
                 self.unsatisfied.add(cidx)
             for v in clause.variables():
-                self.var2constraint[v].add(clause)
+                self.var2clauses[v].add(clause)
+#             stop('clause', 'v'.join(map(str, self.infer.clauses[cidx])), 'is', 'unsatisfied' if clause.unsatisfied else 'satisfied')
         # instantiate non-logical constraints
         for nlc in nlcs:
             if isinstance(nlc, Logic.GroundCountConstraint): # count constraint
                 SampleSAT._CountConstraint(self, nlc)
             else:
                 raise Exception("SampleSAT cannot handle constraints of type '%s'" % str(type(nlc)))
-    
+        
         
     def _print_unsatisfied_constraints(self):
-        out("   %d unsatisfied:  %s" % (len(self.unsatisfied), map(str, [self.constraints[i] for i in self.unsatisfied])), tb=2)
+        out("   %d unsatisfied:  %s" % (len(self.unsatisfied), map(str, [self.clauses[i] for i in self.unsatisfied])), tb=2)
     
     
     def run(self):
-        p = self.p # probability of performing a WalkSat move
+        # sampling by enumerating all worlds
+        worlds = []
+        for world in self.mrf.worlds():
+            skip = False
+            for clause in self.clauses.values():
+                if not clause.satisfied_in_world(world):
+                    skip = True
+                    break
+            if skip: continue
+            worlds.append(world)
+        state = worlds[random.randint(0, len(worlds)-1)]
+        return state
         steps = 0
         while self.unsatisfied:
             steps += 1
             # make a WalkSat move or a simulated annealing move
-            if random.uniform(0, 1) <= p:
+            if random.uniform(0, 1) <= self.p:
                 self._walksat_move()
             else:
                 self._sa_move()
@@ -453,23 +402,20 @@ class SampleSAT:
         Randomly pick one of the unsatisfied constraints and satisfy it
         (or at least make one step towards satisfying it
         '''
-        constraint = list(self.unsatisfied)[random.randint(0, len(self.unsatisfied) - 1)]
+        clauseidx = list(self.unsatisfied)[random.randint(0, len(self.unsatisfied) - 1)]
         # get the literal that makes the fewest other formulas false
-        constraint = self.constraints[constraint]
+        clause = self.clauses[clauseidx]
         varval_opt = []
         opt = None
-        variables = constraint.variables()
-        for var in variables:
-            cur_val = var.evidence_value(self.state)
-            constraints = self.var2constraint[var]
+        for var in clause.variables():
+            bottleneck_clauses = [cl for cl in self.var2clauses[var] if cl.bottleneck is not None]
             for _, value in var.itervalues(self.mrf.evidence_dicti()):
-                # skip the value of this variable in the current state 
-                if value == cur_val: continue
+                if not clause.turns_true_with(var, value): continue
                 unsat = 0
-                for c in constraints:
+                for c in bottleneck_clauses:
                     # count the  constraints rendered unsatisfied for this value from the bottleneck atoms
-                    uns = 1 if c.turns_false_with(var, value) else 0
-                    unsat += uns
+                    turnsfalse = 1 if c.turns_false_with(var, value) else 0 
+                    unsat +=  turnsfalse
                 append = False
                 if opt is None or unsat < opt:
                     opt = unsat
@@ -489,17 +435,17 @@ class SampleSAT:
         Set the truth value of a variable and update the information in the constraints.
         '''
         var.setval(val, self.state)
-        for c in self.var2constraint[var]:
+        for c in self.var2clauses[var]:
             satisfied, _ = c.update(var, val)
-            if satisfied and c.cidx in self.unsatisfied:
-                self.unsatisfied.remove(c.cidx)
+            if satisfied:
+                if c.cidx in self.unsatisfied: self.unsatisfied.remove(c.cidx)
             else:
                 self.unsatisfied.add(c.cidx)
                
                
     def _sa_move(self):
         # randomly pick a variable and flip its value
-        variables = list(set(self.var2constraint))
+        variables = list(set(self.var2clauses))
         random.shuffle(variables)
         var = variables[0]
         ev = var.evidence_value()
@@ -510,20 +456,21 @@ class SampleSAT:
         values = [v for _, v in var.itervalues(self.mrf.evidence) if v != ev]
         val = values[random.randint(0, len(values)-1)]
         unsat = 0
-        for c in self.var2constraint[var]:
-            # count the  constraints rendered unsatisfied for this value from the bottleneck atoms
+        bottleneck_clauses = [c for c in self.var2clauses[var] if c.bottleneck is not None]
+        for c in bottleneck_clauses:
+            # count the  constraints rendered unsatisfied for this value from the bottleneck clauses
             uns = 1 if c.turns_false_with(var, val) else 0
-            cur = 1 if c.unsatisfied else 0
-            unsat += uns - cur
-        if unsat >= 0:
+#             cur = 1 if c.unsatisfied else 0
+            unsat += uns# - cur
+        if unsat <= 0: # the flip causes an improvement. take it with p=1.0
             p = 1.
         else:
             # !!! the temperature has a great effect on the uniformity of the sampled states! it's a "magic" number 
             # that needs to be chosen with care. if it's too low, then probabilities will be way off; if it's too high, it will take longer to find solutions
-            temp = 14.0 # the higher the temperature, the greater the probability of deciding for a flip
-            p = math.exp(-float(unsat) / temp)
-            # TODO: check why in the previous version this probability was constantly set to 1
-            p = 1.0 #!!!
+            # temp = 14.0 # the higher the temperature, the greater the probability of deciding for a flip
+            # we take as a heuristic the normalized difference between bottleneck clauses and clauses that actually
+            # will turn false, such that if no clause will turn false, p is 1
+            p = math.exp(- 1 + float(len(bottleneck_clauses) - unsat) / len(bottleneck_clauses))
         # decide and set
         if random.uniform(0, 1) <= p:
             self._setvar(var, val)
@@ -541,6 +488,7 @@ class SampleSAT:
             self.truelits = set()
             self.atomidx2lits = defaultdict(set)
             for lit in lits:
+                if isinstance(lit, Logic.TrueFalse): continue
                 atomidx = lit.gndatom.idx
                 self.atomidx2lits[atomidx].add(0 if lit.negated else 1)
                 if lit(world) == 1:
@@ -553,7 +501,8 @@ class SampleSAT:
             atomidx2lits = self.atomidx2lits
             if len(self.truelits) != 1 or atomidx not in self.truelits: return False
             if len(atomidx2lits[atomidx]) == 1: return True
-            if all(map(lambda x: x == item(atomidx2lits[atomidx]), atomidx2lits[atomidx])): return False # the atom appears with different polarity in the clause, this is not a bottleneck
+            fst = item(atomidx2lits[atomidx])
+            if all(map(lambda x: x == fst, atomidx2lits[atomidx])): return False # the atom appears with different polarity in the clause, this is not a bottleneck
             return True
         
         
@@ -564,6 +513,16 @@ class SampleSAT:
             '''
             for a, v in var.atomvalues(val):
                 if a.idx == self.bottleneck and v not in self.atomidx2lits[a.idx]: return True
+            return False
+        
+        
+        def turns_true_with(self, var, val):
+            '''
+            Returns true if this clause will be rendered true by the given variable taking
+            its given value.
+            '''
+            for a, v in var.atomvalues(val):
+                if self.unsatisfied and v in self.atomidx2lits[a.idx]: return True
             return False
             
         
@@ -581,6 +540,9 @@ class SampleSAT:
                 self.bottleneck = None
             return self.satisfied, self.bottleneck
                 
+        
+        def satisfied_in_world(self, world):
+            return self.mrf.mln.logic.disjugate(self.lits)(world) == 1
         
         @property
         def unsatisfied(self):
@@ -698,4 +660,49 @@ class SampleSAT:
         def getFormula(self):
             return self.cc
     
- 
+
+class FuzzyMCSAT(Inference):
+    '''
+    MC-SAT version supporting fuzzy evidence atoms.
+    '''
+    
+    def __init__(self, mrf, queries=ALL, **params):
+        Inference.__init__(self, mrf, queries, **params)
+        
+        
+    def _run(self):
+        # create the transformed MLN without fuzzy evidence
+        mln_ = self.mrf.mln.copy()
+#         mln.domains = {}
+        mln_._rmformulas()
+        # remove fuzzy preds
+        grounder = FastConjunctionGrounding(self.mrf, self.mrf.formulas, unsatfailure=True, multicore=self.multicore)
+        for gf in grounder.itergroundings():
+            if gf.ishard: mln_.formula(gf, weight=HARD)
+            cnf = gf.cnf()
+#             out(cnf.weight, cnf)
+            if isinstance(cnf, Logic.TrueFalse) or not hasattr(cnf, 'children'): continue
+            mintruth = cnf.mintruth(self.mrf.evidence)
+            maxtruth = cnf.maxtruth(self.mrf.evidence)
+#             out(mintruth, maxtruth)
+            # the result of following list comprehension is a list of clauses of literals of the
+            # CNF, where all truth constants have been removed. If there are conjuncts consisting
+            # of single literals (e.g. such as A in A ^ (B v C)), those will be wrapped in a list
+            # with only one element
+            clauses = [([mln_.logic.lit(l.negated, l.predname, l.args, mln_) for l in d.children if not isinstance(l, Logic.TrueFalse)] if hasattr(d, 'children') else [mln_.logic.lit(d.negated, d.predname, d.args, mln_)]) for d in cnf.children if not isinstance(d, Logic.TrueFalse)]
+#             out(clauses)
+            weight = gf.weight * maxtruth
+            formula = mln_.logic.conjugate([mln_.logic.disjugate(clause) for clause in clauses])
+            mln_.formula(formula, weight)
+#             stop('=>', formula, weight)
+#             formula.print_structure()
+#             stop()
+#         mln_.write()
+#         stop()
+        mln_.tofile('fuzzyconv.mln')
+        mln__ = mln_.materialize(self.mrf.db)
+        mrf = mln__.ground(self.mrf.db)
+        self.mrf = mrf
+        mcsat = MCSAT(mrf, queries=self.queries, **self._params)
+        return mcsat._run()
+

@@ -30,7 +30,7 @@ from pracmln.mln.inference.mcmc import MCMCInference
 from pracmln.mln.util import out, ProgressBar
 from pracmln.mln.grounding.fastconj import FastConjunctionGrounding
 from pracmln.logic.common import Logic
-from pracmln.mln.constants import HARD
+from pracmln.mln.constants import HARD, ALL
 
 class SAMaxWalkSAT(MCMCInference):
     '''
@@ -38,7 +38,7 @@ class SAMaxWalkSAT(MCMCInference):
     '''
     
     
-    def __init__(self, mrf, queries=all, state=None, **params):
+    def __init__(self, mrf, queries=ALL, state=None, **params):
         MCMCInference.__init__(self, mrf, queries, **params)
         if state is None:
             self.state = self.random_world(self.mrf.evidence)
@@ -53,8 +53,8 @@ class SAMaxWalkSAT(MCMCInference):
                 f_ = self.mrf.mln.logic.negate(f)
                 f_.weight = - f.weight
                 formulas.append(f_.nnf())
-        grounder = FastConjunctionGrounding(mrf, formulas=formulas)
-        for gf in grounder.itergroundings(simplify=True):
+        grounder = FastConjunctionGrounding(mrf, formulas=formulas, simplify=True, unsatfailure=True)
+        for gf in grounder.itergroundings():
             if isinstance(gf, Logic.TrueFalse): continue
             vars_ = set(map(lambda a: self.mrf.variable(a).idx, gf.gndatoms()))
             for v in vars_: self.var2gf[v].add(gf)

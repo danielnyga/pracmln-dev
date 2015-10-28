@@ -794,7 +794,7 @@ class Logic(object):
             if not clauses:
                 return self.mln.logic.true_false(1, mln=self.mln, idx=self.idx)
             elif len(clauses) == 1:
-                return clauses[0].copy()
+                return clauses[0].copy(idx=self.idx)
             return self.mln.logic.conjunction(clauses, mln=self.mln, idx=self.idx)
         
         
@@ -1583,8 +1583,6 @@ class Logic(object):
         def cnf(self, level=0):
             cnf = self.mln.logic.conjunction([self.mln.logic.implication([self.children[0], self.children[1]], mln=self.mln, idx=self.idx), 
                                 self.mln.logic.implication([self.children[1], self.children[0]], mln=self.mln, idx=self.idx)], mln=self.mln, idx=self.idx)
-            cnf.print_structure()
-#             out(cnf)
             return cnf.cnf(level+1)
         
         
@@ -1910,7 +1908,7 @@ class Logic(object):
         
         def __init__(self, predicate, predicate_params, fixed_params, op, count):
             '''op: an operator; one of "=", "<=", ">=" '''
-            self.literal = self.logic.lit(False, predicate, predicate_params)
+            self.literal = self.mln.logic.lit(False, predicate, predicate_params)
             self.fixed_params = fixed_params
             self.count = count
             if op == "=": op = "=="
@@ -1941,7 +1939,7 @@ class Logic(object):
                 for full_assignment in self._iterAssignment(mrf, list(other_params), assignment):
                     gndLit = self.literal.ground(mrf, full_assignment, None)
                     gndAtoms.append(gndLit.gndAtom)
-                yield self.logic.gnd_count_constraint(gndAtoms, self.op, self.count), []
+                yield self.mln.logic.gnd_count_constraint(gndAtoms, self.op, self.count), []
             
         def _iterAssignment(self, mrf, variables, assignment):
             '''iterates over all possible assignments for the given variables of this constraint's literal

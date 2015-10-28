@@ -188,6 +188,17 @@ class MRFVariable(object):
             yield self.valueidx(tup), tup
     
     
+    def values(self, evidence=None):
+        '''
+        Returns a generator of possible values of this variable under consideration of
+        the evidence given, if any.
+        
+        Same as ``itervalues()`` but without value indices.
+        '''
+        for _, val in self.itervalues(evidence):
+            yield val
+    
+    
     def iterworlds(self, evidence=None):
         '''
         Iterates over possible worlds of evidence which can be generated with this variable.
