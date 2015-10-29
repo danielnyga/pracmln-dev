@@ -87,14 +87,14 @@ project file ``my-project.pracmln`` in the user's home directory and we wish to 
 file ``learnt.mln`` within that project. Then, this file can be
 accessed by the line ::
  
-  from pracmln import mlnpath
+  from pracmln.utils.project import mlnpath
   p = mlnpath('/home/nyga/my-project.pracmln:learnt.mln')
   print p.content
   
 ``mlnpath`` returns an object of the type :class:`pracmln.mln.mlnpath`,
 which has the following members:
 
-.. autoclass:: pracmln.mln.mlnpath
+.. autoclass:: pracmln.utils.project.mlnpath
     :members: content, path, file, project, exists, projectloc
 
 
