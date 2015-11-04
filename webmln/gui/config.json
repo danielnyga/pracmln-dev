@@ -79,6 +79,27 @@
 
     ,"common" :
     {
+       "add-script" :
+       [
+         {
+           "uri": "static/script/codemirror.js"
+         },
+         {
+           "uri": "static/script/javascript.js"
+         },
+         {
+           "uri": "static/script/d3.min.js"
+         }
+//                    {
+//           "uri": "static/script/q-5.0.1.min.js"
+//         }
+       ],
+      "add-css" :
+      [
+        {
+          "uri" : "static/css/codemirror.css"
+        }
+      ],
        "lint-check": {
           "allowed-globals": [
                 "CodeMirror",
