@@ -193,7 +193,11 @@ if __name__ == '__main__':
         f.write("python -O \"%s\" %s\n" % (adapt(app["script"], arch), allargs))
         f.close()
         if not isWindows: os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
-    
+    pracmln_test_script_src = os.path.join('test', 'pracmln-test.sh')
+    pracmln_test_script_dest = os.path.join('apps', 'pracmln-test.sh')
+    if not isWindows and not isMacOSX and os.path.exists(pracmln_test_script_src):
+        shutil.copyfile(pracmln_test_script_src, pracmln_test_script_dest)
+        os.chmod(pracmln_test_script_dest, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
 
     print
 
@@ -217,6 +221,8 @@ if __name__ == '__main__':
         f.write("export PRACMLN_HOME=%s\n" % adapt("$PRACMLN_HOME", arch))
         f.write("export PYTHONPATH=$PRACMLN_HOME:$PYTHONPATH\n")
         f.write("export PRACMLN_EXPERIMENTS=%s\n" % adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
+        f.write("echo $PYTHONPATH")
+        f.write("echo ===========")
         if extraExports:
             f.write(extraExports)
         f.close()
