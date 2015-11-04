@@ -47,7 +47,6 @@ Contents:
    features
    installation
    intro
-   tutorial
    apidoc
    
 

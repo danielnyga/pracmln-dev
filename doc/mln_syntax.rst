@@ -298,7 +298,7 @@ There are two different types of ``#include`` statements:
   relative paths are always relative to the referring project/file.
 
 Database/Evidence files
-=======================
+-----------------------
 
 A database file may contain:
 

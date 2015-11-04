@@ -25,5 +25,7 @@ from mlnlearn import MLNLearn
 from mlnlearn import MLNLearn as learn
 from mlnquery import MLNQuery
 from mlnquery import MLNQuery as query
-from mlnlearn import QUERY_PREDS, EVIDENCE_PREDS
-from utils.project import mlnpath, PRACMLNConfig
+from mlnlearn import QUERY_PREDS
+from mlnlearn import EVIDENCE_PREDS
+from utils.project import mlnpath
+from utils.project import PRACMLNConfig

@@ -1,3 +1,5 @@
-Inference Methods in PRACMLN
-============================
+Inference Methods
+=================
+
+
 

@@ -11,14 +11,13 @@ Start the tool from the command line with ``mlnquery``.
 
 The MLN query tool is an interface to make inferences in a Markov 
 logic network. The tool allows you to invoke the actual MLN 
-inference algorithms of either the MLN engine. Once you start the 
+inference algorithms of the MLN engine. Once you start the 
 actual algorithm, the tool window itself will be hidden as long as 
 the job is running, while the output of the algorithm is written to 
 the console for you to follow. At the beginning, the tools list the 
 main input parameters for your convenience, and, at the end, the 
 query tool additionally outputs the inference results to the 
-console (so even if you are using the Alchemy system, there is not 
-really a need to open the results file that is generated).
+console.
 
 The tool features integrated editors for ``.db`` and ``.mln`` files. If you 
 modify a file in the internal editor, it will automatically be 

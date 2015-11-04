@@ -30,11 +30,11 @@ them using the Python interpreter. (On Windows, do not use
 pythonw.exe to run them because the console output is an integral 
 part of these tools.)::
 
-    python mlnquery.py
+    python mlnquery.py  
     python mlnlearn.py
 
 General Usage
-^^^^^^^^^^^^^
+~~~~~~~~~~~~~
 
 Both tools work with ``.mln`` and ``.db`` files in a `pracmln` project file.
 A project file is a container in the `zip` format that has the file
@@ -112,7 +112,7 @@ which has the following members:
 
 
 Integrated Editors
-^^^^^^^^^^^^^^^^^^
+------------------
 
 For every learning/inference task, you must specify which MLN syntax
 and logic calculus is to be used:
@@ -166,7 +166,7 @@ Moreover, the query tool will save context-specific information:
 
 
 Parameters
-^^^^^^^^^^
+~~~~~~~~~~
 
 There are a couple parameters that both the query tool and the learning
 tool have in common, which can be set with the respective checkboxes:
@@ -195,8 +195,3 @@ For a more detailed overview of the parameters, see
 :doc:`inferencemethods` and :doc:`learningmethods`.
     
     
-.. toctree::
-   :maxdepth: 1
-   
-   mlnquerytool
-   mlnlearningtool

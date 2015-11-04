@@ -1,6 +1,6 @@
 
-pracmln
-=======
+Documentation
+=============
 
 
 Contents:
@@ -9,9 +9,10 @@ Contents:
    :maxdepth: 2
 
    tools
-   mln_syntax
-   mlntutorial
+   mlnquerytool
    mlnlearningtool
    learningmethods
    inferencemethods
+   mln_syntax
+   mlntutorial
    evaluation

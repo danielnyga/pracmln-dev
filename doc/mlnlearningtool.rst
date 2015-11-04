@@ -31,6 +31,19 @@ session.
 Parameters
 ----------
 
+For the learning methods, there are a couple of parameters that can 
+be handed over to the respective algorithm:
+
+.. figure:: _static/learning-parameters.png
+
+   Parameters in the GUI Tool.
+   
+*  Evidence and query predicates for the discriminative learning algorithms
+   (see also: :doc:`learningmethods`)
+   
+*  A Gaussian prior distribution over the formula weights.
+   (see also: :doc:`learningmethods`)
+
 In the text field 'Add. Params', you have the opportunity to pass additional
 parameters to the tool and the learning algorithms, respectively.
 The parameters need to be specified in the Python dictionary syntax
@@ -47,3 +60,4 @@ Currently, the following parameters are supported:
    :doc:`learningmethods` for more information.
    
 * ``profile=True/False`` Launches the learner via the python profiler.
+
