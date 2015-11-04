@@ -21,8 +21,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from pracmln.mln.inference.gibbs import GibbsSampler
-from pracmln.mln.inference.mcsat import MCSAT, FuzzyMCSAT
-from pracmln.mln.inference.ipfpm import IPFPM
+from pracmln.mln.inference.mcsat import MCSAT
 from pracmln.mln.inference.exact import EnumerationAsk
 from pracmln.mln.inference.wcspinfer import WCSPInference
 from pracmln.mln.inference.maxwalk import SAMaxWalkSAT
@@ -76,8 +75,8 @@ InferenceMethods = Enum(
     (
      (GibbsSampler, 'Gibbs sampling'), 
      (MCSAT, 'MC-SAT'), 
-     (FuzzyMCSAT,  'Fuzzy MC-SAT'),
-     (IPFPM, 'IPFP-M'), 
+#      (FuzzyMCSAT,  'Fuzzy MC-SAT'),
+#      (IPFPM, 'IPFP-M'), 
      (EnumerationAsk, 'Enumeration-Ask (exact)'),
      (WCSPInference, 'WCSP (exact MPE with toulbar2)'),
      (SAMaxWalkSAT, 'Max-Walk-SAT with simulated annealing (approx. MPE)')
