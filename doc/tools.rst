@@ -9,12 +9,15 @@ After the installation, all of these tools will be located in the
 environment correctly, is within your system ``PATH``).
 
 Markov Logic Networks
-^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~
 
 * ``mlnquery`` - the :doc:`mlnquerytool`, a graphical inference tool
 * ``mlnlearn`` - the :doc:`mlnlearningtool`, a graphical learning tool
-* Command-line tools (invoke for usage instructions):
 
+Evaluation
+~~~~~~~~~~
+
+* Command-line tools (invoke for usage instructions):
   * ``xval`` - tool for conducting automated cross-validation with MLNs.
 
 Graphical Tools and Editors
@@ -40,9 +43,9 @@ extension ``.pracmln``. The structure of the container is as follows ::
   project-name.pracmln
       query.conf
       learn.conf
-      mln/
+      mlns/
          ...
-      db/
+      dbs/
          ...
   
 It consists of two ``.conf`` files that hold the settings of your
@@ -55,7 +58,19 @@ By default, all output files will also be written to the current project contain
  
 The tools are designed to be invoked from a console. Simply change 
 to the directory in which the files you want to work with are 
-located and then invoke the tool you want to use.
+located and then invoke the tool you want to use, e.g. ::
+
+    $ mlnquery
+
+The tool will remember this directory for the 
+next session and will automatically start in that directory. The
+memoized directory from the last session can be overridden by a 
+command-line argument, so ::
+
+    $ mlnquery .
+    
+will always start in current working directory regardless of the directory
+of the previous session.
 
 The general workflow is then as follows: You select the files you 
 want to work with, edit them as needed or even create new files 
@@ -68,15 +83,13 @@ hidden as long as the job is running, while the output of the
 algorithm is written to the console for you to follow. At the 
 beginning, the tools list the main input parameters for your 
 convenience, and, once the task is completed, the query tool 
-additionally outputs the inference results to the console (so even 
-if you are using the Alchemy system, there is not really a need to 
-open the results file that is generated).
+additionally outputs the inference results to the console.
 
 MLN Project Paths
 ~~~~~~~~~~~~~~~~~
 
 Files located in a `.pracmln` project can be accessed my means  of
-the :class:`pracmln.mln.mlnpath` class. An `MLN Path` has the following form: ::
+the :class:`pracmln.mlnpath` class. An `MLN Path` has the following form: ::
 
   <path-to-project>:<file-in-project>
   
@@ -91,10 +104,10 @@ accessed by the line ::
   p = mlnpath('/home/nyga/my-project.pracmln:learnt.mln')
   print p.content
   
-``mlnpath`` returns an object of the type :class:`pracmln.mln.mlnpath`,
+``mlnpath`` returns an object of the type :class:`pracmln.mlnpath`,
 which has the following members:
 
-.. autoclass:: pracmln.mln.mlnpath
+.. autoclass:: pracmln.mlnpath
     :members: content, path, file, project, exists, projectloc
 
 
@@ -175,9 +188,11 @@ tool have in common, which can be set with the respective checkboxes:
 * **Add. params** Additional parameters to pass to the inference or learning method.
   For every method, you can specify a comma-separated list 
   of assignments of parameters of the infer method you are 
-  calling. For example, with ``debug=logging.DEBUG`` one can set the
-  internal log level to ``DEBUG``. For a more detailed overview of the 
-  parameters, see :doc:`inferencemethods` and :doc:`learningmethods`.
+  calling. For example, with ``debug='DEBUG'`` one can set the
+  internal log level to ``DEBUG``. 
+  
+For a more detailed overview of the parameters, see 
+:doc:`inferencemethods` and :doc:`learningmethods`.
     
     
 .. toctree::
