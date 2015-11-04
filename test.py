@@ -6,6 +6,9 @@ Created on Oct 28, 2015
 from pracmln import MLN, Database, mlnpath
 from pracmln import query, learn
 from pracmln.mlnlearn import EVIDENCE_PREDS
+from pracmln.utils.project import PRACMLNConfig, MLNProject
+from pracmln.mln.util import out
+import time
 
 def test_inference_smokers():
     p = '$PRACMLN_HOME/examples/smokers/smokers.pracmln'
@@ -47,9 +50,16 @@ def test_learning_taxonomies():
             print '=== LEARNING TEST:', method, '==='
             learn(method=method, mln=mln, db=dbs, verbose=True, multicore=multicore, epreds='is_a', discr_preds=EVIDENCE_PREDS).run()
     
-
-if __name__ == '__main__':
+def runall():
+    start = time.time()
     test_inference_smokers()
     test_inference_taxonomies()
     test_learning_smokers()
     test_learning_taxonomies()
+    print
+    print 'all test finished after', time.time() - start, 'secs'
+
+if __name__ == '__main__':
+    runall()
+    
+    
