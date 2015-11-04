@@ -68,7 +68,7 @@ def __build_preamble(packages, declarations):
     preamble += "\pagestyle{empty}\n\\begin{document}\n"
     return preamble
 
-def __write_output(infile, outdir, workdir = '.', filename = '', size = 1):
+def __write_output(infile, outdir, workdir='.', filename='', size=1):
     try:
         # Generate the DVI file. NOTE: no output in stdout, as it is piped into /dev/null!
         latexcmd = 'latex -halt-on-error -output-directory {} {} >/dev/null'.format(workdir, infile)
@@ -95,8 +95,7 @@ def __write_output(infile, outdir, workdir = '.', filename = '', size = 1):
             if os.path.exists(tempfile):
                 os.remove(tempfile)
 
-
-def math2png(content, outdir, packages = default_packages, declarations = [], filename = '', size = 1):
+def math2png(content, outdir, packages=default_packages, declarations=[], filename='', size=1):
     """
     Generate png images from $$...$$ style math environment equations.
 
@@ -120,7 +119,7 @@ def math2png(content, outdir, packages = default_packages, declarations = [], fi
         with os.fdopen(fd, 'w+') as f:
             f.write(fileContent)
 
-        __write_output(texfile, outdir, workdir, filename, size)
+        __write_output(texfile, outdir, workdir=workdir, filename=filename, size=size)
     finally:
         outfilename = os.path.join(outdir, '{}.png'.format(filename))
 

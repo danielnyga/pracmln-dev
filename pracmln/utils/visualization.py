@@ -79,10 +79,8 @@ def plot_KLDiv_with_logscale(series):
     
 
 def get_cond_prob_png(queries, dbs, filename='cond_prob', filedir='/tmp'):
-    out(queries)
     if isinstance(queries, str):
         queries = queries.split(',')
-        out(queries)
 
     declarations = r'''
     \DeclareMathOperator*{\argmin}{\arg\!\min}

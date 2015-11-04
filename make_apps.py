@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
 
 from pracmln.mln.util import colorize
 
-packages = [('numpy', 'numpy', False), ('tabulate', 'tabulate', False), ('pyparsing', 'pyparsing', False), ('psutil', 'psutil', False)]
+packages = [('numpy', 'numpy', False), ('tabulate', 'tabulate', False), ('pyparsing', 'pyparsing', False), ('psutil', 'psutil', False), ('matplotlib', 'matplotlib', False)]
 webmlnpackages = [('flask', 'Flask', False), ('werkzeug', 'werkzeug', False), ('PIL', 'Pillow', False), ('jinja2', 'Jinja2', False), ('geoip', 'python-geoip python-geoip-geolite2', True)]
 
 
@@ -79,7 +79,14 @@ def buildLibpracmln():
 
     return envSetup.format(installPath)
 
+def build_docs():
+    print colorize('Building documentation', (None, 'green', True), True)
+    docs = adapt("cd $PRACMLN_HOME/doc && make html && cd -", arch)
+    os.system(docs)
+
+
 def build_webmln():
+    print colorize('Building Qooxdoo app', (None, 'green', True), True)
     # build qooxdoo
     generate = adapt("$PRACMLN_HOME/webmln/gui/generate.py -q", arch)
     os.system(generate + ' source-all')
@@ -166,6 +173,9 @@ if __name__ == '__main__':
 
     if '--webmln' in args:
         build_webmln()
+
+    if '--docs' in args:
+        build_docs()
 
     buildlib = False
     if "--cppbindings" in args:

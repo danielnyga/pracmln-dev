@@ -141,7 +141,7 @@ def start_inference():
             graphres = calculategraphres(mrf, db.evidence.keys(), inference.queries)
             barchartresults = [{"name": x, "value":inference.results[x]} for x in inference.results]
 
-            png, ratio = get_cond_prob_png(queries, db)
+            png, ratio = get_cond_prob_png(queries, db, filedir=mlnsession.tmpsessionfolder)
 
             # save settings to project
             if inferconfig.get('save', False):
