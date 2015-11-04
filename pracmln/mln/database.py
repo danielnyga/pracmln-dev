@@ -407,7 +407,7 @@ class Database(object):
 
 
     @staticmethod
-    def write_dbs(dbs, stream=sys.stdout, color=None):
+    def write_dbs(dbs, stream=sys.stdout, color=None, bars=False):
         if color is None:
             if stream != sys.stdout: 
                 color = False
@@ -415,7 +415,7 @@ class Database(object):
         strdbs = []
         for db in dbs:
             s = StringIO()
-            db.write(s, color=color)
+            db.write(s, color=color, bars=bars)
             strdbs.append(s.getvalue())
             s.close()
         stream.write('---\n'.join(strdbs))
