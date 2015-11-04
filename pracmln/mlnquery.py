@@ -32,7 +32,7 @@ import os
 import ntpath
 import tkMessageBox
 import traceback
-from pracmln.utils.project import MLNProject, mlnpath
+from pracmln.utils.project import MLNProject, PRACMLNConfig, mlnpath
 from utils import widgets
 from mln.methods import InferenceMethods
 from mln.inference import *
@@ -40,7 +40,7 @@ from utils.widgets import SyntaxHighlightingText, FileEditBar
 from utils import config
 from pracmln import praclog
 from pracmln.mln.util import out, ifNone, parse_queries, headline, StopWatch
-from pracmln.utils.config import PRACMLNConfig, global_config_filename
+from pracmln.utils.config import global_config_filename
 from pracmln.mln.base import parse_mln, MLN
 from pracmln.mln.database import parse_db, Database
 from tabulate import tabulate
@@ -268,8 +268,8 @@ class MLNQueryGUI(object):
         self.master.bind('<Escape>', lambda a: self.master.quit())
         self.master.protocol('WM_DELETE_WINDOW', self.quit)
 
-        self.dir = os.path.abspath(ifNone(gconf['prev_query_path'], DEFAULT_CONFIG))
-
+        self.dir = os.path.abspath(ifNone(directory, ifNone(gconf['prev_query_path'], os.getcwd())))
+        
         self.frame = Frame(master)
         self.frame.pack(fill=BOTH, expand=1)
         self.frame.columnconfigure(1, weight=1)
@@ -456,7 +456,7 @@ class MLNQueryGUI(object):
 
         self.gconf = gconf
         self.project = None
-        self.project_dir = os.path.abspath(ifNone(gconf['prev_query_path'], DEFAULT_CONFIG))
+        self.project_dir = os.path.abspath(ifNone(directory, ifNone(gconf['prev_query_path'], os.getcwd())))
         if gconf['prev_query_project': self.project_dir] is not None:
             self.load_project(os.path.join(self.project_dir, gconf['prev_query_project': self.project_dir]))
         else:
@@ -942,7 +942,7 @@ if __name__ == '__main__':
 
     root = Tk()
     conf = PRACMLNConfig(DEFAULT_CONFIG)
-    app = MLNQueryGUI(root, conf, directory=args[0] if args else None)
+    app = MLNQueryGUI(root, conf, directory=os.path.abspath(args[0]) if args else None)
 
     if opts.run:
         logger.debug('running mlnlearn without gui')

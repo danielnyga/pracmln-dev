@@ -24,9 +24,13 @@ import copy
 from zipfile import ZipFile, ZIP_DEFLATED
 import os
 import sys
-from pracmln.utils.config import PRACMLNConfig
 from pracmln.mln.util import out, ifNone
+import json
+from pracmln import praclog
+import collections
 
+
+logger = praclog.logger(__name__)
 
 class MLNProject(object):
     '''
@@ -159,10 +163,31 @@ class MLNProject(object):
     def copy(self):
         proj_ = copy.deepcopy(self)
         return proj_
-
+    
+    
+    def loadmln(self, config, mln=None):
+        if config == 'query': config = self.queryconf
+        elif config == 'learn': config = self.learnconf
+        from pracmln.mln.base import parse_mln
+        path = self.path if hasattr(self, 'path') else None
+        return parse_mln(self.mlns[ifNone(mln, config['mln'])], projectpath=path, logic=config['logic'], grammar=config['grammar'])
+        
+    
+    def loaddb(self, mln, config, db=None):
+        if db is None:
+            if config == 'query': config = self.queryconf
+            elif config == 'learn': config = self.learnconf
+            else: raise Exception('Need a database name or config.')
+        from pracmln.mln.database import parse_db
+        path = self.path if hasattr(self, 'path') else None
+        out(db)
+        out(self.dbs[db])
+        return parse_db(mln, self.dbs[ifNone(db, config['db'])], ignore_unknown_preds=config['ignore_unknown_preds'], projectpath=path)
+    
 
     def save(self, dirpath='.'):
         filename = self.name
+        self.path = dirpath
         with ZipFile(os.path.join(dirpath, filename), 'w', ZIP_DEFLATED) as zf:
             # save the learn.conf
             zf.writestr('learn.conf', self.learnconf.dumps())
@@ -185,9 +210,11 @@ class MLNProject(object):
     
     @staticmethod
     def open(filepath):
-        name = os.path.basename(filepath)
+        fullpath = os.path.expanduser(os.path.expandvars(filepath))
+        name = os.path.basename(fullpath)
         proj = MLNProject(name)
-        with ZipFile(filepath, 'r') as zf:
+        proj.path = os.path.dirname(fullpath)
+        with ZipFile(fullpath, 'r') as zf:
             for member in zf.namelist():
                 if member == 'learn.conf':
                     tmpconf = eval(zf.open(member).read())
@@ -229,6 +256,100 @@ class MLNProject(object):
         for name in self.results:
             stream.write('  ./%s\n' % name)
         
+
+def convert(data):
+    '''
+    convert everything to ASCII
+    '''
+    if isinstance(data, basestring):
+        return str(data)
+    elif isinstance(data, collections.Mapping):
+        return dict(map(convert, data.iteritems()))
+    elif isinstance(data, collections.Iterable):
+        return type(data)(map(convert, data))
+    else:
+        return data
+    
+
+class PRACMLNConfig(object):
+    
+    def __init__(self, filepath=None):
+        self.config_file = mlnpath(filepath) if filepath is not None else None
+        self.config = {}
+        self._dirty = False
+        if self.config_file is None or not self.config_file.exists:
+            self.config = {}
+        else:
+            if self.config_file.project is not None:
+                self.config = convert(dict((self.config_file.content.config)))
+            else:
+                self.config = convert(json.loads(self.config_file.content))
+            logger.debug('loaded %s config' % self.config_file.compose())
+            
+
+    @property
+    def dirty(self):
+        return self._dirty
+
+
+    def get(self, k, d=None):
+        return self.config.get(k, d)
+
+
+    def update(self, d):
+        self.config.update(d)
+        self._dirty = True
+
+
+    def __getitem__(self, s):
+        if type(s) is slice:
+            prim = s.start
+            sec = s.stop
+            if self.config.get(prim) is not None:
+                return self.config.get(prim).get(sec)
+            else:
+                return None
+        else:
+            return self.config.get(s)
+        
+
+    def __setitem__(self, s, v):
+        if type(s) is slice:
+            prim = s.start
+            sec = s.stop
+            p = self.config.get(prim)
+            if p is None:
+                p = {}
+                self.config[prim] = p
+            p[sec] = v
+        else:
+            self.config[s] = v
+        self._dirty = True
+            
+    
+    def dump(self):
+        if self.config_file is None:
+            raise Exception('no filename specified')
+        if self.config_file.project is not None:
+            project = mlnpath(self.config_file.projectloc).content
+            if self.config_file.file == 'query.conf':
+                project.queryconf.config = self.config
+            elif self.config_file.file == 'learn.conf':
+                project.queryconf.file = self.config
+            else: Exception('Invalid config file name: %s' % self.config_file.file)
+            project.save(project.resolve_path())
+        else:
+            with open(os.path.join(self.config_file.resolve_path(), self.config_file.file), 'w+') as cf:
+                cf.write(json.dumps(self.config))
+        self._dirty = False
+            
+    
+    def dumps(self):
+        self._dirty = False
+        return json.dumps(self.config, indent=4)
+
+        
+
 
 class mlnpath(object):
     '''
@@ -331,6 +452,7 @@ class mlnpath(object):
             elif fileext == 'conf':
                 conf = {'query.conf': proj.queryconf, 'learn.conf': proj.learnconf}.get(self.file)
                 if conf is None: raise Exception('Project %s does not contain a config file named %s' % (self.project, self.file))
+                return conf
         else:
             with open(os.path.join(path, self.file)) as f:
                 return f.read()

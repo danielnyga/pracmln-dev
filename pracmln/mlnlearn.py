@@ -32,7 +32,7 @@ import sys
 import ntpath
 import traceback
 from pracmln.mln.base import parse_mln
-from pracmln.utils.project import MLNProject, mlnpath
+from pracmln.utils.project import MLNProject, mlnpath, PRACMLNConfig
 from utils.widgets import *
 import tkMessageBox
 import fnmatch
@@ -41,7 +41,7 @@ from cProfile import Profile
 from pracmln.utils import config
 from pracmln.mln.util import ifNone, out, headline, StopWatch
 from tkFileDialog import askdirectory, asksaveasfilename, askopenfilename
-from pracmln.utils.config import PRACMLNConfig, global_config_filename
+from pracmln.utils.config import global_config_filename
 from pracmln import praclog, MLN
 from tabulate import tabulate
 import pstats
@@ -409,8 +409,8 @@ class MLNLearnGUI:
 
         # logo = Label(self.master, image=img)
         # logo.pack(side = "right", anchor='ne')
-        self.dir = os.path.abspath(ifNone(gconf['prev_learnwts_path'], DEFAULT_CONFIG))
-
+        self.dir = os.path.abspath(ifNone(directory, ifNone(gconf['prev_learnwts_path'], os.getcwd())))
+        
         self.frame = Frame(master)
         self.frame.pack(fill=BOTH, expand=1)
         self.frame.columnconfigure(1, weight=1)
@@ -624,7 +624,7 @@ class MLNLearnGUI:
 
         self.gconf = gconf
         self.project = None
-        self.project_dir = os.path.abspath(ifNone(gconf['prev_learnwts_path'], DEFAULT_CONFIG))
+        self.project_dir = os.path.abspath(ifNone(directory, ifNone(gconf['prev_learnwts_path'], os.getcwd())))
         if gconf['prev_learnwts_project': self.project_dir] is not None:
             self.load_project(os.path.join(self.project_dir, gconf['prev_learnwts_project': self.project_dir]))
         else:
@@ -1079,7 +1079,7 @@ class MLNLearnGUI:
                 output = StringIO.StringIO()
                 result.write(output)
                 self.project.add_mln(self.output_filename.get(), output.getvalue())
-                self.update_mln_choices()
+                self.mln_container.update_file_choices()
                 self.project.save(dirpath=self.project_dir)
                 logger.info('saved result to file mln/{} in project {}'.format(self.output_filename.get(), self.project.name))
             else:
@@ -1110,7 +1110,7 @@ if __name__ == '__main__':
     # run learning task/GUI
     root = Tk()
     conf = PRACMLNConfig(DEFAULT_CONFIG)
-    app = MLNLearnGUI(root, conf, directory=args[0] if args else None)
+    app = MLNLearnGUI(root, conf, directory=os.path.abspath(args[0]) if args else None)
 
     if opts.run:
         logger.debug('running mlnlearn without gui')
