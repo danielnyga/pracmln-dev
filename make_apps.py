@@ -89,7 +89,6 @@ def build_webmln():
     print colorize('Building Qooxdoo app', (None, 'green', True), True)
     # build qooxdoo
     generate = adapt("$PRACMLN_HOME/webmln/gui/generate.py -q", arch)
-    os.system(generate + ' source-all')
     os.system(generate + ' build')
 
     for pkg in webmlnpackages:

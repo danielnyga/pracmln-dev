@@ -118,10 +118,21 @@ qx.Class.define("webmln.Application", {
             var graphVizContainerInf = new qx.ui.container.Composite(new qx.ui.layout.Canvas()).set({
                 minHeight: .5*document.getElementById("page", true, true).offsetHeight
             });
+
+            var popup = new qx.ui.embed.Html();
+            popup.setWidth(500);
+            popup.setHeight(225);
+            popup.setMarginLeft(-250);
+            popup.setMarginTop(-125);
+            popup.setOpacity(0);
+            this._popup = popup;
+
             this._graphVizContainerInf = graphVizContainerInf;
             graphVizContainerInf.add(vizEmbedGrp, {width: "100%", height: "100%"});
             graphVizContainerInf.add(waitImageInf, { left: "50%", top: "50%"});
             graphVizContainerInf.add(legendImage, { left: 10, top: 25});
+            graphVizContainerInf.add(popup, { left: "50%", top: "50%"});
+
 
             // contains barchart svg
             var barChartContainer = new qx.ui.container.Composite(new qx.ui.layout.Grow());
@@ -316,6 +327,42 @@ qx.Class.define("webmln.Application", {
 
 
         /**
+         * show or hide message
+         */
+        _notify : function(message, delay, callback) {
+            if (!message) {
+                message = 'Consider yourself notified!'
+            }
+            msg = "<div><center><h1>" + message + "</h1></center></div>";
+            this._popup.setHtml(msg);
+
+            var fadeIN = function(val, t) {
+                var fadeinInterval = setTimeout( function() {
+                      if (val < 1.0) {
+                        t._popup.setOpacity(val);
+                        fadeIN(val + 0.1, t);
+                      } else {
+                        fadeOUT(1.0, t);
+                      }
+                }, delay || 200);
+            };
+
+            var fadeOUT = function(val, t) {
+                var fadeoutInterval = setTimeout( function() {
+                      if (val > 0.0) {
+                        t._popup.setOpacity(val);
+                        fadeOUT(val - 0.1, t);
+                      } else {
+                        callback && callback.call(t||this);
+                      }
+                }, delay || 200);
+            };
+
+            fadeIN(0, this);
+        },
+
+
+        /**
         * Build the query mln form
         */
         buildMLNForm : function() {
@@ -444,10 +491,16 @@ qx.Class.define("webmln.Application", {
             this.__btnStart = new qx.ui.form.Button("Start Inference", null);
 
             // add static listitems
-            this.__slctGrammar.add(new qx.ui.form.ListItem("StandardGrammar"));
-            this.__slctGrammar.add(new qx.ui.form.ListItem("PRACGrammar"));
-            this.__slctLogic.add(new qx.ui.form.ListItem("FirstOrderLogic"));
-            this.__slctLogic.add(new qx.ui.form.ListItem("FuzzyLogic"));
+            var sgrammar = new qx.ui.form.ListItem("StandardGrammar");
+            var pgrammar = new qx.ui.form.ListItem("PRACGrammar");
+            var fol = new qx.ui.form.ListItem("FirstOrderLogic");
+            var fl = new qx.ui.form.ListItem("FuzzyLogic");
+            this.__listitems = {'StandardGrammar': sgrammar, 'PRACGrammar': pgrammar,
+                                'FirstOrderLogic': fol, 'FuzzyLogic': fl};
+            this.__slctGrammar.add(this.__listitems['StandardGrammar']);
+            this.__slctGrammar.add(this.__listitems['PRACGrammar']);
+            this.__slctLogic.add(this.__listitems["FirstOrderLogic"]);
+            this.__slctLogic.add(this.__listitems["FuzzyLogic"]);
 
             // listeners
             this.__slctEMLN.addListener("changeSelection", this._update_emln_text, this);
@@ -556,7 +609,14 @@ qx.Class.define("webmln.Application", {
             mlnFormContainer.add(this.__chkbxIgnoreUnknown, {row: row, column: 4});
             row += 1;
             mlnFormContainer.add(this.__btnStart, {row: row, column: 1, colSpan: 4});
-
+            row += 1;
+//            this.__btnnotify = new qx.ui.form.Button("Notify", null);
+//            this.__btnnotify.addListener('execute', function(e) {
+//                this._notify("Graph cannot be generated", 100, function() {
+//                    this._notify("BECAUSE OF MAJOR FUCKUP.", 100);
+//                });
+//            }, this);
+//            mlnFormContainer.add(this.__btnnotify, {row: row, column: 1, colSpan: 4});
             return mlnFormContainer;
         },
 
@@ -699,10 +759,16 @@ qx.Class.define("webmln.Application", {
             this.__btnStartLrn = new qx.ui.form.Button("Learn", null);
 
             // add static listitems
-            this.__slctGrammarLrn.add(new qx.ui.form.ListItem("StandardGrammar"));
-            this.__slctGrammarLrn.add(new qx.ui.form.ListItem("PRACGrammar"));
-            this.__slctLogicLrn.add(new qx.ui.form.ListItem("FirstOrderLogic"));
-            this.__slctLogicLrn.add(new qx.ui.form.ListItem("FuzzyLogic"));
+            var sgrammar = new qx.ui.form.ListItem("StandardGrammar");
+            var pgrammar = new qx.ui.form.ListItem("PRACGrammar");
+            var fol = new qx.ui.form.ListItem("FirstOrderLogic");
+            var fl = new qx.ui.form.ListItem("FuzzyLogic");
+            this.__listitemsLrn = {'StandardGrammar': sgrammar, 'PRACGrammar': pgrammar,
+                                'FirstOrderLogic': fol, 'FuzzyLogic': fl};
+            this.__slctGrammarLrn.add(this.__listitemsLrn["StandardGrammar"]);
+            this.__slctGrammarLrn.add(this.__listitemsLrn["PRACGrammar"]);
+            this.__slctLogicLrn.add(this.__listitemsLrn["FirstOrderLogic"]);
+            this.__slctLogicLrn.add(this.__listitemsLrn["FuzzyLogic"]);
 
             // listeners
             this.__slctProjectLrn.addListener("changeSelection", this._change_example_lrn ,this);
@@ -1047,8 +1113,13 @@ qx.Class.define("webmln.Application", {
                         this._show_wait_animation("Inf", false);
                         var tar = e.getTarget();
                         var response = tar.getResponse();
-
-                        this.updateGraph([],response.graphres);
+                        if (response.graphres.length < 200) {
+                            this.updateGraph([],response.graphres);
+                        } else {
+                            this._notify("Graph cannot be displayed.", 100, function() {
+                                this._notify("Generated MRF contains about " + response.graphres.length + " links, exceeding the maximum number of 200.", 300);
+                            });
+                        }
                         this['_barChartdia'].replaceData(response.resbar);
                         this.__textAreaResultsInf.setValue(response.output);
                         this.__textAreaResultsInf.getContentElement().scrollToY(10000);
@@ -1182,6 +1253,10 @@ qx.Class.define("webmln.Application", {
                 }
                 this.__slctMethod.setSelection(selectedmethoditem ? [selectedmethoditem] : []);
 
+                // set selected grammar from config
+                this.__slctGrammar.setSelection(this.__listitems[config.grammar] ? [this.__listitems[config.grammar]] : []);
+                this.__slctLogic.setSelection(this.__listitems[config.logic] ? [this.__listitems[config.logic]] : []);
+
                 // set config for inference
                 this.__chkbxApplyCWOption.setValue(config.cw || false);
                 this.__txtFParams.setValue(config.params || '');
@@ -1225,6 +1300,10 @@ qx.Class.define("webmln.Application", {
                     }
                 }
                 this.__slctMethodLrn.setSelection(selectedmethoditem ? [selectedmethoditem] : []);
+
+                // set selected grammar from config
+                this.__slctGrammarLrn.setSelection(this.__listitemsLrn[config.grammar] ? [this.__listitemsLrn[config.grammar]] : []);
+                this.__slctLogicLrn.setSelection(this.__listitemsLrn[config.logic] ? [this.__listitemsLrn[config.logic]] : []);
 
                 // set config for learning
                 this.__txtFParamsLrn.setValue(config.params || '');
