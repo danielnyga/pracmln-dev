@@ -230,8 +230,6 @@ if __name__ == '__main__':
         f.write("export PRACMLN_HOME=%s\n" % adapt("$PRACMLN_HOME", arch))
         f.write("export PYTHONPATH=$PRACMLN_HOME:$PYTHONPATH\n")
         f.write("export PRACMLN_EXPERIMENTS=%s\n" % adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
-        f.write("echo $PYTHONPATH")
-        f.write("echo ===========")
         if extraExports:
             f.write(extraExports)
         f.close()

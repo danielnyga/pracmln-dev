@@ -20,7 +20,7 @@ Prerequisites
         sudo apt-get install python-tk python-scipy python-pyparsing
 
 * `pracmln` is shipped with the open source WCSP solver `toulbar2` for Linux and Windows 64-bit versions. 
-  For other archictures, it can be obtained from::
+  For other architectures, it can be obtained from::
   
     https://mulcyber.toulouse.inra.fr/projects/toulbar2
     
@@ -40,7 +40,7 @@ Installation
 
 #. Generating Apps
 
-   Run the ``setup.y`` script: ::
+   Run the ``setup.py`` script: ::
     
     python setup.py
 
