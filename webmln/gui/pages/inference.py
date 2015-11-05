@@ -11,7 +11,7 @@ from pracmln.mln.methods import InferenceMethods
 from pracmln.mln.util import parse_queries, out
 from pracmln.praclog import logger
 from pracmln.utils import config
-from pracmln.utils.config import PRACMLNConfig
+from pracmln.utils.project import PRACMLNConfig
 from pracmln.utils.visualization import get_cond_prob_png
 from utils import ensure_mln_session, GUI_SETTINGS, change_example
 from webmln.gui.app import mlnApp

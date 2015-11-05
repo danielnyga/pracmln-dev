@@ -125,13 +125,14 @@ qx.Class.define("webmln.Application", {
             popup.setMarginLeft(-250);
             popup.setMarginTop(-125);
             popup.setOpacity(0);
+            popup.hide();
             this._popup = popup;
 
             this._graphVizContainerInf = graphVizContainerInf;
             graphVizContainerInf.add(vizEmbedGrp, {width: "100%", height: "100%"});
+            graphVizContainerInf.add(popup, { left: "50%", top: "50%"});
             graphVizContainerInf.add(waitImageInf, { left: "50%", top: "50%"});
             graphVizContainerInf.add(legendImage, { left: 10, top: 25});
-            graphVizContainerInf.add(popup, { left: "50%", top: "50%"});
 
 
             // contains barchart svg
@@ -353,11 +354,13 @@ qx.Class.define("webmln.Application", {
                         t._popup.setOpacity(val);
                         fadeOUT(val - 0.1, t);
                       } else {
+                        t._popup.hide();
                         callback && callback.call(t||this);
                       }
                 }, delay || 200);
             };
 
+            this._popup.show();
             fadeIN(0, this);
         },
 

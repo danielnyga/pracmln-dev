@@ -12,7 +12,7 @@ from webmln.gui.app import mlnApp
 from webmln.gui.pages.utils import ensure_mln_session, change_example, get_training_db_paths
 from pracmln import Database, MLNLearn
 from pracmln.mln.methods import LearningMethods
-from pracmln.utils.config import PRACMLNConfig
+from pracmln.utils.project import PRACMLNConfig
 
 log = logger(__name__)
 
