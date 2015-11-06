@@ -1332,6 +1332,7 @@ qx.Class.define("webmln.Application", {
         */
         updateGraph : function(removeLinks, addLinks) {
           this._graph.updateData(removeLinks, addLinks);
+          this._graph.showLabels(this.__chkbxShowLabels.getValue());
         },
 
 

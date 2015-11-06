@@ -394,10 +394,10 @@ qx.Class.define("webmln.Graph",
       this.force
         .size([this.w, this.h])
         .linkDistance( this.h/2 )
-        .charge(-1000)
+        .charge(-200)
         .on("tick", tick)
         .gravity( .05 )
-        .distance( 100 )
+        .distance( 200 )
         .start();
     }
   }

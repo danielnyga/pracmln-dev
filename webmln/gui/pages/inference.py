@@ -139,12 +139,13 @@ def start_inference():
                 streamlog.info('INFERENCE RESULTS: \n' + res)
 
             graphres = calculategraphres(mrf, db.evidence.keys(), inference.queries)
-            barchartresults = [{"name": x, "value":inference.results[x]} for x in inference.results]
+            barchartresults = [{"name": x, "value": inference.results[x]} for x in inference.results]
 
             png, ratio = get_cond_prob_png(queries, db, filedir=mlnsession.tmpsessionfolder)
 
             # save settings to project
             if inferconfig.get('save', False):
+                log.info('trying to save results')
                 fname = inferconfig.get('output_filename', 'inference.result')
                 mlnsession.projectinf.add_result(fname, res)
                 mlnsession.projectinf.mlns[mln_name] = mln_content
@@ -160,16 +161,15 @@ def start_inference():
         finally:
             handler.flush()
     except:
-        traceback.print_exc()
-
-    return jsonify({'graphres': graphres, 'resbar': barchartresults,
+        traceback.print_exc(file=stream)
+    finally:
+        return jsonify({'graphres': graphres, 'resbar': barchartresults,
                     'output': stream.getvalue(),
                     'condprob': {'png': png, 'ratio': ratio}})
 
 
 @mlnApp.app.route('/mln/inference/_use_model_ext', methods=['GET', 'OPTIONS'])
 def get_emln():
-    log.info('_use_model_ext')
     mln_session = mlnApp.session_store[session]
     emlnfiles = mln_session.projectinf.emlns.keys()
     emlnfiles.sort()
@@ -192,6 +192,7 @@ def calculategraphres(resmrf, evidence, queries):
         permutations.extend(perms)
         linkformulas.extend([str(formula)]*len(perms))
     links = []
+
     for i, p in enumerate(permutations):
         sourceev = "evidence" if str(p[0]) in evidence else "query" if p[0] in queries else "hiddenCircle"
         targetev = "evidence" if str(p[1]) in evidence else "query" if p[1] in queries else "hiddenCircle"
@@ -201,8 +202,7 @@ def calculategraphres(resmrf, evidence, queries):
                'value': linkformulas[i],
                'arcStyle': 'strokegreen'}
 
-        if lnk in links: continue
-        links.append(lnk)
+        links.append(lnk) #may contain duplicate links
     return links
 
 
