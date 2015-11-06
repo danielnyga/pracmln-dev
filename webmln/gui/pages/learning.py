@@ -112,17 +112,15 @@ def start_learning(savegeometry=True):
             mlnsession.projectlearn.save(dirpath=mlnsession.tmpsessionfolder)
             streamlog.info('saved result to file results/{} in project {}'.format(fname, mlnsession.projectlearn.name))
 
+        streamlog.info('FINISHED')
     except SystemExit:
-        log.error('Cancelled...')
+        streamlog.error('Cancelled...')
     except:
-        traceback.print_exc()
+        traceback.print_exc(file=stream)
     finally:
-        log.info('FINISHED')
         handler.flush()
-
-    output = stream.getvalue()
-    res = {'output': output, 'learnedmln': learnedmln}
-    return jsonify(res)
+        res = {'output': stream.getvalue(), 'learnedmln': learnedmln}
+        return jsonify(res)
 
 
 @mlnApp.app.route('/mln/learning/_change_example', methods=['POST'])

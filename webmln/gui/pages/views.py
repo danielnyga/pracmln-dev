@@ -221,8 +221,7 @@ def init_options():
     mlnfiles = mlnsession.projectinf.mlns.keys()
     dbfiles = mlnsession.projectinf.dbs.keys()
 
-    examples = [y for y in os.listdir(mlnsession.tmpsessionfolder) if os.path.isfile(os.path.join(mlnsession.tmpsessionfolder, y)) and y.endswith('.pracmln')]
-
+    examples = sorted([y for y in os.listdir(mlnsession.tmpsessionfolder) if os.path.isfile(os.path.join(mlnsession.tmpsessionfolder, y)) and y.endswith('.pracmln')])
     inferconfig = mlnsession.projectinf.queryconf.config.copy()
     inferconfig.update({"method": InferenceMethods.name(mlnsession.projectinf.queryconf['method'])})
 
