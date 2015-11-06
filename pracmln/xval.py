@@ -41,7 +41,7 @@ from pracmln.mlnquery import MLNQuery
 from pracmln.mlnlearn import MLNLearn
 from pracmln.mln.mlnpreds import FuzzyPredicate
 from pracmln.utils.project import MLNProject
-from pracmln.mln.util import out
+from pracmln.mln.util import out, stop
 
 logger = praclog.logger(__name__)
 
@@ -115,11 +115,13 @@ class XValFold(object):
             gndtruth = mln.ground(db)
             gndtruth.apply_cw()
             for atom, _ in db.gndatoms(querypred):
+                out('removing evidence', repr(atom))
                 del db.evidence[atom]
-            
+            db.write()
+            stop()
             try:
                 resultdb = MLNQuery(config=self.params.queryconf, mln=mln, method=InferenceMethods.WCSPInference, db=db, 
-                                  cw_preds=[p for p in mln.predicates if p != self.params.querypred], multicore=False).run().resultdb
+                                  cw_preds=[p.name for p in mln.predicates if p.name != self.params.querypred], multicore=False).run().resultdb
                 result = mln.ground(db)
                 result.set_evidence(resultdb)
                 for variable in result.variables:
@@ -186,7 +188,7 @@ class XValFold(object):
 #             for pred in [pred for pred in self.params.cwPreds if pred in learnedMLN.predicates]:
 #                 learnedMLN.setClosedWorldPred(pred)
             self.eval(learned, self.params.test_dbs)
-            self.confmat.toFile(os.path.join(directory, 'conf_matrix_%d.cm' % self.params.foldidx))
+            self.confmat.toFile(os.path.join(directory, 'conf_matrix_%d.cm' % self.params.fold_idx))
             logger.debug('Evaluation finished.')
         except (KeyboardInterrupt, SystemExit):
             logger.critical("Exiting...")
@@ -361,7 +363,7 @@ if __name__ == '__main__':
             workerPool.join()
             cm = ConfusionMatrix()
             for r in result:
-                cm.combine(r.confMatrix)
+                cm.combine(r.confmat)
             elapsedTimeMP = time.time() - startTime
             cm.toFile(os.path.join(expdir, 'conf_matrix.cm'))
             # create the pdf table and move it into the log directory
