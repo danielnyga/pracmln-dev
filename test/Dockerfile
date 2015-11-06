@@ -32,7 +32,7 @@ RUN sudo pip install --upgrade pip && sudo pip install -U -r /requirements.txt
 
 RUN mkdir pracmln
 ADD src pracmln
-RUN cd pracmln  && python make_apps.py --docs && chmod +x env.sh && . ./env.sh && echo PYTHONPATH: && echo $PYTHONPATH && python test.py
+RUN cd pracmln  && python setup.py --docs && chmod +x env.sh && . ./env.sh && echo PYTHONPATH: && echo $PYTHONPATH && python test.py
 
 # overwrite this with 'CMD []' in a dependent Dockerfile
 CMD ["/bin/bash"]
