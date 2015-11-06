@@ -118,7 +118,10 @@ class MLNQuery(object):
     
     @property
     def cw_preds(self):
-        return map(str.strip, self._config.get('cw_preds', '').split(','))
+        preds = self._config.get('cw_preds', '')
+        if type(preds) is str:
+            preds = preds.split(',')
+        return map(str.strip, preds)
     
     
     @property
