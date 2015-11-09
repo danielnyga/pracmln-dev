@@ -3,7 +3,8 @@
 cd $PRACMLN_HOME/test
 echo Copying pracmln temporarily...
 mkdir src
-rsync -qa .. src --exclude test
+# rsync -qa .. src --exclude test
+git clone --branch refactoring .. src 
 docker build -t pracmln/test .
 echo Removing temporary files...
 rm -rf src
