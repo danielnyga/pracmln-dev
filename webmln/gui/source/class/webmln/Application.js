@@ -334,7 +334,7 @@ qx.Class.define("webmln.Application", {
             if (!message) {
                 message = 'Consider yourself notified!'
             }
-            msg = "<div><center><h1>" + message + "</h1></center></div>";
+            var msg = "<div><center><h1>" + message + "</h1></center></div>";
             this._popup.setHtml(msg);
 
             var fadeIN = function(val, t) {

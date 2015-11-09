@@ -145,7 +145,6 @@ def start_inference():
 
             # save settings to project
             if inferconfig.get('save', False):
-                log.info('trying to save results')
                 fname = inferconfig.get('output_filename', 'inference.result')
                 mlnsession.projectinf.add_result(fname, res)
                 mlnsession.projectinf.mlns[mln_name] = mln_content
