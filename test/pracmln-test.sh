@@ -16,8 +16,8 @@ fi
 
 
 cd $PRACMLN_HOME/test
-if [ "$1" = "uncommitted" ]
 mkdir src
+if [ "$1" = "uncommitted" ]
 then
 	echo copying uncommitted state of local repo...
 	rsync -qa .. src --exclude test
