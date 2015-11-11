@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+{% block title %}{% endblock %}
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="{{ url_for('download_mln_static', filename='css/codemirror.css') }}">
+    <script type="text/javascript" src="{{ url_for('download_mln_static', filename='script/webmln.js') }}"></script>
+{% endblock %}
+
+  {% block content %}
+    {{ super() }}
+  {% endblock %}

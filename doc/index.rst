@@ -3,43 +3,41 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-=========================================
-PRACMLNs: Markov logic networks in Python
-=========================================
-
-
 About
------
+=====
 
-PRACMLNs is a toolbox for statistical relational learning and reasoning and as such also
-includes tools for standard graphical models. PRACMLNs is a fork of the *ProbCog* toolbox.
+pracmln is a toolbox for statistical relational learning and 
+reasoning and as such also includes tools for standard graphical 
+models. pracmln is a statistical relational learning and reasoning 
+system that supports efficient learning and inference in relational 
+domains. pracmln has started as a fork of the *ProbCog* toolbox and 
+has been extended by latest developments in learning and reasoning 
+by the Institute for Artificial Intelligence at the University of 
+Bremen, Germany.
 
-PRACMLN is a statistical relational learning and reasoning system 
-that supports efficient learning and inference in relational 
-domains. We provide an extensive set of open-source tools for both 
-undirected and directed statistical relational models.
 
-Though ProbCog is a general-purpose software suite, it was designed 
-with the particular needs of technical systems in mind. Our methods 
-are geared towards practical applicability and can easily be 
-integrated into other applications. The tools for relational data 
-collection and transformation facilitate data-driven knowledge 
-engineering, and the availability of graphical tools makes both 
-learning or inference sessions a user-friendly experience. 
-Scripting support enables automation, and for easy integration into 
-other applications, we provide a client-server library. There is 
-also support for the `ROS (Robot Operating System) <http://www.ros.org/>`_
-middleware.
+pracmln was designed with the particular needs of technical systems 
+in mind. Our methods are geared towards practical applicability and 
+can easily be integrated into other applications. The tools for 
+relational data collection and transformation facilitate 
+data-driven knowledge engineering, and the availability of 
+graphical tools makes both learning or inference sessions a 
+user-friendly experience. Scripting support enables automation, and 
+for easy integration into robotics applications, we provide a 
+client-server library implemented using the widely used `ROS (Robot 
+Operating System) <http://www.ros.org/>`_ middleware.
 
-* Bayesian logic networks (BLNs): learning and inference
-* Markov logic networks (MLNs): learning and inference
-* Bayesian networks: learning and inference
-* Logic: representation, propositionalization, stochastic SAT sampling, etc.
+* Markov logic networks (MLNs): learning and inference Fuzzy-MLN 
+  reasoning, probabilistic reasoning about concept taxonomies.
+  
+* Logic: representation, propositionalization, 
+  stochastic SAT sampling, weighted SAT solving, etc.
 
-This package consists of:
 
-* An implementation of MLNs as a Python module (mln.py) that you can use to work with MLNs in your own Python scripts 
-* Graphical tools for performing inference in MLNs and learning the parameters of MLNs, using either PyMLNs itself, J-MLNs (a Java implementation of MLNs that is shipped with ProbCog) or the Alchemy system as the underlying engine.
+This package consists of an implementation of Markov logic networks 
+as a Python module (`pracmln`) that you can use to work with MLNs in 
+your own Python scripts. For an introduction into using `pracmln` in
+your own scripts, see :doc:`apidoc`.
 
 Contents:
 
@@ -49,20 +47,28 @@ Contents:
    features
    installation
    intro
-   tutorial
    apidoc
    
 
-Contributors:
-^^^^^^^^^^^^^
-* Daniel Nyga (`nyga@cs.uni-bremen.de <mailto:nyga@cs.uni-bremen.de>`_)
-* Dominik Jain
+Credits
+^^^^^^^
+
+Lead Developer
+##############
+
+Daniel Nyga (`nyga@cs.uni-bremen.de <mailto:nyga@cs.uni-bremen.de>`_)
+
+Contributors
+############
+
+* Mareike Picklum
+* Thiemo Wiedemeyer
 * Valentine Chiwome
-* Hartmut Messerschmidt
 
-Former Contributors (from ProbCog):
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Former Contributors (from ProbCog)
+##################################
 
+* Dominik Jain
 * Stefan Waldherr
 * Klaus von Gleissenthall
 * Andreas Barthels
@@ -71,21 +77,33 @@ Former Contributors (from ProbCog):
 * Martin Schuster
 * Philipp Meyer
 
-Acknowledgements
-^^^^^^^^^^^^^^^^
+Acknowledgments
+###############
 
-This work is supported in part by the EU FP7 projects
-`RoboHow <http://www.robohow.org>`_ (grant number 288533) and `ACAT <http://www.acat-project.eu>`_ (grant number
-600578).
+This work is supported in part by the EU FP7 projects `RoboHow <http://www.robohow.org>`_ (grant number 288533) and `ACAT <http://www.acat-project.eu>`_ (grant number
+600578):
 
-This project builds upon third-party software including
+.. image:: _static/robohow-logo.png
+    :height: 70px
+    :target: http://www.robohow.eu
+.. image:: _static/acat-logo.png
+    :height: 70px
+    :target: http://www.acat-project.eu
+.. image:: _static/fp7-logo.png
+    :height: 70px
+    :target: http://ec.europa.eu/research/fp7/index_en.cfm
 
-* Bayesian network tools in Java (`<http://bnj.sourceforge.net>`_)
-* The WEKA machine learning library (`<http://www.cs.waikato.ac.nz/ml/weka/>`_)
+
+Publications
+^^^^^^^^^^^^
+
+.. bibliography:: refs.bib
+    :list: bullet
+    :all:
 
 
 Indices and tables
-==================
+^^^^^^^^^^^^^^^^^^
 
 * :ref:`genindex`
 * :ref:`modindex`

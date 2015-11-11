@@ -1,0 +1,8 @@
+pyopenssl 
+ndg-httpsclient 
+pyasn1
+tabulate
+pyparsing
+psutil==0.4.1
+sphinx
+sphinxcontrib-bibtex

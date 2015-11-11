@@ -1,8 +1,8 @@
-:mod:`mln.mln` --- Common interface to Markov Logic Networks
-============================================================
+:mod:`pracmln.mln.base` --- Common interface to Markov Logic Networks
+=====================================================================
 
 
 
-.. automodule:: mln.mln
-    :members: MLN, readMLNFromFile
+.. automodule:: pracmln.mln.base
+    :members: MLN, Predicate, FunctionalPredicate, SoftFunctionalPredicate
 

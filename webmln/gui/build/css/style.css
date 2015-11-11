@@ -1,0 +1,146 @@
+html, body {
+  width: 100%;
+  height: 100%;
+}
+
+#mln_container {
+  width: 100%;
+  height: 100%;
+}
+
+.link {
+  fill: none;
+  stroke: #08088A;
+  stroke-width: 1.5px;
+}
+
+.link.strokegreen {
+  stroke: #89a35c;
+}
+
+.link.object {
+  stroke: green;
+}
+
+.link.strokeblue {
+  stroke: blue;
+}
+
+.link.default {
+  stroke: black;
+}
+
+.link.dashedred {
+  stroke-dasharray: 0,2 1;
+  stroke: red;
+}
+
+marker {
+  fill: #89a35c;
+}
+
+.bar rect {
+  fill: #89a35c;
+}
+
+text {
+  color: blue;
+  font-weight: bold;
+  font-size:x-small;
+}
+
+.bar text.value {
+  fill: black;
+}
+
+.axis {
+  shape-rendering: crispEdges;
+}
+
+.axis path {
+  fill: none;
+}
+
+.x.axis line {
+  stroke: #fff;
+  stroke-opacity: .8;
+}
+
+.y.axis path {
+  stroke: black;
+}
+
+circle.query {
+    -moz-transition: all 0.1s;
+    -o-transition: all 0.1s;
+    -webkit-transition: all 0.1s;
+    transition: all 0.1s;
+    fill: #bee280;
+    stroke: #89a35c;
+    stroke-width: 1.5px;
+}
+
+circle.evidence {
+    -moz-transition: all 0.1s;
+    -o-transition: all 0.1s;
+    -webkit-transition: all 0.1s;
+    transition: all 0.1s;
+    fill: orange;
+    stroke: #89a35c;
+    stroke-width: 1.5px;
+}
+
+circle.hiddenCircle {
+    -moz-transition: all 0.1s;
+    -o-transition: all 0.1s;
+    -webkit-transition: all 0.1s;
+    transition: all 0.1s;
+    fill: grey;
+    stroke: #89a35c;
+    stroke-width: 1.5px;
+}
+
+circle:hover {
+  fill: #89a35c;
+  stroke: #89a35c;
+  stroke-width: 1.5px;
+}
+
+#tooltip {
+        position: absolute;
+        width: 200px;
+        height: auto;
+        padding: 10px;
+        background-color: white;
+        -webkit-border-radius: 10px;
+        -moz-border-radius: 10px;
+        border-radius: 10px;
+        -webkit-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        -moz-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        pointer-events: none;
+}
+
+#tooltip.hidden {
+        display: none;
+}
+
+#tooltip p {
+        margin: 0;
+        font-family: sans-serif;
+        font-size: 16px;
+        line-height: 20px;
+}
+
+.popup {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 150px;
+  background-color: #aaa;
+  color: white;
+  padding: 10px;
+  font-family: "Lucida Grande", "DejaVu Sans", "Verdana", sans-serif;
+  font-size: 14px;
+  border: solid 1px #000000;
+}

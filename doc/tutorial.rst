@@ -114,10 +114,4 @@ Services
 		etc is going to be used for inference. This should be
 		set at least once.
  
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 

@@ -1,0 +1,77 @@
+#gmapcontainer {
+    width: 50%;
+    height:-webkit-calc(100% - 100px);
+    height:-moz-calc(100% - 100px);
+    height:calc(100% - 100px);
+    position:absolute;
+    left:-webkit-calc(50%);
+    left:-moz-calc(50%);
+    left:calc(50%);
+    top:96px;
+    padding: 2px;
+}
+
+#statistics {
+    width: 50%;
+    height:-webkit-calc(50% - 100px);
+    height:-moz-calc(50% - 100px);
+    height:calc(50% - 100px);
+    position:absolute;
+    left:0;
+    top:98px;
+    padding: 2px;
+}
+
+#logcontainer {
+    overflow: scroll;
+    font-size: 8pt;
+    font-family: monospace;
+    width: 49%;
+    height:49%;
+    position:absolute;
+    left:0;
+    top:50%;
+    padding: 2px;
+}
+
+#panel {
+    position:absolute;
+    right:0;
+    top:100px;
+    text-align:right;
+    margin: 2px;
+}
+
+svg {
+    width: 100%;
+    height: 100%;
+}
+
+#subdivs {
+    text-align:center;
+    width: 50%;
+    height: 100%;
+    float:left;
+}
+
+#country {
+    text-align:center;
+    width: 50%;
+    height: 100%;
+    float: left;
+}
+
+button {
+    width: 150px;
+}
+
+path.slice{
+    stroke-width:2px;
+}
+
+polyline{
+    opacity: .3;
+    stroke: black;
+    stroke-width: 2px;
+    fill: none;
+}

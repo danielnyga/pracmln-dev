@@ -107,10 +107,27 @@ predicate argument: ::
   
 assigns exactly one class label to an object, or none.
 
-.. warning::
 
-    Soft-functional constraints are extensions of the original MLN formalism
-    and are not compatible with all learning and inference algorithms.
+Fuzzy Predicates
+~~~~~~~~~~~~~~~~
+
+If the ``FuzzyLogic`` calculus is chosen for an MLN, predicates may be
+declared as `fuzzy` predicates, which allows them to also take real-valued
+degrees of truth in [0,1] instead of strictly boolean predicates. To
+declare a predicate being fuzzy, its declaration must be preceded by the
+``#fuzzy`` statement, e.g. ::
+
+  #fuzzy
+  is-a(sense, concept)
+  
+.. note ::
+  
+    Fuzzy predicates may exclusively occur as evidence during inference.
+    This means that all truth values of fuzzy predicates must be known
+    and asserted in a database beforehand, otherwise `pracmln` will
+    raise a :class:`pracmln.mln.errors.MRFValueException`.
+  
+
 
 
 
@@ -164,6 +181,19 @@ the formulas, it does not not decompose the CNF formulas if they
 are made up of more than one conjunct in order to obtain individual 
 clauses. With the internal engine, all formulas are indivisible.
 
+Fixed-Weight Formulas
+~~~~~~~~~~~~~~~~~~~~~
+
+Sometimes one might want to pre-specify the weight of a formula
+and fix that weight during learning, so the learning algorithm
+does not overwrite it. In `pracmln`, such a formula weight can be
+specified by a ``#fixweight`` statement preceding the formula: ::
+
+  #fixweight
+  logx(.75/.25)   foo(?x) ^ bar(?z)
+  
+
+
 Formula templates
 ----------------- 
 
@@ -176,8 +206,39 @@ will generate one formula for each possible binding of that
 variable to one of the domain elements applicable to that argument. 
 (e.g. ``myPred(+x,y)``) 
 
-Probability constraints on formulas (internal engine only)
-----------------------------------------------------------
+If there are formulas that represent co-occurrences of atoms 
+(meaning that it represents a symmetric relation of entities) a
+template formula might produce unnecessarily many formulas. For instance,
+suppose we want to model co-occurrences of the attributes of the predicate 
+``foo(p,x)``, given by the domain ``x={X1,X2,X3}``, e.g. ::
+
+  0.0 foo(?p1, +?x1) ^ foo(?p2, +?x2)
+  
+the ordinary formula template would produce 9 formulas: ::
+
+  0.0 foo(?p1, X1) ^ foo(?p2, X1)
+  0.0 foo(?p1, X1) ^ foo(?p2, X2)
+  0.0 foo(?p1, X1) ^ foo(?p2, X3)
+  0.0 foo(?p1, X2) ^ foo(?p2, X1) *
+  0.0 foo(?p1, X2) ^ foo(?p2, X2)
+  0.0 foo(?p1, X2) ^ foo(?p2, X3)
+  0.0 foo(?p1, X3) ^ foo(?p2, X1) *
+  0.0 foo(?p1, X3) ^ foo(?p2, X2) *
+  0.0 foo(?p1, X3) ^ foo(?p2, X3)
+    
+where 3 of them (marked with the asterisk) are superfluous because
+the is a semantically  equivalent formula in the MLN already. Since
+since may cause unecessary computational effort druing learning and
+inference, pracmln provides a statement ``#unique``, which only produces
+unique expansions of the given variables wrt a formula template, e.g. ::
+
+  #unique{+?x1, +?x2}
+  0.0 foo(?p1, +?x1) ^ foo(?p2, +?x2)
+
+produces only unique combinations of the variables ``+?x1`` and ``+?x2``.
+
+Probability constraints on formulas
+-----------------------------------
 
 You may want to require that certain formulas have a fixed prior 
 marginal probability regardless of the size of the domain with 
@@ -210,6 +271,31 @@ of the MLN (i.e. you must add them to the MLN, with some weight).
     formulas must always be preceded by a weight or be terminated by a period, even if they are only to be used in an input MLN for parameter learning
     no definition can span multiple lines
 
+Inlcuding External Files
+------------------------
+
+In an MLN file, other files can be imported by means of the ``#nclude``
+directive followed by an :class:`pracmln.mln.mlnpath` specification.
+There are two different types of ``#include`` statements:
+
+* *including a file within the same project*: If the current `.mln` file
+  is located in a `.pracmln` project and the ``#include`` statement is
+  to refer to a file within the same project, the name of the file can 
+  be put in angular brackets, e.g. ::
+    
+    #include <predicate-decl.mln>
+    
+  imports the file ``predicate-decl.mln`` from within the same project
+  into thecurrent mln.
+  
+* *including a file from the file system*: files outside the current
+  project (of if the MLN is not part of a project) can be referenced by
+  putting the path to file in double quotes, e.g. ::
+  
+    #include "${HOME}/mlns/my-project:predicates.mln"
+    
+  imports the specified MLN relative to the user's home directory. Note that
+  relative paths are always relative to the referring project/file.
 
 Database/Evidence files
 -----------------------

@@ -10,15 +10,14 @@ Start the tool from the command line with ``mlnlearn``.
 
 The MLN learning tool learns the weights of a MLN file given a 
 training database and a template MLN. The tool allows you to invoke 
-the actual MLN learning algorithms of either the Python-based MLN 
-engine or the Alchemy system. Once you start the actual algorithm, 
+the actual MLN learning algorithms of the Python-based MLN 
+engine. Once you start the actual algorithm, 
 the tool window itself will be hidden as long as the job is 
 running, while the output of the algorithm is written to the 
 console for you to follow. At the beginning, the tools list the 
 main input parameters for your convenience, and, at the end, the 
 query tool additionally outputs the inference results to the 
-console (so even if you are using the Alchemy system, there is not 
-really a need to open the results file that is generated).
+console.
 
 The tool features an integrated editor for ``*.db`` and ``*.mln`` files. If 
 you modify a file in the internal editor, it will automatically be 
@@ -32,7 +31,20 @@ session.
 Parameters
 ----------
 
-In the text field 'Params', you have the opportunity to pass additional
+For the learning methods, there are a couple of parameters that can 
+be handed over to the respective algorithm:
+
+.. figure:: _static/learning-parameters.png
+
+   Parameters in the GUI Tool.
+   
+*  Evidence and query predicates for the discriminative learning algorithms
+   (see also: :doc:`learningmethods`)
+   
+*  A Gaussian prior distribution over the formula weights.
+   (see also: :doc:`learningmethods`)
+
+In the text field 'Add. Params', you have the opportunity to pass additional
 parameters to the tool and the learning algorithms, respectively.
 The parameters need to be specified in the Python dictionary syntax
 as they will be transformed into and passed to the algorithms as
@@ -44,10 +56,8 @@ Currently, the following parameters are supported:
    one specified. Admissible values are (with decreasing level of verbosity): 
    ``DEBUG``, ``INFO``, ``WARNING``, ``ERROR``, ``CRITICAL``.
    
-*  ``output=True/False`` Specifies whether or not the learned MLN will be 
-   printed to the console after the algorithm has terminated.
-   
 *  ``optimizer='<name>'`` Specifies which optimization routine to be used. See also
    :doc:`learningmethods` for more information.
    
 * ``profile=True/False`` Launches the learner via the python profiler.
+
