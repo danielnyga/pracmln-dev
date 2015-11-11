@@ -7,10 +7,11 @@
       var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
     </script>
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true&libraries=visualization"></script>
+    <script src="{{ url_for('download_mln_static', filename='script/d3.min.js') }}"></script>
 {% endblock %}
 
 {% block content %}
-<img src="{{ url_for('download_mln_static', filename='images/pracmln-logo.png') }}">
+<img src="{{ url_for('download_mln_static', filename='images/pracmln-logo.png') }}" width="200px">
  <div id="statistics">
           <div id="subdivs"></div>
           <div id="country"></div>
@@ -108,9 +109,13 @@ var width = document.getElementById("statistics", true, true).offsetWidth,
     thickness = 10;
     margin = {top: 5, right: 5, bottom: 5, left: 5};
 
+function ascending(a, b) {
+return a.value - b.value;
+}
+
 var pie = d3.layout.pie()
-    .padAngle(.01)
-    .sort(null)
+    .padAngle(.03)
+    .sort(ascending)
     .value(function(d) {
         return d.value;
     });
@@ -121,7 +126,7 @@ var arc = d3.svg.arc()
     .cornerRadius(thickness/2);
 
 var outerArc = d3.svg.arc()
-    .outerRadius(radius)
+    .outerRadius(radius + thickness)
     .innerRadius(radius - thickness)
 
 var key = function(d){ return d.data.label; };
@@ -141,10 +146,12 @@ function mapData (keyword){
             objs.push(obj);
         labels[key] = objs;
     }
-    return Object.keys(labels).map(function(entry){
+    var d = Object.keys(labels).map(function(entry){
         var label = entry;
         return { label: label, value: labels[entry].length, objs: labels[entry] }
     });
+    return d;
+
 }
 
 function change(svgTitle, svg, data) {
@@ -190,7 +197,8 @@ function change(svgTitle, svg, data) {
 
     text.enter()
         .append("text")
-        .attr("dy", thickness)
+        .attr("dx", "5px")
+        .attr("dy", "2px")
         .text(function(d) {
             return d.data.label;
         });
@@ -240,7 +248,7 @@ function change(svgTitle, svg, data) {
             return function(t) {
                 var d2 = interpolate(t);
                 var pos = outerArc.centroid(d2);
-                pos[0] = radius * 0.95 * (midAngle(d2) < Math.PI ? 1 : -1);
+                pos[0] = radius * (midAngle(d2) < Math.PI ? 1 : -1);
                 return [arc.centroid(d2), outerArc.centroid(d2), pos];
             };
         });

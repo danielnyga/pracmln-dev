@@ -116,7 +116,6 @@ def getQxPath():
                         break # assume first occurrence is ok
 
     path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), path))
-    print path
     return path
 
 os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))  # switch to skeleton dir
