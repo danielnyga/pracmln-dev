@@ -302,7 +302,7 @@ qx.Class.define("webmln.Application", {
             ////////////////// DOKU PAGE ////////////////////
             var aboutPage = new qx.ui.tabview.Page("Documentation");
             this.__aboutPage = aboutPage;
-            var iframedocumentation = new qx.ui.embed.Iframe("/mln/doc/_build/html/index.html");
+            var iframedocumentation = new qx.ui.embed.Iframe("http://www.pracmln.org/mln_syntax.html");
             aboutPage.setLayout(new qx.ui.layout.Grow());
             aboutPage.add(iframedocumentation);
             tabView.add(aboutPage, {width: "100%", height: "100%"});
