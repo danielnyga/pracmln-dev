@@ -280,6 +280,7 @@ qx.Class.define("webmln.Application", {
                     if (typeof this['_barChartdia'] != 'undefined') {
                       var vizSize = barChartContainer.getInnerSize();
                       this['_barChartdia'].w = vizSize.width;
+                      this['_barChartdia'].h = vizSize.height;
                       // remove data and re-add it to trigger redrawing
                       var tempdata = this['_barChartdia'].barChartData.slice();
                       this['_barChartdia'].replaceData(tempdata);
