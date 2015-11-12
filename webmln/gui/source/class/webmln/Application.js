@@ -121,17 +121,17 @@ qx.Class.define("webmln.Application", {
 
             var popup = new qx.ui.embed.Html();
             popup.setWidth(500);
-            popup.setHeight(225);
+            popup.setHeight(300);
             popup.setMarginLeft(-250);
-            popup.setMarginTop(-125);
+            popup.setMarginTop(-150);
             popup.setOpacity(0);
             popup.hide();
             this._popup = popup;
 
             this._graphVizContainerInf = graphVizContainerInf;
             graphVizContainerInf.add(vizEmbedGrp, {width: "100%", height: "100%"});
-            graphVizContainerInf.add(popup, { left: "50%", top: "50%"});
             graphVizContainerInf.add(waitImageInf, { left: "50%", top: "50%"});
+            graphVizContainerInf.add(popup, { left: "50%", top: "50%"});
             graphVizContainerInf.add(legendImage, { left: 10, top: 25});
 
 
@@ -345,8 +345,9 @@ qx.Class.define("webmln.Application", {
          */
         _notify : function(message, delay, callback) {
             if (!message) {
-                message = 'Consider yourself notified!'
+                message = ''
             }
+            console.log('msg', message);
             var msg = "<div><center><h1>" + message + "</h1></center></div>";
             this._popup.setHtml(msg);
 
@@ -626,13 +627,7 @@ qx.Class.define("webmln.Application", {
             row += 1;
             mlnFormContainer.add(this.__btnStart, {row: row, column: 1, colSpan: 4});
             row += 1;
-//            this.__btnnotify = new qx.ui.form.Button("Notify", null);
-//            this.__btnnotify.addListener('execute', function(e) {
-//                this._notify("Graph cannot be generated", 100, function() {
-//                    this._notify("BECAUSE OF MAJOR FUCKUP.", 100);
-//                });
-//            }, this);
-//            mlnFormContainer.add(this.__btnnotify, {row: row, column: 1, colSpan: 4});
+
             return mlnFormContainer;
         },
 
@@ -1126,28 +1121,52 @@ qx.Class.define("webmln.Application", {
                                     "verbose": this.__chkbxVerbose.getValue()});
                 req.addListener("success", function(e) {
                         var that = this;
-                        this._show_wait_animation("Inf", false);
                         var tar = e.getTarget();
                         var response = tar.getResponse();
-                        if (response.graphres.length < 200) {
-                            this.updateGraph([],response.graphres);
-                        } else {
-                            this._notify("Graph cannot be displayed.", 100, function() {
-                                this._notify("Generated MRF contains about " + response.graphres.length + " links, exceeding the maximum number of 200.", 300);
-                            });
-                        }
-                        this['_barChartdia'].replaceData(response.resbar);
-                        this.__textAreaResultsInf.setValue(response.output);
-                        this.__textAreaResultsInf.getContentElement().scrollToY(10000);
-
-                        this._imgRatio = response.condprob.ratio;
-                        this._condProb.resetSource();
-                        if (response.img !== '') {
-                          this._condProb.setSource('data:image/png;base64,' + response.condprob.png);
-                        }
-
+                        this._notify(response.message, 100);
+                        this._get_inf_status(null);
                 }, this);
                 req.send();
+        },
+
+
+        /**
+        * Request inference status
+        */
+        _get_inf_status : function(timeout) {
+
+            var req = new qx.io.request.Xhr("/mln/inference/_get_inf_status", "POST");
+            req.setRequestHeader("Content-Type", "application/json");
+            req.setRequestData({"timeout": timeout});
+            req.addListener("success", function(e) {
+                var that = this;
+                var tar = e.getTarget();
+                var response = tar.getResponse();
+                this._notify(response.message, 100);
+
+                if (response.status == true) {
+                    this._show_wait_animation("Inf", false);
+                    if (response.graphres.length < 200) {
+                        this.updateGraph([],response.graphres);
+                    } else {
+                        this._notify("Graph cannot be displayed.", 100, function() {
+                            this._notify("Generated MRF contains about " + response.graphres.length + " links, exceeding the maximum number of visualizable links.", 300);
+                        });
+                    }
+                    this['_barChartdia'].replaceData(response.resbar);
+                    this.__textAreaResultsInf.setValue(response.output);
+                    this.__textAreaResultsInf.getContentElement().scrollToY(10000);
+
+                    this._imgRatio = response.condprob.ratio;
+                    this._condProb.resetSource();
+                    if (response.img !== '') {
+                      this._condProb.setSource('data:image/png;base64,' + response.condprob.png);
+                    }
+                } else {
+                    this._get_inf_status(timeout);
+                }
+            }, this);
+            req.send();
         },
 
 

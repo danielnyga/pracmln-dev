@@ -28,15 +28,15 @@ qx.Class.define("webmln.BarChart",
     this.h = document.getElementById(id, true, true).offsetHeight;
     this.id = id;
     this.barHeight = 15;
-    this.topOffset = 50;
-    this.leftOffset = 80;
+    this.topOffset = 15;
+
+    this.fontpixels = 7.5; //x-small
+    this.yBarWidth = 0;
 
     this['barChartSVG'+ this.id] = d3.select("#" + this.id).append("svg")
               .attr("class", "chart")
-              .attr("width", "100%")
-              .attr("height", "100%")
               .append("g")
-              .attr("transform", "translate(" + this.leftOffset + "," + 20 + ")");
+              .attr("transform", "translate(" + this.yBarWidth + "," + this.topOffset + ")");
 
     this['barChartSVG'+ this.id].append("g")
         .attr("class", "x axis");
@@ -58,6 +58,13 @@ qx.Class.define("webmln.BarChart",
         this.clear();
         this.barChartData = results.slice();
         this.barChartData.sort(function(a, b) { return b.value - a.value; });
+        var l = [];
+        for (var e = 0; e < this.barChartData.length; e++) {
+            l.push(this.barChartData[e].name);
+        }
+        if (l.length > 0) {
+            this.yBarWidth = l.reduce(function (a, b) { return a.length > b.length ? a : b; }).length * this.fontpixels;
+        }
         this.update();
     },
 
@@ -73,11 +80,13 @@ qx.Class.define("webmln.BarChart",
      * redraws the bar chart with the updated data
      */
     update : function () {
-        this.h = this.barChartData.length * 1.2*this.barHeight;
+        this.h = this.barChartData.length * 1.2 * this.barHeight;
+        d3.select("#" + this.id).select("svg").select("g")
+            .attr("transform", "translate(" + this.yBarWidth + "," + this.topOffset + ")");
 
         var format = d3.format(".4f");
         var x = d3.scale.linear()
-            .range([0, this.w-120])
+            .range([0, this.w - this.yBarWidth - 5*this.fontpixels])
             .domain([0, 1]);
 
         var y = d3.scale.ordinal()
@@ -113,7 +122,7 @@ qx.Class.define("webmln.BarChart",
             .attr("class", "value")
             .attr("x", function(d) { return x(d.value); })
             .attr("y", y.rangeBand() / 2)
-            .attr("dx", function(d) { return d.value > .1 ? -3 : "3.5em"; })
+            .attr("dx", function(d) { return d.value > .1 ? -3 : "4em"; })
             .attr("dy", ".35em")
             .attr("text-anchor", "end")
             .text(function(d) { return format(d.value); });
@@ -127,8 +136,15 @@ qx.Class.define("webmln.BarChart",
         this['barChartSVG'+ this.id].selectAll("g.x.axis")
             .call(xAxis);
 
-        this.h = this.barChartData.length * this.barHeight + this.topOffset;
-        d3.select("#" + this.id).select("svg").attr("height", this.h);
+        this.h = this.barChartData.length * 1.2 * this.barHeight + this.topOffset;
+
+        d3.select("#" + this.id).select("svg").select("g")
+            .attr("height", this.h)
+            .attr("width", this.w);
+
+        d3.select("#" + this.id).select("svg")
+            .attr("height", this.h)
+            .attr("width", this.w);
     }
   }
 });

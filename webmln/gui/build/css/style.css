@@ -47,6 +47,7 @@ text {
   color: blue;
   font-weight: bold;
   font-size:x-small;
+  font-family: monospace;
 }
 
 .bar text.value {

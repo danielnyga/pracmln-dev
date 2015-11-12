@@ -1,5 +1,6 @@
 import json
 import logging
+from threading import Thread
 import traceback
 import subprocess
 from StringIO import StringIO
@@ -16,6 +17,7 @@ from pracmln.utils.visualization import get_cond_prob_png
 from utils import ensure_mln_session, GUI_SETTINGS, change_example
 from webmln.gui.app import mlnApp
 import pracmln
+from webmln.gui.pages.buffer import RequestBuffer
 
 
 log = logger(__name__)
@@ -44,11 +46,33 @@ def change_example_inf():
 @mlnApp.app.route('/mln/inference/_start_inference', methods=['POST'])
 def start_inference():
     mlnsession = ensure_mln_session(session)
-    
+    data = json.loads(request.get_data())
+
+    mlnsession.infbuffer = RequestBuffer()
+    Thread(target=infer, args=(mlnsession, data)).start()
+    mlnsession.infbuffer.waitformsg(timeout=None)
+
+    return jsonify(mlnsession.infbuffer.content)
+
+
+@mlnApp.app.route('/mln/inference/_get_inf_status', methods=['POST'])
+def getinfstatus():
+    mlnsession = ensure_mln_session(session)
+    data = json.loads(request.get_data())
+
+    timeout = data.get('timeout', None)
+    mlnsession.infbuffer.waitformsg(timeout=timeout)
+
+    return jsonify(mlnsession.infbuffer.content)
+
+
+def infer(mlnsession, data):
+
     # initialize logger
     stream = StringIO()
     handler = logging.StreamHandler(stream)
-    sformatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    sformatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(sformatter)
     streamlog = logging.getLogger('streamlog')
     streamlog.setLevel(logging.INFO)
@@ -57,11 +81,13 @@ def start_inference():
     sys.stdout = stream
 
     # load settings from webform
-    data = json.loads(request.get_data())
     mln_content = data['mln_text'].encode('utf8')
     db_content = data['db_text'].encode('utf8')
     emln_content = data['emln_text'].encode('utf8')
-    output = config.query_output_filename(data['mln'].encode('utf8'), InferenceMethods.id(data['method'].encode('utf8')), data['db'].encode('utf8'))
+    output = config.query_output_filename(data['mln'].encode('utf8'),
+                                          InferenceMethods.id(data['method']
+                                                              .encode('utf8')),
+                                          data['db'].encode('utf8'))
     mln_name = data['mln'].encode('utf8')
     db_name = data['db'].encode('utf8')
     emln_name = data['emln'].encode('utf8')
@@ -77,7 +103,8 @@ def start_inference():
              queries=data['query'].encode('utf8'),
              mln=mln_name, emln=emln_name,
              output_filename=output,
-             cw=data['closed_world'], cw_preds=map(str.strip, str(data['cw_preds']).split(',')),
+             cw=data['closed_world'],
+             cw_preds=map(str.strip, str(data['cw_preds']).split(',')),
              use_emln=data['use_emln'], logic=data['logic'].encode('utf8'),
              grammar=data['grammar'].encode('utf8'),
              multicore=data['multicore'], save=True,
@@ -86,6 +113,9 @@ def start_inference():
 
     # store settings in session
     mlnsession.projectinf.learnconf.conf = inferconfig.config.copy()
+
+    mlnsession.infbuffer.setmsg({'message': 'Creating MLN and DB objects may'
+                                ' take a while...','status': False})
 
     barchartresults = []
     graphres = []
@@ -100,9 +130,18 @@ def start_inference():
             tmpconfig.update(params)
 
         # create the MLN and evidence database and the parse the queries
-        modelstr = mln_content + (emln_content if tmpconfig.get('use_emln', False) and emln_content != '' else '')
-        mln = parse_mln(modelstr, searchpaths=[mlnsession.tmpsessionfolder], projectpath=mlnsession.tmpsessionfolder, logic=tmpconfig.get('logic', 'FirstOrderLogic'), grammar=tmpconfig.get('grammar', 'PRACGrammar'))
-        db = parse_db(mln, db_content, ignore_unknown_preds=tmpconfig.get('ignore_unknown_preds', False))
+        modelstr = mln_content + \
+                   (emln_content if tmpconfig.get('use_emln', False) and emln_content != '' else '')
+
+        mln = parse_mln(modelstr,
+                        searchpaths=[mlnsession.tmpsessionfolder],
+                        projectpath=mlnsession.tmpsessionfolder,
+                        logic=tmpconfig.get('logic', 'FirstOrderLogic'),
+                        grammar=tmpconfig.get('grammar', 'PRACGrammar'))
+        db = parse_db(mln, db_content,
+                      ignore_unknown_preds=tmpconfig.get(
+                          'ignore_unknown_preds',
+                          False))
 
         if type(db) is list and len(db) > 1:
             raise Exception('Inference can only handle one database at a time')
@@ -113,7 +152,8 @@ def start_inference():
         queries = tmpconfig.get('queries', pracmln.ALL)
         if isinstance(queries, basestring):
             queries = parse_queries(mln, queries)
-        tmpconfig['cw_preds'] = filter(lambda x: bool(x), tmpconfig['cw_preds'])
+        tmpconfig['cw_preds'] = filter(lambda x: bool(x),
+                                       tmpconfig['cw_preds'])
 
         # extract and remove all non-algorithm
         method = InferenceMethods.clazz(tmpconfig.get('method', 'MCSAT'))
@@ -129,6 +169,8 @@ def start_inference():
                 mrf.print_evidence_vars(stream)
 
             inference = method(mrf, queries, **tmpconfig)
+            mlnsession.infbuffer.setmsg({'message': 'Starting Inference...',
+                                         'status': False})
             result = inference.run()
 
             output = StringIO()
@@ -138,10 +180,13 @@ def start_inference():
             if inferconfig.get('verbose', False):
                 streamlog.info('INFERENCE RESULTS: \n' + res)
 
-            graphres = calculategraphres(mrf, db.evidence.keys(), inference.queries)
-            barchartresults = [{"name": x, "value": inference.results[x]} for x in inference.results]
+            graphres = calculategraphres(mrf, db.evidence.keys(),
+                                         inference.queries)
+            barchartresults = [{"name": x, "value": inference.results[x]} for
+                               x in inference.results]
 
-            png, ratio = get_cond_prob_png(queries, db, filedir=mlnsession.tmpsessionfolder)
+            png, ratio = get_cond_prob_png(queries, db,
+                                           filedir=mlnsession.tmpsessionfolder)
 
             # save settings to project
             if inferconfig.get('save', False):
@@ -151,7 +196,8 @@ def start_inference():
                 mlnsession.projectinf.emlns[mln_name] = emln_content
                 mlnsession.projectinf.dbs[db_name] = db_content
                 mlnsession.projectinf.save(dirpath=mlnsession.tmpsessionfolder)
-                streamlog.info('saved result to file results/{} in project {}'.format(fname, mlnsession.projectinf.name))
+                streamlog.info('saved result to file results/{} in project {}'
+                               .format(fname, mlnsession.projectinf.name))
 
             streamlog.info('FINISHED')
 
@@ -162,9 +208,12 @@ def start_inference():
     except:
         traceback.print_exc(file=stream)
     finally:
-        return jsonify({'graphres': graphres, 'resbar': barchartresults,
-                    'output': stream.getvalue(),
-                    'condprob': {'png': png, 'ratio': ratio}})
+        mlnsession.infbuffer.setmsg({'message': '',
+                                     'status': True,
+                                     'graphres': graphres,
+                                     'resbar': barchartresults,
+                                     'output': stream.getvalue(),
+                                     'condprob': {'png': png, 'ratio': ratio}})
 
 
 @mlnApp.app.route('/mln/inference/_use_model_ext', methods=['GET', 'OPTIONS'])
@@ -189,29 +238,31 @@ def calculategraphres(resmrf, evidence, queries):
         gatoms = sorted(formula.gndatoms(), key=lambda entry: str(entry))
         perms = perm(gatoms)
         permutations.extend(perms)
-        linkformulas.extend([str(formula)]*len(perms))
+        linkformulas.extend([str(formula)] * len(perms))
     links = []
 
     for i, p in enumerate(permutations):
-        sourceev = "evidence" if str(p[0]) in evidence else "query" if p[0] in queries else "hiddenCircle"
-        targetev = "evidence" if str(p[1]) in evidence else "query" if p[1] in queries else "hiddenCircle"
+        sourceev = "evidence" if str(p[0]) in evidence else "query" \
+            if p[0] in queries else "hiddenCircle"
+        targetev = "evidence" if str(p[1]) in evidence else "query" \
+            if p[1] in queries else "hiddenCircle"
 
         lnk = {'source': {'name': str(p[0]), 'type': sourceev},
                'target': {'name': str(p[1]), 'type': targetev},
                'value': linkformulas[i],
                'arcStyle': 'strokegreen'}
 
-        links.append(lnk) #may contain duplicate links
+        links.append(lnk)  # may contain duplicate links
     return links
 
 
 # returns useful combinations of the list items.
 # ignores atoms with two identical arguments (e.g. Friends(Bob, Bob))
 # and duplicates
-def perm(list):
+def perm(l):
     res = []
-    for i, val in enumerate(list):
-        for y, val2 in enumerate(list):
+    for i, val in enumerate(l):
+        for y, val2 in enumerate(l):
             if i >= y: continue
             if (val, val2) in res: continue
             res.append((val, val2))
