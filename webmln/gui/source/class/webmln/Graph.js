@@ -29,7 +29,7 @@ qx.Class.define("webmln.Graph",
         .attr('width','100%')
         .attr('height','100%')
         .append('svg:g');
-    this.WAITMSEC = 500;
+    this.WAITMSEC = 100;
 
     //this.audio = new Audio("audio/bubble.wav");
 
@@ -397,7 +397,7 @@ qx.Class.define("webmln.Graph",
         .charge(-200)
         .on("tick", tick)
         .gravity( .05 )
-        .distance( 200 )
+        .distance( 100 )
         .start();
     }
   }

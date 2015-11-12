@@ -235,6 +235,17 @@ qx.Class.define("webmln.Application", {
                 contentIsle.setHeight(h);
             }, this);
 
+            // reposition graph when inference settings are shown/hidden
+            graphVizContainerInf.addListener('resize', function(e) {
+                if (typeof this._graph != 'undefined') {
+                    var vizSize = graphVizContainerInf.getInnerSize();
+                    var bounds = graphVizContainerInf.getBounds();
+                    this._graph.w = vizSize.width;
+                    this._graph.h = vizSize.height;
+                    this._graph.update();
+                }
+            }, this);
+
 
             // resize image to fit in window
             condProbWin.addListener("resize", function(e) {
