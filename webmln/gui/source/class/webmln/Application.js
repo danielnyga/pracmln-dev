@@ -116,7 +116,7 @@ qx.Class.define("webmln.Application", {
             legendImage.setScale(1);
             this._legendImage = legendImage;
             var graphVizContainerInf = new qx.ui.container.Composite(new qx.ui.layout.Canvas()).set({
-                minHeight: .5*document.getElementById("page", true, true).offsetHeight
+                height: .5*document.getElementById("page", true, true).offsetHeight
             });
 
             var popup = new qx.ui.embed.Html();
@@ -151,11 +151,12 @@ qx.Class.define("webmln.Application", {
             this.__textAreaResultsInf = textAreaResultsInf;
 
             var innersplitpaneinf = new qx.ui.splitpane.Pane("vertical");
-            innersplitpaneinf.add(diaEmbedGrp);
-            innersplitpaneinf.add(textAreaResultsInf);
+            innersplitpaneinf.setHeight(.5*document.getElementById("page", true, true).offsetHeight);
+            innersplitpaneinf.add(diaEmbedGrp, 1);
+            innersplitpaneinf.add(textAreaResultsInf, 2);
             var splitpaneinf = new qx.ui.splitpane.Pane("vertical");
-            splitpaneinf.add(graphVizContainerInf);
-            splitpaneinf.add(innersplitpaneinf);
+            splitpaneinf.add(graphVizContainerInf, 0);
+            splitpaneinf.add(innersplitpaneinf, 1);
 
             containerinf.add(mlnformcontainerinf, {width: "40%", height: "100%"});
             containerinf.add(splitpaneinf, {flex: 1});
