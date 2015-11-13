@@ -6,6 +6,7 @@
     <script type="text/javascript">
       var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
     </script>
+    <script src="{{ url_for('download_mln_static', filename='script/d3.min.js') }}"></script>
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true&libraries=visualization"></script>
 {% endblock %}
 
