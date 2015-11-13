@@ -70,6 +70,8 @@ qx.Class.define("webmln.Application", {
                 height: 768
             });
 
+            var canvascontainer = new qx.ui.container.Composite(new qx.ui.layout.Canvas());
+
             var tabView = new qx.ui.tabview.TabView('bottom');
             tabView.setContentPadding(2,2,2,2);
             this.__tabView = tabView;
@@ -131,7 +133,6 @@ qx.Class.define("webmln.Application", {
             this._graphVizContainerInf = graphVizContainerInf;
             graphVizContainerInf.add(vizEmbedGrp, {width: "100%", height: "100%"});
             graphVizContainerInf.add(waitImageInf, { left: "50%", top: "50%"});
-            graphVizContainerInf.add(popup, { left: "50%", top: "50%"});
             graphVizContainerInf.add(legendImage, { left: 10, top: 25});
 
 
@@ -158,7 +159,7 @@ qx.Class.define("webmln.Application", {
             splitpaneinf.add(graphVizContainerInf, 0);
             splitpaneinf.add(innersplitpaneinf, 1);
 
-            containerinf.add(mlnformcontainerinf, {width: "40%", height: "100%"});
+            containerinf.add(mlnformcontainerinf);
             containerinf.add(splitpaneinf, {flex: 1});
 
             var condProb = new qx.ui.basic.Image();
@@ -190,9 +191,9 @@ qx.Class.define("webmln.Application", {
                 width: 750
             });
             scrolllrn.add(mlnformlrn)
-            var mlnformcontainerinf = new qx.ui.container.Composite(new qx.ui.layout.VBox());
-            mlnformcontainerinf.add(pracmlnlogolrn);
-            mlnformcontainerinf.add(scrolllrn, {flex: 1});
+            var mlnformcontainerlrn = new qx.ui.container.Composite(new qx.ui.layout.VBox());
+            mlnformcontainerlrn.add(pracmlnlogolrn);
+            mlnformcontainerlrn.add(scrolllrn, {flex: 1});
 
             var vizEmbedGrpLrn = new qx.ui.groupbox.GroupBox("Learned MLN");
             var vizLayout = new qx.ui.layout.Grow();
@@ -213,7 +214,7 @@ qx.Class.define("webmln.Application", {
             splitpanelrn.add(graphVizContainerLrn, 2);
             splitpanelrn.add(this.__txtAResultsLrn, 1);
 
-            containerlrn.add(mlnformcontainerinf, {width: "40%"});
+            containerlrn.add(mlnformcontainerlrn);
             containerlrn.add(splitpanelrn, {flex: 1});
 
             /* ************************ LISTENERS **********************************/
@@ -315,12 +316,15 @@ qx.Class.define("webmln.Application", {
             ////////////////// DOKU PAGE ////////////////////
             var aboutPage = new qx.ui.tabview.Page("Documentation");
             this.__aboutPage = aboutPage;
-            var iframedocumentation = new qx.ui.embed.Iframe("/mln/doc/_build/html/index.html");
+            var iframedocumentation = new qx.ui.embed.Iframe("/mln/doc/_build/html/mln_syntax.html");
             aboutPage.setLayout(new qx.ui.layout.Grow());
             aboutPage.add(iframedocumentation);
             tabView.add(aboutPage, {width: "100%", height: "100%"});
 
-            mainScrollContainer.add(tabView, {width: "100%", height: "100%"});
+            canvascontainer.add(tabView, {width: "100%", height: "100%"});
+            canvascontainer.add(popup, { left: "50%", top: "50%"});
+
+            mainScrollContainer.add(canvascontainer, {width: "100%", height: "100%"});
             contentIsle.add(mainScrollContainer, {width: "100%", height: "100%"});
             this.getRoot().add(condProbWin, {left:20, top:20});
             this._init();
@@ -344,38 +348,36 @@ qx.Class.define("webmln.Application", {
          * show or hide message
          */
         _notify : function(message, delay, callback) {
-            if (!message) {
-                message = ''
+            if (message && message != '') {
+                var msg = '<div style="background-color: #bee280;"><center><h1>' + message + '</h1></center></div>';
+                this._popup.setHtml(msg);
+
+                var fadeIN = function(val, t) {
+                    var fadeinInterval = setTimeout( function() {
+                          if (val < 1.0) {
+                            t._popup.setOpacity(val);
+                            fadeIN(val + 0.1, t);
+                          } else {
+                            fadeOUT(1.0, t);
+                          }
+                    }, delay || 200);
+                };
+
+                var fadeOUT = function(val, t) {
+                    var fadeoutInterval = setTimeout( function() {
+                          if (val > 0.0) {
+                            t._popup.setOpacity(val);
+                            fadeOUT(val - 0.1, t);
+                          } else {
+                            t._popup.hide();
+                            callback && callback.call(t||this);
+                          }
+                    }, delay || 200);
+                };
+
+                this._popup.show();
+                fadeIN(0, this);
             }
-            console.log('msg', message);
-            var msg = "<div><center><h1>" + message + "</h1></center></div>";
-            this._popup.setHtml(msg);
-
-            var fadeIN = function(val, t) {
-                var fadeinInterval = setTimeout( function() {
-                      if (val < 1.0) {
-                        t._popup.setOpacity(val);
-                        fadeIN(val + 0.1, t);
-                      } else {
-                        fadeOUT(1.0, t);
-                      }
-                }, delay || 200);
-            };
-
-            var fadeOUT = function(val, t) {
-                var fadeoutInterval = setTimeout( function() {
-                      if (val > 0.0) {
-                        t._popup.setOpacity(val);
-                        fadeOUT(val - 0.1, t);
-                      } else {
-                        t._popup.hide();
-                        callback && callback.call(t||this);
-                      }
-                }, delay || 200);
-            };
-
-            this._popup.show();
-            fadeIN(0, this);
         },
 
 
@@ -1135,22 +1137,22 @@ qx.Class.define("webmln.Application", {
         */
         _get_inf_status : function(timeout) {
 
-            var req = new qx.io.request.Xhr("/mln/inference/_get_inf_status", "POST");
+            var req = new qx.io.request.Xhr("/mln/inference/_get_status", "POST");
             req.setRequestHeader("Content-Type", "application/json");
             req.setRequestData({"timeout": timeout});
             req.addListener("success", function(e) {
                 var that = this;
                 var tar = e.getTarget();
                 var response = tar.getResponse();
-                this._notify(response.message, 100);
 
                 if (response.status == true) {
+                    this._notify(response.message, 200);
                     this._show_wait_animation("Inf", false);
                     if (response.graphres.length < 200) {
                         this.updateGraph([],response.graphres);
                     } else {
                         this._notify("Graph cannot be displayed.", 100, function() {
-                            this._notify("Generated MRF contains about " + response.graphres.length + " links, exceeding the maximum number of visualizable links.", 300);
+                            this._notify("Generated MRF contains about " + response.graphres.length + " links, exceeding the maximum number of visualizable links.", 200);
                         });
                     }
                     this['_barChartdia'].replaceData(response.resbar);
@@ -1163,6 +1165,7 @@ qx.Class.define("webmln.Application", {
                       this._condProb.setSource('data:image/png;base64,' + response.condprob.png);
                     }
                 } else {
+                    this._notify(response.message, 100);
                     this._get_inf_status(timeout);
                 }
             }, this);
@@ -1174,6 +1177,8 @@ qx.Class.define("webmln.Application", {
         * Start the learning process
         */
         _start_learning : function(e) {
+                this.__txtAMLNviz.setValue('');
+                this._highlight('mlnResultArea');
                 this._show_wait_animation("Lrn", true);
                 var that = this;
                 this.loadGraph();
@@ -1213,17 +1218,41 @@ qx.Class.define("webmln.Application", {
                                     "ignore_zero_weight_formulas": this.__chkbxLRemoveFormulas.getValue()
                                     });
                 req.addListener("success", function(e) {
-                        this._show_wait_animation("Lrn", false);
                         var tar = e.getTarget();
                         var response = tar.getResponse();
-                        var output = response.output;
-                        this.__txtAMLNviz.setValue(response.learnedmln);
-                        this._highlight('mlnResultArea');
-                        this.__txtAResultsLrn.setValue(output);
-                        this._refresh_list(this.__slctMLNLrn, true);
-
+                        this._notify(response.message, 100);
+                        this._get_lrn_status(null);
                 }, this);
                 req.send();
+        },
+
+
+        /**
+        * Request learning status
+        */
+        _get_lrn_status : function(timeout) {
+
+            var req = new qx.io.request.Xhr("/mln/learning/_get_status", "POST");
+            req.setRequestHeader("Content-Type", "application/json");
+            req.setRequestData({"timeout": timeout});
+            req.addListener("success", function(e) {
+                var that = this;
+                var tar = e.getTarget();
+                var response = tar.getResponse();
+                if (response.status == true) {
+                    this._notify(response.message, 300);
+                    this._show_wait_animation("Lrn", false);
+                    this.__txtAMLNviz.setValue(response.learnedmln);
+                    this._highlight('mlnResultArea');
+                    this.__txtAResultsLrn.setValue(response.output);
+                    this.__txtAResultsLrn.getContentElement().scrollToY(10000);
+                    this._refresh_list(this.__slctMLNLrn, true);
+                } else {
+                    this._notify(response.message, 100);
+                    this._get_lrn_status(timeout);
+                }
+            }, this);
+            req.send();
         },
 
 

@@ -1,5 +1,6 @@
 import os
 import logging
+from threading import Thread
 import traceback
 from StringIO import StringIO
 from flask import json, request, session, jsonify
@@ -9,22 +10,46 @@ from pracmln.mln.database import parse_db
 from pracmln.praclog import logger
 from pracmln.utils import config
 from webmln.gui.app import mlnApp
-from webmln.gui.pages.utils import ensure_mln_session, change_example, get_training_db_paths
+from webmln.gui.pages.buffer import RequestBuffer
+from webmln.gui.pages.utils import ensure_mln_session, change_example, \
+    get_training_db_paths
 from pracmln import Database, MLNLearn
 from pracmln.mln.methods import LearningMethods
 from pracmln.utils.project import PRACMLNConfig
+
 
 log = logger(__name__)
 
 
 @mlnApp.app.route('/mln/learning/_start_learning', methods=['POST'])
-def start_learning(savegeometry=True):
+def start_learning():
     mlnsession = ensure_mln_session(session)
+    data = json.loads(request.get_data())
 
+    mlnsession.lrnbuffer = RequestBuffer()
+    Thread(target=learn, args=(mlnsession, data)).start()
+    mlnsession.lrnbuffer.waitformsg(timeout=None)
+
+    return jsonify(mlnsession.lrnbuffer.content)
+
+
+@mlnApp.app.route('/mln/learning/_get_status', methods=['POST'])
+def getlrnstatus():
+    mlnsession = ensure_mln_session(session)
+    data = json.loads(request.get_data())
+
+    timeout = data.get('timeout', None)
+    mlnsession.lrnbuffer.waitformsg(timeout=timeout)
+
+    return jsonify(mlnsession.lrnbuffer.content)
+
+
+def learn(mlnsession, data):
     # initialize logger
     stream = StringIO()
     handler = logging.StreamHandler(stream)
-    sformatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    sformatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(sformatter)
     streamlog = logging.getLogger('streamlog')
     streamlog.setLevel(logging.INFO)
@@ -33,10 +58,13 @@ def start_learning(savegeometry=True):
     sys.stdout = stream
 
     # load settings from webform
-    data = json.loads(request.get_data())
     mln_content = data['mln_text'].encode('utf8')
     db_content = data['db_text'].encode('utf8')
-    output = config.learnwts_output_filename(data['mln'].encode('utf8'), LearningMethods.id(data['method'].encode('utf8')), data['db'].encode('utf8'))
+    output = config.learnwts_output_filename(data['mln'].encode('utf8'),
+                                             LearningMethods.id(
+                                                 data['method'].encode(
+                                                     'utf8')),
+                                             data['db'].encode('utf8'))
     mln_name = data['mln'].encode('utf8')
     db_name = data['db'].encode('utf8')
 
@@ -66,34 +94,60 @@ def start_learning(savegeometry=True):
              incremental=data['incremental'],
              pattern=data['pattern'].encode('utf8')))
 
-    if learnconfig.get('mln', None) is None or learnconfig.get('mln', None) == "":
+    if learnconfig.get('mln', None) is None \
+            or learnconfig.get('mln', None) == "":
         raise Exception("No MLN was selected")
 
     # store settings in session
     mlnsession.projectlearn.learnconf.conf = learnconfig.config.copy()
 
     learnedmln = ''
+    message = ''
     try:
-        mlnobj = parse_mln(mln_content, searchpaths=[mlnsession.tmpsessionfolder], projectpath=os.path.join(mlnsession.tmpsessionfolder, mlnsession.projectlearn.name), logic=learnconfig.get('logic', 'FirstOrderLogic'), grammar=learnconfig.get('grammar', 'PRACGrammar'))
+        mlnsession.lrnbuffer.setmsg(
+            {
+                'message': 'Creating MLN object. This may take a while for '
+                           'large MLNs...',
+                'status': False})
+
+        mlnobj = parse_mln(mln_content,
+                           searchpaths=[mlnsession.tmpsessionfolder],
+                           projectpath=os.path.join(
+                               mlnsession.tmpsessionfolder,
+                               mlnsession.projectlearn.name),
+                           logic=learnconfig.get('logic', 'FirstOrderLogic'),
+                           grammar=learnconfig.get('grammar', 'PRACGrammar'))
 
         if learnconfig.get('pattern'):
-            local, dblist = get_training_db_paths(learnconfig.get('pattern', '').strip())
+            local, dblist = get_training_db_paths(learnconfig
+                                                  .get('pattern', '')
+                                                  .strip())
             dbobj = []
             # build database list from project dbs
             if local:
                 for dbname in dblist:
-                    dbobj.extend(parse_db(mlnobj, mlnsession.projectlearn.dbs[dbname].strip(), ignore_unknown_preds=learnconfig.get('ignore_unknown_preds', True)))
+                    dbobj.extend(parse_db(mlnobj, mlnsession.projectlearn.dbs[
+                        dbname].strip(), ignore_unknown_preds=learnconfig.get(
+                        'ignore_unknown_preds', True)))
             # build database list from filesystem dbs
             else:
                 for dbpath in dblist:
-                    dbobj.extend(Database.load(mlnobj, dbpath, ignore_unknown_preds=learnconfig.get('ignore_unknown_preds', True)))
+                    dbobj.extend(Database.load(mlnobj, dbpath,
+                                               ignore_unknown_preds=learnconfig
+                                               .get(
+                                                   'ignore_unknown_preds',
+                                                   True)))
         # build single db from currently selected db
         else:
-            dbobj = parse_db(mlnobj, db_content, ignore_unknown_preds=learnconfig.get('ignore_unknown_preds', True))
-
+            dbobj = parse_db(mlnobj,
+                             db_content,
+                             ignore_unknown_preds=learnconfig
+                             .get('ignore_unknown_preds', True))
 
         # run the learner
         learning = MLNLearn(config=learnconfig, mln=mlnobj, db=dbobj)
+        mlnsession.lrnbuffer.setmsg({'message': 'Start Learning... ',
+                                     'status': False})
         result = learning.run()
 
         output = StringIO()
@@ -110,17 +164,22 @@ def start_learning(savegeometry=True):
             mlnsession.projectlearn.mlns[mln_name] = mln_content
             mlnsession.projectlearn.dbs[db_name] = db_content
             mlnsession.projectlearn.save(dirpath=mlnsession.tmpsessionfolder)
-            streamlog.info('saved result to file results/{} in project {}'.format(fname, mlnsession.projectlearn.name))
+            streamlog.info('saved result to file results/{} in project {}'
+                           .format(fname, mlnsession.projectlearn.name))
 
         streamlog.info('FINISHED')
-    except SystemExit:
+    except SystemExit as s:
         streamlog.error('Cancelled...')
-    except:
+        message = 'Cancelled!\nCheck log for more information.'
+    except Exception as e:
         traceback.print_exc(file=stream)
+        message = 'Error!\nCheck log for more information.'
     finally:
         handler.flush()
-        res = {'output': stream.getvalue(), 'learnedmln': learnedmln}
-        return jsonify(res)
+        mlnsession.lrnbuffer.setmsg({'message': message,
+                                     'status': True,
+                                     'output': stream.getvalue(),
+                                     'learnedmln': learnedmln})
 
 
 @mlnApp.app.route('/mln/learning/_change_example', methods=['POST'])

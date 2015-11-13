@@ -55,7 +55,7 @@ def start_inference():
     return jsonify(mlnsession.infbuffer.content)
 
 
-@mlnApp.app.route('/mln/inference/_get_inf_status', methods=['POST'])
+@mlnApp.app.route('/mln/inference/_get_status', methods=['POST'])
 def getinfstatus():
     mlnsession = ensure_mln_session(session)
     data = json.loads(request.get_data())
