@@ -44,7 +44,8 @@ class FastExact(Inference):
         ground_formulas = self.__get_ground_formulas()
         hard_formulas = filter(lambda f: f.weight == HARD, ground_formulas)
         non_hard_formulas = filter(lambda f: f.weight != HARD, ground_formulas)
-        evidence = self.__concatenate_formulas(self.__get_evidence_as_list_of_gnd_literals(), hard_formulas)
+        evidence = self.__get_world_as_list_of_gnd_literals(self.mrf.evidence)
+        evidence = self.__concatenate_formulas(evidence, hard_formulas)
         non_weight_one_worlds = self.__get_non_weight_one_worlds(non_hard_formulas, self.queries, evidence)
         to_return = {query: self.__calculate_probability(ground_formulas, query, evidence,
                                                     non_weight_one_worlds.query_worlds_dict[query],
@@ -55,15 +56,15 @@ class FastExact(Inference):
     class _NonWeightOneWorldCollection(object):
         def __init__(self, queries):
             self.evidence_worlds = []
-            self.query_worlds_dict = dict.fromkeys(queries, [])
+            self.query_worlds_dict = {q: [] for q in queries}
 
-    def __get_evidence_as_list_of_gnd_literals(self):
+    def __get_world_as_list_of_gnd_literals(self, world):
         logical_evidence = []
-        for i in range(0, len(self.mrf.evidence)):
-            if self.mrf.evidence[i] is not None:
-                if self.mrf.evidence[i] != 1 and self.mrf.evidence[i] != 0:
-                    raise Exception("Unknown Probability value: " + str(self.mrf.evidence[i]))
-                logical_evidence.append(GroundLit(self.mrf.gndatom(i), self.mrf.evidence[i] == 0, self.mln))
+        for i in range(0, len(world)):
+            if world[i] is not None:
+                if world[i] != 1 and world[i] != 0:
+                    raise Exception("Unknown Probability value: " + str(world[i]))
+                logical_evidence.append(GroundLit(self.mrf.gndatom(i), world[i] == 0, self.mln))
         return logical_evidence
 
     def __get_non_weight_one_worlds(self, non_hard_formulas, queries, evidence):
