@@ -30,6 +30,7 @@ from pracmln.mln.learning.cll import CLL, DCLL
 from pracmln.mln.learning.ll import LL
 from pracmln.mln.learning.sll import SLL_DN
 from pracmln.mln.learning.bpll import BPLL, DPLL , BPLL_CG, DBPLL_CG
+from pracmln.mln.learning.countfrequency import CountFrequency
 
 class Enum(object):
     
@@ -94,7 +95,8 @@ LearningMethods = Enum(
       (DPLL, '[discriminative] pseudo-log-likelihood'),
       (BPLL, 'pseudo-log-likelihood'),
       (BPLL_CG, 'pseudo-log-likelihood (fast conjunction grounding)'),
-      (DBPLL_CG, '[discriminative] pseudo-log-likelihood (fast conjunction grounding)')
+      (DBPLL_CG, '[discriminative] pseudo-log-likelihood (fast conjunction grounding)'),
+      (CountFrequency, 'Count Frequency')
 #     'MLNBoost': 'MLN-BOOST',
 #     'WPLL': 'Weighted Pseudo-likelihood',
       #"SLL": "sampling-based log-likelihood via direct descent",
