@@ -46,6 +46,7 @@ from pracmln.mln.util import StopWatch, fstr, mergedom, colorize, stripComments,
 from pracmln.mln.mlnpreds import Predicate, FuzzyPredicate, SoftFunctionalPredicate,\
     FunctionalPredicate
 from pracmln.mln.database import Database
+from pracmln.mln.learning import AbstractLearner
 from pracmln.mln.learning.multidb import MultipleDatabaseLearner
 import sys
 import re
@@ -461,12 +462,16 @@ class MLN(object):
         logger.debug('MLN formulas:')
         for f in newmln.formulas: logger.debug('%s %s' % (str(f.weight).ljust(10, ' '), f))
         # run learner
-        if len(dbs) == 1:
+        if len(dbs) == 1 and isinstance(method, AbstractLearner):
             mrf = newmln.ground(dbs[0])
             logger.debug('Loading %s-Learner' % method.__name__)
             learner = method(mrf, **params)
-        else:
+        elif issubclass(method, AbstractLearner):
             learner = MultipleDatabaseLearner(newmln, dbs, method, **params)
+        elif hasattr(method, 'run'):
+            learner = method(newmln, dbs)
+        else:
+            raise Exception("Unable to instantiate learner!")
         if verbose:
             "learner: %s" % learner.name
         wt = learner.run(**params)
