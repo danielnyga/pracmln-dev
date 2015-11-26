@@ -488,6 +488,10 @@ qx.Class.define("webmln.Application", {
             this.__uploader.addWidget(this.__btnUploadDBFileInf)
             this.__chkbxRenameEditEvidence = new qx.ui.form.CheckBox("rename on edit");
             this.__chkbxShowCondProb = new qx.ui.form.CheckBox("show/hide cond. probability");
+            this.__txtFTimeout = new qx.ui.form.TextField("");
+            this.__txtFTimeout.setValue('120');
+            this.__chkbxTimeout = new qx.ui.form.CheckBox("Timeout");
+            this.__chkbxTimeout.setValue(1);
             this.__txtFNameDB = new qx.ui.form.TextField("");
             this.__txtFNameDB.setEnabled(false);
             this.__btnSaveDB = new qx.ui.form.Button("save",null);
@@ -504,7 +508,7 @@ qx.Class.define("webmln.Application", {
             this.__txtFCWPreds = new qx.ui.form.TextField("");
             this.__chkbxApplyCWOption = new qx.ui.form.CheckBox("Apply CW assumption to all but the query preds");
             this.__txtFParams = new qx.ui.form.TextField("");
-            this.__chkbxUseAllCPU = new qx.ui.form.CheckBox("Use all CPUs");
+            this.__chkbxmulticore = new qx.ui.form.CheckBox("Use all CPUs");
             this.__chkbxIgnoreUnknown = new qx.ui.form.CheckBox("Ignore Unknown Predicates");
             this.__chkbxShowLabels = new qx.ui.form.CheckBox("Show Formulas");
             this.__btnStart = new qx.ui.form.Button("Start Inference", null);
@@ -557,13 +561,25 @@ qx.Class.define("webmln.Application", {
                             this._save_file(name, newName, rename, content);
                         }, this);
             this.__chkbxShowCondProb.addListener('changeValue', function(e) {
-                    if (e.getData())
-                        this._condProbWin.show();
-                    else
-                        this._condProbWin.hide();
+                    e.getData() ? this._condProbWin.show() : this._condProbWin.hide();
                 }, this);
             this.__btnDownloadProj.addListener('execute', function(e) {
                 this._download_project();
+            }, this);
+            this.__txtFTimeout.addListener("keypress", function(e){
+                // only accept digits in timeout textfield
+                if(e.getKeyIdentifier().search(/^[0-9.,SpaceBackspaceDeleteLeftRight]+$/) == -1) {
+                    e.preventDefault();
+                }
+            });
+            this.__chkbxTimeout.addListener("changeEnabled", function(e){
+                this.__txtFTimeout.setEnabled(e.getData());
+            }, this);
+            this.__chkbxTimeout.addListener("changeValue", function(e){
+                this.__txtFTimeout.setEnabled(e.getData());
+            }, this);
+            this.__chkbxmulticore.addListener("changeValue", function(e){
+                this.__chkbxTimeout.setEnabled(!e.getData());
             }, this);
 
 
@@ -605,6 +621,8 @@ qx.Class.define("webmln.Application", {
             row += 1;
             mlnFormContainer.add(this.__chkbxRenameEditEvidence, {row: row, column: 1});
             mlnFormContainer.add(this.__chkbxShowCondProb, {row: row, column: 2});
+            mlnFormContainer.add(this.__txtFTimeout, {row: row, column: 3});
+            mlnFormContainer.add(this.__chkbxTimeout, {row: row, column: 4});
             row += 1;
             mlnFormContainer.add(this.__txtFNameDB, {row: row, column: 1, colSpan: 3});
             mlnFormContainer.add(this.__btnSaveDB, {row: row, column: 4});
@@ -624,7 +642,7 @@ qx.Class.define("webmln.Application", {
             row += 1;
             mlnFormContainer.add(this.__chkbxVerbose, {row: row, column: 1});
             mlnFormContainer.add(this.__chkbxShowLabels, {row: row, column: 2});
-            mlnFormContainer.add(this.__chkbxUseAllCPU, {row: row, column: 3});
+            mlnFormContainer.add(this.__chkbxmulticore, {row: row, column: 3});
             mlnFormContainer.add(this.__chkbxIgnoreUnknown, {row: row, column: 4});
             row += 1;
             mlnFormContainer.add(this.__btnStart, {row: row, column: 1, colSpan: 4});
@@ -758,6 +776,10 @@ qx.Class.define("webmln.Application", {
             this.__tDataContainer.add(this.__txtATDataLrn);
             this.__chkbxRenameEditTData = new qx.ui.form.CheckBox("rename on edit");
             this.__chkbxIgnoreUnknownLrn = new qx.ui.form.CheckBox("ignore unknown predicates");
+            this.__txtFTimeoutLrn = new qx.ui.form.TextField("");
+            this.__txtFTimeoutLrn.setValue('120');
+            this.__chkbxTimeoutLrn = new qx.ui.form.CheckBox("Timeout");
+            this.__chkbxTimeoutLrn.setValue(1);
             this.__txtFTDATANewNameLrn = new qx.ui.form.TextField("");
             this.__txtFTDATANewNameLrn.setEnabled(false);
 
@@ -765,7 +787,7 @@ qx.Class.define("webmln.Application", {
             this.__txtFORFilePattern = new qx.ui.form.TextField("");
             this.__txtFParamsLrn = new qx.ui.form.TextField("");
 
-            this.__chkbxUseAllCPULrn = new qx.ui.form.CheckBox("use all CPUs");
+            this.__chkbxmulticoreLrn = new qx.ui.form.CheckBox("use all CPUs");
             this.__chkbxVerboseLrn = new qx.ui.form.CheckBox("verbose");
             this.__chkbxLRemoveFormulas = new qx.ui.form.CheckBox("remove 0-weight formulas");
 
@@ -814,6 +836,21 @@ qx.Class.define("webmln.Application", {
                         }, this);
             this.__btnDownloadProjLrn.addListener('execute', function(e) {
                 this._download_project();
+            }, this);
+            this.__txtFTimeoutLrn.addListener("keypress", function(e){
+                // only accept digits in timeout textfield
+                if(e.getKeyIdentifier().search(/^[0-9.,SpaceBackspaceDeleteLeftRight]+$/) == -1) {
+                    e.preventDefault();
+                }
+            });
+            this.__chkbxTimeoutLrn.addListener("changeValue", function(e){
+                this.__txtFTimeoutLrn.setEnabled(e.getData());
+            }, this);
+            this.__chkbxTimeoutLrn.addListener("changeEnabled", function(e){
+                this.__txtFTimeoutLrn.setEnabled(e.getData());
+            }, this);
+            this.__chkbxmulticoreLrn.addListener("changeValue", function(e){
+                this.__chkbxTimeoutLrn.setEnabled(!e.getData());
             }, this);
 
 
@@ -866,6 +903,8 @@ qx.Class.define("webmln.Application", {
             row += 1;
             mlnFormContainerLrn.add(this.__chkbxRenameEditTData, {row: row, column: 1});
             mlnFormContainerLrn.add(this.__chkbxIgnoreUnknownLrn, {row: row, column: 2});
+            mlnFormContainerLrn.add(this.__txtFTimeoutLrn, {row: row, column: 3});
+            mlnFormContainerLrn.add(this.__chkbxTimeoutLrn, {row: row, column: 4});
             row += 1;
             mlnFormContainerLrn.add(this.__txtFTDATANewNameLrn, {row: row, column: 1, colSpan: 3});
             mlnFormContainerLrn.add(this.__btnSaveTData, {row: row, column: 4});
@@ -876,7 +915,7 @@ qx.Class.define("webmln.Application", {
             mlnFormContainerLrn.add(addParamsLabel, {row: row, column: 0});
             mlnFormContainerLrn.add(this.__txtFParamsLrn, {row: row, column: 1, colSpan: 4});
             row += 1;
-            mlnFormContainerLrn.add(this.__chkbxUseAllCPULrn, {row: row, column: 1});
+            mlnFormContainerLrn.add(this.__chkbxmulticoreLrn, {row: row, column: 1});
             mlnFormContainerLrn.add(this.__chkbxVerboseLrn, {row: row, column: 2});
             mlnFormContainerLrn.add(this.__chkbxLRemoveFormulas, {row: row, column: 3, colSpan:2});
             row += 1;
@@ -1099,6 +1138,7 @@ qx.Class.define("webmln.Application", {
                 var mlnText = this.codeMirrormlnArea ? this.codeMirrormlnArea.doc.getValue() : "";
                 var emlnText = this.codeMirroremlnArea ? this.codeMirroremlnArea.doc.getValue() : "";
                 var dbText = this.codeMirrordbArea ? this.codeMirrordbArea.doc.getValue() : "";
+                var timeout = this.__chkbxTimeout.getValue() && this.__chkbxTimeout.getEnabled() ? this.__txtFTimeout.getValue() : null;
 
                 var req = new qx.io.request.Xhr("/mln/inference/_start_inference", "POST");
                 req.setRequestHeader("Content-Type", "application/json");
@@ -1117,8 +1157,9 @@ qx.Class.define("webmln.Application", {
                                     "cw_preds": this.__txtFCWPreds.getValue(),
                                     "use_emln": this.__chkbxUseModelExt.getValue(),
                                     "logic": logic,
+                                    "timeout": timeout,
                                     "grammar": grammar,
-                                    "multicore": this.__chkbxUseAllCPU.getValue(),
+                                    "multicore": this.__chkbxmulticore.getValue(),
                                     "ignore_unknown_preds": this.__chkbxIgnoreUnknown.getValue(),
                                     "verbose": this.__chkbxVerbose.getValue()});
                 req.addListener("success", function(e) {
@@ -1126,7 +1167,7 @@ qx.Class.define("webmln.Application", {
                         var tar = e.getTarget();
                         var response = tar.getResponse();
                         this._notify(response.message, 100);
-                        this._get_inf_status(null);
+                        this._get_inf_status(timeout);
                 }, this);
                 req.send();
         },
@@ -1145,19 +1186,24 @@ qx.Class.define("webmln.Application", {
                 var tar = e.getTarget();
                 var response = tar.getResponse();
 
+                var message = response.message;
+
                 if (response.status == true) {
-                    this._notify(response.message, 200);
                     this._show_wait_animation("Inf", false);
-                    if (response.graphres.length < 200) {
-                        this.updateGraph([],response.graphres);
-                    } else {
-                        this._notify("Graph cannot be displayed.", 100, function() {
-                            this._notify("Generated MRF contains about " + response.graphres.length + " links, exceeding the maximum number of visualizable links.", 200);
-                        });
-                    }
+
                     this['_barChartdia'].replaceData(response.resbar);
                     this.__textAreaResultsInf.setValue(response.output);
                     this.__textAreaResultsInf.getContentElement().scrollToY(10000);
+
+                    if (response.graphres.length == 0) {
+
+                        message += " Graph contains 0 links.";
+                    }
+                    else if (response.graphres.length > 200) {
+                        message += "Graph cannot be displayed. Generated MRF contains about " + response.graphres.length + " links, exceeding the maximum number of visualizable links.";
+                    } else {
+                        this.updateGraph([],response.graphres);
+                    }
 
                     this._imgRatio = response.condprob.ratio;
                     this._condProb.resetSource();
@@ -1165,9 +1211,9 @@ qx.Class.define("webmln.Application", {
                       this._condProb.setSource('data:image/png;base64,' + response.condprob.png);
                     }
                 } else {
-                    this._notify(response.message, 100);
                     this._get_inf_status(timeout);
                 }
+                this._notify(message, 100);
             }, this);
             req.send();
         },
@@ -1189,6 +1235,7 @@ qx.Class.define("webmln.Application", {
                 var grammar = (this.__slctGrammarLrn.getSelectables().length != 0) ? this.__slctGrammarLrn.getSelection()[0].getLabel() : "";
                 var mlnText = this.codeMirrormlnAreaLrn ? this.codeMirrormlnAreaLrn.doc.getValue() : "";
                 var dbText = this.codeMirrortDataArea ? this.codeMirrortDataArea.doc.getValue() : "";
+                var timeout = this.__chkbxTimeoutLrn.getValue() && this.__chkbxTimeoutLrn.getEnabled() ? this.__txtFTimeoutLrn.getValue() : null;
 
                 var req = new qx.io.request.Xhr("/mln/learning/_start_learning", "POST");
                 req.setRequestHeader("Content-Type", "application/json");
@@ -1213,7 +1260,8 @@ qx.Class.define("webmln.Application", {
                                     "discr_preds": this.__radioQPreds.getValue(),
                                     "logic": logic,
                                     "grammar": grammar,
-                                    "multicore": this.__chkbxUseAllCPULrn.getValue(),
+                                    "timeout": timeout,
+                                    "multicore": this.__chkbxmulticoreLrn.getValue(),
                                     "ignore_unknown_preds": this.__chkbxIgnoreUnknownLrn.getValue(),
                                     "ignore_zero_weight_formulas": this.__chkbxLRemoveFormulas.getValue()
                                     });
@@ -1221,7 +1269,7 @@ qx.Class.define("webmln.Application", {
                         var tar = e.getTarget();
                         var response = tar.getResponse();
                         this._notify(response.message, 100);
-                        this._get_lrn_status(null);
+                        this._get_lrn_status(timeout);
                 }, this);
                 req.send();
         },
@@ -1239,8 +1287,10 @@ qx.Class.define("webmln.Application", {
                 var that = this;
                 var tar = e.getTarget();
                 var response = tar.getResponse();
+
+                var message = response.message;
+
                 if (response.status == true) {
-                    this._notify(response.message, 300);
                     this._show_wait_animation("Lrn", false);
                     this.__txtAMLNviz.setValue(response.learnedmln);
                     this._highlight('mlnResultArea');
@@ -1248,9 +1298,9 @@ qx.Class.define("webmln.Application", {
                     this.__txtAResultsLrn.getContentElement().scrollToY(10000);
                     this._refresh_list(this.__slctMLNLrn, true);
                 } else {
-                    this._notify(response.message, 100);
                     this._get_lrn_status(timeout);
                 }
+                this._notify(message, 100);
             }, this);
             req.send();
         },
@@ -1326,7 +1376,7 @@ qx.Class.define("webmln.Application", {
                 this.__txtFParams.setValue(config.params || '');
                 this.__txtFQueries.setValue(config.queries || '');
                 this.__chkbxVerbose.setValue(config.verbose || false);
-                this.__chkbxUseAllCPU.setValue(config.multicore || false);
+                this.__chkbxmulticore.setValue(config.multicore || false);
 
             } else {
                 // set mln files for learning
@@ -1372,7 +1422,7 @@ qx.Class.define("webmln.Application", {
                 // set config for learning
                 this.__txtFParamsLrn.setValue(config.params || '');
                 this.__chkbxVerboseLrn.setValue(config.verbose || false);
-                this.__chkbxUseAllCPULrn.setValue(config.cw || false);
+                this.__chkbxmulticoreLrn.setValue(config.cw || false);
             }
         },
 
