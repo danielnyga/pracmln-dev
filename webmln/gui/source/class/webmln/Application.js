@@ -248,6 +248,9 @@ qx.Class.define("webmln.Application", {
                 }
             }, this);
 
+            condProbWin.addListener("close", function() {
+                this.__chkbxShowCondProb.setValue(false);
+            }, this);
 
             // resize image to fit in window
             condProbWin.addListener("resize", function(e) {
