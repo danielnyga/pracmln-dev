@@ -51,6 +51,7 @@ class FastExact(Inference):
                                                     non_weight_one_worlds.query_worlds_dict[query],
                                                     non_weight_one_worlds.evidence_worlds)
                 for query in self.queries}
+        print(to_return)
         return to_return
 
     class _NonWeightOneWorldCollection(object):
@@ -81,12 +82,14 @@ class FastExact(Inference):
 
     def __get_ground_formulas(self):
         grounder = FastConjunctionGrounding(self.mrf, False, False, self.mrf.formulas, -1)
-        return [ground_formula.cnf() for ground_formula in grounder.itergroundings()]
+        return [ground_formula for ground_formula in grounder.itergroundings()]
 
     def __concatenate_formulas(self, *formulas):
         conjuncts = []
         for formula in formulas:
             # TODO: Support Disjunctions
+            if hasattr(formula, "cnf"):
+                formula = formula.cnf()
             if isinstance(formula, Conjunction):
                 #Make sure that the conjunction contains allowed elements
                 child = self.__concatenate_formulas(*formula.children)
@@ -111,12 +114,13 @@ class FastExact(Inference):
                 conjuncts.append(formula)
             else:
                 raise Exception("Unknown formula type:" + str(type(formula)))
+        conjuncts = filter(lambda f: not isinstance(f, TrueFalse), conjuncts)
         if len(conjuncts) == 0:
             return TrueFalse(1, self.mln)
         elif len(conjuncts) == 1:
             return conjuncts[0]
         else:
-            return Conjunction(filter(lambda f: not isinstance(f, TrueFalse), conjuncts), self.mln)
+            return Conjunction(conjuncts, self.mln)
 
     def __get_conjunction_as_dict_of_truth_values(self, logical_world_restrictions):
         evidence_truth_values = [None]*len(self.mrf.gndatoms)
