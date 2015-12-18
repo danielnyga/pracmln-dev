@@ -1798,7 +1798,6 @@ class Logic(object):
             # ground
             gndings = []
             self._ground(self.children[0], variables, assignment, gndings, mrf, partial=partial)
-            out(self)
             if len(gndings) == 1:
                 return gndings[0]
             if not gndings:
