@@ -967,7 +967,7 @@ qx.Class.define("webmln.Application", {
          */
         _download_project : function() {
             var project = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctProjectInf : this.__slctProjectLrn).getSelection()[0].getLabel();
-            window.open("/mln/projects/" + project,"_self");
+            window.open("/mln/projects/" + project + ",_self");
         },
         
 
@@ -1109,6 +1109,7 @@ qx.Class.define("webmln.Application", {
                     console.log(file.getFilename() + " (Complete)");
                     this.__uploader.setAutoUpload(true);
                     if (this.__tabView.isSelected(this.__inferencePage)) {
+                        console.log
                         this._change_example_inf();
                     } else {
                         this._change_example_lrn();
