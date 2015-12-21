@@ -145,3 +145,57 @@ circle:hover {
   font-size: 14px;
   border: solid 1px #000000;
 }
+
+#navbar-tool{
+  width:100%;
+  height:52px;
+  background: linear-gradient(to bottom,
+    #549FC8 0%,
+    #246F98 50%,
+    #246F98 51%,
+    #144F78 100%);
+}
+.navbar-tool-brand {
+  float: left;
+  padding: 15px 20px;
+  font-size: 18px;
+  line-height: 20px;
+  height: 50px;
+}
+a.navbar-tool-brand {
+  font-family: 'Oswald', sans-serif;
+  color: #FFFFFF;
+  text-decoration: none;
+  font-size: 34px;
+}
+.navbar-tool-brand img{
+  width: auto;
+  height: 30px;
+}
+.navbar-tool-brand-2 {
+  float: right;
+  padding: 5px 20px;
+}
+.navbar-tool-brand-2 img{
+  width: auto;
+  height: 40px;
+}
+
+#page {
+    height: -o-calc(100% - 63px);
+    height: -webkit-calc(100% - 63px);
+    height: -moz-calc(100% - 63px);
+    width: -o-calc(100% - 8px);
+    width: -webkit-calc(100% - 8px);
+    width: -moz-calc(100% - 8px);
+    
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    padding: 0;
+    margin: 0;
+    background-color: #dadada;
+    padding-left: 15px;
+    margin-top: 63px;
+    margin-left: -8px;
+
