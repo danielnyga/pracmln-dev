@@ -1356,6 +1356,8 @@ qx.Class.define("webmln.Application", {
         _set_config : function (isinfpage, config, mlnfiles, dbfiles, methods) {
             if (isinfpage) {
                 // set mln files for inference
+                this.__txtAMLN.setValue('');
+                this._highlight(this.__txtAMLN.getContentElement().getAttribute('id'));
                 this.__slctMLN.removeAll();
                 for (var i = 0; i < mlnfiles.length; i++) {
                     if (mlnfiles[i] == config.mln) {
@@ -1368,6 +1370,8 @@ qx.Class.define("webmln.Application", {
                 this.__slctMLN.setSelection(selectedmlnitem ? [selectedmlnitem] : []);
 
                 // set db files for inference
+                this.__txtAEvidence.setValue('');
+                this._highlight(this.__txtAEvidence.getContentElement().getAttribute('id'));
                 this.__slctEvidence.removeAll();
                 for (var i = 0; i < dbfiles.length; i++) {
                     if (dbfiles[i] == config.db) {
@@ -1404,6 +1408,8 @@ qx.Class.define("webmln.Application", {
 
             } else {
                 // set mln files for learning
+                this.__txtAMLNLrn.setValue('');
+                this._highlight(this.__txtAMLNLrn.getContentElement().getAttribute('id'));
                 this.__slctMLNLrn.removeAll();
                 for (var i = 0; i < mlnfiles.length; i++) {
                     if (mlnfiles[i] == config.mln) {
@@ -1416,6 +1422,8 @@ qx.Class.define("webmln.Application", {
                 this.__slctMLNLrn.setSelection(selectedmlnitem ? [selectedmlnitem] : []);
 
                 // set db files for learning
+                this.__txtATDataLrn.setValue('');
+                this._highlight(this.__txtATDataLrn.getContentElement().getAttribute('id'));
                 this.__slctTDataLrn.removeAll();
                 for (var i = 0; i < dbfiles.length; i++) {
                     if (dbfiles[i] == config.db) {

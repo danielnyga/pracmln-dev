@@ -46,6 +46,9 @@ def init_file_storage():
             if file.endswith('.pracmln'):
                 copyfile(os.path.join(root, file), os.path.join(dirname,file))
 
+    userproj = MLNProject('myProject')
+    userproj.save(os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], dirname))
+
     if not os.path.exists(os.path.join(mlnApp.app.config['LOG_FOLDER'])):
         os.mkdir(os.path.join(mlnApp.app.config['LOG_FOLDER']))
 
@@ -87,7 +90,7 @@ def change_example(task, project):
         mlnfiles = mlnsession.projectlearn.mlns.keys()
 
     inferconfig = mlnsession.projectinf.queryconf.config.copy()
-    inferconfig.update({"method": InferenceMethods.name(mlnsession.projectinf.queryconf.get("method", 'MC-SAT'))})
+    inferconfig.update({"method": InferenceMethods.name(mlnsession.projectinf.queryconf.get("method", 'MCSAT'))})
     lrnconfig = mlnsession.projectlearn.learnconf.config.copy()
     lrnconfig.update({"method": LearningMethods.name(mlnsession.projectlearn.learnconf.get("method", 'BPLL'))})
 
