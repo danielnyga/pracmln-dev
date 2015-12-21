@@ -967,7 +967,7 @@ qx.Class.define("webmln.Application", {
          */
         _download_project : function() {
             var project = (this.__tabView.isSelected(this.__inferencePage) ? this.__slctProjectInf : this.__slctProjectLrn).getSelection()[0].getLabel();
-            window.open("/mln/projects/" + project + ",_self");
+            window.open("/mln/projects/" + project, "_blank");
         },
         
 
