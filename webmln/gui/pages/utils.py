@@ -73,6 +73,7 @@ def change_example(task, project):
     mlnsession = ensure_mln_session(session)
 
     tmpfolder = os.path.join(mlnsession.tmpsessionfolder, project)
+    log.info(tmpfolder)
     if not os.path.exists(tmpfolder):
         return False
 

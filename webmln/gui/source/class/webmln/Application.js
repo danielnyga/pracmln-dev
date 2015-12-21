@@ -1016,7 +1016,7 @@ qx.Class.define("webmln.Application", {
         * Update fields when changing the example folder for inference
         */
         _change_example_inf : function(e){
-            var exampleFolder = e.getData()[0].getLabel();
+            var exampleFolder = this.__slctProjectInf.getSelection()[0].getLabel();
             var req = new qx.io.request.Xhr("/mln/inference/_change_example", "POST");
             req.setRequestHeader("Content-Type", "application/json");
             req.setRequestData({"folder": exampleFolder});
@@ -1034,7 +1034,7 @@ qx.Class.define("webmln.Application", {
         * Update fields when changing the example folder for learning
         */
         _change_example_lrn : function(e){
-            var exampleFolder = e.getData()[0].getLabel();
+            var exampleFolder = this.__slctProjectLrn.getSelection()[0].getLabel();
             var req = new qx.io.request.Xhr("/mln/learning/_change_example", "POST");
             req.setRequestHeader("Content-Type", "application/json");
             req.setRequestData({"folder": exampleFolder});
@@ -1099,7 +1099,28 @@ qx.Class.define("webmln.Application", {
         _upload : function(evt) {
             var file = evt.getData();
             var fileName = file.getFilename();
-            console.log('uploading', fileName);
+
+            var stateListenerId = file.addListener("changeState", function(evt) {
+                var state = evt.getData();
+
+                if (state == "uploading") {
+                    console.log(file.getFilename() + " (Uploading...)");
+                } else if (state == "uploaded") {
+                    console.log(file.getFilename() + " (Complete)");
+                    this.__uploader.setAutoUpload(true);
+                    if (this.__tabView.isSelected(this.__inferencePage)) {
+                        this._change_example_inf();
+                    } else {
+                        this._change_example_lrn();
+                    }
+                } else if (state == "cancelled") {
+                    console.log(file.getFilename() + " (Cancelled)");
+                }
+                // Remove the listeners
+                if (state == "uploaded" || state == "cancelled") {
+                    file.removeListenerById(stateListenerId);
+                }
+            }, this);
             this.__uploader.setAutoUpload(true);
         },
 
