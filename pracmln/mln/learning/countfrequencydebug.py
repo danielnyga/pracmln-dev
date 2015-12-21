@@ -10,7 +10,10 @@ class CountFrequencyDebug(CountFrequency):
         weights = CountFrequency.run(self, **unused_kwargs)
         for db_index, db in enumerate(self.databases):
             mrf = self.mln.ground(db)
-            learner = LL(mrf)
-            learner._prepare()
-            print "P for database " + str(db_index) + ": " + str(learner._l(weights)[learner._eworld_idx])
+            if len(mrf.variables) > 12:
+                print "(database " + str(db_index) + " skipped!)"
+            else:
+                learner = LL(mrf)
+                learner._prepare()
+                print "P for database " + str(db_index) + ": " + str(learner._l(weights)[learner._eworld_idx])
         return weights
