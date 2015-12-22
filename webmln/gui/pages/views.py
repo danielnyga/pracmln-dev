@@ -9,7 +9,8 @@ from pracmln.mln.util import out, stop, colorize
 from pracmln.praclog import logger
 from utils import ensure_mln_session, convert
 from urlparse import urlparse
-from flask import render_template, send_from_directory, request, session, jsonify, \
+from flask import render_template, send_from_directory, request, session, \
+    jsonify, \
     url_for, current_app, make_response
 import time
 from werkzeug.utils import redirect
@@ -28,7 +29,8 @@ def download_mln_static(filename):
 
 @mlnApp.app.route('/mln/doc/<path:filename>')
 def download_mln_docs(filename):
-    return send_from_directory(os.path.join(mlnApp.app.config['MLN_ROOT_PATH'], 'doc'), filename)
+    return send_from_directory(
+        os.path.join(mlnApp.app.config['MLN_ROOT_PATH'], 'doc'), filename)
 
 
 @mlnApp.app.route('/mln/')
@@ -68,7 +70,8 @@ def remove_if_invalid(response):
         response.delete_cookie(mlnApp.app.session_cookie_name)
         mln_session = mlnApp.session_store[session]
         if mln_session is not None:
-            log.info('removed mln session %s' % mln_session.id.encode('base-64'))
+            log.info(
+                'removed mln session %s' % mln_session.id.encode('base-64'))
             mlnApp.session_store.remove(session)
         session.clear()
     return response
@@ -109,8 +112,10 @@ def mlnlog():
 def mlnlog_(filename):
     if os.path.isfile(os.path.join(mlnApp.app.config['LOG_FOLDER'], filename)):
         return send_from_directory(mlnApp.app.config['LOG_FOLDER'], filename)
-    elif os.path.isfile(os.path.join(mlnApp.app.config['LOG_FOLDER'], '{}.json'.format(filename))):
-        return send_from_directory(mlnApp.app.config['LOG_FOLDER'], '{}.json'.format(filename))
+    elif os.path.isfile(os.path.join(mlnApp.app.config['LOG_FOLDER'],
+                                     '{}.json'.format(filename))):
+        return send_from_directory(mlnApp.app.config['LOG_FOLDER'],
+                                   '{}.json'.format(filename))
     else:
         return render_template('userstats.html', **locals())
 
@@ -156,7 +161,9 @@ def user_stats():
                       "Access Date:\t{date}\n"
                       "Access Time:\t{time}")
     except ImportError:
-        print colorize('geoip module was not found. Install by "sudo pip install python-geoip python-geoip-geolite2" if you want to request geoip information', (None, 'yellow', True), True)
+        print colorize(
+            'geoip module was not found. Install by "sudo pip install python-geoip python-geoip-geolite2" if you want to request geoip information',
+            (None, 'yellow', True), True)
     finally:
         stats.update({'ip': ip, 'date': data['date'], 'time': data['time']})
         ulog.info(json.dumps(stats))
@@ -178,7 +185,8 @@ def load_filecontent():
     proj = data.get('project', True)
     text = ''
 
-    path = '{}:{}'.format(os.path.join(mlnsession.tmpsessionfolder, proj), filename)
+    path = '{}:{}'.format(os.path.join(mlnsession.tmpsessionfolder, proj),
+                          filename)
     if mlnpath(path).exists:
         text = mlnpath(path).content
 
@@ -200,13 +208,16 @@ def save_edited_file():
     # if file exists in examples folder, do not update it but create new one in
     # UPLOAD_FOLDER with edited filename (filename is edited to avoid confusion
     # with duplicate filenames in list)
-    if os.path.exists(os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], folder, name)):
+    if os.path.exists(
+            os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], folder, name)):
         splitted = name.split('.')
         name = "{}_edited.{}".format(''.join(splitted[:-1]), splitted[-1])
 
     # rename existing file with new filename or create/overwrite
-    if os.path.exists(os.path.join(mlnsession.tmpsessionfolder, fname)) and rename:
-        os.rename(os.path.join(mlnsession.tmpsessionfolder, fname), os.path.join(mlnsession.tmpsessionfolder, name))
+    if os.path.exists(
+            os.path.join(mlnsession.tmpsessionfolder, fname)) and rename:
+        os.rename(os.path.join(mlnsession.tmpsessionfolder, fname),
+                  os.path.join(mlnsession.tmpsessionfolder, name))
     else:
         with open(os.path.join(mlnsession.tmpsessionfolder, name), 'w+') as f:
             f.write(fcontent)
@@ -221,23 +232,32 @@ def init_options():
     mlnfiles = mlnsession.projectinf.mlns.keys()
     dbfiles = mlnsession.projectinf.dbs.keys()
 
-    examples = sorted([y for y in os.listdir(mlnsession.tmpsessionfolder) if os.path.isfile(os.path.join(mlnsession.tmpsessionfolder, y)) and y.endswith('.pracmln')])
+    examples = sorted([y for y in os.listdir(mlnsession.tmpsessionfolder) if
+                       os.path.isfile(os.path.join(mlnsession.tmpsessionfolder,
+                                                   y)) and y.endswith(
+                           '.pracmln')])
     inferconfig = mlnsession.projectinf.queryconf.config.copy()
-    inferconfig.update({"method": InferenceMethods.name(mlnsession.projectinf.queryconf['method'])})
+    inferconfig.update({"method": InferenceMethods.name(
+        mlnsession.projectinf.queryconf.get('method', 'MCSAT'))})
 
     lrnconfig = mlnsession.projectlearn.learnconf.config.copy()
-    lrnconfig.update({"method": LearningMethods.name(mlnsession.projectlearn.learnconf['method'])})
+    lrnconfig.update({"method": LearningMethods.name(
+        mlnsession.projectlearn.learnconf.get('method', 'BPLL'))})
 
     resinference = {'methods': sorted(InferenceMethods.names()),
-           'config': inferconfig}
+                    'config': inferconfig}
     reslearn = {'methods': sorted(LearningMethods.names()),
-           'config': lrnconfig}
+                'config': lrnconfig}
 
-    return jsonify({"inference": resinference, "learning": reslearn, "mlnfiles": mlnfiles, "dbfiles": dbfiles, "examples": examples})
+    return jsonify(
+        {"inference": resinference, "learning": reslearn, "mlnfiles": mlnfiles,
+         "dbfiles": dbfiles, "examples": examples})
 
 
 @mlnApp.app.route('/mln/_get_project_list', methods=['GET'])
 def get_projects():
     mlnsession = ensure_mln_session(session)
-    projects = [y for y in os.listdir(mlnsession.tmpsessionfolder) if os.path.isfile(os.path.join(mlnsession.tmpsessionfolder, y)) and y.endswith('.pracmln')]
-    return jsonify({"projects":  projects})
+    projects = [y for y in os.listdir(mlnsession.tmpsessionfolder) if
+                os.path.isfile(os.path.join(mlnsession.tmpsessionfolder,
+                                            y)) and y.endswith('.pracmln')]
+    return jsonify({"projects": projects})
