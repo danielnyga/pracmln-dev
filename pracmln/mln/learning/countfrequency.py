@@ -28,6 +28,8 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from numpy import exp, log
+
+from pracmln.mln.grounding.default import DefaultGroundingFactory
 from pracmln.mln.grounding.fastconj import FastConjunctionGrounding
 
 
@@ -54,7 +56,8 @@ class CountFrequency(object):
             if value is None:
                 mrf.evidence[index] = 0
         to_return = [0]*len(mrf.formulas)
-        for ground_formula in mrf.itergroundings():
+        grounder = FastConjunctionGrounding(mrf, True, False, None, 0)
+        for ground_formula in grounder.itergroundings():
             value = ground_formula(mrf.evidence)
             if value is not None:
                 to_return[ground_formula.idx] += value
