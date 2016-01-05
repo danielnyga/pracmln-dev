@@ -1,9 +1,9 @@
-import logging
+import pracmln
 from webmln.gui.app import mlnApp
 from werkzeug.serving import run_simple
-from OpenSSL import SSL
 import os
 
+log = pracmln.praclog.logger(__name__)
 
 def init_app(app):
     print 'initializing app...', app
@@ -19,12 +19,12 @@ def init_app(app):
 init_app(mlnApp.app)
 
 if __name__ == '__main__':
-    logging.getLogger().setLevel(logging.INFO)
     if 'PRAC_SERVER' in os.environ and os.environ['PRAC_SERVER'] == 'true':
-        context = SSL.Context(SSL.SSLv23_METHOD)
-        context.use_privatekey_file(os.path.join('../../', 'default.key'))
-        context.use_certificate_file(os.path.join('../../', 'default.crt'))
+        log.info('Running WEBMLN in server mode')
+        certpath = os.path.dirname(os.path.realpath(__file__))
+        context = (os.path.join(certpath, 'default.crt'), os.path.join(certpath, 'default.key'))
         run_simple('0.0.0.0', 5002, mlnApp.app, ssl_context=context)
     else:
+        log.info('Running WEBMLN in development mode')
         mlnApp.app.run(host='0.0.0.0', port=5002, debug=True, threaded=True)
 
