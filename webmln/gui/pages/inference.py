@@ -1,4 +1,5 @@
 import ctypes
+import time
 import json
 import logging
 from threading import Thread
@@ -119,11 +120,11 @@ def infer(mlnsession, data, timeout):
 
     # store settings in session
     mlnsession.projectinf.learnconf.conf = inferconfig.config.copy()
-
+#    time.sleep(0.5)
     mlnsession.infbuffer.setmsg({'message': 'Creating MLN and DB objects may'
                                             ' take a while...',
                                  'status': False})
-
+    time.sleep(1)
     barchartresults = []
     graphres = []
     png = ''
