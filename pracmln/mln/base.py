@@ -23,6 +23,7 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+import pyparsing
 
 from pracmln.logic import FirstOrderLogic, FuzzyLogic
 
@@ -218,6 +219,8 @@ class MLN(object):
             return self.declare_predicate(predicate)
         elif isinstance(predicate, basestring):
             return self._predicates.get(predicate, None)
+        elif isinstance(predicate, pyparsing.ParseResults):
+            return predicate.asList()
         else:
             raise Exception('Illegal type of argument predicate: %s' % type(predicate))
         
@@ -335,13 +338,27 @@ class MLN(object):
         :param dbs:     list of :class:`database.Database` objects for materialization.
         '''
         logger.debug("materializing formula templates...")
-        
-        mln_ = self.copy()
 
-        # obtain full domain with all objects 
+        # obtain full domain with all objects
         fulldomain = mergedom(self.domains, *[db.domains for db in dbs])
         logger.debug('full domains: %s' % fulldomain)
-        
+
+        # expand predicate groups
+        tempmln = self.copy()
+        tempmln ._rmformulas()
+        # for i, template in self.iterformulas():
+        #     for t in template._ground_template():
+        #                 yield t
+        #
+        #     for variant in template.template_variants():
+        #         idx = len(tempmln._formulas)
+        #         f = tempmln.formula(variant,
+        #                             weight=template.weight if isinstance(template.weight, basestring) else template.weight,
+        #                             fixweight=self.fixweights[i])
+        #         f.idx = idx
+        #
+        # mln_ = tempmln.copy()
+
         # collect the admissible formula templates. templates might be not
         # admissible since the domain of a template variable might be empty.
         for ft in list(mln_.formulas):
@@ -790,6 +807,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                         formula = line[spacepos:].strip()
                     try:
                         formula = mln.logic.parse_formula(formula)
+                        print "=====================================================", formula
                         if isHard:
                             weight = HARD # not set until instantiation when other weights are known
                         idxTemplate = len(formulatemplates)

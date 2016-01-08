@@ -38,6 +38,17 @@ class TreeBuilder(object):
         self.reset()
     
     def trigger(self, a, loc, toks, op):
+        if op == 'litgroup':
+            negated = False
+            if toks[0] == '!' or toks[0] == '*':
+                if toks[0] == '*':
+                    negated = 2
+                else:
+                    negated = True
+                toks = toks[1]
+            else:
+                toks = toks[0]
+            self.stack.append(self.logic.litgroup(negated, toks[0], toks[1], self.logic.mln))
         if op == 'lit':
             negated = False
             if toks[0] == '!' or toks[0] == '*':
@@ -273,39 +284,43 @@ class PRACGrammar(Grammar):
         ucCharacter = alphas.upper()
         lcName = Word(lcCharacter, alphanums + '_')
         qMark = '?'
-        
+
         openRB = Literal('(').suppress()
         closeRB = Literal(')').suppress()
         openSB = Literal('[').suppress()
         closeSB = Literal(']').suppress()
-        
+
         domName = Combine(Optional(Literal(':')) + lcName + Optional(Literal('!') | Literal('?')))
-        
+
         constant = Word(identifierCharacter) | Word(nums) | Combine(Literal('"') + Word(printables.replace('"', '')) + Literal('"')) #QuotedString(quoteChar = '"', escChar = '\\')
         variable = Word(qMark, identifierCharacter)
-        
+
         atomArgs = Group(delimitedList(constant | Combine(Optional("+") + variable)))
         predDeclArgs = Group(delimitedList(domName))
-        
+
         predName = Word(identifierCharacter)
-        
+        predGroup = Group(delimitedList(predName, delim='|'))
+
         atom = Group(predName + openRB + atomArgs + closeRB)
+        groupatom = Group(predGroup + openRB + atomArgs + closeRB)
         literal = Optional(Literal("!") | Literal("*")) + atom
-        
-        predDecl = Group(predName + openRB + predDeclArgs + closeRB) + StringEnd()
-        
+        litgroup = Optional(Literal("!") | Literal("*")) + groupatom
+
+        predDecl = Group(predName + openRB + predDeclArgs + closeRB + StringEnd())
+
         formula = Forward()
         exist = Literal("EXIST ").suppress() + Group(delimitedList(variable)) + openRB + Group(formula) + closeRB
         equality = (constant|variable) + Literal("=").suppress() + (constant|variable)
         inequality = (constant|variable) + Literal('=/=').suppress() + (constant|variable)
         negation = Literal("!").suppress() + openRB + Group(formula) + closeRB
-        item = literal | exist | inequality | equality | openRB + formula + closeRB | negation
+        item = litgroup | literal | exist | inequality | equality | openRB + formula + closeRB | negation
         conjunction = Group(item) + ZeroOrMore(Literal("^").suppress() + Group(item))
         disjunction = Group(conjunction) + ZeroOrMore(Literal("v").suppress() + Group(conjunction))
         implication = Group(disjunction) + Optional(Literal("=>").suppress() + Group(disjunction))
         biimplication = Group(implication) + Optional(Literal("<=>").suppress() + Group(implication))
         formula << biimplication
 
+        def lit_group_parse_action(a, b, c): return tree.trigger(a,b,c,'litgroup')
         def lit_parse_action(a, b, c): return tree.trigger(a,b,c,'lit')
         def neg_parse_action(a, b, c): return tree.trigger(a,b,c,'!')
         def disjunction_parse_action(a, b, c): tree.trigger(a,b,c,'v')
@@ -318,6 +333,7 @@ class PRACGrammar(Grammar):
         def count_constraint_parse_action(a, b, c): tree.trigger(a,b,c,'count')
 
         tree = TreeBuilder(logic)
+        litgroup.setParseAction(lit_group_parse_action)
         literal.setParseAction(lit_parse_action)
         negation.setParseAction(neg_parse_action)
         disjunction.setParseAction(disjunction_parse_action)
@@ -359,8 +375,11 @@ if __name__ == '__main__':
     mln << 'g(s)'
     mln << 'f(s)'
     
-    f = 'foo(x,x) => (bar(y) <=> bar(x))'
-    f = mln.logic.grammar.parse_formula(f) 
+    f = 'a|b|c(s) => (bar(y) <=> bar(x))'
+    print 'mln:'
+    mln.write()
+    f = mln.logic.grammar.parse_formula(f)
+    print f, '==================================================================================='
     f.print_structure()
     print list(f.literals())
     print mln.logic.parse_formula('bar(x)') in f.literals()

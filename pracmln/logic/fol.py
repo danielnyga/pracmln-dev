@@ -89,7 +89,13 @@ class FirstOrderLogic(Logic):
         
     class Lit(Logic.Lit, Formula): pass
 
-       
+
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
+
+
+    class Litgroup(Logic.LitGroup, Formula): pass
+
+
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
     
     
@@ -340,6 +346,9 @@ class FirstOrderLogic(Logic):
     def lit(self, *args, **kwargs):
         return FirstOrderLogic.Lit(*args, **kwargs)
     
+    def litgroup(self, *args, **kwargs):
+        return FirstOrderLogic.LitGroup(*args, **kwargs)
+
     def gnd_lit(self, *args, **kwargs):
         return FirstOrderLogic.GroundLit(*args, **kwargs)
     
