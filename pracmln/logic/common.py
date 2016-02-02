@@ -309,7 +309,8 @@ class Logic(object):
                 else: 
                     for t in self._ground_template({}):
                         yield t
-    
+
+
     
         def template_variables(self, variable=None):
             '''
@@ -553,8 +554,40 @@ class Logic(object):
                 for child in self.children:
                     for lit in child.literals():
                         yield lit
-        
-        
+
+
+        def expandgrouplits(self):
+            #returns list of formulas
+            # for t in self._grouplit_template():
+            for t in self._ground_template({}):
+                yield t
+            # print 'expanding formula of type:', type(self)
+            # if isinstance(self, Logic.LitGroup):
+            #     return self.lits
+            # if not hasattr(self, 'children'):
+            #     return [self]
+            # else:
+            #     newchildren = self.children
+            #     print 'self.children:   ', self.children, type(self.children)
+            #     for child in self.children:
+            #         print 'child    ', child, type(child)
+            #         gl = child.expandgrouplits()
+            #         print 'gl    ', gl, type(gl)
+            #         if len(gl) > 1:
+            #             newchildren.remove(child)
+
+
+                #
+                #
+                #         formula = self.copy()
+                #         print 'gl    ', gl, type(gl)
+                #         children.append(gl)
+                # self.children = children
+                # print 'returning self', self, type(self)
+                # print
+                # return [self]
+
+
         def truth(self, world):
             '''
             Evaluates the formula for its truth wrt. the truth values
@@ -681,8 +714,28 @@ class Logic(object):
                 else:
                     final_variants.append(self.mln.logic.create(type(self), variant, mln=self.mln))
             return final_variants
-    
-    
+
+
+        # def _grouplit_template(self):
+        #     variants = [[]]
+        #     for child in self.children:
+        #         child_variants = child._grouplit_template()
+        #         new_variants = []
+        #         for variant in variants:
+        #             for child_variant in child_variants:
+        #                 v = list(variant)
+        #                 v.append(child_variant)
+        #                 new_variants.append(v)
+        #         variants = new_variants
+        #     final_variants = []
+        #     for variant in variants:
+        #         if isinstance(self, Logic.Exist):
+        #             final_variants.append(self.mln.logic.exist(self.vars, variant[0], mln=self.mln))
+        #         else:
+        #             final_variants.append(self.mln.logic.create(type(self), variant, mln=self.mln))
+        #     return final_variants
+
+
         def template_variables(self, variables=None):
             if variables == None: 
                 variables = {}
@@ -959,6 +1012,7 @@ class Logic(object):
         @predname.setter
         def predname(self, predname):
             if self.mln is not None and self.mln.predicate(predname) is None:
+            # if self.mln is not None and any(self.mln.predicate(p) is None for p in predname):
                 raise NoSuchPredicateError('Predicate %s is undefined.' % predname)
             self._predname = predname
     
@@ -975,9 +1029,8 @@ class Logic(object):
                                                                                                len(self.mln.predicate(self.predname).argdoms), 
                                                                                                self.mln.predicate(self.predname).argdoms))
             self._args = args
-            print 'common.py self.args', self._args
-    
-    
+
+
         def __str__(self):
             return {True:'!', False:'', 2: '*'}[self.negated] + self.predname + "(" + ",".join(self.args) + ")"
     
@@ -1053,7 +1106,7 @@ class Logic(object):
                 else:
                     print "\nground atoms:"
                     mrf.print_gndatoms()
-                    raise Exception("Could not ground formula containing '%s' - this atom is not among the ground atoms (see above)." % atom)
+                    raise Exception("Could not ground formula containing '%s' - this atom is not among the ground atoms (see above)." % self.predname)
     
     
         def _ground_template(self, assignment):
@@ -1063,7 +1116,11 @@ class Logic(object):
             else:
                 return [self.mln.logic.lit(self.negated, self.predname, args, mln=self.mln)]
         
-        
+
+        # def _grouplit_template(self):
+        #     return [self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln)]
+
+
         def copy(self, mln=None, idx=inherit):
             return self.mln.logic.lit(self.negated, self.predname, self.args, mln=ifNone(mln, self.mln), idx=self.idx if idx is inherit else idx)
         
@@ -1141,7 +1198,10 @@ class Logic(object):
             if self.mln is not None and not any(self.mln.predicate(p) is None for p in predname):
                     raise NoSuchPredicateError('Predicate %s is undefined.' % predname)
             print 'setting prednames:', predname
-            self._predname = predname
+
+        @property
+        def lits(self):
+            return [Lit(self.negated, lit, self.args, self.mln) for lit in self.predname]
 
 
         @property
@@ -1224,8 +1284,15 @@ class Logic(object):
                 return [self.mln.logic.lit(self.negated, predname, self.args, mln=self.mln) for predname in self.predname]
 
 
+        #     if self.negated == 2: # template
+        #         return [self.mln.logic.lit(False, predname, self.args, mln=self.mln) for predname in self.predname] + \
+        #                [self.mln.logic.lit(True, predname, self.args, mln=self.mln) for predname in self.predname]
+        #     else:
+        #         return [self.mln.logic.lit(self.negated, predname, self.args, mln=self.mln) for predname in self.predname]
+
+
         def copy(self, mln=None, idx=inherit):
-            return self.mln.logic.lit(self.negated, self.predname, self.args, mln=ifNone(mln, self.mln), idx=self.idx if idx is inherit else idx)
+            return self.mln.logic.litgroup(self.negated, self.predname, self.args, mln=ifNone(mln, self.mln), idx=self.idx if idx is inherit else idx)
 
 
         def truth(self, world):
@@ -1244,7 +1311,8 @@ class Logic(object):
         def constants(self, constants=None):
             if constants is None: constants = {}
             for i, c in enumerate(self.params):
-                domname = self.mln.predicate(self.predname).argdoms[i]
+                # domname = self.mln.predicate(self.predname).argdoms[i]
+                domname = self.mln.predicate(self.predname[0]).argdoms[i]
                 values = constants.get(domname, None)
                 if values is None:
                     values = []
@@ -1254,7 +1322,7 @@ class Logic(object):
 
 
         def simplify(self, world):
-            return self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
+            return self.mln.logic.litgroup(self.negated, self.predname, self.args, mln=self.mln, idx=self.idx)
 
 
         def __eq__(self, other):
@@ -1264,7 +1332,6 @@ class Logic(object):
         def __ne__(self, other):
             return not self == other
 
-    
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 
 
@@ -1830,6 +1897,8 @@ class Logic(object):
                     raise Exception("Unexpected child type %s while converting '%s' to CNF!" % (str(type(child)), str(self)))
             elif isinstance(child, Logic.Lit):
                 return self.mln.logic.lit(not child.negated, child.predname, child.args, mln=self.mln, idx=self.idx)
+            elif isinstance(child, Logic.LitGroup):
+                return self.mln.logic.litgroup(not child.negated, child.predname, child.args, mln=self.mln, idx=self.idx)
             elif isinstance(child, Logic.GroundLit):
                 return self.mln.logic.gnd_lit(child.gndatom, not child.negated, mln=self.mln, idx=self.idx)
             elif isinstance(child, Logic.TrueFalse):
@@ -1862,6 +1931,8 @@ class Logic(object):
             # - non-complex formula, i.e. literal or constant
             elif isinstance(child, Logic.Lit):
                 return self.mln.logic.lit(not child.negated, child.predname, child.args, mln=self.mln, idx=self.idx)
+            elif isinstance(child, Logic.LitGroup):
+                return self.mln.logic.litgroup(not child.negated, child.predname, child.args, mln=self.mln, idx=self.idx)
             elif isinstance(child, Logic.GroundLit):
                 return self.mln.logic.gnd_lit(child.gndatom, not child.negated, mln=self.mln, idx=self.idx)
             elif isinstance(child, Logic.TrueFalse):

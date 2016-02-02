@@ -345,19 +345,19 @@ class MLN(object):
 
         # expand predicate groups
         tempmln = self.copy()
-        tempmln ._rmformulas()
-        # for i, template in self.iterformulas():
-        #     for t in template._ground_template():
-        #                 yield t
+        tempmln._rmformulas()
+        print 'expanding predicate groups'
+        for i, template in self.iterformulas():
+            for variant in template.expandgrouplits():
+                idx = len(tempmln._formulas)
+                f = tempmln.formula(variant, weight=template.weight if isinstance(template.weight, basestring) else template.weight,
+                                  fixweight=self.fixweights[i])
+                f.idx = idx
+
+        mln_ = tempmln.copy()
+        # mln_ = self.copy()
+
         #
-        #     for variant in template.template_variants():
-        #         idx = len(tempmln._formulas)
-        #         f = tempmln.formula(variant,
-        #                             weight=template.weight if isinstance(template.weight, basestring) else template.weight,
-        #                             fixweight=self.fixweights[i])
-        #         f.idx = idx
-        #
-        # mln_ = tempmln.copy()
 
         # collect the admissible formula templates. templates might be not
         # admissible since the domain of a template variable might be empty.

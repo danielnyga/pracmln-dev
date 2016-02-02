@@ -40,6 +40,7 @@ class TreeBuilder(object):
     def trigger(self, a, loc, toks, op):
         if op == 'litgroup':
             negated = False
+            print 'toks:', toks
             if toks[0] == '!' or toks[0] == '*':
                 if toks[0] == '*':
                     negated = 2
@@ -48,7 +49,7 @@ class TreeBuilder(object):
                 toks = toks[1]
             else:
                 toks = toks[0]
-            self.stack.append(self.logic.litgroup(negated, toks[0], toks[1], self.logic.mln))
+            self.stack.append(self.logic.litgroup(negated, toks[:-1], toks[-1], self.logic.mln))
         if op == 'lit':
             negated = False
             if toks[0] == '!' or toks[0] == '*':
@@ -135,6 +136,7 @@ class Grammar(object):
     
     def parse_formula(self, s):
         self.tree.reset()
+        print 'parsing ', s
         self.formula.parseString(s)
         constr = self.tree.getConstraint()
         return constr
@@ -299,7 +301,9 @@ class PRACGrammar(Grammar):
         predDeclArgs = Group(delimitedList(domName))
 
         predName = Word(identifierCharacter)
-        predGroup = Group(delimitedList(predName, delim='|'))
+
+        # predGroup = delimitedList(predName, delim='|')
+        predGroup = predName + OneOrMore(Literal("|").suppress() + predName)
 
         atom = Group(predName + openRB + atomArgs + closeRB)
         groupatom = Group(predGroup + openRB + atomArgs + closeRB)
@@ -320,7 +324,12 @@ class PRACGrammar(Grammar):
         biimplication = Group(implication) + Optional(Literal("<=>").suppress() + Group(implication))
         formula << biimplication
 
-        def lit_group_parse_action(a, b, c): return tree.trigger(a,b,c,'litgroup')
+        def lit_group_parse_action(a, b, c):
+            try:
+                return tree.trigger(a,b,c,'litgroup')
+            except Exception as e:
+                print e
+
         def lit_parse_action(a, b, c): return tree.trigger(a,b,c,'lit')
         def neg_parse_action(a, b, c): return tree.trigger(a,b,c,'!')
         def disjunction_parse_action(a, b, c): tree.trigger(a,b,c,'v')
@@ -361,6 +370,7 @@ class PRACGrammar(Grammar):
 if __name__ == '__main__':
     f = '(a(x) ^ b(u) v !(c(h) v (r =/= k) ^ !(d(i) ^ !e(x) ^ g(x)))) => EXIST ?a,?b (f(x) ^ b(c))'
     from pracmln.mln.base import MLN
+    from pracmln.mln.database import Database
     mln = MLN(grammar='PRACGrammar')
     mln << 'foo(x, y)'
     mln << 'bar(x)'
@@ -374,6 +384,7 @@ if __name__ == '__main__':
     mln << 'e(s)'
     mln << 'g(s)'
     mln << 'f(s)'
+
     
     f = 'a|b|c(s) => (bar(y) <=> bar(x))'
     print 'mln:'
@@ -384,9 +395,33 @@ if __name__ == '__main__':
     print list(f.literals())
     print mln.logic.parse_formula('bar(x)') in f.literals()
     print f
+
+    mln << 'coreference(a,b)'
+    mln << 'distance(d,e,f)'
+
+    # f = '!a|b|c(s) => (bar(y) <=> bar(x))'
+    f= '!(FORALL s (has_sense(?w1,s))) => coreference(?w1,?w2)'
+    # f = '!a|b|c(s) ^ bar(y) ^ bar(x)'
+    # print 'mln:'
+    f = mln.logic.grammar.parse_formula(f)
+    mln.write()
+    # print f, '==================================================================================='
+    # f.print_structure()
+    # print 'repr of f', repr(f)
+    # print 'list f.literals', list(f.literals())
+    # print 'parse_formula', mln.logic.parse_formula('bar(x)') in f.literals()
+    # print 'f', f
+
     cnf = f.cnf()
+    # print 'structure:'
     cnf.print_structure()
-    print cnf
+    # print 'cnf:',cnf
+    mln.formula(cnf)
+
+
+    db = Database(mln)
+    matmln = mln.materialize(db)
+    matmln.write()
 #     test = ['!a(k)',
 #             'a(c) ^ b(g)',
 #             'b(x) v !a(l) ^ b(x)',
