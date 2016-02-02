@@ -20,9 +20,9 @@ init_app(mlnApp.app)
 
 
 if __name__ == '__main__':
-    log.setLevel(logging.INFO)
+    logging.getLogger().setLevel(logging.DEBUG)
     if 'PRAC_SERVER' in os.environ and os.environ['PRAC_SERVER'] == 'true':
-        log.info('Running WEBMLN in server mode')
+        log.debug('Running WEBMLN in server mode')
 
         # load config
         mlnApp.app.config.from_object('configmodule.DeploymentConfig')
@@ -32,7 +32,7 @@ if __name__ == '__main__':
         IOLoop.instance().start()
 
     else:
-        log.info('Running WEBMLN in development mode')
+        log.debug('Running WEBMLN in development mode')
 
         # load config
         mlnApp.app.config.from_object('configmodule.DevelopmentConfig')
