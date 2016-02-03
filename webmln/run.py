@@ -41,6 +41,9 @@ if __name__ == '__main__':
     elif 'PRAC_SERVER' in os.environ and os.environ['PRAC_SERVER'] == 'old':
         log.debug('Running WEBMLN in server mode')
 
+        # load config
+        mlnApp.app.config.from_object('configmodule.Config')
+
         certpath = os.path.dirname(os.path.realpath(__file__))
         context = (os.path.join(certpath, 'default.crt'), os.path.join(certpath, 'default.key'))
         run_simple('0.0.0.0', 5002, mlnApp.app, ssl_context=context)
