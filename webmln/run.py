@@ -21,7 +21,7 @@ init_app(mlnApp.app)
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
-    if 'PRAC_SERVER' in os.environ and os.environ['PRAC_SERVER'] == 'true':
+    if 'PRAC_SERVER' in os.environ and os.environ['PRAC_SERVER'] == 'deploy':
         log.debug('Running WEBMLN in server mode')
 
         # load config
@@ -30,7 +30,13 @@ if __name__ == '__main__':
         http_server = HTTPServer(WSGIContainer(mlnApp.app))
         http_server.listen(5002)
         IOLoop.instance().start()
+    elif 'PRAC_SERVER' in os.environ and os.environ['PRAC_SERVER'] == 'testing':
+        log.debug('Running WEBMLN in testing mode')
 
+        # load config
+        mlnApp.app.config.from_object('configmodule.TestingConfig')
+
+        mlnApp.app.run(host='0.0.0.0', port=5002)
     else:
         log.debug('Running WEBMLN in development mode')
 

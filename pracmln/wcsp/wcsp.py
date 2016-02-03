@@ -27,6 +27,7 @@ from subprocess import Popen, PIPE
 import bisect
 import re
 from collections import defaultdict
+import thread
 from pracmln import praclog
 import platform
 
@@ -35,7 +36,7 @@ logger = praclog.logger(__name__)
 
 class MaxCostExceeded(Exception): pass
 
-temp_wcsp_file = os.path.join('/', 'tmp', 'temp%d.wcsp')
+temp_wcsp_file = os.path.join('/', 'tmp', 'temp%d-%d.wcsp')
 
 toulbar_version = '0.9.7.0'
 
@@ -361,7 +362,7 @@ class WCSP(object):
         if not is_executable(toulbar2_path()):
             raise Exception('toulbar2 cannot be found.')
         # append the process id to the filename to make it "process safe"
-        wcspfilename = temp_wcsp_file % os.getpid()
+        wcspfilename = temp_wcsp_file % (os.getpid(), thread.get_ident())
         with open(wcspfilename, 'w+') as f:
             self.write(f)
         cmd = '%s -s %s' % (toulbar2_path(), wcspfilename)

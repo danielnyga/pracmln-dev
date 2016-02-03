@@ -1,5 +1,8 @@
 #!/usr/bin/python2.5
 from __future__ import with_statement # Until Python 2.6
+import thread
+
+
 """
 Converts LaTeX math to png images.
 Run latexmath2png.py --help for usage instructions.
@@ -121,7 +124,7 @@ def math2png(content, outdir, packages=default_packages, declarations=[], filena
 
         __write_output(texfile, outdir, workdir=workdir, filename=filename, size=size)
     finally:
-        outfilename = os.path.join(outdir, '{}.png'.format(filename))
+        outfilename = os.path.join(outdir, '{}-{}-{}.png'.format(filename, os.getpid(), thread.get_ident()))
 
         # determine image size
         im = Image.open(outfilename)
