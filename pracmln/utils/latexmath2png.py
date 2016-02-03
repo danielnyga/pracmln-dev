@@ -124,7 +124,7 @@ def math2png(content, outdir, packages=default_packages, declarations=[], filena
 
         __write_output(texfile, outdir, workdir=workdir, filename=filename, size=size)
     finally:
-        outfilename = os.path.join(outdir, '{}-{}-{}.png'.format(filename, os.getpid(), thread.get_ident()))
+        outfilename = os.path.join(outdir, '{}.png'.format(filename))
 
         # determine image size
         im = Image.open(outfilename)
