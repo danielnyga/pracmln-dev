@@ -28,16 +28,18 @@ if __name__ == '__main__':
         # load config
         mlnApp.app.config.from_object('configmodule.DeploymentConfig')
 
-        http_server = HTTPServer(WSGIContainer(mlnApp.app))
-        http_server.listen(5002)
-        IOLoop.instance().start()
+        mlnApp.app.run(host='0.0.0.0',
+                       threaded=True,
+                       port=5002)
     elif 'PRAC_SERVER' in os.environ and os.environ['PRAC_SERVER'] == 'testing':
         log.debug('Running WEBMLN in testing mode')
 
         # load config
         mlnApp.app.config.from_object('configmodule.TestingConfig')
 
-        mlnApp.app.run(host='0.0.0.0', port=5002)
+        mlnApp.app.run(host='0.0.0.0',
+                       threaded=True,
+                       port=5002)
     elif 'PRAC_SERVER' in os.environ and os.environ['PRAC_SERVER'] == 'old':
         log.debug('Running WEBMLN in server mode')
 
@@ -46,11 +48,17 @@ if __name__ == '__main__':
 
         certpath = os.path.dirname(os.path.realpath(__file__))
         context = (os.path.join(certpath, 'default.crt'), os.path.join(certpath, 'default.key'))
-        run_simple('0.0.0.0', 5002, mlnApp.app, ssl_context=context)
+        run_simple('0.0.0.0',
+                   5002,
+                   mlnApp.app,
+                   threaded=True,
+                   ssl_context=context)
     else:
         log.debug('Running WEBMLN in development mode')
 
         # load config
         mlnApp.app.config.from_object('configmodule.DevelopmentConfig')
 
-        mlnApp.app.run(host='0.0.0.0', port=5002)
+        mlnApp.app.run(host='0.0.0.0',
+                       threaded=True,
+                       port=5002)
