@@ -27,13 +27,18 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+import logging
 from pracmln.mln.errors import MRFValueException
+from pracmln.mln.grounding.fastexistential import FastExistentialGrounding
 from pracmln.mln.inference.infer import Inference
 from pracmln.mln.grounding.fastconj import FastConjunctionGrounding
 from pracmln.mln.constants import HARD
 from pracmln.logic.fol import Conjunction, GroundLit, TrueFalse
 from numpy import exp
 from operator import mul
+
+logger = logging.getLogger(__name__)
 
 
 class FastExact(Inference):
@@ -42,6 +47,7 @@ class FastExact(Inference):
 
     def _run(self):
         ground_formulas = self.__get_ground_formulas()
+        logger.info("Grounding finished!")
         hard_formulas = filter(lambda f: f.weight == HARD, ground_formulas)
         non_hard_formulas = filter(lambda f: f.weight != HARD, ground_formulas)
         evidence = self.__get_world_as_list_of_gnd_literals(self.mrf.evidence)
@@ -81,7 +87,7 @@ class FastExact(Inference):
         return to_return
 
     def __get_ground_formulas(self):
-        grounder = FastConjunctionGrounding(self.mrf, False, False, self.mrf.formulas, -1)
+        grounder = FastExistentialGrounding(self.mrf, False, False, self.mrf.formulas, -1)
         return [ground_formula for ground_formula in grounder.itergroundings()]
 
     def __concatenate_formulas(self, *formulas):
