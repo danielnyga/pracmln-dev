@@ -130,17 +130,31 @@ class FastExact(Inference):
 
     def __get_conjunction_as_dict_of_truth_values(self, logical_world_restrictions):
         evidence_truth_values = [None]*len(self.mrf.gndatoms)
+        ground_literals = []
         if isinstance(logical_world_restrictions, GroundLit):
-            evidence_truth_values[logical_world_restrictions.gndatom.idx]=0 if logical_world_restrictions.negated else 1
+            ground_literals = [logical_world_restrictions]
         elif isinstance(logical_world_restrictions, Conjunction):
-            for ground_literal in logical_world_restrictions.children:
-                current_value = evidence_truth_values[ground_literal.gndatom.idx]
-                new_value = 0 if ground_literal.negated else 1
-                if current_value is not None and current_value != new_value:
-                    return None
-                evidence_truth_values[ground_literal.gndatom.idx] = new_value
+            ground_literals = logical_world_restrictions.children
         elif not (isinstance(logical_world_restrictions, TrueFalse) and logical_world_restrictions.value == 1):
             raise Exception("Unknown formula type:" + str(type(logical_world_restrictions)))
+        for ground_literal in ground_literals:
+            values_to_set = []
+            new_value = 0 if ground_literal.negated else 1
+            if new_value == 1:
+                variable = self.mrf.variable(ground_literal.gndatom)
+                for gnd_atom in variable.gndatoms:
+                    values_to_set.append((gnd_atom.idx, 1 if gnd_atom.idx == ground_literal.gndatom.idx else 0))
+            else:
+                values_to_set.append((ground_literal.gndatom.idx, 0))
+            for index, value in values_to_set:
+                current_value = evidence_truth_values[index]
+                if current_value is not None and current_value != value:
+                    return None
+                evidence_truth_values[index] = value
+
+
+
+
         for variable in self.mrf.variables:
             try:
                 variable.consistent(evidence_truth_values)
