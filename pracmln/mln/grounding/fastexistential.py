@@ -41,23 +41,18 @@ class FastExistentialGrounding(DefaultGroundingFactory):
     def __init__(self, mrf, simplify=False, unsatfailure=False, formulas=None, cache=auto, **params):
         DefaultGroundingFactory.__init__(self, mrf, simplify, unsatfailure, formulas, cache, **params)
 
-    @staticmethod
-    def __assert_is_instance(instance, asserted_types):
-        for asserted_type in asserted_types:
-            if isinstance(instance, asserted_type):
-                return
-        raise Exception("Invalid formula structure: expected %s to be one of: %s" % (instance, asserted_types))
-
     def _itergroundings(self, simplify=True, unsatfailure=True):
-        if not self.__is_applicable():
-            logger.warning("FastExistentialGrounding is not applicable, using default grounding...")
-            for gf in DefaultGroundingFactory._itergroundings(self, simplify, unsatfailure):
-                yield gf
         for formula in self.formulas:
+            if not self.__is_applicable(formula):
+                logger.warning("FastExistentialGrounding is not applicable for formula %s, using default grounding..."%
+                               formula)
+                for gf in formula.itergroundings(self.mrf):
+                    yield gf
+                continue
             negated_existential_quantifiers = \
                 filter(FastExistentialGrounding.__is_negated_existential_quantifier, formula.children)
-            other_child = \
-                filter(lambda c: not FastExistentialGrounding.__is_negated_existential_quantifier(c), formula.children)[0]
+            other_child = filter(lambda c: not
+                FastExistentialGrounding.__is_negated_existential_quantifier(c), formula.children)[0]
             for variable_assignment in other_child.itervargroundings(self.mrf):
                 other_child_grounded = other_child.ground(self.mrf, variable_assignment)
                 if other_child_grounded.truth(self.mrf.evidence) == 0.0:
@@ -68,16 +63,15 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                 if grounding.truth(self.mrf.evidence) != 0.0:
                     yield grounding
 
-    def __is_applicable(self):
-        for formula in self.formulas:
-            if not isinstance(formula, Conjunction):
-                return False
-            negated_existential_quantifiers = \
-                filter(FastExistentialGrounding.__is_negated_existential_quantifier, formula.children)
-            other_children = \
-                filter(lambda c: not FastExistentialGrounding.__is_negated_existential_quantifier(c), formula.children)
-            if len(other_children) != 1:
-                return False
+    def __is_applicable(self, formula):
+        if not isinstance(formula, Conjunction):
+            return False
+        negated_existential_quantifiers = \
+            filter(FastExistentialGrounding.__is_negated_existential_quantifier, formula.children)
+        other_children = \
+            filter(lambda c: not FastExistentialGrounding.__is_negated_existential_quantifier(c), formula.children)
+        if len(other_children) != 1:
+            return False
         return True
 
     @staticmethod
@@ -113,9 +107,10 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                 elif isinstance(disjunction_or_predicate, Equality):
                     equality_comparisons = [disjunction_or_predicate]
                 else:
+                    equality_comparisons =  disjunction_or_predicate.children
+                if equality_comparisons:
                     current_exception = {}
                     exceptions.append(current_exception)
-                    equality_comparisons =  disjunction_or_predicate.children
                 for equality_comparison in equality_comparisons:
                     exception_value = equality_comparison.args[1]
                     if exception_value in unfinished_assignment:
