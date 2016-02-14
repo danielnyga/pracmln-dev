@@ -66,8 +66,6 @@ class FastExistentialGrounding(DefaultGroundingFactory):
     def __is_applicable(self, formula):
         if not isinstance(formula, Conjunction):
             return False
-        negated_existential_quantifiers = \
-            filter(FastExistentialGrounding.__is_negated_existential_quantifier, formula.children)
         other_children = \
             filter(lambda c: not FastExistentialGrounding.__is_negated_existential_quantifier(c), formula.children)
         if len(other_children) != 1:
@@ -80,42 +78,47 @@ class FastExistentialGrounding(DefaultGroundingFactory):
             return False
         existential_quantifier = element.children[0]
         for conjunction in existential_quantifier.children:
-            if not isinstance(conjunction, Conjunction):
-                return False
-            literals = filter(lambda x: isinstance(x, Lit), conjunction.children)
-            equality_comparisons = filter(lambda x: isinstance(x, Equality), conjunction.children)
-            for equality_comparison in equality_comparisons:
-                if not equality_comparison.negated:
-                    return False
-            others = filter(lambda x: not isinstance(x, Lit) and
-                                      not isinstance(x, Disjunction) and
-                                      not isinstance(x, Equality), conjunction.children)
-            if len(literals) != 1 or len(others) > 0:
-                return False
-            for disjunction in filter(lambda x: isinstance(x, Disjunction), conjunction.children):
-                for equality_comparison in disjunction.children:
-                    if not isinstance(equality_comparison, Equality) or not equality_comparison.negated:
+            if isinstance(conjunction, Conjunction):
+                literals = filter(lambda x: isinstance(x, Lit), conjunction.children)
+                equality_comparisons = filter(lambda x: isinstance(x, Equality), conjunction.children)
+                for equality_comparison in equality_comparisons:
+                    if not equality_comparison.negated:
                         return False
+                others = filter(lambda x: not isinstance(x, Lit) and
+                                          not isinstance(x, Disjunction) and
+                                          not isinstance(x, Equality), conjunction.children)
+                if len(literals) != 1 or len(others) > 0:
+                    return False
+                for disjunction in filter(lambda x: isinstance(x, Disjunction), conjunction.children):
+                    for equality_comparison in disjunction.children:
+                        if not isinstance(equality_comparison, Equality) or not equality_comparison.negated:
+                            return False
+            elif not isinstance(conjunction, Lit):
+                return False
         return True
 
     def __get_grounding(self, unfinished_assignment, negated_existential_quantifiers):
         for quantifier in negated_existential_quantifiers:
             exceptions = []
-            for disjunction_or_predicate in quantifier.children[0].children[0].children:
-                if isinstance(disjunction_or_predicate, Lit):
-                    predicate = disjunction_or_predicate
-                elif isinstance(disjunction_or_predicate, Equality):
-                    equality_comparisons = [disjunction_or_predicate]
-                else:
-                    equality_comparisons =  disjunction_or_predicate.children
-                if equality_comparisons:
-                    current_exception = {}
-                    exceptions.append(current_exception)
-                for equality_comparison in equality_comparisons:
-                    exception_value = equality_comparison.args[1]
-                    if exception_value in unfinished_assignment:
-                        exception_value = unfinished_assignment[exception_value]
-                    current_exception[equality_comparison.args[0]] = exception_value
+            conjunction_or_predicate = quantifier.children[0].children[0]
+            if isinstance(conjunction_or_predicate, Conjunction):
+                for disjunction_or_predicate in conjunction_or_predicate.children:
+                    if isinstance(disjunction_or_predicate, Lit):
+                        predicate = disjunction_or_predicate
+                    elif isinstance(disjunction_or_predicate, Equality):
+                        equality_comparisons = [disjunction_or_predicate]
+                    else:
+                        equality_comparisons = disjunction_or_predicate.children
+                    if equality_comparisons:
+                        current_exception = {}
+                        exceptions.append(current_exception)
+                    for equality_comparison in equality_comparisons:
+                        exception_value = equality_comparison.args[1]
+                        if exception_value in unfinished_assignment:
+                            exception_value = unfinished_assignment[exception_value]
+                        current_exception[equality_comparison.args[0]] = exception_value
+            else:
+                predicate = conjunction_or_predicate
             for assignment in predicate.itervargroundings(self.mrf, unfinished_assignment):
                 for exception in exceptions:
                     if dict_subset(exception, assignment):
