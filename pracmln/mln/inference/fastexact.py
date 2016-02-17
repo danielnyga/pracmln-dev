@@ -151,10 +151,6 @@ class FastExact(Inference):
                 if current_value is not None and current_value != value:
                     return None
                 evidence_truth_values[index] = value
-
-
-
-
         for variable in self.mrf.variables:
             try:
                 variable.consistent(evidence_truth_values)
@@ -188,16 +184,26 @@ class FastExact(Inference):
     def __calculate_probability(self, ground_formulas, query, evidence, query_worlds, evidence_worlds):
         # TODO: Exact formulas are not handled correctly: Worlds violating hard formulas must have probability 0
         # TODO: What if no worlds match the evidence? div by zero?
+
         def get_world_probability(worlds):
-            return sum([exp(sum([gf.weight * gf(w) for gf in ground_formulas])) for w in worlds])
-        return (
-                    self.__get_world_count(self.__concatenate_formulas(query, evidence)) - \
-                    len(query_worlds) + \
+            def product(sequence):
+                return reduce(lambda x, y: x*y, sequence, 1)
+            return sum([product([long(exp(gf.weight * gf(w))) for gf in ground_formulas]) for w in worlds])
+
+        def divide(nominator, denominator):
+            if denominator == 0:
+                raise Exception("There are no worlds modeling the evidence!")
+            else:
+                precision = long(1000000)
+                return ((precision * nominator)/denominator)/float(precision)
+
+        return divide((
+                    self.__get_world_count(self.__concatenate_formulas(query, evidence)) -
+                    len(query_worlds) +
                     get_world_probability(query_worlds)
-               ) \
-               * 1.0 / \
+               ),
                (
-                    self.__get_world_count(evidence) - \
-                    len(evidence_worlds) + \
+                    self.__get_world_count(evidence) -
+                    len(evidence_worlds) +
                     get_world_probability(evidence_worlds)
-               )
+               ))
