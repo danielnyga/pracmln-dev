@@ -1,3 +1,4 @@
+import ctypes
 import json
 import logging
 from threading import Thread
@@ -6,6 +7,8 @@ import subprocess
 from StringIO import StringIO
 from flask import request, session, jsonify
 import sys
+import multiprocessing as mp
+import io
 from pracmln.mln.base import parse_mln
 from pracmln.mln.database import parse_db
 from pracmln.mln.methods import InferenceMethods
@@ -48,26 +51,29 @@ def start_inference():
     mlnsession = ensure_mln_session(session)
     data = json.loads(request.get_data())
 
-    mlnsession.infbuffer = RequestBuffer()
-    Thread(target=infer, args=(mlnsession, data)).start()
-    mlnsession.infbuffer.waitformsg(timeout=None)
+    if data.get('timeout') is None:
+        timeout = None
+    elif data.get('timeout').encode('utf8') != '':
+        timeout = float(data.get('timeout').encode('utf8'))
+    else:
+        timeout = 120
 
+    log.info('starting inference with timeout of {}'.format(timeout))
+    mlnsession.infbuffer = RequestBuffer()
+    t = Thread(target=infer, args=(mlnsession, data, timeout))
+    t.start()
+    mlnsession.infbuffer.waitformsg()
     return jsonify(mlnsession.infbuffer.content)
 
 
 @mlnApp.app.route('/mln/inference/_get_status', methods=['POST'])
 def getinfstatus():
     mlnsession = ensure_mln_session(session)
-    data = json.loads(request.get_data())
-
-    timeout = data.get('timeout', None)
-    mlnsession.infbuffer.waitformsg(timeout=timeout)
-
+    mlnsession.infbuffer.waitformsg()
     return jsonify(mlnsession.infbuffer.content)
 
 
-def infer(mlnsession, data):
-
+def infer(mlnsession, data, timeout):
     # initialize logger
     stream = StringIO()
     handler = logging.StreamHandler(stream)
@@ -115,12 +121,15 @@ def infer(mlnsession, data):
     mlnsession.projectinf.learnconf.conf = inferconfig.config.copy()
 
     mlnsession.infbuffer.setmsg({'message': 'Creating MLN and DB objects may'
-                                ' take a while...','status': False})
+                                            ' take a while...',
+                                 'status': False})
 
     barchartresults = []
     graphres = []
     png = ''
     ratio = 1
+    message = ''
+    res = ''
     try:
         # expand the parameters
         tmpconfig = inferconfig.config.copy()
@@ -131,7 +140,8 @@ def infer(mlnsession, data):
 
         # create the MLN and evidence database and the parse the queries
         modelstr = mln_content + \
-                   (emln_content if tmpconfig.get('use_emln', False) and emln_content != '' else '')
+                   (emln_content if tmpconfig.get('use_emln',
+                                                  False) and emln_content != '' else '')
 
         mln = parse_mln(modelstr,
                         searchpaths=[mlnsession.tmpsessionfolder],
@@ -171,21 +181,55 @@ def infer(mlnsession, data):
             inference = method(mrf, queries, **tmpconfig)
             mlnsession.infbuffer.setmsg({'message': 'Starting Inference...',
                                          'status': False})
-            result = inference.run()
 
-            output = StringIO()
-            result.write(output)
-            res = output.getvalue()
+
+            # VarI - inference will be cancelled on timeout
+            # if multicore enabled, there may still be processes running
+            # in the background
+            # success, result = RunProcess(inference.run, timeout).Run()
+            # if success:
+            #     res = result.get('res')
+            #     result = result.get('result')
+            # else:
+            #     raise mp.TimeoutError
+            # if inferconfig.get('verbose', False):
+            #     streamlog.info('INFERENCE RESULTS: \n' + res)
+
+            # VarII - inference cannot be cancelled
+            # inference.run()
+            # results = inference.results
+
+            # VarIII - inference will be cancelled on timeout
+            # if multicore enabled, there may still be processes running
+            # in the background
+            t = Thread(target=inference.run, args=())
+            t.start()
+            threadid = t.ident
+            t.join(timeout)  # wait until either thread is done or time is up
+
+            if t.isAlive():
+                # stop inference and raise TimeoutError locally
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(
+                    ctypes.c_long(threadid),
+                    ctypes.py_object(SystemExit))
+                raise mp.TimeoutError
+
+            results = inference.results
 
             if inferconfig.get('verbose', False):
+                output = io.BytesIO()
+                inference.write(output)
+                res = output.getvalue()
                 streamlog.info('INFERENCE RESULTS: \n' + res)
 
-            graphres = calculategraphres(mrf, db.evidence.keys(),
+            graphres = calculategraphres(mrf,
+                                         db.evidence.keys(),
                                          inference.queries)
-            barchartresults = [{"name": x, "value": inference.results[x]} for
-                               x in inference.results]
+            barchartresults = [{"name": x,
+                                "value": results[x]} for x in results]
 
-            png, ratio = get_cond_prob_png(queries, db,
+            png, ratio = get_cond_prob_png(queries,
+                                           db,
                                            filedir=mlnsession.tmpsessionfolder)
 
             # save settings to project
@@ -203,12 +247,19 @@ def infer(mlnsession, data):
 
         except SystemExit:
             streamlog.error('Cancelled...')
+            message = 'Cancelled!\nCheck log for more information.'
+        except mp.TimeoutError:
+            streamlog.error('Timeouterror! '
+                            'Inference took more than {} seconds. '
+                            'Increase the timeout and try again.'.format(timeout))
+            message = 'Timeout!'
         finally:
             handler.flush()
     except:
         traceback.print_exc(file=stream)
+        message = 'Failed!\nCheck log for more information.'
     finally:
-        mlnsession.infbuffer.setmsg({'message': '',
+        mlnsession.infbuffer.setmsg({'message': message,
                                      'status': True,
                                      'graphres': graphres,
                                      'resbar': barchartresults,

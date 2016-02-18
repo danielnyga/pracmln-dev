@@ -10,12 +10,13 @@ from pracmln.mln.database import parse_db
 from pracmln.praclog import logger
 from pracmln.utils import config
 from webmln.gui.app import mlnApp
-from webmln.gui.pages.buffer import RequestBuffer
+from webmln.gui.pages.buffer import RequestBuffer, RunProcess
 from webmln.gui.pages.utils import ensure_mln_session, change_example, \
     get_training_db_paths
 from pracmln import Database, MLNLearn
 from pracmln.mln.methods import LearningMethods
 from pracmln.utils.project import PRACMLNConfig
+import multiprocessing as mp
 
 
 log = logger(__name__)
@@ -26,9 +27,17 @@ def start_learning():
     mlnsession = ensure_mln_session(session)
     data = json.loads(request.get_data())
 
+    if data.get('timeout') is None:
+        timeout = None
+    elif data.get('timeout').encode('utf8') != '':
+        timeout = float(data.get('timeout').encode('utf8'))
+    else:
+        timeout = 120
+    log.info('starting learning with timeout of {}'.format(timeout))
     mlnsession.lrnbuffer = RequestBuffer()
-    Thread(target=learn, args=(mlnsession, data)).start()
-    mlnsession.lrnbuffer.waitformsg(timeout=None)
+    t = Thread(target=learn, args=(mlnsession, data, timeout))
+    t.start()
+    mlnsession.lrnbuffer.waitformsg()
 
     return jsonify(mlnsession.lrnbuffer.content)
 
@@ -36,15 +45,11 @@ def start_learning():
 @mlnApp.app.route('/mln/learning/_get_status', methods=['POST'])
 def getlrnstatus():
     mlnsession = ensure_mln_session(session)
-    data = json.loads(request.get_data())
-
-    timeout = data.get('timeout', None)
-    mlnsession.lrnbuffer.waitformsg(timeout=timeout)
-
+    mlnsession.lrnbuffer.waitformsg()
     return jsonify(mlnsession.lrnbuffer.content)
 
 
-def learn(mlnsession, data):
+def learn(mlnsession, data, timeout):
     # initialize logger
     stream = StringIO()
     handler = logging.StreamHandler(stream)
@@ -104,11 +109,10 @@ def learn(mlnsession, data):
     learnedmln = ''
     message = ''
     try:
-        mlnsession.lrnbuffer.setmsg(
-            {
-                'message': 'Creating MLN object. This may take a while for '
-                           'large MLNs...',
-                'status': False})
+        mlnsession.lrnbuffer.setmsg({'message': 'Creating MLN object. '
+                                                'This may take a while for '
+                                                'large MLNs...',
+                                     'status': False})
 
         mlnobj = parse_mln(mln_content,
                            searchpaths=[mlnsession.tmpsessionfolder],
@@ -148,7 +152,14 @@ def learn(mlnsession, data):
         learning = MLNLearn(config=learnconfig, mln=mlnobj, db=dbobj)
         mlnsession.lrnbuffer.setmsg({'message': 'Start Learning... ',
                                      'status': False})
-        result = learning.run()
+
+        # VarI
+        # result = learning.run()
+
+        # Var II
+        result = RunProcess(learning.run, timeout).Run()
+        if result is None:
+            raise mp.TimeoutError
 
         output = StringIO()
         result.write(output, color=None)
@@ -168,12 +179,17 @@ def learn(mlnsession, data):
                            .format(fname, mlnsession.projectlearn.name))
 
         streamlog.info('FINISHED')
-    except SystemExit as s:
+    except SystemExit:
         streamlog.error('Cancelled...')
         message = 'Cancelled!\nCheck log for more information.'
-    except Exception as e:
+    except mp.TimeoutError:
+        streamlog.error('Timeouterror! '
+                        'Learning took more than {} seconds. '
+                        'Increase the timeout and try again.'.format(timeout))
+        message = 'Timeout!'
+    except:
         traceback.print_exc(file=stream)
-        message = 'Error!\nCheck log for more information.'
+        message = 'Failed!\nCheck log for more information.'
     finally:
         handler.flush()
         mlnsession.lrnbuffer.setmsg({'message': message,
