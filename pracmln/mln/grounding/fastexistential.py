@@ -42,9 +42,9 @@ class FastExistentialGrounding(DefaultGroundingFactory):
         DefaultGroundingFactory.__init__(self, mrf, simplify, unsatfailure, formulas, cache, **params)
 
     def _itergroundings(self, simplify=True, unsatfailure=True):
-        for formula in self.formulas:
+        for formula in self.mrf.formulas:
             if not self.__is_applicable(formula):
-                logger.warning("FastExistentialGrounding is not applicable for formula %s, using default grounding..."%
+                logger.info("FastExistentialGrounding is not applicable for formula %s, using default grounding..." %
                                formula)
                 for gf in formula.itergroundings(self.mrf):
                     yield gf
@@ -55,13 +55,14 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                 FastExistentialGrounding.__is_negated_existential_quantifier(c), formula.children)[0]
             for variable_assignment in other_child.itervargroundings(self.mrf):
                 other_child_grounded = other_child.ground(self.mrf, variable_assignment)
-                if other_child_grounded.truth(self.mrf.evidence) == 0.0:
-                    continue
                 conjunction_parts = list(self.__get_grounding(variable_assignment, negated_existential_quantifiers))
-                conjunction_parts.append(other_child_grounded)
+                if isinstance(other_child_grounded, Conjunction):
+                    conjunction_parts += list(other_child_grounded.children)
+                else:
+                    conjunction_parts.append(other_child_grounded)
                 grounding = Conjunction(conjunction_parts, mln=formula.mln, idx=formula.idx)
-                if grounding.truth(self.mrf.evidence) != 0.0:
-                    yield grounding
+                grounding.weight = formula.weight
+                yield grounding
 
     def __is_applicable(self, formula):
         if not isinstance(formula, Conjunction):
