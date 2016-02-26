@@ -42,7 +42,7 @@ class FastExistentialGrounding(DefaultGroundingFactory):
         DefaultGroundingFactory.__init__(self, mrf, simplify, unsatfailure, formulas, cache, **params)
 
     def _itergroundings(self, simplify=True, unsatfailure=True):
-        for formula in self.mrf.formulas:
+        for formula in self.formulas:
             if not self.__is_applicable(formula):
                 logger.info("FastExistentialGrounding is not applicable for formula %s, using default grounding..." %
                                formula)
