@@ -31,14 +31,12 @@
 import logging
 
 from pracmln.logic.fuzzy import FuzzyLogic
-from pracmln.mln.errors import MRFValueException
 from pracmln.mln.grounding.fastexistential import FastExistentialGrounding
 from pracmln.mln.inference.infer import Inference
 from pracmln.mln.constants import HARD
 from pracmln.logic.common import Conjunction, GroundLit, TrueFalse, Disjunction, Equality
 from operator import mul
 import numpy
-
 
 from pracmln.mln.mrfvars import FuzzyVariable
 
@@ -50,301 +48,63 @@ class FastExact(Inference):
         Inference.__init__(self, mrf, queries, **params)
 
     def _run(self):
-        to_return = {}
+        queries = [FastExact.QueryFormula(self.mrf, query, index) for index, query in enumerate(self.queries)]
         ground_formulas, evidence = self.__get_ground_formulas()
         logger.info("Grounding finished!")
+        world_count = self.__get_world_count_for_evidence_and_queries(evidence, *queries)
+        queries_with_probability_zero = filter(lambda q: world_count[q] == 0, queries)
+        to_return = {q.query_formula: 0.0 for q in queries_with_probability_zero}
+        other_queries = filter(lambda q: world_count[q] > 0, queries)
+        if not other_queries:
+            return to_return
         formula_combinations = self.__combine_formulas(ground_formulas)
-        self.__assign_world_number(formula_combinations)
-        for query in self.queries:
-            # TODO: Reuse evidence formula combinations...
-            if not FastExact.__is_conjunction_or_gnd_literal(query):
-                # TODO: Allow formulas in dnf...
-                raise Exception("Queries must be conjunctions or ground literals!")
-            query_ground_formulas = [self.__combine_dnf_and_conjunctions_to_dnf(query, gf) for gf in ground_formulas]
-            query_ground_formulas = filter(lambda x: x is not None, query_ground_formulas)
-            query_formula_combinations = self.__combine_formulas(query_ground_formulas)
-            self.__assign_world_number(query_formula_combinations)
-            p = self.__calculate_probability(query, query_formula_combinations, evidence, formula_combinations)
-            to_return[query] = p
+        query_combinations = self.__assign_queries_and_formula_combinations(other_queries, formula_combinations)
+        self.__assign_world_number(formula_combinations, query_combinations)
+        to_return.update(self.__calculate_probability(evidence, other_queries, formula_combinations, world_count))
         return to_return
-
-    def __get_world_as_formula(self, world):
-        logical_evidence = []
-        for i in range(0, len(world)):
-            if world[i] is not None:
-                if world[i] != 1 and world[i] != 0:
-                    continue # Fuzzy evidence is handled later...
-                logical_evidence.append(self.mln.logic.gnd_lit(self.mrf.gndatom(i), world[i] == 0, self.mrf.mln))
-        return None if not logical_evidence else self.mln.logic.conjunction(logical_evidence, self.mrf.mln)
 
     def __get_ground_formulas(self):
         formulas = list(self.mrf.formulas)
-        evidence = self.__get_world_as_formula(self.mrf.evidence)
-        if evidence:
-            self.mln.weights.append(HARD)
-            evidence.idx = len(self.mln.weights)-1
-            formulas.append(evidence)
         grounder = FastExistentialGrounding(self.mrf, False, False, formulas, -1)
         ground_formulas = list(grounder.itergroundings())
+        hard_ground_formulas = filter(lambda f: f.weight == HARD, ground_formulas)
+        logical_evidence = [self.mln.logic.gnd_lit(self.mrf.gndatom(i), self.mrf.evidence[i] == 0, self.mrf.mln)
+                            for i in range(0, len(self.mrf.evidence)) if self.mrf.evidence[i] is not None]
+        if logical_evidence:
+            hard_ground_formulas.append(self.mln.logic.conjunction(logical_evidence, self.mrf.mln)
+                                        if len(logical_evidence) > 1 else logical_evidence[0])
         # TODO: Make sure that a conjunction in the evidence does not exist twice...
+        hard_ground_formulas_as_dnf = self.__create_dnf(hard_ground_formulas)
         non_hard_ground_formulas = filter(lambda f: f.weight != HARD, ground_formulas)
-        hard_ground_formulas_as_dnf = self.__combine_to_dnf(filter(lambda f: f.weight == HARD, ground_formulas))
-        formulas_compatible_with_evidence = self.__combine_dnf_and_conjunctions_to_dnf(
-            hard_ground_formulas_as_dnf, *non_hard_ground_formulas)
-        if formulas_compatible_with_evidence is None:
-            formulas_compatible_with_evidence = []
-        elif not isinstance(formulas_compatible_with_evidence, Disjunction):
-            formulas_compatible_with_evidence = [formulas_compatible_with_evidence]
-        else:
-            formulas_compatible_with_evidence = formulas_compatible_with_evidence.children
-        return formulas_compatible_with_evidence, hard_ground_formulas_as_dnf
+        non_hard_ground_formulas = [self.__remove_equality(formula) for formula in non_hard_ground_formulas]
+        non_hard_ground_formulas = filter(lambda f: f is not None, non_hard_ground_formulas)
+        ground_formulas = [FastExact.GroundFormula(self.mrf,g,g.idx,i) for i, g in enumerate(non_hard_ground_formulas)]
+        to_return = [(hard_ground_formulas_as_dnf*gf).children for gf in ground_formulas]
+        return reduce(lambda l1, l2: l1+l2, to_return), hard_ground_formulas_as_dnf
 
-    def __combine_dnf_and_conjunctions_to_dnf(self, dnf, *conjunctions):
-        if dnf is not None and not FastExact.__is_dnf(dnf):
-            raise Exception("Formula %s is not in dnf and neither a Conjunction nor a Ground Literal!" % dnf)
-        formulas_compatible_with_evidence = []
-        for formula in conjunctions:
-            variable_assignment = self.__check_consistency_and_get_world(formula)
-            if not variable_assignment:
-                continue
-            formula = self.__remove_equality(formula)
-            if not formula:
-                continue
-            if dnf is None:
-                formulas_compatible_with_evidence.append(formula)
-                continue
-            disjunction = dnf.children if isinstance(dnf, Disjunction) else [dnf]
-            for sub_formula in disjunction:
-                #TODO: Avoid squared complexity...
-                consistent = self.__check_consistency_and_get_world(sub_formula, variable_assignment)
-                if consistent is None:
-                    continue
-                sub_formula = self.__remove_equality(sub_formula)
-                if not sub_formula:
-                    continue
-                ground_literals = []
-
-                def append_ground_literals(f, literals):
-                    if isinstance(f, Conjunction):
-                        literals += f.children
-                    elif isinstance(f, GroundLit):
-                        literals.append(f)
-                    else:
-                        raise Exception("The following formula is not a conjunction: %s" % f)
-                append_ground_literals(formula, ground_literals)
-                append_ground_literals(sub_formula, ground_literals)
-                already_contained = set()
-                set_of_ground_literals = []
-                for ground_literal in ground_literals:
-                    if isinstance(ground_literals, Equality):
-                        continue
-                    identifier = (ground_literal.gndatom.idx, ground_literal.negated)
-                    if identifier in already_contained:
-                        continue
-                    already_contained.add(identifier)
-                    set_of_ground_literals.append(ground_literal)
-                if len(set_of_ground_literals) == 0:
-                    continue
-                if len(set_of_ground_literals) == 1:
-                    set_of_ground_literals[0].idx = formula.idx
-                    formulas_compatible_with_evidence.append(set_of_ground_literals[0])
-                    continue
-                formulas_compatible_with_evidence.append(
-                    self.mln.logic.conjunction(set_of_ground_literals, self.mrf.mln, formula.idx))
-        formula_length = len(formulas_compatible_with_evidence)
-        return None if formula_length == 0 else formulas_compatible_with_evidence[0] if formula_length == 1 \
-            else self.mln.logic.disjunction(formulas_compatible_with_evidence, self.mln)
-
-    def __remove_equality(self, formula):
-        disjunction = formula.children if isinstance(formula, Disjunction) else [formula]
-        conjunctions = []
-        for conjunction in disjunction:
-            conjunction = conjunction.children if isinstance(conjunction, Conjunction) else [conjunction]
-            ground_literals = filter(lambda g: not isinstance(g, Equality), conjunction)
-            if ground_literals:
-                conjunctions.append(conjunction[0] if len(ground_literals) == 1 else \
-                    self.mln.logic.conjunction(ground_literals, self.mln))
-        if not conjunctions:
-            return None
-        to_return = conjunctions[0] if len(conjunctions) == 1 else self.mln.logic.disjunction(conjunctions, self.mln)
-        to_return.idx = formula.idx
-        return to_return
-
-    def __get_dnf_as_dict_of_truth_values(self, dnf):
-        if isinstance(dnf, Disjunction):
-            disjunction = dnf.children
-        else:
-            disjunction = [dnf]
-        to_return = []
-        for logical_world_restrictions in disjunction:
-            evidence_truth_values = [None]*len(self.mrf.gndatoms)
-            ground_literals = []
-            if isinstance(logical_world_restrictions, GroundLit):
-                ground_literals = [logical_world_restrictions]
-            elif isinstance(logical_world_restrictions, Conjunction):
-                ground_literals = logical_world_restrictions.children
-            elif not (isinstance(logical_world_restrictions, TrueFalse) and logical_world_restrictions.value == 1):
-                raise Exception("Unknown formula type:" + str(type(logical_world_restrictions)))
-            for ground_literal in ground_literals:
-                values_to_set = []
-                new_value = 0 if ground_literal.negated else 1
-                if new_value == 1:
-                    variable = self.mrf.variable(ground_literal.gndatom)
-                    for gnd_atom in variable.gndatoms:
-                        values_to_set.append((gnd_atom.idx, 1 if gnd_atom.idx == ground_literal.gndatom.idx else 0))
-                else:
-                    values_to_set.append((ground_literal.gndatom.idx, 0))
-                for index, value in values_to_set:
-                    current_value = evidence_truth_values[index]
-                    if current_value is not None and current_value != value:
-                        return None
-                    evidence_truth_values[index] = value
-            for variable in self.mrf.variables:
-                try:
-                    variable.consistent(evidence_truth_values)
-                except MRFValueException as e:
-                    break
-            else:
-                to_return.append(dict(enumerate(evidence_truth_values)))
-        for variable in self.mrf.variables:
-            if isinstance(variable, FuzzyVariable):
-                for gnd_atom in variable.gndatoms:
-                    for evidence in to_return:
-                        evidence[gnd_atom.idx] = self.mrf.evidence[gnd_atom.idx]
-        return to_return
-
-    def __get_world_count(self, logical_world_restrictions):
-        if logical_world_restrictions is None:
-            return 0
-        evidences = self.__get_dnf_as_dict_of_truth_values(logical_world_restrictions)
-        if not evidences:
-            return 0
-
-        return sum([reduce(mul, [variable.valuecount(f) for variable in self.mrf.variables], 1) for f in evidences])
-
-    def __calculate_probability(self, query, query_formulas, evidence, evidence_formulas):
-        def get_world_probability(formula_combinations):
-            def exp(number):
-                result = numpy.exp(number)
-                return long(result) if result > 1000000 else result
-
-            def product(sequence):
-                return reduce(lambda x, y: x*y, sequence, 1)
-
-            def get_exp_sum_for_fuzzy_formula(formula_combination):
-                world = self.__get_dnf_as_dict_of_truth_values(formula_combination.formula_conjunction)[0]
-                return product([exp(f(world) * f.weight) for f in formula_combination.formulas])
-
-            number_of_worlds = sum(combination.actual_number_of_worlds for combination in formula_combinations)
-            get_exp_sum = get_exp_sum_for_fuzzy_formula if isinstance(self.mln.logic, FuzzyLogic) \
-                else lambda combination: product([exp(f.weight) for f in combination.formulas])
-            exp_sum = sum(c.actual_number_of_worlds * get_exp_sum(c) for c in formula_combinations)
-            return number_of_worlds, exp_sum
-
-        def divide(nominator, denominator):
-            if denominator == 0:
-                raise Exception("There are no worlds modeling the evidence!")
-            else:
-                precision = long(1000000)
-                return ((precision * nominator)/denominator)/float(precision)
-
-        evidence_world_number, evidence_world_sum = get_world_probability(evidence_formulas)
-        query_world_number, query_world_sum = get_world_probability(query_formulas)
-        return divide((
-                    self.__get_world_count(self.__combine_dnf_and_conjunctions_to_dnf(evidence, query)) -
-                    query_world_number +
-                    query_world_sum
-               ),
-               (
-                    self.__get_world_count(evidence) -
-                    evidence_world_number +
-                    evidence_world_sum
-               ))
-
-    def __check_consistency_and_get_world(self, formula, partial_assignment=None):
-        #TODO: Use variables instead of ground atoms here...
-        assignment = list(partial_assignment) if partial_assignment is not None else [None]*len(self.mrf.gndatoms)
-        formula_is_conjunction = isinstance(formula, Conjunction)
-        if formula_is_conjunction:
-            for child in formula.children:
-                if isinstance(child, Equality):
-                    if child.truth() == 0:
-                        return None
-                else:
-                    formula_is_conjunction = formula_is_conjunction and isinstance(child, GroundLit)
-        if not formula_is_conjunction and not isinstance(formula, GroundLit):
-            raise Exception("The formula %s is not a conjunction (Only conjunctions are supported!)" % str(formula))
-        for ground_literal in [formula] if isinstance(formula, GroundLit) else formula.children:
-            if isinstance(ground_literal, Equality):
-                continue
-            values_to_set = []
-            new_value = 0 if ground_literal.negated else 1
-            if new_value == 1:
-                variable = self.mrf.variable(ground_literal.gndatom)
-                for gnd_atom in variable.gndatoms:
-                    values_to_set.append((gnd_atom.idx, 1 if gnd_atom.idx == ground_literal.gndatom.idx else 0))
-            else:
-                values_to_set.append((ground_literal.gndatom.idx, 0))
-            for index, value in values_to_set:
-                current_value = assignment[index]
-                if current_value is not None and current_value != value:
-                    return None
-                assignment[index] = value
-        return assignment
-
-    @staticmethod
-    def __is_conjunction_or_gnd_literal(formula):
-        if isinstance(formula, Conjunction):
-            return reduce(lambda f: isinstance(f, GroundLit), formula , True)
-        elif isinstance(formula, GroundLit):
-            return True
-        else:
-            return False
-
-    @staticmethod
-    def __is_cnf_or_dnf(formula, first_level_literal, second_level_literal):
-        if isinstance(formula, first_level_literal):
-            conjunction = formula.children
-        elif isinstance(formula, GroundLit):
-            return True
-        elif isinstance(formula, second_level_literal):
-            conjunction = [formula]
-        else:
-            return False
-        for disjunction in conjunction:
-            if isinstance(disjunction, second_level_literal):
-                if not reduce(lambda g1, g2: g1 and g2, [isinstance(g, GroundLit) for g in disjunction.children], True):
-                    break
-            elif not isinstance(disjunction, GroundLit):
-                break
-        else:
-            return True
-        return False
-
-    @staticmethod
-    def __is_cnf(formula):
-        return FastExact.__is_cnf_or_dnf(formula, Conjunction, Disjunction)
-
-    @staticmethod
-    def __is_dnf(formula):
-        return FastExact.__is_cnf_or_dnf(formula, Disjunction, Conjunction)
-
-    def __combine_to_dnf(self, formulas):
+    def __create_dnf(self, formulas):
         #TODO: Improve implementation - First converting to cnf and then to dnf is probably not efficient (but easy^^)
         if not formulas:
-            return None
+            return FastExact.DisjunctionNormalForm(self.mrf)
         if len(formulas) == 1 and isinstance(formulas[0], GroundLit):
-            return formulas[0]
-        elif len(formulas) == 1:
+            return FastExact.DisjunctionNormalForm(self.mrf, FastExact.GroundLiteralConjunction(self.mrf, formulas[0]))
+        if len(formulas) == 1:
             formulas = formulas[0]
         else:
             formulas = self.mln.logic.conjunction(formulas, self.mln)
-        if FastExact.__is_dnf(formulas):
-            return formulas
-        logger.warn("Formula is not in dnf, converting formula to cnf and cnf to dnf (Might cause space explosion...)")
-        if not FastExact.__is_cnf(formulas):
-            formulas = formulas.cnf()
-        return self.__convert_cnf_to_dnf(formulas)
+        if not FastExact.__is_dnf(formulas):
+            logger.warn("Formula is not in dnf, converting formula to cnf and cnf to dnf (Might cause space explosion)")
+            if not FastExact.__is_cnf(formulas):
+                formulas = formulas.cnf()
+            formulas = self.__convert_cnf_to_dnf(formulas)
+        disjunction_children = formulas.children if isinstance(formulas, Disjunction) else [formulas]
+        disjunction_children = [self.__remove_equality(child) for child in disjunction_children]
+        disjunction_children = filter(lambda c: c is not None, disjunction_children)
+        disjunction_children = [FastExact.GroundLiteralConjunction(self.mrf, child) for child in disjunction_children]
+        disjunction_children = filter(lambda c: c.consistent, disjunction_children)
+        if not disjunction_children:
+            raise Exception("There is no world satisfying the evidence!")
+        return FastExact.DisjunctionNormalForm(self.mrf, *disjunction_children)
 
     def __convert_cnf_to_dnf(self, formula):
         def enumerate_conjunctions_recursively(remaining_disjunctions, previous_conjunction):
@@ -371,20 +131,67 @@ class FastExact(Inference):
         else:
             raise Exception("Formula %s is not a CNF!" % str(formula))
 
+    @staticmethod
+    def __is_conjunction_or_gnd_literal(formula):
+        if isinstance(formula, Conjunction):
+            return all([isinstance(f, GroundLit) for f in formula.children])
+        elif isinstance(formula, GroundLit) or (isinstance(formula, TrueFalse) and formula.truth()==1):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def __is_cnf_or_dnf(formula, first_level_literal, second_level_literal):
+        if isinstance(formula, first_level_literal):
+            conjunction = formula.children
+        elif isinstance(formula, GroundLit):
+            return True
+        elif isinstance(formula, second_level_literal):
+            conjunction = [formula]
+        else:
+            return False
+        for disjunction in conjunction:
+            if isinstance(disjunction, second_level_literal):
+                if not all([isinstance(g, GroundLit) or (isinstance(g, TrueFalse) and g.truth()==1)
+                            for g in disjunction.children]):
+                    break
+            elif not isinstance(disjunction, GroundLit):
+                break
+        else:
+            return True
+        return False
+
+    @staticmethod
+    def __is_cnf(formula):
+        return FastExact.__is_cnf_or_dnf(formula, Conjunction, Disjunction)
+
+    @staticmethod
+    def __is_dnf(formula):
+        return FastExact.__is_cnf_or_dnf(formula, Disjunction, Conjunction)
+
+    def __remove_equality(self, formula):
+        conjunction = formula.children if isinstance(formula, Conjunction) else [formula]
+        if filter(lambda c: isinstance(c, Equality) and c.truth() == 0, conjunction):
+            return None
+        gnd_literals = filter(lambda g: not isinstance(g, Equality), conjunction)
+        if not gnd_literals:
+            return self.mln.logic.true_false(1, self.mln, formula.idx)
+        to_return = gnd_literals[0] if len(gnd_literals) == 1 else self.mln.logic.conjunction(gnd_literals, self.mln)
+        to_return.idx = formula.idx
+        return to_return
+
     def __combine_formulas(self, formulas):
         def combine_formulas_from_two_iterations(iteration_0, last_iteration):
             for last_combination in last_iteration:
                 for first_combination in iteration_0:
-                    #TODO: Avoid squared complexity...
                     if first_combination in last_combination:
                         continue
-                    conjunction = self.__combine_dnf_and_conjunctions_to_dnf(
-                        last_combination.formula_conjunction, first_combination.formula_conjunction)
-                    if not conjunction:
+                    to_yield = FastExact.EvidenceFormulaCombination(self.mrf, last_combination, first_combination)
+                    if not to_yield.consistent:
                         continue
-                    yield FastExact.FormulaCombination(conjunction, None, last_combination, first_combination)
+                    yield to_yield
 
-        iterations = [[FastExact.FormulaCombination(formula, index) for index, formula in enumerate(formulas)]]
+        iterations = [formulas]
         all_combinations = {}
         for combination in iterations[0]:
             if combination in all_combinations:
@@ -405,94 +212,259 @@ class FastExact(Inference):
                 break
         return all_combinations.keys()
 
-    def __assign_world_number(self, combined_formulas):
-        for formula in combined_formulas:
-            formula.maximum_number_of_worlds = self.__get_world_count(formula.formula_conjunction)
-        container_of = {}
-        contained_in = set()
-        for contained in combined_formulas:
-            for container in combined_formulas:
-                # TODO: Avoid squared complexity
-                if contained < container:
-                    contained_in.add(container)
-                    if contained not in container_of:
-                        container_of[contained] = []
-                    container_of[contained].append(container)
-        no_containments = filter(lambda formula: formula not in contained_in, combined_formulas)
+    def __assign_queries_and_formula_combinations(self, queries, evidence_combinations):
+        query_combinations = {}
+        for query in queries:
+            query_combinations[query] = []
+            combinations = [FastExact.QueryFormulaCombination(self.mrf, ec, query) for ec in evidence_combinations]
+            combination_dict = {}
+            for combination in combinations:
+                if not combination.consistent:
+                    continue
+                if combination not in combination_dict:
+                    combination_dict[combination] = []
+                combination_dict[combination].append(combination)
+            for _, equivalent_combinations in combination_dict.items():
+                equivalent_combinations.sort(key= lambda c: len(c.evidence_combination.ground_formulas))
+                most_specific_combination = equivalent_combinations[-1]
+                most_specific_combination.evidence_combination.add_query_combination(most_specific_combination)
+                query_combinations[query].append(most_specific_combination)
+        return query_combinations
 
-        def set_number_of_worlds_recursively(formula):
-            if formula.actual_number_of_worlds is not None:
+    def __assign_world_number(self, evidence_combinations, query_combinations):
+        for formula in evidence_combinations:
+            worlds = self.__get_world_count_for_conjunction(formula, *formula.query_combinations)
+            formula.maximum_number_of_worlds = worlds[formula]
+            for query_combination in formula.query_combinations:
+                query_combination.maximum_number_of_worlds = worlds[query_combination]
+
+        for combined_formulas in [c for _, c in query_combinations.items()] + [evidence_combinations]:
+            container_of = {}
+            contained_in = set()
+            for contained in combined_formulas:
+                for container in combined_formulas:
+                    if contained < container:
+                        contained_in.add(container)
+                        if contained not in container_of:
+                            container_of[contained] = []
+                        container_of[contained].append(container)
+            no_containments = filter(lambda formula: formula not in contained_in, combined_formulas)
+
+            def set_number_of_worlds_recursively(formula):
+                if formula.actual_number_of_worlds is not None:
+                    return formula.actual_number_of_worlds
+                child_value_list = container_of[formula] if formula in container_of else []
+                child_values = sum([set_number_of_worlds_recursively(child_value) for child_value in child_value_list])
+                formula.actual_number_of_worlds = formula.maximum_number_of_worlds - child_values
                 return formula.actual_number_of_worlds
-            child_value_list = container_of[formula] if formula in container_of else []
-            child_values = sum([set_number_of_worlds_recursively(child_value) for child_value in child_value_list])
-            formula.actual_number_of_worlds = formula.maximum_number_of_worlds - child_values
-            return formula.actual_number_of_worlds
 
-        for f in no_containments:
-            set_number_of_worlds_recursively(f)
+            for f in no_containments:
+                set_number_of_worlds_recursively(f)
 
-    class FormulaCombination(object):
-        def __init__(self, formula, formula_index=None, *formula_combinations):
-            if formula_index and len(formula_combinations)>0 or formula_index is None and len(formula_combinations)==0:
-                raise Exception("A formula combination can only be constructed from a formula xor other combinations!")
-            if len(formula_combinations) == 0:
-                self.__formulas = [(formula_index, formula)]
-                self.__combined_formulas = formula
+    def __get_world_count_for_conjunction(self, base_conjunction, *extending_conjunctions):
+        base_world = {index: truth for index, _, truth in base_conjunction.ground_atom_indices_and_truth_values}
+        base_world_count = reduce(mul, [variable.valuecount(base_world) for variable in self.mrf.variables], 1)
+        to_return = {base_conjunction: base_world_count}
+        for extension in extending_conjunctions:
+            additional_world = {index: truth for index, _, truth in extension.ground_atom_indices_and_truth_values -
+                                base_conjunction.ground_atom_indices_and_truth_values}
+            additional_variable_indices = {self.mrf.variable(self.mrf.gndatom(gnd_atom_idx)).idx
+                                           for gnd_atom_idx in additional_world.keys()}
+            combined_world = dict(base_world, **additional_world)
+            extension_world_count = base_world_count
+            for variable_index in additional_variable_indices:
+                variable = self.mrf.variable(variable_index)
+                extension_world_count *= variable.valuecount(combined_world)
+                extension_world_count /= variable.valuecount(base_world)
+            to_return[extension] = extension_world_count
+        return to_return
+
+    def __get_world_count_for_evidence_and_queries(self, evidence_dnf, *query_conjunctions):
+        worlds = {conjunction: 0 for conjunction in query_conjunctions}
+        worlds[evidence_dnf] = 0
+        children = evidence_dnf.children
+        if not children:
+            children = [FastExact.GroundLiteralConjunction(self.mrf, self.mln.logic.true_false(1, self.mln))]
+        for conjunction in children:
+            consistent_queries = filter(lambda q: FastExact.FormulaCombination(self.mrf, conjunction, q).consistent,
+                                        query_conjunctions)
+            conjunction_worlds = self.__get_world_count_for_conjunction(conjunction, *consistent_queries)
+            for formula, world_count in conjunction_worlds.items():
+                worlds[evidence_dnf if formula == conjunction else formula] += world_count
+        return worlds
+
+    def __calculate_probability(self, evidence, queries, evidence_combinations, world_count):
+        def get_number_of_worlds_and_sum(formula_combination):
+            def exp(number):
+                result = numpy.exp(number)
+                return long(result) if result > 1000000 else result
+
+            def product(sequence):
+                return reduce(lambda x, y: x*y, sequence, 1)
+
+            if isinstance(self.mln.logic, FuzzyLogic):
+                def get_conjunction_truth(ground_formula):
+                    to_return = min([1 - truth if negated else truth for _, negated, truth in
+                                ground_formula.ground_atom_indices_and_truth_values])
+                    return to_return
+
+                exp_sum = product([exp(f.weight*get_conjunction_truth(f)) for f in formula_combination.ground_formulas])
             else:
-                self.__formulas = []
-                self.__combined_formulas = formula
-                for combination in formula_combinations:
-                    self.union_formulas(combination)
-            self.__indices_and_negation_flags = set(self.__get_indices_and_negation_flags(formula))
-            self.__calculate_hash_code()
-            self.__maximum_number_of_worlds = None
-            self.__actual_number_of_worlds = None
+                exp_sum = product([exp(f.weight) for f in formula_combination.ground_formulas])
+            to_return = [(q.query, q.actual_number_of_worlds, q.actual_number_of_worlds * exp_sum)
+                         for q in formula_combination.query_combinations]
+            to_return.append((None, formula_combination.actual_number_of_worlds,
+                              formula_combination.actual_number_of_worlds * exp_sum))
+            return to_return
+
+        def divide(fraction_nominator, fraction_denominator):
+            if denominator == 0:
+                raise Exception("There are no worlds modeling the evidence!")
+            else:
+                precision = long(1000000)
+                return ((precision * fraction_nominator)/fraction_denominator)/float(precision)
+
+        exp_sums = {query: 0 for query in queries+[None]}
+        number_of_worlds = {query: 0 for query in queries+[None]}
+        for evidence_combination in evidence_combinations:
+            for query, world_number, world_sum in get_number_of_worlds_and_sum(evidence_combination):
+                exp_sums[query] += world_sum
+                number_of_worlds[query] += world_number
+        denominator = world_count[evidence] - number_of_worlds[None] + exp_sums[None]
+        return {query.query_formula: divide(world_count[query] - number_of_worlds[query] + exp_sums[query], denominator)
+                for query in queries}
+
+    class GroundLiteralConjunction(object):
+        def __init__(self, mrf, formula_or_other_ground_literal_conjunction):
+            self._mrf = mrf
+            if hasattr(formula_or_other_ground_literal_conjunction, "ground_atom_indices_and_truth_values"):
+                self._ground_atom_indices_and_truth_values = \
+                    set(formula_or_other_ground_literal_conjunction.ground_atom_indices_and_truth_values)
+            else:
+                self._ground_atom_indices_and_truth_values = set()
+                if isinstance(formula_or_other_ground_literal_conjunction, Conjunction):
+                    ground_literals = formula_or_other_ground_literal_conjunction.children
+                elif isinstance(formula_or_other_ground_literal_conjunction, GroundLit):
+                    ground_literals = [formula_or_other_ground_literal_conjunction]
+                elif isinstance(formula_or_other_ground_literal_conjunction, TrueFalse) and \
+                        formula_or_other_ground_literal_conjunction.truth() == 1.0:
+                    ground_literals = []
+                else:
+                    raise Exception("Formulas must be conjunctions of ground literals - %s is none" %
+                                    formula_or_other_ground_literal_conjunction)
+                for ground_literal in ground_literals:
+                    index = ground_literal.gndatom.idx
+                    if isinstance(self._mrf.mln.logic, FuzzyLogic) and \
+                            isinstance(self._mrf.variable(ground_literal.gndatom), FuzzyVariable):
+                        truth = self._mrf.evidence[index]
+                    elif isinstance(ground_literal, GroundLit):
+                        truth = 0 if ground_literal.negated else 1
+                    elif not isinstance(ground_literal, TrueFalse) or ground_literal.truth() != 1:
+                        raise Exception("Formulas must be conjunctions of ground literals - %s is none" %
+                                    formula_or_other_ground_literal_conjunction)
+                    self._ground_atom_indices_and_truth_values.add((index, ground_literal.negated, truth))
+            self._update_hash_code()
 
         def __hash__(self):
             return self.__hash_code
 
         def __eq__(self, other):
-            return self.indices_and_negation_flags == other.indices_and_negation_flags
+            return self._ground_atom_indices_and_truth_values == other.ground_atom_indices_and_truth_values
 
         def __ne__(self, other):
-            return self.indices_and_negation_flags != other.indices_and_negation_flags
+            return not self.__eq__(other)
 
         def __lt__(self, other):
-            return self.indices_and_negation_flags < other.indices_and_negation_flags
-
-        def __contains__(self, formula_combination):
-            return formula_combination.formula_indices <= self.formula_indices
+            return self.ground_atom_indices_and_truth_values < other.ground_atom_indices_and_truth_values
 
         def __str__(self):
-            return str(self.formula_conjunction)
+            def get_ground_atom_string(index, negated, truth):
+                prefix = "!" if negated else ""
+                infix = str(self._mrf.gndatom(index))
+                suffix = "=%f" % truth if 0 < truth < 1 or negated and truth == 1 or not negated and truth == 0 else ""
+                return prefix + infix + suffix
+
+            ground_atoms = [get_ground_atom_string(i, n, t) for i, n, t in self._ground_atom_indices_and_truth_values]
+            return reduce(lambda ga1, ga2: ga1 + " ^ " + ga2, ground_atoms)
 
         def __repr__(self):
             return self.__str__()
 
         @property
-        def formulas(self):
-            return [formula.__formulas[0][1] if isinstance(formula, FastExact.FormulaCombination) else formula
-                    for index, formula in self.__formulas]
+        def ground_atom_indices_and_truth_values(self):
+            return self._ground_atom_indices_and_truth_values
 
         @property
-        def formula_conjunction(self):
-            return self.__combined_formulas
+        def consistent(self):
+            assignment = {}
+            for ground_atom_index, negated, truth_value in self._ground_atom_indices_and_truth_values:
+                if negated and truth_value == 1.0 or not negated and truth_value == 0.0:
+                    return False
+                values_to_set = []
+                if truth_value == 1:
+                    variable = self._mrf.variable(self._mrf.gndatom(ground_atom_index))
+                    for gnd_atom in variable.gndatoms:
+                        values_to_set.append((gnd_atom.idx, 1 if gnd_atom.idx == ground_atom_index else 0))
+                else:
+                    values_to_set.append((ground_atom_index, truth_value))
+                for index, value in values_to_set:
+                    current_value = assignment[index] if index in assignment else None
+                    if current_value is not None and current_value != value:
+                        return False
+                    assignment[index] = value
+            return True
+
+        def _update_hash_code(self):
+            indices_and_values = list(self._ground_atom_indices_and_truth_values)
+            indices_and_values.sort()
+            self.__hash_code = hash(str(indices_and_values))
+
+    class GroundFormula(GroundLiteralConjunction):
+        def __init__(self, mrf, formula_or_other_combination, formula_index, ground_formula_index):
+            self.__formula_index = formula_index
+            self.__ground_formula_index = ground_formula_index
+            FastExact.GroundLiteralConjunction.__init__(self, mrf, formula_or_other_combination)
 
         @property
-        def formula_indices(self):
-            return set([index for index, formula in self.formulas_and_indices])
+        def formula_index(self):
+            return self.__formula_index
 
         @property
-        def formulas_and_indices(self):
-            return self.__formulas
+        def ground_formula_index(self):
+            return self.__ground_formula_index
 
         @property
-        def indices_and_negation_flags(self):
-            return self.__indices_and_negation_flags
+        def weight(self):
+            return self._mrf.mln.weight(self.formula_index)
+
+        def __hash__(self):
+            return self.__ground_formula_index
+
+        def __eq__(self, other):
+            return self.ground_formula_index == other.ground_formula_index
+
+    class QueryFormula(GroundLiteralConjunction):
+        def __init__(self, mrf, formula, query_index):
+            self.__query_index = query_index
+            FastExact.GroundLiteralConjunction.__init__(self, mrf, formula)
+            self.__query_formula = formula
 
         @property
-        def number_of_ground_atoms(self):
-            return len(self.__indices_and_negation_flags)
+        def query_index(self):
+            return self.__query_index
+
+        @property
+        def query_formula(self):
+            return self.__query_formula
+
+    class FormulaCombination(GroundLiteralConjunction):
+        def __init__(self, mrf, *combinations):
+            self.__maximum_number_of_worlds = None
+            self.__actual_number_of_worlds = None
+            FastExact.GroundLiteralConjunction.__init__(self, mrf, combinations[0])
+            for combination in combinations[1:]:
+                self._ground_atom_indices_and_truth_values.update(combination.ground_atom_indices_and_truth_values)
+            self._update_hash_code()
 
         @property
         def maximum_number_of_worlds(self):
@@ -510,24 +482,67 @@ class FastExact(Inference):
         def actual_number_of_worlds(self, value):
             self.__actual_number_of_worlds = value
 
+    class EvidenceFormulaCombination(FormulaCombination):
+        def __init__(self, mrf, *combined_formulas):
+            self.__ground_formulas = set()
+            for formula in combined_formulas:
+                self.__ground_formulas.update({formula} if hasattr(formula, "formula_index") and
+                                                           hasattr(formula, "ground_formula_index") else
+                                              formula.ground_formulas if hasattr(formula, "ground_formulas") else set())
+            FastExact.FormulaCombination.__init__(self, mrf, *combined_formulas)
+            self.__query_combinations = []
+
+        def __contains__(self, item):
+            return self.__ground_formulas <= item.ground_formulas
+
+        @property
+        def ground_formulas(self):
+            return self.__ground_formulas
+
+        @property
+        def query_combinations(self):
+            return self.__query_combinations
+
+        def add_query_combination(self, query_combination):
+            self.__query_combinations.append(query_combination)
+
         def union_formulas(self, other_formula_combination):
-            own_indices = self.formula_indices
-            for index, formula in other_formula_combination.formulas_and_indices:
-                if not index in own_indices:
-                    self.__formulas.append((index, formula))
+            self.__ground_formulas.update(other_formula_combination.__ground_formulas)
 
-        def __calculate_hash_code(self):
-            indices = list(self.indices_and_negation_flags)
-            indices.sort()
-            self.__hash_code = hash(str(indices))
+    class QueryFormulaCombination(FormulaCombination):
+        def __init__(self, mrf, evidence_combination, query):
+            self.__evidence_combination = evidence_combination
+            self.__query = query
+            FastExact.FormulaCombination.__init__(self, mrf, evidence_combination, query)
 
-        def __get_indices_and_negation_flags(self, f):
-            if isinstance(f, Conjunction):
-                for gnd_lit in f.children:
-                    if not isinstance(gnd_lit, GroundLit):
-                        raise Exception("Formulas must be conjunctions of ground literals - %s is none" % gnd_lit)
-                    yield gnd_lit.gndatom.idx, gnd_lit.negated
-            elif isinstance(f, GroundLit):
-                yield f.gndatom.idx, f.negated
-            else:
-                raise Exception("Formulas must be conjunctions of ground literals - %s is none" % f)
+        @property
+        def query(self):
+            return self.__query
+
+        @property
+        def evidence_combination(self):
+            return self.__evidence_combination
+
+    class DisjunctionNormalForm(object):
+        def __init__(self, mrf, *children):
+            self.__mrf = mrf
+            self.__children = children
+
+        def __mul__(self, other):
+            children = [FastExact.EvidenceFormulaCombination(self.__mrf, child, other) for child in self.__children]
+            if not children:
+                children = [FastExact.EvidenceFormulaCombination(self.__mrf, other)]
+            return FastExact.DisjunctionNormalForm(self.__mrf, *filter(lambda child: child.consistent, children))
+
+        def __str__(self):
+            conjunctions = ["(" + str(conjunction) + ")" for conjunction in self.__children]
+            if not conjunctions:
+                return "True"
+            return reduce(lambda c1, c2: c1 + " v " + c2, conjunctions)
+
+        def __repr__(self):
+            return self.__str__()
+
+        @property
+        def children(self):
+            return self.__children
