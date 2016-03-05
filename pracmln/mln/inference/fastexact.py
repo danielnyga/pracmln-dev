@@ -101,7 +101,7 @@ class FastExact(Inference):
         disjunction_children = [self.__remove_equality(child) for child in disjunction_children]
         disjunction_children = filter(lambda c: c is not None, disjunction_children)
         disjunction_children = [FastExact.GroundLiteralConjunction(self.mrf, child) for child in disjunction_children]
-        disjunction_children = filter(lambda c: c.consistent, disjunction_children)
+        disjunction_children = filter(lambda c: c.consistent(), disjunction_children)
         if not disjunction_children:
             raise Exception("There is no world satisfying the evidence!")
         return FastExact.DisjunctionNormalForm(self.mrf, *disjunction_children)
@@ -186,8 +186,8 @@ class FastExact(Inference):
                 for first_combination in iteration_0:
                     if first_combination in last_combination:
                         continue
-                    to_yield = FastExact.EvidenceFormulaCombination(self.mrf, last_combination, first_combination)
-                    if not to_yield.consistent:
+                    to_yield = last_combination * first_combination
+                    if to_yield is None:
                         continue
                     yield to_yield
 
@@ -216,10 +216,10 @@ class FastExact(Inference):
         query_combinations = {}
         for query in queries:
             query_combinations[query] = []
-            combinations = [FastExact.QueryFormulaCombination(self.mrf, ec, query) for ec in evidence_combinations]
+            combinations = [ec * query for ec in evidence_combinations]
             combination_dict = {}
             for combination in combinations:
-                if not combination.consistent:
+                if combination is None:
                     continue
                 if combination not in combination_dict:
                     combination_dict[combination] = []
@@ -286,7 +286,7 @@ class FastExact(Inference):
         if not children:
             children = [FastExact.GroundLiteralConjunction(self.mrf, self.mln.logic.true_false(1, self.mln))]
         for conjunction in children:
-            consistent_queries = filter(lambda q: FastExact.FormulaCombination(self.mrf, conjunction, q).consistent,
+            consistent_queries = filter(lambda q: conjunction.get_combined_ground_atom_indices_and_truth_values(q),
                                         query_conjunctions)
             conjunction_worlds = self.__get_world_count_for_conjunction(conjunction, *consistent_queries)
             for formula, world_count in conjunction_worlds.items():
@@ -335,8 +335,10 @@ class FastExact(Inference):
                 for query in queries}
 
     class GroundLiteralConjunction(object):
-        def __init__(self, mrf, formula_or_other_ground_literal_conjunction):
+        def __init__(self, mrf, formula_or_other_ground_literal_conjunction=None):
             self._mrf = mrf
+            if formula_or_other_ground_literal_conjunction is None:
+                return
             if hasattr(formula_or_other_ground_literal_conjunction, "ground_atom_indices_and_truth_values"):
                 self._ground_atom_indices_and_truth_values = \
                     set(formula_or_other_ground_literal_conjunction.ground_atom_indices_and_truth_values)
@@ -353,13 +355,16 @@ class FastExact(Inference):
                     raise Exception("Formulas must be conjunctions of ground literals - %s is none" %
                                     formula_or_other_ground_literal_conjunction)
                 for ground_literal in ground_literals:
-                    index = ground_literal.gndatom.idx
-                    if isinstance(self._mrf.mln.logic, FuzzyLogic) and \
+                    if isinstance(self._mrf.mln.logic, FuzzyLogic) and hasattr(ground_literal, "gndatom") and \
                             isinstance(self._mrf.variable(ground_literal.gndatom), FuzzyVariable):
+                        index = ground_literal.gndatom.idx
                         truth = self._mrf.evidence[index]
                     elif isinstance(ground_literal, GroundLit):
+                        index = ground_literal.gndatom.idx
                         truth = 0 if ground_literal.negated else 1
-                    elif not isinstance(ground_literal, TrueFalse) or ground_literal.truth() != 1:
+                    elif isinstance(ground_literal, TrueFalse) and ground_literal.truth == 1:
+                        continue
+                    else:
                         raise Exception("Formulas must be conjunctions of ground literals - %s is none" %
                                     formula_or_other_ground_literal_conjunction)
                     self._ground_atom_indices_and_truth_values.add((index, ground_literal.negated, truth))
@@ -376,6 +381,17 @@ class FastExact(Inference):
 
         def __lt__(self, other):
             return self.ground_atom_indices_and_truth_values < other.ground_atom_indices_and_truth_values
+
+        def __mul__(self, other):
+            indices_and_truth_values = self.get_combined_ground_atom_indices_and_truth_values(other)
+            if not indices_and_truth_values:
+                return None
+            if isinstance(other, FastExact.GroundFormula) or isinstance(other, FastExact.EvidenceFormulaCombination):
+                return FastExact.EvidenceFormulaCombination(self._mrf, indices_and_truth_values, self, other)
+            elif isinstance(other, FastExact.QueryFormula):
+                return FastExact.QueryFormulaCombination(self._mrf, indices_and_truth_values, self, other)
+            else:
+                return FastExact.FormulaCombination(self._mrf, indices_and_truth_values)
 
         def __str__(self):
             def get_ground_atom_string(index, negated, truth):
@@ -394,10 +410,16 @@ class FastExact(Inference):
         def ground_atom_indices_and_truth_values(self):
             return self._ground_atom_indices_and_truth_values
 
-        @property
-        def consistent(self):
+        def get_combined_ground_atom_indices_and_truth_values(self, other):
+            to_return = set(self.ground_atom_indices_and_truth_values)
+            to_return.update(other.ground_atom_indices_and_truth_values)
+            return to_return if self.consistent(to_return) else None
+
+        def consistent(self, ground_atom_indices_and_truth_values=None):
+            if ground_atom_indices_and_truth_values is None:
+                ground_atom_indices_and_truth_values = self._ground_atom_indices_and_truth_values
             assignment = {}
-            for ground_atom_index, negated, truth_value in self._ground_atom_indices_and_truth_values:
+            for ground_atom_index, negated, truth_value in ground_atom_indices_and_truth_values:
                 if negated and truth_value == 1.0 or not negated and truth_value == 0.0:
                     return False
                 values_to_set = []
@@ -415,9 +437,7 @@ class FastExact(Inference):
             return True
 
         def _update_hash_code(self):
-            indices_and_values = list(self._ground_atom_indices_and_truth_values)
-            indices_and_values.sort()
-            self.__hash_code = hash(str(indices_and_values))
+            self.__hash_code = sum([idx*97+truth for idx, negated, truth in self._ground_atom_indices_and_truth_values])
 
     class GroundFormula(GroundLiteralConjunction):
         def __init__(self, mrf, formula_or_other_combination, formula_index, ground_formula_index):
@@ -458,12 +478,11 @@ class FastExact(Inference):
             return self.__query_formula
 
     class FormulaCombination(GroundLiteralConjunction):
-        def __init__(self, mrf, *combinations):
+        def __init__(self, mrf, ground_atom_indices_and_truth_values):
             self.__maximum_number_of_worlds = None
             self.__actual_number_of_worlds = None
-            FastExact.GroundLiteralConjunction.__init__(self, mrf, combinations[0])
-            for combination in combinations[1:]:
-                self._ground_atom_indices_and_truth_values.update(combination.ground_atom_indices_and_truth_values)
+            FastExact.GroundLiteralConjunction.__init__(self, mrf, None)
+            self._ground_atom_indices_and_truth_values = ground_atom_indices_and_truth_values
             self._update_hash_code()
 
         @property
@@ -483,14 +502,14 @@ class FastExact(Inference):
             self.__actual_number_of_worlds = value
 
     class EvidenceFormulaCombination(FormulaCombination):
-        def __init__(self, mrf, *combined_formulas):
+        def __init__(self, mrf, ground_atom_indices_and_truth_values, *combined_formulas):
             self.__ground_formulas = set()
             for formula in combined_formulas:
                 self.__ground_formulas.update({formula} if hasattr(formula, "formula_index") and
                                                            hasattr(formula, "ground_formula_index") else
                                               formula.ground_formulas if hasattr(formula, "ground_formulas") else set())
-            FastExact.FormulaCombination.__init__(self, mrf, *combined_formulas)
             self.__query_combinations = []
+            FastExact.FormulaCombination.__init__(self, mrf, ground_atom_indices_and_truth_values)
 
         def __contains__(self, item):
             return self.__ground_formulas <= item.ground_formulas
@@ -510,10 +529,10 @@ class FastExact(Inference):
             self.__ground_formulas.update(other_formula_combination.__ground_formulas)
 
     class QueryFormulaCombination(FormulaCombination):
-        def __init__(self, mrf, evidence_combination, query):
+        def __init__(self, mrf, ground_atom_indices_and_truth_values, evidence_combination, query):
             self.__evidence_combination = evidence_combination
             self.__query = query
-            FastExact.FormulaCombination.__init__(self, mrf, evidence_combination, query)
+            FastExact.FormulaCombination.__init__(self, mrf, ground_atom_indices_and_truth_values)
 
         @property
         def query(self):
@@ -529,10 +548,11 @@ class FastExact(Inference):
             self.__children = children
 
         def __mul__(self, other):
-            children = [FastExact.EvidenceFormulaCombination(self.__mrf, child, other) for child in self.__children]
+            children = [child * other for child in self.__children]
             if not children:
-                children = [FastExact.EvidenceFormulaCombination(self.__mrf, other)]
-            return FastExact.DisjunctionNormalForm(self.__mrf, *filter(lambda child: child.consistent, children))
+                children = [FastExact.GroundLiteralConjunction(
+                    self.__mrf, self.__mrf.mln.logic.true_false(1, self.__mrf.mln)) * other]
+            return FastExact.DisjunctionNormalForm(self.__mrf, *filter(lambda c: c is not None, children))
 
         def __str__(self):
             conjunctions = ["(" + str(conjunction) + ")" for conjunction in self.__children]
