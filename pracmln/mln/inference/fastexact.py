@@ -80,7 +80,7 @@ class FastExact(Inference):
         non_hard_ground_formulas = filter(lambda f: f is not None, non_hard_ground_formulas)
         ground_formulas = [FastExact.GroundFormula(self.mrf,g,g.idx,i) for i, g in enumerate(non_hard_ground_formulas)]
         to_return = [(hard_ground_formulas_as_dnf*gf).children for gf in ground_formulas]
-        return reduce(lambda l1, l2: l1+l2, to_return), hard_ground_formulas_as_dnf
+        return reduce(lambda l1, l2: l1+l2, to_return, tuple()), hard_ground_formulas_as_dnf
 
     def __create_dnf(self, formulas):
         #TODO: Improve implementation - First converting to cnf and then to dnf is probably not efficient (but easy^^)
