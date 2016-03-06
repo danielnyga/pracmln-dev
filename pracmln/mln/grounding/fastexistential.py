@@ -32,7 +32,7 @@ import logging
 from pracmln.logic.fol import Conjunction, Negation, Disjunction, Exist, Lit, Equality
 from pracmln.mln.grounding.default import DefaultGroundingFactory
 from pracmln.mln.constants import auto
-from pracmln.mln.util import dict_subset, dict_union
+from pracmln.mln.util import dict_union, dict_subset
 
 logger = logging.getLogger(__name__)
 
@@ -50,52 +50,40 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                     yield gf
                 continue
             negated_existential_quantifiers = \
-                filter(self.__is_negated_existential_quantifier, formula.children)
-            partial_existential_groundings = list(self.__get_partial_groundings(negated_existential_quantifiers))
-            other_child = filter(lambda c: not self.__is_negated_existential_quantifier(c), formula.children)[0]
+                filter(FastExistentialGrounding.__is_negated_existential_quantifier, formula.children)
+            other_child = filter(lambda c: not
+                FastExistentialGrounding.__is_negated_existential_quantifier(c), formula.children)[0]
             for variable_assignment in other_child.itervargroundings(self.mrf):
                 other_child_grounded = other_child.ground(self.mrf, variable_assignment)
-                grounded = True
+                conjunction_parts = list(self.__get_grounding(variable_assignment, negated_existential_quantifiers))
                 if isinstance(other_child_grounded, Conjunction):
-                    conjunction_parts = list(other_child_grounded.children)
+                    conjunction_parts += list(other_child_grounded.children)
                 else:
-                    conjunction_parts = [other_child_grounded]
-                for partial_grounding in partial_existential_groundings:
-                    grounding_grounded, partial_groundings = partial_grounding.get_groundings(variable_assignment)
-                    conjunction_parts += partial_groundings
-                    grounded = grounded and grounding_grounded
-                conjunction = conjunction_parts[0] if len(conjunction_parts) == 0 else \
-                    Conjunction(conjunction_parts, mln=formula.mln)
-                conjunction.idx = formula.idx
-                if grounded:
-                    yield conjunction
-                else:
-                    for new_assignment in conjunction.itervargroundings(self.mrf, variable_assignment):
-                        yield conjunction.ground(self.mrf, dict_union(variable_assignment, new_assignment))
+                    conjunction_parts.append(other_child_grounded)
+                grounding = Conjunction(conjunction_parts, mln=formula.mln, idx=formula.idx)
+                grounding.weight = formula.weight
+                yield grounding
 
     def __is_applicable(self, formula):
         if not isinstance(formula, Conjunction):
             return False
         other_children = \
-            filter(lambda c: not self.__is_negated_existential_quantifier(c), formula.children)
+            filter(lambda c: not FastExistentialGrounding.__is_negated_existential_quantifier(c), formula.children)
         if len(other_children) != 1:
             return False
         return True
 
-    def __is_negated_existential_quantifier(self, element):
+    @staticmethod
+    def __is_negated_existential_quantifier(element):
         if not isinstance(element, Negation) or len(element.children)!=1 or not isinstance(element.children[0], Exist):
             return False
         existential_quantifier = element.children[0]
-        quantified_variables = set(existential_quantifier.vars)
         for conjunction in existential_quantifier.children:
             if isinstance(conjunction, Conjunction):
                 literals = filter(lambda x: isinstance(x, Lit), conjunction.children)
                 equality_comparisons = filter(lambda x: isinstance(x, Equality), conjunction.children)
                 for equality_comparison in equality_comparisons:
                     if not equality_comparison.negated:
-                        return False
-                    if equality_comparison.args[0] not in quantified_variables \
-                            or self.mrf.mln.logic.isvar(equality_comparison.args[1]):
                         return False
                 others = filter(lambda x: not isinstance(x, Lit) and
                                           not isinstance(x, Disjunction) and
@@ -110,7 +98,7 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                 return False
         return True
 
-    def __get_partial_groundings(self, negated_existential_quantifiers):
+    def __get_grounding(self, unfinished_assignment, negated_existential_quantifiers):
         for quantifier in negated_existential_quantifiers:
             exceptions = []
             conjunction_or_predicate = quantifier.children[0].children[0]
@@ -118,7 +106,6 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                 for disjunction_or_predicate in conjunction_or_predicate.children:
                     if isinstance(disjunction_or_predicate, Lit):
                         predicate = disjunction_or_predicate
-                        equality_comparisons = []
                     elif isinstance(disjunction_or_predicate, Equality):
                         equality_comparisons = [disjunction_or_predicate]
                     else:
@@ -128,46 +115,16 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                         exceptions.append(current_exception)
                     for equality_comparison in equality_comparisons:
                         exception_value = equality_comparison.args[1]
+                        if exception_value in unfinished_assignment:
+                            exception_value = unfinished_assignment[exception_value]
                         current_exception[equality_comparison.args[0]] = exception_value
             else:
                 predicate = conjunction_or_predicate
-            variable_domains = predicate.vardoms()
-            quantified_variables = quantifier.children[0].vars
-            free_variables = set(filter(lambda v: self.mrf.mln.logic.isvar(v), predicate.args)) - \
-                             set(quantified_variables)
-
-            def get_assignment_of_quantified_variables(variables, partial_assignment={}):
-                if not variables:
-                    yield partial_assignment
-                    return
-                current_variable = variables[0]
-                other_variables = variables[1:]
-                for value in self.mrf.domains[variable_domains[current_variable]]:
-                    partial_assignment[current_variable] = value
-                    for result in get_assignment_of_quantified_variables(other_variables, partial_assignment):
-                        yield result
-
-            groundings = []
-            for assignment in get_assignment_of_quantified_variables(quantified_variables):
+            for assignment in predicate.itervargroundings(self.mrf, unfinished_assignment):
                 for exception in exceptions:
                     if dict_subset(exception, assignment):
                         break
                 else:
-                    ground_atom = predicate.ground(self.mrf, assignment, partial=True)
+                    ground_atom = predicate.ground(self.mrf, dict_union(assignment, unfinished_assignment))
                     ground_atom.negated = True
-                    groundings.append(ground_atom)
-            yield FastExistentialGrounding.PartialExistentialGrounding(self.mrf, free_variables, groundings)
-
-    class PartialExistentialGrounding(object):
-        def __init__(self, mrf, free_variables, groundings):
-            self.__free_variables = free_variables
-            self.__groundings = groundings
-            self.__mrf = mrf
-
-        def get_groundings(self, assignment):
-            if len(self.__free_variables) == 0:
-                return True, self.__groundings
-            elif all([var in assignment for var in self.__free_variables]):
-                return True, [literal.ground(self.__mrf, assignment, partial=True) for literal in self.__groundings]
-            else:
-                return False, self.__groundings
+                    yield ground_atom
