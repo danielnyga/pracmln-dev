@@ -85,9 +85,9 @@ class FastExact(Inference):
     def __create_dnf(self, formulas):
         #TODO: Improve implementation - First converting to cnf and then to dnf is probably not efficient (but easy^^)
         if not formulas:
-            return FastExact.DisjunctionNormalForm(self.mrf)
+            return FastExact.DisjunctiveNormalForm(self.mrf)
         if len(formulas) == 1 and isinstance(formulas[0], GroundLit):
-            return FastExact.DisjunctionNormalForm(self.mrf, FastExact.GroundLiteralConjunction(self.mrf, formulas[0]))
+            return FastExact.DisjunctiveNormalForm(self.mrf, FastExact.GroundLiteralConjunction(self.mrf, formulas[0]))
         if len(formulas) == 1:
             formulas = formulas[0]
         else:
@@ -104,7 +104,7 @@ class FastExact(Inference):
         disjunction_children = filter(lambda c: c.consistent(), disjunction_children)
         if not disjunction_children:
             raise Exception("There is no world satisfying the evidence!")
-        return FastExact.DisjunctionNormalForm(self.mrf, *disjunction_children)
+        return FastExact.DisjunctiveNormalForm(self.mrf, *disjunction_children)
 
     def __convert_cnf_to_dnf(self, formula):
         def enumerate_conjunctions_recursively(remaining_disjunctions, previous_conjunction):
@@ -542,17 +542,25 @@ class FastExact(Inference):
         def evidence_combination(self):
             return self.__evidence_combination
 
-    class DisjunctionNormalForm(object):
+    class DisjunctiveNormalForm(object):
         def __init__(self, mrf, *children):
             self.__mrf = mrf
             self.__children = children
+            self.__common_indices_and_truth_values = None
 
         def __mul__(self, other):
+            if len(self.children) > 1:
+                if self.__common_indices_and_truth_values is None:
+                    self.__common_indices_and_truth_values = set.intersection(
+                        *[c.ground_atom_indices_and_truth_values for c in self.children])
+                other_atom_indices_and_truth_values = other.ground_atom_indices_and_truth_values
+                if not other.consistent(self.__common_indices_and_truth_values | other_atom_indices_and_truth_values):
+                    return FastExact.DisjunctiveNormalForm(self.__mrf)
             children = [child * other for child in self.__children]
             if not children:
                 children = [FastExact.GroundLiteralConjunction(
                     self.__mrf, self.__mrf.mln.logic.true_false(1, self.__mrf.mln)) * other]
-            return FastExact.DisjunctionNormalForm(self.__mrf, *filter(lambda c: c is not None, children))
+            return FastExact.DisjunctiveNormalForm(self.__mrf, *filter(lambda c: c is not None, children))
 
         def __str__(self):
             conjunctions = ["(" + str(conjunction) + ")" for conjunction in self.__children]
