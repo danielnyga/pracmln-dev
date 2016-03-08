@@ -42,6 +42,7 @@ class FastExistentialGrounding(DefaultGroundingFactory):
         DefaultGroundingFactory.__init__(self, mrf, simplify, unsatfailure, formulas, cache, **params)
 
     def _itergroundings(self, simplify=True, unsatfailure=True):
+        cache = {}
         for formula in self.formulas:
             if not self.__is_applicable(formula):
                 logger.info("FastExistentialGrounding is not applicable for formula %s, using default grounding..." %
@@ -49,13 +50,12 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                 for gf in formula.itergroundings(self.mrf):
                     yield gf
                 continue
-            negated_existential_quantifiers = \
-                filter(FastExistentialGrounding.__is_negated_existential_quantifier, formula.children)
-            other_child = filter(lambda c: not
-                FastExistentialGrounding.__is_negated_existential_quantifier(c), formula.children)[0]
+            negated_existential_quantifiers = filter(self.__is_negated_existential_quantifier, formula.children)
+            other_child = filter(lambda c: not self.__is_negated_existential_quantifier(c), formula.children)[0]
             for variable_assignment in other_child.itervargroundings(self.mrf):
                 other_child_grounded = other_child.ground(self.mrf, variable_assignment)
-                conjunction_parts = list(self.__get_grounding(variable_assignment, negated_existential_quantifiers))
+                conjunction_parts = \
+                    list(self.__get_grounding(variable_assignment, negated_existential_quantifiers, cache))
                 if isinstance(other_child_grounded, Conjunction):
                     conjunction_parts += list(other_child_grounded.children)
                 else:
@@ -67,17 +67,16 @@ class FastExistentialGrounding(DefaultGroundingFactory):
     def __is_applicable(self, formula):
         if not isinstance(formula, Conjunction):
             return False
-        other_children = \
-            filter(lambda c: not FastExistentialGrounding.__is_negated_existential_quantifier(c), formula.children)
+        other_children = filter(lambda c: not self.__is_negated_existential_quantifier(c), formula.children)
         if len(other_children) != 1:
             return False
         return True
 
-    @staticmethod
-    def __is_negated_existential_quantifier(element):
+    def __is_negated_existential_quantifier(self, element):
         if not isinstance(element, Negation) or len(element.children)!=1 or not isinstance(element.children[0], Exist):
             return False
         existential_quantifier = element.children[0]
+        quantified_variables = set(existential_quantifier.vars)
         for conjunction in existential_quantifier.children:
             if isinstance(conjunction, Conjunction):
                 literals = filter(lambda x: isinstance(x, Lit), conjunction.children)
@@ -85,6 +84,10 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                 for equality_comparison in equality_comparisons:
                     if not equality_comparison.negated:
                         return False
+                    if equality_comparison.args[0] not in quantified_variables \
+                            or self.mrf.mln.logic.isvar(equality_comparison.args[1]):
+                        return False
+
                 others = filter(lambda x: not isinstance(x, Lit) and
                                           not isinstance(x, Disjunction) and
                                           not isinstance(x, Equality), conjunction.children)
@@ -98,7 +101,7 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                 return False
         return True
 
-    def __get_grounding(self, unfinished_assignment, negated_existential_quantifiers):
+    def __get_grounding(self, unfinished_assignment, negated_existential_quantifiers, cache):
         for quantifier in negated_existential_quantifiers:
             exceptions = []
             conjunction_or_predicate = quantifier.children[0].children[0]
@@ -120,11 +123,30 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                         current_exception[equality_comparison.args[0]] = exception_value
             else:
                 predicate = conjunction_or_predicate
-            for assignment in predicate.itervargroundings(self.mrf, unfinished_assignment):
+
+            quantified_variables = set(quantifier.children[0].vars)
+            quantified_variables = [v for v in predicate.args if v in quantified_variables]
+            quantified_indices = {i for i,v in enumerate(predicate.args) if v in quantified_variables}
+            exceptions = [[e[v] for v in quantified_variables] for e in exceptions]
+
+            def is_exception(current_ground_literal):
+                quantified_literal_values = [var for idx, var in enumerate(current_ground_literal.args)
+                                             if idx in quantified_indices]
                 for exception in exceptions:
-                    if dict_subset(exception, assignment):
-                        break
-                else:
-                    ground_atom = predicate.ground(self.mrf, dict_union(assignment, unfinished_assignment))
-                    ground_atom.negated = True
-                    yield ground_atom
+                    if exception == quantified_literal_values:
+                        return True
+                return False
+
+            cache_key = str(predicate.ground(self.mrf, unfinished_assignment, partial=True))
+            if cache_key not in cache:
+                cache[cache_key] = []
+                for assignment in predicate.itervargroundings(self.mrf, unfinished_assignment):
+                    ground_literal = predicate.ground(self.mrf, dict_union(assignment, unfinished_assignment))
+                    ground_literal.negated = True
+                    cache[cache_key].append(ground_literal)
+                    if not is_exception(ground_literal):
+                        yield ground_literal
+            else:
+                for ground_literal in cache[cache_key]:
+                    if not is_exception(ground_literal):
+                        yield ground_literal
