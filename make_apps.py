@@ -24,6 +24,8 @@ webmlnpackages = [('flask', 'Flask', False),
                   ('jinja2', 'Jinja2', False),
                   ('geoip', 'python-geoip python-geoip-geolite2', True)]
 
+docspackages = [('sphinx', 'sphinx sphinxcontrib-bibtex', False)]
+
 python_apps = [
     {"name": "mlnquery", "script": "$PRACMLN_HOME/pracmln/mlnquery.py"},
     {"name": "mlnlearn", "script": "$PRACMLN_HOME/pracmln/mlnlearn.py"},
@@ -50,6 +52,7 @@ def check_package(pkg):
 def check_dependencies():
     for pkg in packages:
         check_package(pkg)
+    print
 
 
 def adapt(name, arch):
@@ -100,6 +103,9 @@ def buildLibpracmln():
 
 def build_docs():
     print colorize('Building documentation', (None, 'green', True), True)
+    for pkg in docspackages:
+        check_package(pkg)
+    print
     docs = adapt("cd $PRACMLN_HOME/doc && make html && cd -", arch)
     os.system(docs)
 
@@ -110,6 +116,7 @@ def build_webmln():
     generate = adapt("$PRACMLN_HOME/webmln/gui/generate.py -q", arch)
     os.system(generate + ' build')
 
+    print
     for pkg in webmlnpackages:
         check_package(pkg)
 
@@ -197,9 +204,11 @@ if __name__ == '__main__':
 
     if '--webmln' in args:
         build_webmln()
+        print
 
     if '--docs' in args:
         build_docs()
+        print
 
     buildlib = False
     if "--cppbindings" in args:
