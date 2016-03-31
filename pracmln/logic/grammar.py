@@ -40,7 +40,6 @@ class TreeBuilder(object):
     def trigger(self, a, loc, toks, op):
         if op == 'litgroup':
             negated = False
-            print 'toks:', toks
             if toks[0] == '!' or toks[0] == '*':
                 if toks[0] == '*':
                     negated = 2
@@ -136,7 +135,6 @@ class Grammar(object):
     
     def parse_formula(self, s):
         self.tree.reset()
-        print 'parsing ', s
         self.formula.parseString(s)
         constr = self.tree.getConstraint()
         return constr
@@ -326,7 +324,7 @@ class PRACGrammar(Grammar):
 
         def lit_group_parse_action(a, b, c):
             try:
-                return tree.trigger(a,b,c,'litgroup')
+                return tree.trigger(a, b, c, 'litgroup')
             except Exception as e:
                 print e
 
@@ -368,40 +366,43 @@ class PRACGrammar(Grammar):
 
 
 if __name__ == '__main__':
-    f = '(a(x) ^ b(u) v !(c(h) v (r =/= k) ^ !(d(i) ^ !e(x) ^ g(x)))) => EXIST ?a,?b (f(x) ^ b(c))'
+    # f = '(a(x) ^ b(u) v !(c(h) v (r =/= k) ^ !(d(i) ^ !e(x) ^ g(x)))) => EXIST ?a,?b (f(x) ^ b(c))'
     from pracmln.mln.base import MLN
     from pracmln.mln.database import Database
     mln = MLN(grammar='PRACGrammar')
-    mln << 'foo(x, y)'
+    # mln << 'foo(x, y)'
     mln << 'bar(x)'
-    mln << 'numberEats(k,n)'
-    mln << 'eats(p,m)'
-    mln << 'rel(x,y)'
+    # mln << 'numberEats(k,n)'
+    # mln << 'eats(p,m)'
+    # mln << 'rel(x,y)'
     mln << 'a(s)'
     mln << 'b(s)'
     mln << 'c(s)'
-    mln << 'd(s)'
-    mln << 'e(s)'
-    mln << 'g(s)'
-    mln << 'f(s)'
+    # mln << 'd(s)'
+    # mln << 'e(s)'
+    # mln << 'g(s)'
+    # mln << 'f(s)'
 
     
     f = 'a|b|c(s) => (bar(y) <=> bar(x))'
+    # f = 'a|b|c(s)'
     print 'mln:'
     mln.write()
+    print '---------------------------------------------------'
     f = mln.logic.grammar.parse_formula(f)
     print f, '==================================================================================='
     f.print_structure()
     print list(f.literals())
-    print mln.logic.parse_formula('bar(x)') in f.literals()
-    print f
+    # print mln.logic.parse_formula('bar(x)') in f.literals()
+    print 'f:', f
 
     mln << 'coreference(a,b)'
     mln << 'distance(d,e,f)'
+    mln.formula(f)
 
     # f = '!a|b|c(s) => (bar(y) <=> bar(x))'
-    f= '!(FORALL s (has_sense(?w1,s))) => coreference(?w1,?w2)'
-    # f = '!a|b|c(s) ^ bar(y) ^ bar(x)'
+    # f= '!(FORALL s (has_sense(?w1,s))) => coreference(?w1,?w2)'
+    f = 'a|b|c(s) ^ bar(y) ^ bar(x)'
     # print 'mln:'
     f = mln.logic.grammar.parse_formula(f)
     mln.write()

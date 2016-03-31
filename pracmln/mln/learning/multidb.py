@@ -70,7 +70,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         if self.multicore:
             pool = Pool(maxtasksperchild=1)
             logger.debug('Setting up multi-core processing for %d cores' % pool._processes)
-            for i, learner in  pool.imap(with_tracing(_setup_learner), self._iterdbs(method)):
+            for i, learner in pool.imap(with_tracing(_setup_learner), self._iterdbs(method)):
                 self.learners[i] = learner
                 if self.verbose:
                     bar.label('Database %d, %s' % ((i+1), learner.name)) 

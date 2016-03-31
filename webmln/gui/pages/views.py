@@ -1,25 +1,24 @@
-import json
-import logging
 import os
-import shutil
 import imp
+import time
+import json
+import shutil
+import logging
+from urlparse import urlparse
+from werkzeug.utils import redirect
+from utils import ensure_mln_session, convert
+from flask import render_template, send_from_directory, request, session, \
+    jsonify, url_for, current_app, make_response
 from pracmln import mlnpath
 from pracmln.mln.methods import InferenceMethods, LearningMethods
 from pracmln.mln.util import out, stop, colorize
 from pracmln.praclog import logger
-from utils import ensure_mln_session, convert
-from urlparse import urlparse
-from flask import render_template, send_from_directory, request, session, \
-    jsonify, \
-    url_for, current_app, make_response
-import time
-from werkzeug.utils import redirect
 from webmln.gui.app import mlnApp
 from webmln.gui.pages.routes import ulogger
 
 
 log = logger(__name__)
-ulog = ulogger('userstats')
+ulog = ulogger()
 
 
 @mlnApp.app.route('/mln/static/<path:filename>')

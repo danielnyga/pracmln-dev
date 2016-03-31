@@ -111,7 +111,7 @@ class FuzzyLogic(Logic):
             if isinstance(f, Logic.TrueFalse):
                 return f.invert()
             else:
-                return self.logic.negation([f], mln=self.mln, idx=self.idx)
+                return self.mln.logic.negation([f], mln=self.mln, idx=self.idx)
     
 
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #

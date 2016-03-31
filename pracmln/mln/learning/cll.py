@@ -127,6 +127,7 @@ class CLL(AbstractLearner):
         '''
         TODO: make sure that there are no equality constraints in the conjunction!
         '''
+
         if len(literals) == 0:
             # at this point, we have a fully grounded conjunction in gndliterals
             # create a mapping from a partition to the ground literals in this formula
@@ -138,7 +139,8 @@ class CLL(AbstractLearner):
                 part = self.atomidx2partition[gndlit.gndatom.idx]
                 part2gndlits[part].append(gndlit)
                 if gndlit(self.mrf.evidence) == 0:
-                    part_with_f_lit = part  
+                    part_with_f_lit = part
+
             # if there is a false ground literal we only need to take into account
             # the partition comprising this literal (criterion no. 2)
             # there is maximally one such partition with false literals in the conjunction

@@ -215,6 +215,7 @@ class MLN(object):
         <Predicate: foo(arg0,arg1)>
         
         '''
+
         if isinstance(predicate, Predicate):
             return self.declare_predicate(predicate)
         elif isinstance(predicate, basestring):
@@ -346,7 +347,6 @@ class MLN(object):
         # expand predicate groups
         tempmln = self.copy()
         tempmln._rmformulas()
-        print 'expanding predicate groups'
         for i, template in self.iterformulas():
             for variant in template.expandgrouplits():
                 idx = len(tempmln._formulas)
@@ -807,7 +807,6 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                         formula = line[spacepos:].strip()
                     try:
                         formula = mln.logic.parse_formula(formula)
-                        print "=====================================================", formula
                         if isHard:
                             weight = HARD # not set until instantiation when other weights are known
                         idxTemplate = len(formulatemplates)

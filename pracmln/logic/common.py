@@ -1194,10 +1194,9 @@ class Logic(object):
 
         @predname.setter
         def predname(self, predname):
-            predname = predname.asList()
-            if self.mln is not None and not any(self.mln.predicate(p) is None for p in predname):
-                    raise NoSuchPredicateError('Predicate %s is undefined.' % predname)
-            print 'setting prednames:', predname
+            if self.mln is not None and any(self.mln.predicate(p) is None for p in predname):
+                raise NoSuchPredicateError('Predicate %s is undefined.' % predname)
+            self._predname = predname
 
         @property
         def lits(self):
@@ -1212,7 +1211,7 @@ class Logic(object):
         @args.setter
         def args(self, args):
             # arguments are identical for all predicates in group, so choose
-            # arbitrary
+            # arbitrary predicate
             predname = self.predname[0]
             if self.mln is not None and len(args) != len(self.mln.predicate(predname).argdoms):
                 raise Exception('Illegal argument length: %s. %s requires %d arguments: %s' % (str(args), predname,
