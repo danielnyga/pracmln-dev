@@ -2061,7 +2061,7 @@ class Logic(object):
 
       
         def truth(self, w):
-            raise Exception("'%s' does not implement truth()")
+            raise Exception("'%s' does not implement truth()" % self.__class__.__name__)
         
         
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -2585,6 +2585,7 @@ ComplexFormula = Logic.ComplexFormula
 Conjunction = Logic.Conjunction
 Disjunction = Logic.Disjunction
 Lit = Logic.Lit
+LitGroup = Logic.LitGroup
 GroundLit = Logic.GroundLit
 GroundAtom = Logic.GroundAtom
 Equality = Logic.Equality

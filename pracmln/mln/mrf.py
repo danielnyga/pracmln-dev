@@ -251,6 +251,7 @@ class MRF(object):
         :param atomvalues:     a dict mapping ground atom strings/objects/indices to their truth
                                values.
         :param erase:          specifies whether or not variables shall be erased before asserting the evidences.
+                               Only affects the variables that are present in `atomvalues`.
         :param cw:             applies the closed-world assumption for all non evidence atoms.
         '''
         # check validity of evidence values

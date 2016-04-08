@@ -105,7 +105,14 @@ class CLL(AbstractLearner):
         d = self._stat[fidx]
         if pidx not in d:
             d[pidx] = [0] * self.valuecounts[pidx]
-        d[pidx][validx] += inc
+        try:
+            d[pidx][validx] += inc
+        except Exception as e:
+            print fidx, pidx, validx
+            print d[pidx][validx]
+            print inc
+            raise e
+
     
 
     def _compute_statistics(self):
@@ -149,7 +156,10 @@ class CLL(AbstractLearner):
                 gndlits = part2gndlits[part_with_f_lit]
                 part2gndlits = {part_with_f_lit: gndlits}
             if not isconj: # if we don't have a conjunction, ground the formula with the given variable assignment
+                # print 'formula', formula
                 gndformula = formula.ground(self.mrf, var_assign)
+                # print 'gndformula', gndformula
+                # stop()
             for partition, gndlits in part2gndlits.iteritems():
                 # for each partition, select the ground atom truth assignments
                 # in such a way that the conjunction is rendered true. There
@@ -168,8 +178,16 @@ class CLL(AbstractLearner):
                         # formula and remove the temp evidence
                         with temporary_evidence(self.mrf):
                             for atomidx, value in partition.value2dict(world).iteritems():
-                                self.mrf[atomidx] = value
+                                self.mrf.set_evidence({atomidx: value},
+                                                      erase=True)
+                                if self.mrf.evidence[atomidx] != value:
+                                    print 'alarm!'
+                                    print self.mrf.evidence[atomidx], value
                             truth = gndformula(self.mrf.evidence)
+                            if truth is None:
+                                print gndformula
+                                print gndformula.print_structure(self.mrf.evidence)
+
                     if truth != 0:
                         self.partition2formulas[partition.idx].add(formula.idx)
                         self._addstat(formula.idx, partition.idx, worldidx, truth)
