@@ -1195,7 +1195,8 @@ class Logic(object):
         @predname.setter
         def predname(self, predname):
             if self.mln is not None and any(self.mln.predicate(p) is None for p in predname):
-                raise NoSuchPredicateError('Predicate %s is undefined.' % predname)
+                erroneouspreds = [p for p in predname if self.mln.predicate(p) is None]
+                raise NoSuchPredicateError('Predicate{} {} is undefined.'.format('s' if len(erroneouspreds) > 1 else '', ', '.join(erroneouspreds)))
             self._predname = predname
 
         @property
@@ -1279,7 +1280,6 @@ class Logic(object):
                 return [self.mln.logic.lit(False, predname, self.args, mln=self.mln) for predname in self.predname] + \
                        [self.mln.logic.lit(True, predname, self.args, mln=self.mln) for predname in self.predname]
             else:
-                # return [self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln)]
                 return [self.mln.logic.lit(self.negated, predname, self.args, mln=self.mln) for predname in self.predname]
 
 
