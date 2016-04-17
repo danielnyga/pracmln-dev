@@ -132,7 +132,7 @@ class WCSPConverter(object):
             if f.weight < 0:
                 f = logic.negate(f)
                 f.weight = -f.weight
-            formulas.append(f.nnf())
+            formulas.append(f)
         # preprocess the ground formulas
 #         grounder = DefaultGroundingFactory(self.mrf, formulas=formulas, simplify=True, unsatfailure=True, multicore=self.multicore, verbose=self.verbose)
         grounder = FastConjunctionGrounding(self.mrf, simplify=True, unsatfailure=True, formulas=formulas, multicore=self.multicore, verbose=self.verbose, cache=0)
@@ -142,7 +142,7 @@ class WCSPConverter(object):
                     raise SatisfiabilityException('MLN is unsatisfiable: hard constraint %s violated' % self.mrf.mln.formulas[gf.idx])
                 else:# formula is rendered true/false by the evidence -> equal in every possible world 
                     continue
-            self.generate_constraint(gf)
+            self.generate_constraint(gf.nnf())
         self.mrf.mln.weights = self._weights
         return self.wcsp
 
