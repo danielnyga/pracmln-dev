@@ -499,7 +499,7 @@ class MRF(object):
         
         :returns:    a generator of (idx, possible world) tuples.
         '''
-        for res in self._iterworlds(self.variables, list(self.evidence), CallByRef(0), self.evidence_dicti()):
+        for res in self._iterworlds([v for v in self.variables if v.valuecount(self.evidence) > 1], list(self.evidence), CallByRef(0), self.evidence_dicti()):
             yield res
 
 
