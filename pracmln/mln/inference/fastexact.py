@@ -290,7 +290,10 @@ class FastExact(Inference):
                                         query_conjunctions)
             conjunction_worlds = self.__get_world_count_for_conjunction(conjunction, *consistent_queries)
             for formula, world_count in conjunction_worlds.items():
-                worlds[evidence_dnf if formula == conjunction else formula] += world_count
+                if formula in worlds:
+                    worlds[formula] += world_count
+                if formula == conjunction:
+                    worlds[evidence_dnf] += world_count
         return worlds
 
     def __calculate_probability(self, evidence, queries, evidence_combinations, world_count):
