@@ -281,7 +281,7 @@ class Logic(object):
                 group = []
                 domvalues = self.mln.domains[domain] 
                 if not domvalues:
-                    raise Exception('Template variants cannot be constructed since the domain "%s" is empty.' % domain)
+                    logger.warning('Template variants cannot be constructed since the domain "{}" is empty.'.format(domain))
                 for values in itertools.combinations(domvalues, len(variables)):
                     group.append(dict([(var, val) for var, val in zip(variables, values)]))
                 assignments.append(group)
@@ -291,7 +291,7 @@ class Logic(object):
                 group = []
                 domvalues = self.mln.domains[domain] 
                 if not domvalues:
-                    raise Exception('Template variants cannot be constructed since the domain "%s" is empty.' % domain)
+                    logger.warning('Template variants cannot be constructed since the domain "{}" is empty.'.format(domain))
                 for value in self.mln.domains[domain]:
                     group.append(dict([(variable, value)]))
                 assignments.append(group)
@@ -558,34 +558,8 @@ class Logic(object):
 
         def expandgrouplits(self):
             #returns list of formulas
-            # for t in self._grouplit_template():
             for t in self._ground_template({}):
                 yield t
-            # print 'expanding formula of type:', type(self)
-            # if isinstance(self, Logic.LitGroup):
-            #     return self.lits
-            # if not hasattr(self, 'children'):
-            #     return [self]
-            # else:
-            #     newchildren = self.children
-            #     print 'self.children:   ', self.children, type(self.children)
-            #     for child in self.children:
-            #         print 'child    ', child, type(child)
-            #         gl = child.expandgrouplits()
-            #         print 'gl    ', gl, type(gl)
-            #         if len(gl) > 1:
-            #             newchildren.remove(child)
-
-
-                #
-                #
-                #         formula = self.copy()
-                #         print 'gl    ', gl, type(gl)
-                #         children.append(gl)
-                # self.children = children
-                # print 'returning self', self, type(self)
-                # print
-                # return [self]
 
 
         def truth(self, world):
@@ -1276,19 +1250,10 @@ class Logic(object):
         def _ground_template(self, assignment):
             # args = map(lambda x: assignment.get(x, x), self.args)
             if self.negated == 2: # template
-                # return [self.mln.logic.lit(False, self.predname, self.args, mln=self.mln), self.mln.logic.lit(True, self.predname, self.args, mln=self.mln)]
                 return [self.mln.logic.lit(False, predname, self.args, mln=self.mln) for predname in self.predname] + \
                        [self.mln.logic.lit(True, predname, self.args, mln=self.mln) for predname in self.predname]
             else:
                 return [self.mln.logic.lit(self.negated, predname, self.args, mln=self.mln) for predname in self.predname]
-
-
-        #     if self.negated == 2: # template
-        #         return [self.mln.logic.lit(False, predname, self.args, mln=self.mln) for predname in self.predname] + \
-        #                [self.mln.logic.lit(True, predname, self.args, mln=self.mln) for predname in self.predname]
-        #     else:
-        #         return [self.mln.logic.lit(self.negated, predname, self.args, mln=self.mln) for predname in self.predname]
-
 
         def copy(self, mln=None, idx=inherit):
             return self.mln.logic.litgroup(self.negated, self.predname, self.args, mln=ifNone(mln, self.mln), idx=self.idx if idx is inherit else idx)
@@ -1296,15 +1261,14 @@ class Logic(object):
 
         def truth(self, world):
             return None
-#             raise Exception('Literals do not have a truth value. Ground the literal first.')
 
 
         def mintruth(self, world):
-            raise Exception('Literals do not have a truth value. Ground the literal first.')
+            raise Exception('LitGroups do not have a truth value. Ground the literal first.')
 
 
         def maxtruth(self, world):
-            raise Exception('Literals do not have a truth value. Ground the literal first.')
+            raise Exception('LitGroups do not have a truth value. Ground the literal first.')
 
 
         def constants(self, constants=None):
