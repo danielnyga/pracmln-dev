@@ -43,7 +43,7 @@ import copy
 import os
 import logging
 from pracmln.mln.util import StopWatch, fstr, mergedom, colorize, stripComments, out,\
-    trace, ifNone
+    trace, ifNone, stop
 from pracmln.mln.mlnpreds import Predicate, FuzzyPredicate, SoftFunctionalPredicate,\
     FunctionalPredicate
 from pracmln.mln.database import Database
@@ -344,20 +344,7 @@ class MLN(object):
         fulldomain = mergedom(self.domains, *[db.domains for db in dbs])
         logger.debug('full domains: %s' % fulldomain)
 
-        # expand predicate groups
-        tempmln = self.copy()
-        tempmln._rmformulas()
-        for i, template in self.iterformulas():
-            for variant in template.expandgrouplits():
-                idx = len(tempmln._formulas)
-                f = tempmln.formula(variant, weight=template.weight if isinstance(template.weight, basestring) else template.weight,
-                                  fixweight=self.fixweights[i])
-                f.idx = idx
-
-        mln_ = tempmln.copy()
-        # mln_ = self.copy()
-
-        #
+        mln_ = self.copy()
 
         # collect the admissible formula templates. templates might be not
         # admissible since the domain of a template variable might be empty.
@@ -469,6 +456,7 @@ class MLN(object):
             else: dbs.append(db)
         logger.debug('loaded %s evidence databases for learning' % len(dbs))
         newmln = self.materialize(*dbs)
+
         logger.debug('MLN predicates:')
         for p in newmln.predicates: logger.debug(p)
         logger.debug('MLN domains:')
@@ -818,7 +806,14 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                             fixWeightOfNextFormula = False
                             fixweight = True
                             fixedWeightTemplateIndices.append(idxTemplate)
-                        mln.formula(formula, weight, fixweight, uniquevars)
+
+                        # expand predicate groups
+                        for variant in formula.expandgrouplits():
+                            mln.formula(variant, weight=weight,
+                                        fixweight=fixweight,
+                                        unique_templvars=uniquevars)
+                        # mln.formula(formula, weight, fixweight, uniquevars)
+
                         if uniquevars:
                             uniquevars = None
                     except ParseException, e:
