@@ -181,6 +181,42 @@ class FastExact(Inference):
         return to_return
 
     def __combine_formulas(self, formulas):
+        first_iteration = {i:[] for i in range(0, len(formulas))}
+        edges = {i:[] for i in range(0, len(formulas))}
+        for i1, f1 in enumerate(formulas[:-1]):
+            for i2_, f2 in enumerate(formulas[i1+1:]):
+                i2 = i1+1+i2_
+                if not (f1 in f2 or f2 in f1):
+                    combination = f1 * f2
+                    if not combination:
+                        continue
+                    first_iteration[i1].append(combination)
+                edges[i1].append(i2)
+                edges[i2].append(i1)
+        visited_node_indices = set()
+        isolated_sub_graphs = []
+        for start_node_index in range(0, len(formulas)):
+            if start_node_index in visited_node_indices:
+                continue
+            sub_graph = []
+            iteration1 = []
+            isolated_sub_graphs.append((sub_graph, iteration1))
+            node_indices = [start_node_index]
+            while node_indices:
+                index = node_indices.pop()
+                visited_node_indices.add(index)
+                sub_graph.append(formulas[index])
+                iteration1+=first_iteration[index]
+                for sub_index in edges[index]:
+                    if sub_index in visited_node_indices:
+                        continue
+                    node_indices.append(sub_index)
+        to_return = []
+        for sub_graph_formulas, iteration1 in isolated_sub_graphs:
+            to_return += self.__combine_formulas_from_subgraph(sub_graph_formulas, iteration1)
+        return to_return
+
+    def __combine_formulas_from_subgraph(self, formulas, iteration_1):
         def combine_formulas_from_two_iterations(iteration_0, last_iteration):
             for last_combination in last_iteration:
                 for first_combination in iteration_0:
@@ -191,9 +227,9 @@ class FastExact(Inference):
                         continue
                     yield to_yield
 
-        iterations = [formulas]
+        iterations = [formulas, iteration_1]
         all_combinations = {}
-        for combination in iterations[0]:
+        for combination in formulas + iteration_1:
             if combination in all_combinations:
                 all_combinations[combination].union_formulas(combination)
             else:
