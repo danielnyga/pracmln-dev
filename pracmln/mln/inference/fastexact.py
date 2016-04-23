@@ -37,6 +37,10 @@ from pracmln.mln.constants import HARD
 from pracmln.logic.common import Conjunction, GroundLit, TrueFalse, Disjunction, Equality
 from operator import mul
 import numpy
+from networkx import Graph, find_cliques_recursive
+from itertools import combinations
+
+#TODO: add networkx to license file?!
 
 from pracmln.mln.mrfvars import FuzzyVariable
 
@@ -181,72 +185,43 @@ class FastExact(Inference):
         return to_return
 
     def __combine_formulas(self, formulas):
-        first_iteration = {i:[] for i in range(0, len(formulas))}
-        edges = {i:[] for i in range(0, len(formulas))}
+        combination_to_identity = {}
+
+        def add_to_combination_to_identity(formula_combination):
+            if formula_combination in combination_to_identity:
+                other = combination_to_identity[formula_combination]
+                other.union_formulas(formula_combination)
+                return other
+            combination_to_identity[formula_combination] = formula_combination
+            return formula_combination
+
+        formulas = [add_to_combination_to_identity(f) for f in formulas]
+        all_combinations = {tuple([i]): f for i, f in enumerate(formulas)}
+        formula_graph = Graph()
+        formula_graph.add_nodes_from(range(0, len(formulas)))
         for i1, f1 in enumerate(formulas[:-1]):
-            for i2_, f2 in enumerate(formulas[i1+1:]):
-                i2 = i1+1+i2_
-                if not (f1 in f2 or f2 in f1):
-                    combination = f1 * f2
-                    if not combination:
-                        continue
-                    first_iteration[i1].append(combination)
-                edges[i1].append(i2)
-                edges[i2].append(i1)
-        visited_node_indices = set()
-        isolated_sub_graphs = []
-        for start_node_index in range(0, len(formulas)):
-            if start_node_index in visited_node_indices:
-                continue
-            sub_graph = []
-            iteration1 = []
-            isolated_sub_graphs.append((sub_graph, iteration1))
-            node_indices = [start_node_index]
-            while node_indices:
-                index = node_indices.pop()
-                visited_node_indices.add(index)
-                sub_graph.append(formulas[index])
-                iteration1+=first_iteration[index]
-                for sub_index in edges[index]:
-                    if sub_index in visited_node_indices:
-                        continue
-                    node_indices.append(sub_index)
-        to_return = []
-        for sub_graph_formulas, iteration1 in isolated_sub_graphs:
-            to_return += self.__combine_formulas_from_subgraph(sub_graph_formulas, iteration1)
-        return to_return
-
-    def __combine_formulas_from_subgraph(self, formulas, iteration_1):
-        def combine_formulas_from_two_iterations(iteration_0, last_iteration):
-            for last_combination in last_iteration:
-                for first_combination in iteration_0:
-                    if first_combination in last_combination:
-                        continue
-                    to_yield = last_combination * first_combination
-                    if to_yield is None:
-                        continue
-                    yield to_yield
-
-        iterations = [formulas, iteration_1]
-        all_combinations = {}
-        for combination in formulas + iteration_1:
-            if combination in all_combinations:
-                all_combinations[combination].union_formulas(combination)
-            else:
-                all_combinations[combination] = combination
-        while True:
-            fixed_point_reached = True
-            iterations.append([])
-            for combination in combine_formulas_from_two_iterations(iterations[0], iterations[-2]):
-                fixed_point_reached = False
-                if combination in all_combinations:
-                    all_combinations[combination].union_formulas(combination)
+            for i2, f2 in enumerate(formulas[i1+1:], start=i1+1):
+                combination = f1 * f2
+                if not combination.consistent():
+                    continue
+                t = tuple(sorted((i1, i2)))
+                all_combinations[t] = add_to_combination_to_identity(combination)
+                formula_graph.add_edge(i1, i2)
+        combination_indices = []
+        cliques = list(find_cliques_recursive(formula_graph))
+        for maximal_clique in cliques:
+            for combination_size in range(3, len(maximal_clique)+1):
+                clique_combinations = [tuple(sorted(c)) for c in combinations(maximal_clique, combination_size)]
+                if len(combination_indices) >= combination_size-2:
+                    combination_indices[combination_size-3].update(set(clique_combinations))
                 else:
-                    all_combinations[combination] = combination
-                    iterations[-1].append(combination)
-            if fixed_point_reached:
-                break
-        return all_combinations.keys()
+                    combination_indices.append(set(clique_combinations))
+        for iteration in combination_indices:
+            for combination in iteration:
+                fc = all_combinations[combination[:-1]] * formulas[combination[-1]]
+                fc = add_to_combination_to_identity(fc)
+                all_combinations[combination] = fc
+        return combination_to_identity.keys()
 
     def __assign_queries_and_formula_combinations(self, queries, evidence_combinations):
         query_combinations = {}
@@ -255,7 +230,7 @@ class FastExact(Inference):
             combinations = [ec * query for ec in evidence_combinations]
             combination_dict = {}
             for combination in combinations:
-                if combination is None:
+                if not combination.consistent():
                     continue
                 if combination not in combination_dict:
                     combination_dict[combination] = []
@@ -422,9 +397,7 @@ class FastExact(Inference):
             return self.ground_atom_indices_and_truth_values < other.ground_atom_indices_and_truth_values
 
         def __mul__(self, other):
-            indices_and_truth_values = self.get_combined_ground_atom_indices_and_truth_values(other)
-            if not indices_and_truth_values:
-                return None
+            indices_and_truth_values = self.get_combined_ground_atom_indices_and_truth_values(other, False)
             if isinstance(other, FastExact.GroundFormula) or isinstance(other, FastExact.EvidenceFormulaCombination):
                 return FastExact.EvidenceFormulaCombination(self._mrf, indices_and_truth_values, self, other)
             elif isinstance(other, FastExact.QueryFormula):
@@ -449,9 +422,11 @@ class FastExact(Inference):
         def ground_atom_indices_and_truth_values(self):
             return self._ground_atom_indices_and_truth_values
 
-        def get_combined_ground_atom_indices_and_truth_values(self, other):
+        def get_combined_ground_atom_indices_and_truth_values(self, other, check_consistency=True):
             to_return = set(self.ground_atom_indices_and_truth_values)
             to_return.update(other.ground_atom_indices_and_truth_values)
+            if not check_consistency:
+                return to_return
             return to_return if self.consistent(to_return) else None
 
         def consistent(self, ground_atom_indices_and_truth_values=None):
@@ -550,9 +525,6 @@ class FastExact(Inference):
             self.__query_combinations = []
             FastExact.FormulaCombination.__init__(self, mrf, ground_atom_indices_and_truth_values)
 
-        def __contains__(self, item):
-            return self.__ground_formulas <= item.ground_formulas
-
         @property
         def ground_formulas(self):
             return self.__ground_formulas
@@ -599,7 +571,7 @@ class FastExact(Inference):
             if not children:
                 children = [FastExact.GroundLiteralConjunction(
                     self.__mrf, self.__mrf.mln.logic.true_false(1, self.__mrf.mln)) * other]
-            return FastExact.DisjunctiveNormalForm(self.__mrf, *filter(lambda c: c is not None, children))
+            return FastExact.DisjunctiveNormalForm(self.__mrf, *filter(lambda c: c.consistent(), children))
 
         def __str__(self):
             conjunctions = ["(" + str(conjunction) + ")" for conjunction in self.__children]
