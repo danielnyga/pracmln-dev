@@ -105,7 +105,10 @@ class CLL(AbstractLearner):
         d = self._stat[fidx]
         if pidx not in d:
             d[pidx] = [0] * self.valuecounts[pidx]
-        d[pidx][validx] += inc
+		try:
+			d[pidx][validx] += inc
+		except Exception as e:
+			raise e
     
 
     def _compute_statistics(self):
@@ -166,7 +169,8 @@ class CLL(AbstractLearner):
                         # formula and remove the temp evidence
                         with temporary_evidence(self.mrf):
                             for atomidx, value in partition.value2dict(world).iteritems():
-                                self.mrf[atomidx] = value
+                                self.mrf.set_evidence({atomidx: value},
+													   erase=True)				   
                             truth = gndformula(self.mrf.evidence)
                     if truth != 0:
                         self.partition2formulas[partition.idx].add(formula.idx)
