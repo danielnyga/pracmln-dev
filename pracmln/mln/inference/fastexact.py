@@ -61,8 +61,8 @@ class FastExact(Inference):
         other_queries = filter(lambda q: world_count[q] > 0, queries)
         if not other_queries:
             return to_return
-        formula_combinations = self.__combine_formulas(ground_formulas)
-        query_combinations = self.__assign_queries_and_formula_combinations(other_queries, formula_combinations)
+        formula_combinations = self.__combine_formulas(ground_formulas, evidence)
+        query_combinations = self.__assign_queries_and_formula_combinations(other_queries,formula_combinations,evidence)
         self.__assign_world_number(formula_combinations, query_combinations)
         to_return.update(self.__calculate_probability(evidence, other_queries, formula_combinations, world_count))
         return to_return
@@ -83,8 +83,9 @@ class FastExact(Inference):
         non_hard_ground_formulas = [self.__remove_equality(formula) for formula in non_hard_ground_formulas]
         non_hard_ground_formulas = filter(lambda f: f is not None, non_hard_ground_formulas)
         ground_formulas = [FastExact.GroundFormula(self.mrf,g,g.idx,i) for i, g in enumerate(non_hard_ground_formulas)]
-        to_return = [(hard_ground_formulas_as_dnf*gf).children for gf in ground_formulas]
-        return reduce(lambda l1, l2: l1+l2, to_return, tuple()), hard_ground_formulas_as_dnf
+        to_return = [FastExact.EvidenceFormulaCombination(self.mrf, gf.ground_atom_indices_and_truth_values, gf)
+                     for gf in ground_formulas if gf.consistent(hard_ground_formulas_as_dnf)]
+        return to_return, hard_ground_formulas_as_dnf
 
     def __create_dnf(self, formulas):
         #TODO: Improve implementation - First converting to cnf and then to dnf is probably not efficient (but easy^^)
@@ -184,7 +185,7 @@ class FastExact(Inference):
         to_return.idx = formula.idx
         return to_return
 
-    def __combine_formulas(self, formulas):
+    def __combine_formulas(self, formulas, evidence):
         combination_to_identity = {}
 
         def add_to_combination_to_identity(formula_combination):
@@ -203,7 +204,7 @@ class FastExact(Inference):
         for i1, f1 in enumerate(formulas[:-1]):
             for i2, f2 in enumerate(formulas[i1+1:], start=i1+1):
                 combination = f1 * f2
-                if not combination.consistent():
+                if not combination.consistent(evidence):
                     continue
                 t = tuple(sorted((i1, i2)))
                 all_combinations[t], updated = add_to_combination_to_identity(combination)
@@ -217,27 +218,31 @@ class FastExact(Inference):
                 fixed_point_reached = True
                 for combination in [tuple(sorted(c)) for c in combinations(maximal_clique, combination_size)]:
                     if combination not in all_combinations:
+                        if not combination[:-1] in all_combinations:
+                            continue
                         fc = all_combinations[combination[:-1]] * formulas[combination[-1]]
+                        if not fc.consistent(evidence):
+                            continue
                         all_combinations[combination], updated = add_to_combination_to_identity(fc)
                         fixed_point_reached = fixed_point_reached and not updated
                 if fixed_point_reached:
                     break
         return combination_to_identity.keys()
 
-    def __assign_queries_and_formula_combinations(self, queries, evidence_combinations):
+    def __assign_queries_and_formula_combinations(self, queries, evidence_combinations, evidence):
         query_combinations = {}
         for query in queries:
             query_combinations[query] = []
             combinations = [ec * query for ec in evidence_combinations]
             combination_dict = {}
             for combination in combinations:
-                if not combination.consistent():
+                if not combination.consistent(evidence):
                     continue
                 if combination not in combination_dict:
                     combination_dict[combination] = []
                 combination_dict[combination].append(combination)
             for _, equivalent_combinations in combination_dict.items():
-                equivalent_combinations.sort(key= lambda c: len(c.evidence_combination.ground_formulas))
+                equivalent_combinations.sort(key=lambda c: len(c.evidence_combination.ground_formulas))
                 most_specific_combination = equivalent_combinations[-1]
                 most_specific_combination.evidence_combination.add_query_combination(most_specific_combination)
                 query_combinations[query].append(most_specific_combination)
@@ -245,6 +250,7 @@ class FastExact(Inference):
 
     def __assign_world_number(self, evidence_combinations, query_combinations):
         for formula in evidence_combinations:
+            #TODO: Use evidence
             worlds = self.__get_world_count_for_conjunction(formula, *formula.query_combinations)
             formula.maximum_number_of_worlds = worlds[formula]
             for query_combination in formula.query_combinations:
@@ -298,7 +304,8 @@ class FastExact(Inference):
         if not children:
             children = [FastExact.GroundLiteralConjunction(self.mrf, self.mln.logic.true_false(1, self.mln))]
         for conjunction in children:
-            consistent_queries = filter(lambda q: conjunction.get_combined_ground_atom_indices_and_truth_values(q),
+            consistent_queries = filter(lambda q: conjunction.
+                                        get_combined_ground_atom_indices_and_truth_values(q, True, evidence_dnf),
                                         query_conjunctions)
             conjunction_worlds = self.__get_world_count_for_conjunction(conjunction, *consistent_queries)
             for formula, world_count in conjunction_worlds.items():
@@ -398,7 +405,7 @@ class FastExact(Inference):
             return self.ground_atom_indices_and_truth_values < other.ground_atom_indices_and_truth_values
 
         def __mul__(self, other):
-            indices_and_truth_values = self.get_combined_ground_atom_indices_and_truth_values(other, False)
+            indices_and_truth_values = self.get_combined_ground_atom_indices_and_truth_values(other)
             if isinstance(other, FastExact.GroundFormula) or isinstance(other, FastExact.EvidenceFormulaCombination):
                 return FastExact.EvidenceFormulaCombination(self._mrf, indices_and_truth_values, self, other)
             elif isinstance(other, FastExact.QueryFormula):
@@ -423,18 +430,20 @@ class FastExact(Inference):
         def ground_atom_indices_and_truth_values(self):
             return self._ground_atom_indices_and_truth_values
 
-        def get_combined_ground_atom_indices_and_truth_values(self, other, check_consistency=True):
+        def get_combined_ground_atom_indices_and_truth_values(self, other, check_consistency=False, evidence=None):
             to_return = set(self.ground_atom_indices_and_truth_values)
             to_return.update(other.ground_atom_indices_and_truth_values)
             if not check_consistency:
                 return to_return
-            return to_return if self.consistent(to_return) else None
+            return to_return if self.consistent(evidence, to_return) else None
 
-        def consistent(self, ground_atom_indices_and_truth_values=None):
+        def consistent(self, evidence=None, ground_atom_indices_and_truth_values=None):
             if ground_atom_indices_and_truth_values is None:
                 ground_atom_indices_and_truth_values = self._ground_atom_indices_and_truth_values
             assignment = {}
-            for ground_atom_index, negated, truth_value in ground_atom_indices_and_truth_values:
+
+            def check_assignment(atom_index_and_truth_value, additional_assignment=None):
+                ground_atom_index, negated, truth_value = atom_index_and_truth_value
                 if negated and truth_value == 1.0 or not negated and truth_value == 0.0:
                     return False
                 values_to_set = []
@@ -445,11 +454,26 @@ class FastExact(Inference):
                 else:
                     values_to_set.append((ground_atom_index, truth_value))
                 for index, value in values_to_set:
-                    current_value = assignment[index] if index in assignment else None
+                    current_value = assignment[index] if index in assignment else additional_assignment[index] \
+                                                if additional_assignment and index in additional_assignment else None
                     if current_value is not None and current_value != value:
                         return False
-                    assignment[index] = value
-            return True
+                    if additional_assignment is not None:
+                        additional_assignment[index] = value
+                    else:
+                        assignment[index] = value
+                return True
+
+            evidence_indices_truth = evidence.common_indices_and_truth_values if evidence else set()
+            if not all([check_assignment(g) for g in ground_atom_indices_and_truth_values | evidence_indices_truth]):
+                return False
+            if not evidence or not evidence.other_indices_and_truth_values:
+                return True
+            for other_atom_indices_and_truth_values in evidence.other_indices_and_truth_values:
+                tmp_assignment = {}
+                if all(check_assignment(g, tmp_assignment) for g in other_atom_indices_and_truth_values):
+                    return True #TODO: Cache...
+            return False
 
         def _update_hash_code(self):
             self.__hash_code = sum([idx*97+truth for idx, negated, truth in self._ground_atom_indices_and_truth_values])
@@ -558,21 +582,34 @@ class FastExact(Inference):
         def __init__(self, mrf, *children):
             self.__mrf = mrf
             self.__children = children
-            self.__common_indices_and_truth_values = None
+            self.__common_indices_and_truth_values = set.intersection(
+                *[c.ground_atom_indices_and_truth_values for c in self.children])
+            self.__different_indices_and_truth_values = \
+                [c.ground_atom_indices_and_truth_values - self.__common_indices_and_truth_values for c in self.children]
 
-        def __mul__(self, other):
-            if len(self.children) > 1:
-                if self.__common_indices_and_truth_values is None:
-                    self.__common_indices_and_truth_values = set.intersection(
-                        *[c.ground_atom_indices_and_truth_values for c in self.children])
-                other_atom_indices_and_truth_values = other.ground_atom_indices_and_truth_values
-                if not other.consistent(self.__common_indices_and_truth_values | other_atom_indices_and_truth_values):
-                    return FastExact.DisjunctiveNormalForm(self.__mrf)
-            children = [child * other for child in self.__children]
-            if not children:
-                children = [FastExact.GroundLiteralConjunction(
-                    self.__mrf, self.__mrf.mln.logic.true_false(1, self.__mrf.mln)) * other]
-            return FastExact.DisjunctiveNormalForm(self.__mrf, *filter(lambda c: c.consistent(), children))
+        @property
+        def common_indices_and_truth_values(self):
+            return self.__common_indices_and_truth_values
+
+        @property
+        def other_indices_and_truth_values(self):
+            return self.__different_indices_and_truth_values
+
+
+        #TODO: Remove commented code...
+        # def __mul__(self, other):
+        #     if len(self.children) > 1:
+        #         if self.__common_indices_and_truth_values is None:
+        #             self.__common_indices_and_truth_values = set.intersection(
+        #                 *[c.ground_atom_indices_and_truth_values for c in self.children])
+        #         other_atom_indices_and_truth_values = other.ground_atom_indices_and_truth_values
+        #         if not other.consistent(self.__common_indices_and_truth_values | other_atom_indices_and_truth_values):
+        #             return FastExact.DisjunctiveNormalForm(self.__mrf)
+        #     children = [child * other for child in self.__children]
+        #     if not children:
+        #         children = [FastExact.GroundLiteralConjunction(
+        #             self.__mrf, self.__mrf.mln.logic.true_false(1, self.__mrf.mln)) * other]
+        #     return FastExact.DisjunctiveNormalForm(self.__mrf, *filter(lambda c: c.consistent(), children))
 
         def __str__(self):
             conjunctions = ["(" + str(conjunction) + ")" for conjunction in self.__children]
