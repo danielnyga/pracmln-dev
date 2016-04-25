@@ -105,10 +105,10 @@ class CLL(AbstractLearner):
         d = self._stat[fidx]
         if pidx not in d:
             d[pidx] = [0] * self.valuecounts[pidx]
-		try:
-			d[pidx][validx] += inc
-		except Exception as e:
-			raise e
+        try:
+            d[pidx][validx] += inc
+        except Exception as e:
+            raise e
     
 
     def _compute_statistics(self):
