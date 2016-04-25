@@ -191,36 +191,37 @@ class FastExact(Inference):
             if formula_combination in combination_to_identity:
                 other = combination_to_identity[formula_combination]
                 other.union_formulas(formula_combination)
-                return other
+                return other, False
             combination_to_identity[formula_combination] = formula_combination
-            return formula_combination
+            return formula_combination, True
 
-        formulas = [add_to_combination_to_identity(f) for f in formulas]
+        formulas = [add_to_combination_to_identity(f)[0] for f in formulas]
         all_combinations = {tuple([i]): f for i, f in enumerate(formulas)}
         formula_graph = Graph()
         formula_graph.add_nodes_from(range(0, len(formulas)))
+        fixed_point_reached = True
         for i1, f1 in enumerate(formulas[:-1]):
             for i2, f2 in enumerate(formulas[i1+1:], start=i1+1):
                 combination = f1 * f2
                 if not combination.consistent():
                     continue
                 t = tuple(sorted((i1, i2)))
-                all_combinations[t] = add_to_combination_to_identity(combination)
+                all_combinations[t], updated = add_to_combination_to_identity(combination)
+                fixed_point_reached = fixed_point_reached and not updated
                 formula_graph.add_edge(i1, i2)
-        combination_indices = []
+        if fixed_point_reached:
+            return combination_to_identity.keys()
         cliques = list(find_cliques_recursive(formula_graph))
         for maximal_clique in cliques:
             for combination_size in range(3, len(maximal_clique)+1):
-                clique_combinations = [tuple(sorted(c)) for c in combinations(maximal_clique, combination_size)]
-                if len(combination_indices) >= combination_size-2:
-                    combination_indices[combination_size-3].update(set(clique_combinations))
-                else:
-                    combination_indices.append(set(clique_combinations))
-        for iteration in combination_indices:
-            for combination in iteration:
-                fc = all_combinations[combination[:-1]] * formulas[combination[-1]]
-                fc = add_to_combination_to_identity(fc)
-                all_combinations[combination] = fc
+                fixed_point_reached = True
+                for combination in [tuple(sorted(c)) for c in combinations(maximal_clique, combination_size)]:
+                    if combination not in all_combinations:
+                        fc = all_combinations[combination[:-1]] * formulas[combination[-1]]
+                        all_combinations[combination], updated = add_to_combination_to_identity(fc)
+                        fixed_point_reached = fixed_point_reached and not updated
+                if fixed_point_reached:
+                    break
         return combination_to_identity.keys()
 
     def __assign_queries_and_formula_combinations(self, queries, evidence_combinations):
