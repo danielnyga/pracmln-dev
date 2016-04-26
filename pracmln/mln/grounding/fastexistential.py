@@ -127,7 +127,20 @@ class FastExistentialGrounding(DefaultGroundingFactory):
             quantified_variables = set(quantifier.children[0].vars)
             quantified_variables = [v for v in predicate.args if v in quantified_variables]
             quantified_indices = {i for i,v in enumerate(predicate.args) if v in quantified_variables}
-            exceptions = [[e[v] for v in quantified_variables] for e in exceptions]
+
+            def get_exception_values(variables, exception, assembled_exception):
+                if not variables:
+                    return [assembled_exception]
+                elif variables[0] in exception:
+                    return get_exception_values(variables[1:], exception, assembled_exception+[exception[variables[0]]])
+                else:
+                    to_return = []
+                    for value in predicate.vardom(variables[0]):
+                        to_return += get_exception_values(variables[1:], exception, assembled_exception+[value])
+                    return to_return
+
+            exceptions = [get_exception_values(quantified_variables, e, []) for e in exceptions]
+            exceptions = reduce(lambda a, b: a+b, exceptions, [])
 
             def is_exception(current_ground_literal):
                 quantified_literal_values = [var for idx, var in enumerate(current_ground_literal.args)
