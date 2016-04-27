@@ -3,6 +3,9 @@ import logging
 from werkzeug.serving import run_simple
 from pracmln import praclog
 from webmln.gui.app import mlnApp
+from tornado.wsgi import WSGIContainer
+from tornado.httpserver import HTTPServer
+from tornado.ioloop import IOLoop
 
 log = praclog.logger(__name__)
 
@@ -52,6 +55,13 @@ if __name__ == '__main__':
                    mlnApp.app,
                    threaded=True,
                    ssl_context=context)
+    elif 'PRAC_SERVER' in os.environ and os.environ['PRAC_SERVER'] == 'wsgi':
+        log.debug('Running WEBMLN in wsgi mode')
+        mlnApp.app.config.from_object('configmodule.DeploymentConfig')
+
+        http_server = HTTPServer(WSGIContainer(mlnApp.app))
+        http_server.listen(5001)
+        IOLoop.instance().start()
     else:
         log.debug('Running WEBMLN in development mode')
 

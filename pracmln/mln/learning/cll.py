@@ -108,12 +108,8 @@ class CLL(AbstractLearner):
         try:
             d[pidx][validx] += inc
         except Exception as e:
-            print fidx, pidx, validx
-            print d[pidx][validx]
-            print inc
             raise e
 
-    
 
     def _compute_statistics(self):
         self._stat = {}
@@ -180,9 +176,6 @@ class CLL(AbstractLearner):
                             for atomidx, value in partition.value2dict(world).iteritems():
                                 self.mrf.set_evidence({atomidx: value},
                                                       erase=True)
-                                if self.mrf.evidence[atomidx] != value:
-                                    print 'alarm!'
-                                    print self.mrf.evidence[atomidx], value
                             truth = gndformula(self.mrf.evidence)
                             if truth is None:
                                 print gndformula
