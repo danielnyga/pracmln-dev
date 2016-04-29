@@ -75,8 +75,12 @@ class FastExact(Inference):
         logical_evidence = [self.mln.logic.gnd_lit(self.mrf.gndatom(i), self.mrf.evidence[i] == 0, self.mrf.mln)
                             for i in range(0, len(self.mrf.evidence)) if self.mrf.evidence[i] is not None]
         if logical_evidence:
-            hard_ground_formulas.append(self.mln.logic.conjunction(logical_evidence, self.mrf.mln)
-                                        if len(logical_evidence) > 1 else logical_evidence[0])
+            if len(hard_ground_formulas) == 1 and isinstance(hard_ground_formulas[0], Conjunction):
+                hard_ground_formulas[0] = Conjunction(hard_ground_formulas[0].children + logical_evidence,
+                                                      self.mrf.mln, hard_ground_formulas[0].idx)
+            else:
+                hard_ground_formulas.append(self.mln.logic.conjunction(logical_evidence, self.mrf.mln)
+                                            if len(logical_evidence) > 1 else logical_evidence[0])
         # TODO: Make sure that a conjunction in the evidence does not exist twice...
         hard_ground_formulas_as_dnf = self.__create_dnf(hard_ground_formulas)
         non_hard_ground_formulas = filter(lambda f: f.weight != HARD, ground_formulas)
