@@ -353,6 +353,10 @@ class WCSP(object):
                 yield (num, solution)
         p.wait()        
         logger.debug('toulbar2 process returned %s' % str(p.returncode))
+        try:
+            os.remove(wcspfilename)
+        except OSError:
+            logger.warning('could not remove temporary file {}'.format(wcspfilename))
         if p.returncode != 0:
             raise Exception('toulbar2 returned a non-zero exit code: %d' % p.returncode)
 
@@ -386,6 +390,10 @@ class WCSP(object):
                 nextLineIsSolution = False
         p.wait()        
         logger.debug('toulbar2 process returned %s' % str(p.returncode))
+        try:
+            os.remove(wcspfilename)
+        except OSError:
+            logger.warning('could not remove temporary file {}'.format(wcspfilename))
         if p.returncode != 0:
             raise Exception('toulbar2 returned a non-zero exit code: %d' % p.returncode)
         return solution, cost
@@ -398,4 +406,3 @@ if __name__ == '__main__':
     for i, s in wcsp.itersolutions():
         print i, s
     print 'best solution:', wcsp.solve()
-            
