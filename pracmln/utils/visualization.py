@@ -117,6 +117,8 @@ def get_cond_prob_png(queries, dbs, filename='cond_prob', filedir='/tmp',
         for db in dbs:
             evidencelist.extend(
                 [e for e in db.evidence.keys() if db.evidence[e] == 1.0])
+    elif isinstance(dbs, str):
+        evidencelist = dbs.split(',')
     else:
         evidencelist.extend([e if dbs.evidence[e] == 1.0 else '!' + e for e in
                              dbs.evidence.keys()])
