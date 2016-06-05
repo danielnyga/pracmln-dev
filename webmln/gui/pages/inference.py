@@ -1,4 +1,5 @@
 import ctypes
+import time
 import json
 import logging
 from threading import Thread
@@ -12,7 +13,7 @@ import io
 from pracmln.mln.base import parse_mln
 from pracmln.mln.database import parse_db
 from pracmln.mln.methods import InferenceMethods
-from pracmln.mln.util import parse_queries, out
+from pracmln.mln.util import parse_queries
 from pracmln.praclog import logger
 from pracmln.utils import config
 from pracmln.utils.project import PRACMLNConfig
@@ -73,18 +74,10 @@ def getinfstatus():
     return jsonify(mlnsession.infbuffer.content)
 
 
-def infer(mlnsession, data, timeout):
-    # initialize logger
-    stream = StringIO()
-    handler = logging.StreamHandler(stream)
-    sformatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    handler.setFormatter(sformatter)
-    streamlog = logging.getLogger('streamlog')
-    streamlog.setLevel(logging.INFO)
-    streamlog.addHandler(handler)
-    streamlog.info('STARTING INFERENCE')
-    sys.stdout = stream
+def infer(mlnsession, data, to):
+
+    mlnsession.log.info('STARTING INFERENCE')
+    sys.stdout = mlnsession.stream
 
     # load settings from webform
     mln_content = data['mln_text'].encode('utf8')
@@ -119,11 +112,10 @@ def infer(mlnsession, data, timeout):
 
     # store settings in session
     mlnsession.projectinf.learnconf.conf = inferconfig.config.copy()
-
     mlnsession.infbuffer.setmsg({'message': 'Creating MLN and DB objects may'
                                             ' take a while...',
                                  'status': False})
-
+    time.sleep(1)
     barchartresults = []
     graphres = []
     png = ''
@@ -162,26 +154,26 @@ def infer(mlnsession, data, timeout):
         queries = tmpconfig.get('queries', pracmln.ALL)
         if isinstance(queries, basestring):
             queries = parse_queries(mln, queries)
-        tmpconfig['cw_preds'] = filter(lambda x: bool(x),
+        tmpconfig['cw_preds'] = filter(lambda b: bool(b),
                                        tmpconfig['cw_preds'])
 
         # extract and remove all non-algorithm
         method = InferenceMethods.clazz(tmpconfig.get('method', 'MCSAT'))
         for s in GUI_SETTINGS:
-            if s in tmpconfig: del tmpconfig[s]
+            if s in tmpconfig:
+                del tmpconfig[s]
 
         try:
             mln_ = mln.materialize(db)
             mrf = mln_.ground(db)
 
             if inferconfig.get('verbose', False):
-                streamlog.info('EVIDENCE VARIABLES')
-                mrf.print_evidence_vars(stream)
+                mlnsession.log.info('EVIDENCE VARIABLES')
+                mrf.print_evidence_vars(mlnsession.stream)
 
             inference = method(mrf, queries, **tmpconfig)
             mlnsession.infbuffer.setmsg({'message': 'Starting Inference...',
                                          'status': False})
-
 
             # VarI - inference will be cancelled on timeout
             # if multicore enabled, there may still be processes running
@@ -205,7 +197,7 @@ def infer(mlnsession, data, timeout):
             t = Thread(target=inference.run, args=())
             t.start()
             threadid = t.ident
-            t.join(timeout)  # wait until either thread is done or time is up
+            t.join(to)  # wait until either thread is done or time is up
 
             if t.isAlive():
                 # stop inference and raise TimeoutError locally
@@ -220,7 +212,7 @@ def infer(mlnsession, data, timeout):
                 output = io.BytesIO()
                 inference.write(output)
                 res = output.getvalue()
-                streamlog.info('INFERENCE RESULTS: \n' + res)
+                mlnsession.log.info('INFERENCE RESULTS: \n' + res)
 
             graphres = calculategraphres(mrf,
                                          db.evidence.keys(),
@@ -240,30 +232,30 @@ def infer(mlnsession, data, timeout):
                 mlnsession.projectinf.emlns[mln_name] = emln_content
                 mlnsession.projectinf.dbs[db_name] = db_content
                 mlnsession.projectinf.save(dirpath=mlnsession.tmpsessionfolder)
-                streamlog.info('saved result to file results/{} in project {}'
+                mlnsession.log.info('saved result to file results/{} in project {}'
                                .format(fname, mlnsession.projectinf.name))
 
-            streamlog.info('FINISHED')
+            mlnsession.log.info('FINISHED')
 
         except SystemExit:
-            streamlog.error('Cancelled...')
+            mlnsession.log.error('Cancelled...')
             message = 'Cancelled!\nCheck log for more information.'
         except mp.TimeoutError:
-            streamlog.error('Timeouterror! '
+            mlnsession.log.error('Timeouterror! '
                             'Inference took more than {} seconds. '
-                            'Increase the timeout and try again.'.format(timeout))
+                            'Increase the timeout and try again.'.format(to))
             message = 'Timeout!'
         finally:
-            handler.flush()
+            mlnsession.loghandler.flush()
     except:
-        traceback.print_exc(file=stream)
+        traceback.print_exc(file=mlnsession.stream)
         message = 'Failed!\nCheck log for more information.'
     finally:
         mlnsession.infbuffer.setmsg({'message': message,
                                      'status': True,
                                      'graphres': graphres,
                                      'resbar': barchartresults,
-                                     'output': stream.getvalue(),
+                                     'output': mlnsession.stream.getvalue(),
                                      'condprob': {'png': png, 'ratio': ratio}})
 
 
@@ -314,7 +306,9 @@ def perm(l):
     res = []
     for i, val in enumerate(l):
         for y, val2 in enumerate(l):
-            if i >= y: continue
-            if (val, val2) in res: continue
+            if i >= y:
+                continue
+            if (val, val2) in res:
+                continue
             res.append((val, val2))
     return res
