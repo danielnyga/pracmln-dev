@@ -47,12 +47,9 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   AtomProbPair.msg
-  AtomTruthValuePair.msg
   MLNConfig.msg
   MLNDatabase.msg
-  MLNInference.msg
   MLNQuery.msg
-  MRFClique.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -154,6 +151,7 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
   scripts/mln_server.py
+  scripts/start_mln_server
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
