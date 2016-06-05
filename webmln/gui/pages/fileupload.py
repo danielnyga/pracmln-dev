@@ -51,6 +51,7 @@ def upload():
             return '{} is not a valid file storage in project'.format(source[1])
 
         p.save(mlnsession.tmpsessionfolder)
+        log.info('added file {} to project {}'.format(filename, p.name))
     else:
         return 'File type not allowed. Allowed extensions: {}'.format(', '.join(mlnApp.app.config['ALLOWED_EXTENSIONS']))
     return ''

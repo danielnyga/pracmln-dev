@@ -3,12 +3,14 @@ Created on Sep 11, 2014
 
 @author: nyga
 '''
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import rc
 import itertools
 from numpy.ma.core import floor, ceil
+import thread
 from pracmln.mln.util import parse_queries, out
 from pracmln.utils.latexmath2png import math2png
 
@@ -79,6 +81,7 @@ def plot_KLDiv_with_logscale(series):
     
 
 def get_cond_prob_png(queries, dbs, filename='cond_prob', filedir='/tmp'):
+    safefilename = '{}-{}-{}'.format(filename, os.getpid(), thread.get_ident())
     if isinstance(queries, str):
         queries = queries.split(',')
 
@@ -98,7 +101,7 @@ def get_cond_prob_png(queries, dbs, filename='cond_prob', filedir='/tmp'):
     evidence = r'''\\'''.join([r'''\text{{ {0} }} '''.format(e.replace('_', '\_')) for e in evidencelist])
     eq       = r'''\argmax \Pcond{{ \begin{{array}}{{c}}{0}\end{{array}} & \begin{{array}}{{c}}{1}\end{{array}} }}'''.format(query, evidence)
 
-    return math2png(eq, filedir, declarations=[declarations], filename=filename, size=10)
+    return math2png(eq, filedir, declarations=[declarations], filename=safefilename, size=10)
 
 
 if __name__ == '__main__':

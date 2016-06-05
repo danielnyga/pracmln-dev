@@ -280,7 +280,7 @@ class Logic(object):
                 group = []
                 domvalues = self.mln.domains[domain] 
                 if not domvalues:
-                    raise Exception('Template variants cannot be constructed since the domain "%s" is empty.' % domain)
+                    logger.warning('Template variants cannot be constructed since the domain "{}" is empty.'.format(domain))
                 for values in itertools.combinations(domvalues, len(variables)):
                     group.append(dict([(var, val) for var, val in zip(variables, values)]))
                 assignments.append(group)
@@ -290,7 +290,7 @@ class Logic(object):
                 group = []
                 domvalues = self.mln.domains[domain] 
                 if not domvalues:
-                    raise Exception('Template variants cannot be constructed since the domain "%s" is empty.' % domain)
+                    logger.warning('Template variants cannot be constructed since the domain "{}" is empty.'.format(domain))
                 for value in self.mln.domains[domain]:
                     group.append(dict([(variable, value)]))
                 assignments.append(group)

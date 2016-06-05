@@ -187,7 +187,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         # initial parameter vector: all zeros or weights from formulas
         self._w = [0] * len(self.mln.formulas)
         for f in self.mln.formulas:
-            if self.mln.fixweights[f.idx] or self.use_init_weights:
+            if self.mln.fixweights[f.idx] or self.use_init_weights or f.ishard:
                 self._w[f.idx] = f.weight
         runs = 0
         while runs < self.maxrepeat:
