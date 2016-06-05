@@ -1,4 +1,6 @@
+from StringIO import StringIO
 import collections
+import logging
 import os
 import tempfile
 from flask import jsonify, session
@@ -30,6 +32,20 @@ def ensure_mln_session(cursession):
         log.info('created tempfolder %s' % mln_session.tmpsessionfolder)
         mln_session.projectinf = MLNProject.open(os.path.join(mln_session.tmpsessionfolder, DEFAULT_PROJECT))
         mln_session.projectlearn = MLNProject.open(os.path.join(mln_session.tmpsessionfolder, DEFAULT_PROJECT))
+
+        # initialize logger
+        stream = StringIO()
+        handler = logging.StreamHandler(stream)
+        sformatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        handler.setFormatter(sformatter)
+        streamlog = logging.getLogger('streamlog')
+        streamlog.setLevel(logging.INFO)
+        streamlog.addHandler(handler)
+        mln_session.stream = stream
+        mln_session.log = streamlog
+        mln_session.loghandler = handler
+
         mlnApp.session_store.put(mln_session)
     return mln_session
 
@@ -45,6 +61,9 @@ def init_file_storage():
         for file in files:
             if file.endswith('.pracmln'):
                 copyfile(os.path.join(root, file), os.path.join(dirname,file))
+
+    userproj = MLNProject('myProject')
+    userproj.save(os.path.join(mlnApp.app.config['EXAMPLES_FOLDER'], dirname))
 
     if not os.path.exists(os.path.join(mlnApp.app.config['LOG_FOLDER'])):
         os.mkdir(os.path.join(mlnApp.app.config['LOG_FOLDER']))
@@ -73,6 +92,7 @@ def change_example(task, project):
     mlnsession = ensure_mln_session(session)
 
     tmpfolder = os.path.join(mlnsession.tmpsessionfolder, project)
+    log.info(tmpfolder)
     if not os.path.exists(tmpfolder):
         return False
 
@@ -86,7 +106,7 @@ def change_example(task, project):
         mlnfiles = mlnsession.projectlearn.mlns.keys()
 
     inferconfig = mlnsession.projectinf.queryconf.config.copy()
-    inferconfig.update({"method": InferenceMethods.name(mlnsession.projectinf.queryconf.get("method", 'MC-SAT'))})
+    inferconfig.update({"method": InferenceMethods.name(mlnsession.projectinf.queryconf.get("method", 'MCSAT'))})
     lrnconfig = mlnsession.projectlearn.learnconf.config.copy()
     lrnconfig.update({"method": LearningMethods.name(mlnsession.projectlearn.learnconf.get("method", 'BPLL'))})
 

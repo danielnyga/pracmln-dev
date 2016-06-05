@@ -1,5 +1,8 @@
 #!/usr/bin/python2.5
 from __future__ import with_statement # Until Python 2.6
+import thread
+
+
 """
 Converts LaTeX math to png images.
 Run latexmath2png.py --help for usage instructions.
