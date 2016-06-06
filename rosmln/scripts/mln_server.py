@@ -13,6 +13,7 @@ from pracmln.mln.methods import InferenceMethods
 class MLNInterfaceServer:
     def __init__(self):
         self.__config = None
+        self.__mln = None
 
     def run(self, node_name="rosmln", service_name="mln_interface"):
         rospy.init_node(node_name)
@@ -24,9 +25,10 @@ class MLNInterfaceServer:
         try:
             rospy.loginfo("Processing request...")
             config = self.__get_config(request)
-            mln = MLN(config.logic, config.grammar, config.mlnFiles)
-            db = self.__get_db(request, config, mln)
-            materialized_mln = mln.materialize(db)
+            if not self.__config_equals(self.__config, config):
+                self.__mln = MLN(config.logic, config.grammar, config.mlnFiles)
+            db = self.__get_db(request, config, self.__mln)
+            materialized_mln = self.__mln.materialize(db)
             mrf = materialized_mln.ground(db)
             if not request.query:
                 raise Exception("No query provided!")
@@ -37,12 +39,23 @@ class MLNInterfaceServer:
             tuple_list = []
             for atom, probability in inference.results.items():
                 tuple_list.append(AtomProbPair(str(atom), float(probability)))
+            tuple_list.sort(key=lambda item: item.prob)
             to_return = MLNInterfaceResponse(MLNDatabase(tuple_list))
             rospy.loginfo("Done!")
             return to_return
         except Exception:
             rospy.logfatal(traceback.format_exc())
             return MLNDatabase([])
+
+    def __config_equals(self, config1, config2):
+        if config1 is None or config2 is None:
+            return False
+        return  config1.db == config2.db and \
+                config1.logic == config2.logic and \
+                config1.mlnFiles == config2.mlnFiles and \
+                config1.output_filename == config2.output_filename and \
+                config1.saveResults == config2.saveResults and \
+                config1.grammar == config2.grammar
 
     def __get_config(self, request):
         if self.__config is None and request.config.mlnFiles == "":
