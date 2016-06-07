@@ -39,7 +39,7 @@ class MLNInterfaceServer:
             tuple_list = []
             for atom, probability in inference.results.items():
                 tuple_list.append(AtomProbPair(str(atom), float(probability)))
-            tuple_list.sort(key=lambda item: item.prob)
+            tuple_list.sort(key=lambda item: item.prob, reverse=True)
             to_return = MLNInterfaceResponse(MLNDatabase(tuple_list))
             rospy.loginfo("Done!")
             return to_return
