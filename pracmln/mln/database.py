@@ -31,7 +31,7 @@ from pracmln.logic.fol import FirstOrderLogic
 import os
 from StringIO import StringIO
 import sys
-from pracmln.mln.util import barstr, colorize, out, ifNone
+from pracmln.mln.util import barstr, colorize, ifNone
 from pracmln.mln.errors import MLNParsingError
 import traceback
 from collections import defaultdict
@@ -604,7 +604,7 @@ def parse_db(mln, content, ignore_unknown_preds=False, db=None, dirs=['.'], proj
             if gndatom  in db.evidence:
                 raise Exception("Duplicate soft evidence for '%s'" % gndatom)
             try:
-                positive, predname, constants =   mln.logic.parse_literal(gndatom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
+                _, predname, constants =   mln.logic.parse_literal(gndatom) # TODO Should we allow soft evidence on non-atoms here? (This assumes atoms)
             except NoSuchPredicateError, e:
                 if ignore_unknown_preds: continue
                 else: raise e

@@ -76,11 +76,10 @@ def eval_queries(world):
 
 
 class EnumerationAsk(Inference):
-    """
+    '''
     Inference based on enumeration of (only) the worlds compatible with the
     evidence; supports soft evidence (assuming independence)
-    """
-
+    '''
 
     def __init__(self, mrf, queries, **params):
         Inference.__init__(self, mrf, queries, **params)
@@ -111,17 +110,12 @@ class EnumerationAsk(Inference):
         # check consistency with hard constraints:
         self._watch.tag('check hard constraints', verbose=self.verbose)
         hcgrounder = FastConjunctionGrounding(self.mrf, simplify=False,
-                                              unsatfailure=True,
-                                              formulas=[f for f in
-                                                        self.mrf.formulas if
-                                                        f.weight == HARD], **(
-            self._params + {'multicore': False, 'verbose': False}))
+                                              unsatfailure=True, 
+                                              formulas=[f for f in self.mrf.formulas if f.weight == HARD], 
+                                              **(self._params + {'multicore': False, 'verbose': False}))
         for gf in hcgrounder.itergroundings():
             if isinstance(gf, Logic.TrueFalse) and gf.truth() == .0:
-                raise SatisfiabilityException(
-                    'MLN is unsatisfiable due to hard constraint violation by'
-                    ' evidence: {} ({})'.format(str(gf),
-                                                str(self.mln.formula(gf.idx))))
+                raise SatisfiabilityException('MLN is unsatisfiable due to hard constraint violation by evidence: {} ({})'.format(str(gf), str(self.mln.formula(gf.idx))))
         self._watch.finish('check hard constraints')
         # compute number of possible worlds
         worlds = 1
@@ -144,11 +138,9 @@ class EnumerationAsk(Inference):
             bar = ProgressBar(width=100, steps=worlds, color='green')
         if self.multicore:
             pool = Pool()
-            logger.debug('Using multiprocessing on {} '
-                         'core(s)...'.format(pool._processes))
+            logger.debug('Using multiprocessing on {} core(s)...'.format(pool._processes))
             try:
-                for num, denum in pool.imap(with_tracing(eval_queries),
-                                            self.mrf.worlds()):
+                for num, denum in pool.imap(with_tracing(eval_queries), self.mrf.worlds()):
                     denominator += denum
                     k += 1
                     for i, v in enumerate(num):
@@ -187,6 +179,4 @@ class EnumerationAsk(Inference):
 
 
     def soft_evidence_formula(self, gf):
-        return isinstance(self.mrf.mln.logic, FirstOrderLogic) and any(
-            map(lambda a: a.truth(self.mrf.evidence) in Interval('(0,1)'),
-                gf.gndatoms()))
+        return isinstance(self.mrf.mln.logic, FirstOrderLogic) and any(map(lambda a: a.truth(self.mrf.evidence) in Interval('(0,1)'), gf.gndatoms()))

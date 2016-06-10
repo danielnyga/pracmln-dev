@@ -23,7 +23,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from common import Logic
-from pracmln.mln.util import fstr, ifNone, out
+from pracmln.mln.util import fstr, ifNone
 
 class FirstOrderLogic(Logic):
     '''

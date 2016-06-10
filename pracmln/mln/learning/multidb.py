@@ -42,14 +42,14 @@ def _setup_learner((i, mln_, db, method, params)):
 
 
 class MultipleDatabaseLearner(AbstractLearner):
-    """
+    '''
     Learns from multiple databases using an arbitrary sub-learning method for
     each database, assuming independence between individual databases.
-    """
+    '''
 
 
     def __init__(self, mln_, dbs, method, **params):
-        """
+        '''
         :param dbs:         list of :class:`mln.database.Database` objects to
                             be used for learning.
         :param mln_:        the MLN object to be used for learning
@@ -58,7 +58,7 @@ class MultipleDatabaseLearner(AbstractLearner):
                             :class:`mln.methods.LearningMethods`.
         :param **params:    additional parameters handed over to the base
                             learners.
-        """
+        '''
 
         self.dbs = dbs
         self._params = edict(params)
@@ -91,9 +91,7 @@ class MultipleDatabaseLearner(AbstractLearner):
                 pool.join()
         else:
             for i, db in enumerate(self.dbs):
-                _, learner = _setup_learner((i, self.mln, db, method,
-                                             self._params + {
-                                                 'multicore': False}))
+                _, learner = _setup_learner((i, self.mln, db, method, self._params + {'multicore': False}))
                 self.learners[i] = learner
                 if self.verbose:
                     bar.label('Database %d, %s' % ((i + 1), learner.name))
@@ -111,8 +109,7 @@ class MultipleDatabaseLearner(AbstractLearner):
 
     @property
     def name(self):
-        return "MultipleDatabaseLearner [{} x {}]".format(len(self.learners),
-                                                          self.learners[0].name)
+        return "MultipleDatabaseLearner [{} x {}]".format(len(self.learners), self.learners[0].name)
 
 
     def _f(self, w):
@@ -122,9 +119,7 @@ class MultipleDatabaseLearner(AbstractLearner):
             likelihood = 0
             pool = Pool()
             try:
-                for i, (f_, d_) in enumerate(pool.imap(
-                        with_tracing(_methodcaller('_f', sideeffects=True)),
-                        map(lambda l: (l, w), self.learners))):
+                for i, (f_, d_) in enumerate(pool.imap(with_tracing(_methodcaller('_f', sideeffects=True)), map(lambda l: (l, w), self.learners))):
                     self.learners[i].__dict__ = d_
                     likelihood += f_
             except Exception as e:
@@ -146,9 +141,7 @@ class MultipleDatabaseLearner(AbstractLearner):
             # in separate processes, so we turn it off 
             pool = Pool()
             try:
-                for i, (grad_, d_) in enumerate(pool.imap(
-                        with_tracing(_methodcaller('_grad', sideeffects=True)),
-                        map(lambda l: (l, w), self.learners))):
+                for i, (grad_, d_) in enumerate(pool.imap(with_tracing(_methodcaller('_grad', sideeffects=True)), map(lambda l: (l, w), self.learners))):
                     self.learners[i].__dict__ = d_
                     grad += grad_
             except Exception as e:
@@ -169,8 +162,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         if self.multicore:
             pool = Pool()
             try:
-                for h in pool.imap(with_tracing(_methodcaller('_hessian')),
-                                   map(lambda l: (l, w), self.learners)):
+                for h in pool.imap(with_tracing(_methodcaller('_hessian')), map(lambda l: (l, w), self.learners)):
                     hessian += h
             except Exception as e:
                 logger.error('Error in child process. Terminating pool...')
@@ -191,9 +183,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         if self.multicore:
             pool = Pool(maxtasksperchild=1)
             try:
-                for i, (_, d_) in enumerate(pool.imap(with_tracing(
-                        _methodcaller('_prepare', sideeffects=True)),
-                                                      self.learners)):
+                for i, (_, d_) in enumerate(pool.imap(with_tracing(_methodcaller('_prepare', sideeffects=True)), self.learners)):
                     checkmem()
                     self.learners[i].__dict__ = d_
                     if self.verbose: bar.inc()
@@ -212,10 +202,10 @@ class MultipleDatabaseLearner(AbstractLearner):
 
 
     def _filter_fixweights(self, v):
-        """
+        '''
         Removes from the vector `v` all elements at indices that correspond to
         a fixed weight formula index.
-        """
+        '''
         if len(v) != len(self.mln.formulas):
             raise Exception('Vector must have same length as formula weights')
         return [v[i] for i in range(len(self.mln.formulas)) if

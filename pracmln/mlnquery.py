@@ -64,6 +64,7 @@ WINDOWTITLEEDITED = 'PRACMLN Query Tool - {}' + os.path.sep + '*{}'
 
 
 class MLNQuery(object):
+
     def __init__(self, config=None, **params):
         self.configfile = None
         if config is None:
@@ -202,16 +203,11 @@ class MLNQuery(object):
             params.update(eval("dict(%s)" % params['params']))
             del params['params']
         if self.verbose:
-            print tabulate(
-                sorted(list(params.viewitems()), key=lambda (k, v): str(k)),
-                headers=('Parameter:', 'Value:'))
+            print tabulate(sorted(list(params.viewitems()), key=lambda (k, v): str(k)), headers=('Parameter:', 'Value:'))
         if type(db) is list and len(db) > 1:
             raise Exception('Inference can only handle one database at a time')
         elif type(db) is list:
             db = db[0]
-            # parse non-atomic params
-        #         if type(self.queries) is not list:
-        #             queries = parse_queries(mln, str(self.queries))
         params['cw_preds'] = filter(lambda x: bool(x), self.cw_preds)
         # extract and remove all non-algorithm
         for s in GUI_SETTINGS:
@@ -275,8 +271,7 @@ class MLNQueryGUI(object):
         self.master.bind('<Escape>', lambda a: self.master.quit())
         self.master.protocol('WM_DELETE_WINDOW', self.quit)
 
-        self.dir = os.path.abspath(
-            ifNone(directory, ifNone(gconf['prev_query_path'], os.getcwd())))
+        self.dir = os.path.abspath(ifNone(directory, ifNone(gconf['prev_query_path'], os.getcwd())))
 
         self.frame = Frame(master)
         self.frame.pack(fill=BOTH, expand=1)
@@ -364,10 +359,7 @@ class MLNQueryGUI(object):
         self.emln_label.grid(row=self.emlncontainerrow, column=0, sticky='NE')
         self.emln_container = FileEditBar(self.frame,
                                           dir=self.dir,
-                                          filesettings={'extension': '.emln',
-                                                        'ftypes': [(
-                                                            'MLN extension files',
-                                                            '.emln')]},
+                                          filesettings={'extension': '.emln', 'ftypes': [('MLN extension files','.emln')]},
                                           defaultname='*unknown{}',
                                           importhook=self.import_emln,
                                           deletehook=self.delete_emln,
@@ -387,10 +379,7 @@ class MLNQueryGUI(object):
         Label(self.frame, text="Evidence: ").grid(row=row, column=0,
                                                   sticky='NE')
         self.db_container = FileEditBar(self.frame, dir=self.dir,
-                                        filesettings={'extension': '.db',
-                                                      'ftypes': [(
-                                                          'Database files',
-                                                          '.db')]},
+                                        filesettings={'extension': '.db', 'ftypes': [('Database files', '.db')]},
                                         defaultname='*unknown{}',
                                         importhook=self.import_db,
                                         deletehook=self.delete_db,
@@ -455,8 +444,7 @@ class MLNQueryGUI(object):
         Label(self.frame, text="Queries: ").grid(row=row, column=0, sticky=E)
         self.query = StringVar(master)
         self.query.trace('w', self.settings_setdirty)
-        Entry(self.frame, textvariable=self.query).grid(row=row, column=1,
-                                                        sticky="NEW")
+        Entry(self.frame, textvariable=self.query).grid(row=row, column=1, sticky="NEW")
 
         # additional parameters
         row += 1
@@ -556,7 +544,9 @@ class MLNQueryGUI(object):
             self.write_gconfig()
             self.master.destroy()
 
-    # PROJECT FUNCTIONS #################################
+
+    ####################### PROJECT FUNCTIONS #################################
+
     def new_project(self):
         self.project = MLNProject()
         self.project.addlistener(self.project_setdirty)
@@ -611,18 +601,13 @@ class MLNQueryGUI(object):
             self.mln_container.update_file_choices()
             self.db_container.update_file_choices()
             if len(self.project.mlns) > 0:
-                self.mln_container.selected_file.set(
-                    self.project.queryconf['mln'] or self.project.mlns.keys()[
-                        0])
+                self.mln_container.selected_file.set(self.project.queryconf['mln'] or self.project.mlns.keys()[0])
             self.mln_container.dirty = False
             if len(self.project.emlns) > 0:
-                self.emln_container.selected_file.set(
-                    self.project.queryconf['emln'] or
-                    self.project.emlns.keys()[0])
+                self.emln_container.selected_file.set(self.project.queryconf['emln'] or self.project.emlns.keys()[0])
             self.emln_container.dirty = False
             if len(self.project.dbs) > 0:
-                self.db_container.selected_file.set(
-                    self.project.queryconf['db'] or self.project.dbs.keys()[0])
+                self.db_container.selected_file.set(self.project.queryconf['db'] or self.project.dbs.keys()[0])
             self.db_container.dirty = False
             self.write_gconfig(savegeometry=False)
             self.settings_dirty.set(0)
@@ -647,8 +632,7 @@ class MLNQueryGUI(object):
     def ask_save_project(self):
         fullfilename = asksaveasfilename(initialdir=self.project_dir,
                                          confirmoverwrite=True,
-                                         filetypes=[('PRACMLN project files',
-                                                     '.pracmln')],
+                                         filetypes=[('PRACMLN project files','.pracmln')],
                                          defaultextension=".pracmln")
         self.save_project(fullfilename)
 
@@ -679,7 +663,8 @@ class MLNQueryGUI(object):
         self.project_setdirty(dirty=False)
 
 
-    # MLN FUNCTIONS #####################################
+    ####################### MLN FUNCTIONS #####################################
+
     def import_mln(self, name, content):
         self.project.add_mln(name, content)
 
@@ -737,7 +722,9 @@ class MLNQueryGUI(object):
 
     # /MLN FUNCTIONS #####################################
 
-    # EMLN FUNCTIONS #####################################
+
+    ####################### EMLN FUNCTIONS #####################################
+
     def import_emln(self, name, content):
         self.project.add_emln(name, content)
 
@@ -890,25 +877,19 @@ class MLNQueryGUI(object):
 
     def set_config(self, newconf):
         self.config = newconf
-        self.selected_grammar.set(ifNone(newconf.get('grammar'),
-                                         'PRACGrammar'))
-        self.selected_logic.set(ifNone(newconf.get('logic'),
-                                       'FirstOrderLogic'))
+        self.selected_grammar.set(ifNone(newconf.get('grammar'), 'PRACGrammar'))
+        self.selected_logic.set(ifNone(newconf.get('logic'), 'FirstOrderLogic'))
         self.mln_container.selected_file.set(ifNone(newconf.get('mln'), ''))
         if self.use_emln.get():
-            self.emln_container.selected_file.set(ifNone(newconf.get('mln'),
-                                                         ''))
+            self.emln_container.selected_file.set(ifNone(newconf.get('mln'), ''))
         self.db_container.selected_file.set(ifNone(newconf.get('db'), ""))
-        self.selected_method.set(
-            ifNone(newconf.get("method"), InferenceMethods.name('MCSAT'),
-                   transform=InferenceMethods.name))
+        self.selected_method.set(ifNone(newconf.get("method"), InferenceMethods.name('MCSAT'), transform=InferenceMethods.name))
         self.multicore.set(ifNone(newconf.get('multicore'), 0))
         self.profile.set(ifNone(newconf.get('profile'), 0))
         self.params.set(ifNone(newconf.get('params'), ''))
         self.use_emln.set(ifNone(newconf.get('use_emln'), 0))
         self.verbose.set(ifNone(newconf.get('verbose'), 1))
-        self.ignore_unknown_preds.set(
-            ifNone(newconf.get('ignore_unknown_preds'), 0))
+        self.ignore_unknown_preds.set(ifNone(newconf.get('ignore_unknown_preds'), 0))
         self.output_filename.set(ifNone(newconf.get('output_filename'), ''))
         self.cwPreds.set(ifNone(newconf.get('cw_preds'), ''))
         self.closed_world.set(ifNone(newconf.get('cw'), 0))
@@ -999,12 +980,9 @@ class MLNQueryGUI(object):
                              grammar=self.config.get('grammar', 'PRACGrammar'))
             else:
                 mlnobj = parse_mln(mln_content, searchpaths=[self.dir],
-                                   projectpath=os.path.join(self.dir,
-                                                            self.project.name),
-                                   logic=self.config.get('logic',
-                                                         'FirstOrderLogic'),
-                                   grammar=self.config.get('grammar',
-                                                           'PRACGrammar'))
+                                   projectpath=os.path.join(self.dir, self.project.name),
+                                   logic=self.config.get('logic', 'FirstOrderLogic'),
+                                   grammar=self.config.get('grammar', 'PRACGrammar'))
 
             if options.get('emlnarg') is not None:
                 emln_content = mlnpath(options.get('emlnarg')).content
@@ -1050,9 +1028,7 @@ class MLNQueryGUI(object):
                     'saved result to file results/{} in project {}'.format(
                         fname, self.project.name))
             else:
-                logger.debug(
-                    'No output file given - results have not been saved.')
-
+                logger.debug('No output file given - results have not been saved.')
         except:
             traceback.print_exc()
 

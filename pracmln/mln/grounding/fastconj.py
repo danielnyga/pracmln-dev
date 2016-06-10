@@ -119,7 +119,6 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         # this is a _really_ dirty hack but it does the job ;-)
         variables = formula.vardoms()
 
-
         def eqvardoms(self, v=None, c=None):
             if v is None:
                 v = defaultdict(set)
@@ -181,7 +180,6 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                                                 level + 1):
                 yield gf
 
-
     def _itergroundings(self, simplify=True, unsatfailure=True):
         # generate all groundings
         if not self.formulas:
@@ -196,14 +194,12 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         if self.multicore:
             pool = Pool()
             try:
-                for gfs in pool.imap(with_tracing(create_formula_groundings),
-                                     batches):
+                for gfs in pool.imap(with_tracing(create_formula_groundings), batches):
                     if self.verbose:
                         bar.inc(batchsizes[i])
                         bar.label(str(cumsum(batchsizes, i + 1)))
                         i += 1
-                    for gf in gfs:
-                        yield gf
+                    for gf in gfs: yield gf
             except Exception as e:
                 logger.error('Error in child process. Terminating pool...')
                 pool.close()
@@ -217,5 +213,4 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                     bar.inc(batchsizes[i])
                     bar.label(str(cumsum(batchsizes, i + 1)))
                     i += 1
-                for gf in gfs:
-                    yield gf
+                for gf in gfs: yield gf

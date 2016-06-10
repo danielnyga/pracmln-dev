@@ -20,19 +20,15 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-import pyparsing
 
-from grammar import StandardGrammar, PRACGrammar
 import sys
-from pracmln.mln.util import ifNone, fstr, dict_union, colorize, flip, out,\
-    trace, stop, stoptrace
+from pracmln.mln.util import ifNone, fstr, dict_union, colorize
 from pracmln.mln.errors import NoSuchDomainError, NoSuchPredicateError
 from collections import defaultdict
 import itertools
-from pracmln.mln.constants import HARD, auto, predicate_color, nan, inherit
+from pracmln.mln.constants import HARD, auto, predicate_color, inherit
 import logging
-import traceback
-
+from grammar import StandardGrammar, PRACGrammar
 
 logger = logging.getLogger(__name__)
 
@@ -310,8 +306,6 @@ class Logic(object):
                     for t in self._ground_template({}):
                         yield t
 
-
-    
         def template_variables(self, variable=None):
             '''
             Gets all variables of this formula that are required to be expanded 
@@ -688,26 +682,6 @@ class Logic(object):
                 else:
                     final_variants.append(self.mln.logic.create(type(self), variant, mln=self.mln))
             return final_variants
-
-
-        # def _grouplit_template(self):
-        #     variants = [[]]
-        #     for child in self.children:
-        #         child_variants = child._grouplit_template()
-        #         new_variants = []
-        #         for variant in variants:
-        #             for child_variant in child_variants:
-        #                 v = list(variant)
-        #                 v.append(child_variant)
-        #                 new_variants.append(v)
-        #         variants = new_variants
-        #     final_variants = []
-        #     for variant in variants:
-        #         if isinstance(self, Logic.Exist):
-        #             final_variants.append(self.mln.logic.exist(self.vars, variant[0], mln=self.mln))
-        #         else:
-        #             final_variants.append(self.mln.logic.create(type(self), variant, mln=self.mln))
-        #     return final_variants
 
 
         def template_variables(self, variables=None):
@@ -1091,10 +1065,6 @@ class Logic(object):
                 return [self.mln.logic.lit(self.negated, self.predname, args, mln=self.mln)]
         
 
-        # def _grouplit_template(self):
-        #     return [self.mln.logic.lit(self.negated, self.predname, self.args, mln=self.mln)]
-
-
         def copy(self, mln=None, idx=inherit):
             return self.mln.logic.lit(self.negated, self.predname, self.args, mln=ifNone(mln, self.mln), idx=self.idx if idx is inherit else idx)
         
@@ -1167,11 +1137,15 @@ class Logic(object):
 
 
         @predname.setter
-        def predname(self, predname):
-            if self.mln is not None and any(self.mln.predicate(p) is None for p in predname):
-                erroneouspreds = [p for p in predname if self.mln.predicate(p) is None]
+        def predname(self, prednames):
+            '''
+            predname is a list of predicate names, of which each is tested if it is None
+            '''
+            if self.mln is not None and any(self.mln.predicate(p) is None for p in prednames):
+                erroneouspreds = [p for p in prednames if self.mln.predicate(p) is None]
                 raise NoSuchPredicateError('Predicate{} {} is undefined.'.format('s' if len(erroneouspreds) > 1 else '', ', '.join(erroneouspreds)))
-            self._predname = predname
+            self._predname = prednames
+
 
         @property
         def lits(self):
@@ -1294,6 +1268,7 @@ class Logic(object):
 
         def __ne__(self, other):
             return not self == other
+
 
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 
@@ -1993,7 +1968,6 @@ class Logic(object):
             # ground
             gndings = []
             self._ground(self.children[0], variables, assignment, gndings, mrf, partial=partial)
-            out(self)
             if len(gndings) == 1:
                 return gndings[0]
             if not gndings:

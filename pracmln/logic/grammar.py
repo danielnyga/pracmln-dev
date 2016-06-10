@@ -315,6 +315,7 @@ class PRACGrammar(Grammar):
         equality = (constant|variable) + Literal("=").suppress() + (constant|variable)
         inequality = (constant|variable) + Literal('=/=').suppress() + (constant|variable)
         negation = Literal("!").suppress() + openRB + Group(formula) + closeRB
+
         item = litgroup | literal | exist | inequality | equality | openRB + formula + closeRB | negation
         conjunction = Group(item) + ZeroOrMore(Literal("^").suppress() + Group(item))
         disjunction = Group(conjunction) + ZeroOrMore(Literal("v").suppress() + Group(conjunction))
@@ -366,6 +367,7 @@ class PRACGrammar(Grammar):
 
 
 if __name__ == '__main__':
+
     # f = '(a(x) ^ b(u) v !(c(h) v (r =/= k) ^ !(d(i) ^ !e(x) ^ g(x)))) => EXIST ?a,?b (f(x) ^ b(c))'
     from pracmln.mln.base import MLN
     from pracmln.mln.database import Database

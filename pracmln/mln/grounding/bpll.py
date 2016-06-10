@@ -40,7 +40,6 @@ global_bpll_grounding = None
 
 logger = logging.getLogger(__name__)
 
-
 # multiprocessing function
 def create_formula_groundings(formula, unsatfailure=True):
     checkmem()
@@ -111,7 +110,6 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
                 if self.mln.logic.isvar(a):
                     v[a] = vardoms[a]
             return v
-
 
         for child in children:
             if isinstance(child, Logic.Equality):
@@ -542,7 +540,6 @@ class SmartGroundingFactory(object):
                         cost += gnd_result
             self.values_processed.put(var, value)
         return cost
-
 
     def printTree(self):
         queue = [self.root]
