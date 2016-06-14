@@ -14,7 +14,8 @@ Release notes
   * Version 1.1.0 (13.06.2016)
     * *Fix*: C++ bindings
     * *Feature*: literal groups for formula expansion
-    * *Fix*: Existentially quantified 
+    * *Fix*: existentially quantified formulas evaluate to false when they cannot be grounded
+    * *Fix*: cleanup of process pools in multicore mode
 
 Documentation
 -------------
@@ -29,7 +30,7 @@ it in your favorite web browser:
 
     $ firefox _build/html/index.html
 
-Sphinx can be installed by
+Sphinx can be installed with
 
     $ sudo pip install sphinx sphinxcontrib-bibtex 
 
