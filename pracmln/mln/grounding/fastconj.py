@@ -26,51 +26,55 @@ import logging
 from pracmln.logic.common import Logic
 import types
 from multiprocessing.pool import Pool
-from pracmln.utils.multicore import with_tracing, make_memsafe
+from pracmln.utils.multicore import with_tracing
 from itertools import imap
-from pracmln.mln.mlnpreds import FunctionalPredicate, SoftFunctionalPredicate,\
+from pracmln.mln.mlnpreds import FunctionalPredicate, SoftFunctionalPredicate, \
     FuzzyPredicate
-from pracmln.mln.util import fstr, dict_union, stop, out, ProgressBar,\
-    rndbatches, cumsum
+from pracmln.mln.util import dict_union, ProgressBar, rndbatches, cumsum
 from pracmln.mln.errors import SatisfiabilityException
-from pracmln.mln.constants import HARD, auto
+from pracmln.mln.constants import HARD
 from collections import defaultdict
-import multiprocessing
-import time
-import numpy
 from pracmln.logic.fuzzy import FuzzyLogic
-import traceback
+
 
 logger = logging.getLogger(__name__)
-    
+
 # this readonly global is for multiprocessing to exploit copy-on-write
 # on linux systems
 global_fastConjGrounding = None
+
 
 # multiprocessing function
 def create_formula_groundings(formulas):
     gfs = []
     for formula in sorted(formulas, key=global_fastConjGrounding._fsort):
-        if global_fastConjGrounding.mrf.mln.logic.islitconj(formula) or global_fastConjGrounding.mrf.mln.logic.isclause(formula):
+        if global_fastConjGrounding.mrf.mln.logic.islitconj(formula) or \
+                global_fastConjGrounding.mrf.mln.logic.isclause(formula):
             for gf in global_fastConjGrounding.itergroundings_fast(formula):
                 gfs.append(gf)
         else:
-            for gf in formula.itergroundings(global_fastConjGrounding.mrf, simplify=True):
+            for gf in formula.itergroundings(global_fastConjGrounding.mrf,
+                                             simplify=True):
                 gfs.append(gf)
     return gfs
-    
+
 
 class FastConjunctionGrounding(DefaultGroundingFactory):
-    '''
-    Fairly fast grounding of conjunctions pruning the grounding tree if a formula
-    is rendered false by the evidence. Performs some heuristic sorting such that
-    equality constraints are evaluated first.
-    '''
-    
-    def __init__(self, mrf, simplify=False, unsatfailure=False, formulas=None, cache=None, **params):
-        DefaultGroundingFactory.__init__(self, mrf, simplify=simplify, unsatfailure=unsatfailure, formulas=formulas, cache=cache, **params)
-            
-    
+    """
+    Fairly fast grounding of conjunctions pruning the grounding tree if a
+    formula is rendered false by the evidence. Performs some heuristic
+    sorting such that equality constraints are evaluated first.
+    """
+
+
+    def __init__(self, mrf, simplify=False, unsatfailure=False, formulas=None,
+                 cache=None, **params):
+        DefaultGroundingFactory.__init__(self, mrf, simplify=simplify,
+                                         unsatfailure=unsatfailure,
+                                         formulas=formulas, cache=cache,
+                                         **params)
+
+
     def _conjsort(self, e):
         if isinstance(e, Logic.Equality):
             return 0.5
@@ -79,63 +83,87 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         elif isinstance(e, Logic.GroundLit):
             if self.mrf.evidence[e.gndatom.idx] is not None:
                 return 2
-            elif type(self.mrf.mln.predicate(e.gndatom.predname)) in (FunctionalPredicate, SoftFunctionalPredicate):
+            elif type(self.mrf.mln.predicate(e.gndatom.predname)) in (
+                    FunctionalPredicate, SoftFunctionalPredicate):
                 return 3
             else:
                 return 4
-        elif isinstance(e, Logic.Lit) and type(self.mrf.mln.predicate(e.predname)) in (FunctionalPredicate, SoftFunctionalPredicate, FuzzyPredicate):
+        elif isinstance(e, Logic.Lit) and type(
+                self.mrf.mln.predicate(e.predname)) in (
+                FunctionalPredicate, SoftFunctionalPredicate, FuzzyPredicate):
             return 5
         elif isinstance(e, Logic.Lit):
             return 6
         else:
             return 7
-        
+
+
     @staticmethod
     def _fsort(f):
-        if f.weight == HARD: return 0
-        else: return 1
-        
-    
+        if f.weight == HARD:
+            return 0
+        else:
+            return 1
+
+
     def itergroundings_fast(self, formula):
-        '''
+        """
         Recursively generate the groundings of a conjunction that do _not_
         have a definite truth value yet given the evidence.
-        '''
+        """
         # make a copy of the formula to avoid side effects
         formula = formula.ground(self.mrf, {}, partial=True, simplify=True)
-        children = [formula] if not hasattr(formula, 'children') else formula.children
+        children = [formula] if not hasattr(formula,
+                                            'children') else formula.children
         # make equality constraints access their variable domains
         # this is a _really_ dirty hack but it does the job ;-)
         variables = formula.vardoms()
+
+
         def eqvardoms(self, v=None, c=None):
             if v is None:
                 v = defaultdict(set)
             for a in self.args:
                 if self.mln.logic.isvar(a):
                     v[a] = variables[a]
-            return v 
+            return v
+
+
         for child in children:
-            if isinstance(child, Logic.Equality): # replace the vardoms method in this equality instance by our customized one
+            if isinstance(child, Logic.Equality):
+                # replace the vardoms method in this equality instance by
+                # our customized one
                 setattr(child, 'vardoms', types.MethodType(eqvardoms, child))
         lits = sorted(children, key=self._conjsort)
-        truthpivot, pivotfct = (1, FuzzyLogic.min_undef) if isinstance(formula, Logic.Conjunction) else ((0, FuzzyLogic.max_undef) if isinstance(formula, Logic.Disjunction) else (None, None))
-        for gf in self._itergroundings_fast(formula, lits, 0, pivotfct, truthpivot, {}):
+        truthpivot, pivotfct = (1, FuzzyLogic.min_undef) if \
+            isinstance(formula, Logic.Conjunction) else \
+            ((0, FuzzyLogic.max_undef) if
+             isinstance(formula, Logic.Disjunction) else (None, None))
+        for gf in self._itergroundings_fast(formula, lits, 0, pivotfct,
+                                            truthpivot, {}):
             yield gf
-            
-            
-    def _itergroundings_fast(self, formula, constituents, cidx, pivotfct, truthpivot, assignment, level=0):
-        if truthpivot == 0 and (isinstance(formula, Logic.Conjunction) or self.mrf.mln.logic.islit(formula)):
+
+
+    def _itergroundings_fast(self, formula, constituents, cidx, pivotfct,
+                             truthpivot, assignment, level=0):
+        if truthpivot == 0 and (isinstance(formula, Logic.Conjunction) or
+                                self.mrf.mln.logic.islit(formula)):
             if formula.weight == HARD:
-                raise SatisfiabilityException('MLN is unsatisfiable given evidence due to hard constraint violation: %s' % str(formula))
+                raise SatisfiabilityException('MLN is unsatisfiable given '
+                                              'evidence due to hard '
+                                              'constraint violation: {}'
+                                              .format(str(formula)))
             return
-        if truthpivot == 1 and (isinstance(formula, Logic.Disjunction) or self.mrf.mln.logic.islit(formula)):
+        if truthpivot == 1 and (isinstance(formula, Logic.Disjunction) or
+                                self.mrf.mln.logic.islit(formula)):
             return
-        if cidx == len(constituents): # we have reached the end of the formula constituents
+        if cidx == len(constituents):
+            # we have reached the end of the formula constituents
             gf = formula.ground(self.mrf, assignment, simplify=True)
             if isinstance(gf, Logic.TrueFalse):
                 return
             yield gf
-            return 
+            return
         c = constituents[cidx]
         for varass in c.itervargroundings(self.mrf, partial=assignment):
             newass = dict_union(assignment, varass)
@@ -147,10 +175,13 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                 truthpivot_ = truth
             else:
                 truthpivot_ = pivotfct(truthpivot, truth)
-            for gf in self._itergroundings_fast(formula, constituents, cidx+1, pivotfct, truthpivot_, newass, level+1):
+            for gf in self._itergroundings_fast(formula, constituents,
+                                                cidx + 1, pivotfct,
+                                                truthpivot_, newass,
+                                                level + 1):
                 yield gf
-            
-        
+
+
     def _itergroundings(self, simplify=True, unsatfailure=True):
         # generate all groundings
         if not self.formulas:
@@ -164,20 +195,27 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
             i = 0
         if self.multicore:
             pool = Pool()
-            for gfs in pool.imap(with_tracing(create_formula_groundings), batches):
-                if self.verbose: 
-                    bar.inc(batchsizes[i])
-                    bar.label(str(cumsum(batchsizes, i+1)))
-                    i += 1
-                for gf in gfs: yield gf
-            pool.terminate()
-            pool.join()
+            try:
+                for gfs in pool.imap(with_tracing(create_formula_groundings),
+                                     batches):
+                    if self.verbose:
+                        bar.inc(batchsizes[i])
+                        bar.label(str(cumsum(batchsizes, i + 1)))
+                        i += 1
+                    for gf in gfs:
+                        yield gf
+            except Exception as e:
+                logger.error('Error in child process. Terminating pool...')
+                pool.close()
+                raise e
+            finally:
+                pool.terminate()
+                pool.join()
         else:
             for gfs in imap(create_formula_groundings, batches):
-                if self.verbose: 
+                if self.verbose:
                     bar.inc(batchsizes[i])
-                    bar.label(str(cumsum(batchsizes, i+1)))
+                    bar.label(str(cumsum(batchsizes, i + 1)))
                     i += 1
-                for gf in gfs: yield gf
-
-            
+                for gf in gfs:
+                    yield gf

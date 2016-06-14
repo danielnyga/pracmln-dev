@@ -105,8 +105,11 @@ class CLL(AbstractLearner):
         d = self._stat[fidx]
         if pidx not in d:
             d[pidx] = [0] * self.valuecounts[pidx]
-        d[pidx][validx] += inc
-    
+        try:
+            d[pidx][validx] += inc
+        except Exception as e:
+            raise e
+
 
     def _compute_statistics(self):
         self._stat = {}
@@ -127,6 +130,7 @@ class CLL(AbstractLearner):
         '''
         TODO: make sure that there are no equality constraints in the conjunction!
         '''
+
         if len(literals) == 0:
             # at this point, we have a fully grounded conjunction in gndliterals
             # create a mapping from a partition to the ground literals in this formula
@@ -138,7 +142,8 @@ class CLL(AbstractLearner):
                 part = self.atomidx2partition[gndlit.gndatom.idx]
                 part2gndlits[part].append(gndlit)
                 if gndlit(self.mrf.evidence) == 0:
-                    part_with_f_lit = part  
+                    part_with_f_lit = part
+
             # if there is a false ground literal we only need to take into account
             # the partition comprising this literal (criterion no. 2)
             # there is maximally one such partition with false literals in the conjunction
@@ -147,7 +152,10 @@ class CLL(AbstractLearner):
                 gndlits = part2gndlits[part_with_f_lit]
                 part2gndlits = {part_with_f_lit: gndlits}
             if not isconj: # if we don't have a conjunction, ground the formula with the given variable assignment
+                # print 'formula', formula
                 gndformula = formula.ground(self.mrf, var_assign)
+                # print 'gndformula', gndformula
+                # stop()
             for partition, gndlits in part2gndlits.iteritems():
                 # for each partition, select the ground atom truth assignments
                 # in such a way that the conjunction is rendered true. There
@@ -166,8 +174,13 @@ class CLL(AbstractLearner):
                         # formula and remove the temp evidence
                         with temporary_evidence(self.mrf):
                             for atomidx, value in partition.value2dict(world).iteritems():
-                                self.mrf[atomidx] = value
+                                self.mrf.set_evidence({atomidx: value},
+                                                      erase=True)
                             truth = gndformula(self.mrf.evidence)
+                            if truth is None:
+                                print gndformula
+                                print gndformula.print_structure(self.mrf.evidence)
+
                     if truth != 0:
                         self.partition2formulas[partition.idx].add(formula.idx)
                         self._addstat(formula.idx, partition.idx, worldidx, truth)
