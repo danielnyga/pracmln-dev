@@ -195,12 +195,23 @@ specified by a ``#fixweight`` statement preceding the formula: ::
 
 
 Formula templates
------------------ 
+-----------------
+
+MLN formulas are generated from templates which offer a number of convenient
+syntax notations to abstract repetitive formulas.
+
+Prefix: ``*``
+~~~~~~~~~~~~~
 
 An atom in a formula can be prefixed with an asterisk (``*``) to define 
 a template that stands for two variants of the formula, one with 
 the positive literal and one with the negative literal. (e.g. 
-``*myPred(x,y)``) Moreover, you can prefix a variable that is an 
+``*myPred(x,y)``)
+
+Prefix: ``+``
+~~~~~~~~~~~~~
+
+Moreover, you can prefix a variable that is an
 argument of an atom with a ``+`` character to define a template that 
 will generate one formula for each possible binding of that 
 variable to one of the domain elements applicable to that argument. 
@@ -236,6 +247,44 @@ unique expansions of the given variables wrt a formula template, e.g. ::
   0.0 foo(?p1, +?x1) ^ foo(?p2, +?x2)
 
 produces only unique combinations of the variables ``+?x1`` and ``+?x2``.
+
+Grouping Literals
+~~~~~~~~~~~~~~~~~
+
+Repetitve formulas that only differ in the name of the predicate can be
+generated using literal groups which are denoted by writing multiple
+predicates separated with a pipe (``|``). Each formula containing such a
+literal group will then be expanded to all combinations of each predicate of
+that group with the rest of the formula, e.g. ::
+
+  0.0 foo|bar(?p1, +?x1) ^ foo|baz(?p2, +?x2)
+
+will be expanded to ::
+
+  0.0 foo(?p1, +?x1) ^ foo(?p2, +?x2)
+  0.0 foo(?p1, +?x1) ^ baz(?p2, +?x2)
+  0.0 bar(?p1, +?x1) ^ foo(?p2, +?x2)
+  0.0 bar(?p1, +?x1) ^ baz(?p2, +?x2)
+
+
+.. note ::
+
+    The number of arguments has to be the same for each predicate of the
+    respective group. Also, keep in mind that if you use the same variable
+    names in different literal groups, you have to make sure that all predicates
+    share the same domains for the respective arguments. Otherwise you will
+    get an error, that your variable is bound to more than one domain.
+
+    **Example**
+
+    The first argument of ``bar`` has to be in the same domain as the first
+    argument of each ``foo`` and ``baz`` in the following formula, so that the
+    domain of the variable ``?p1`` is well-defined here: ::
+
+        0.0 bar(?p1, +?x1) ^ foo|baz(?p1, +?x2)
+
+
+
 
 Probability constraints on formulas
 -----------------------------------
@@ -326,5 +375,4 @@ single file by separating their contents by three dashes ``---`` in a single lin
    bar(b,c)
    
 represents two independent databases.
-
 
