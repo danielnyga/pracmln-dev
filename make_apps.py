@@ -18,12 +18,6 @@ packages = [('numpy', 'numpy', False),
             ('psutil', 'psutil', False),
             ('matplotlib', 'matplotlib', False)]
 
-webmlnpackages = [('flask', 'Flask', False),
-                  ('werkzeug', 'werkzeug', False),
-                  ('PIL', 'Pillow', False),
-                  ('jinja2', 'Jinja2', False),
-                  ('geoip', 'python-geoip python-geoip-geolite2', True)]
-
 docspackages = [('sphinx', 'sphinx sphinxcontrib-bibtex', False)]
 
 python_apps = [
@@ -110,20 +104,6 @@ def build_docs():
     os.system(docs)
 
 
-def build_webmln():
-    print colorize('Building Qooxdoo app', (None, 'green', True), True)
-    # build qooxdoo
-    generate = adapt("$PRACMLN_HOME/webmln/gui/generate.py -q", arch)
-    os.system(generate + ' build')
-
-    print
-    for pkg in webmlnpackages:
-        check_package(pkg)
-
-    python_apps.append({"name": "webmln",
-                        "script": "$PRACMLN_HOME/webmln/run.py"})
-
-
 def test():
     print colorize('Checking docker...', (None, None, True), True),
     try:
@@ -169,7 +149,7 @@ if __name__ == '__main__':
     if '--help' in args:        
         print "PRACMLNs Apps Generator\n\n"
         print "  usage: make_apps [--arch=%s] [--cppbindings] " \
-              "[--webmln] [--docs] [--test]\n" % "|".join(archs)
+              "[--docs] [--test]\n" % "|".join(archs)
         print
         print
         exit(0)
@@ -201,10 +181,6 @@ if __name__ == '__main__':
         exit(0)
 
     check_dependencies()
-
-    if '--webmln' in args:
-        build_webmln()
-        print
 
     if '--docs' in args:
         build_docs()
