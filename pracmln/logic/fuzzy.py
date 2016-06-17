@@ -70,11 +70,17 @@ class FuzzyLogic(Logic):
 
 
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
-    
-    
+
+
     class Lit(Logic.Lit): pass
+
     
-    
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
+
+
+    class LitGroup(Logic.LitGroup): pass
+
+
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
     
     
@@ -295,7 +301,11 @@ class FuzzyLogic(Logic):
     def lit(self, *args, **kwargs):
         return FuzzyLogic.Lit(*args, **kwargs)
 
-    
+
+    def litgroup(self, *args, **kwargs):
+        return FuzzyLogic.LitGroup(*args, **kwargs)
+
+
     def gnd_lit(self, *args, **kwargs):
         return FuzzyLogic.GroundLit(*args, **kwargs)
 
