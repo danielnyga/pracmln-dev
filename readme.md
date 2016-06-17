@@ -8,14 +8,6 @@ pracmln is a toolbox for statistical relational learning and reasoning and provi
   * Project Page: http://www.pracmln.org
   * Lead developer: Daniel Nyga (nyga@cs.uni-bremen.de)
 
-Release notes
--------------
-
-  * Version 1.1.0 (13.06.2016)
-    * *Fix*: C++ bindings
-    * *Feature*: literal groups for formula expansion
-    * *Fix*: existentially quantified formulas evaluate to false when they cannot be grounded
-    * *Fix*: cleanup of process pools in multicore mode
 
 Documentation
 -------------

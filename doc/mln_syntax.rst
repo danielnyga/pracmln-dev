@@ -62,7 +62,7 @@ declares a predicate ``person``, which has two arguments of the domains
 ``name`` and ``gender``. 
  
 Predicate arguments in MLNs are *typed*. This means that all predicates having
-a predicate of the same domain are sharing all values of that domain.
+an argument of the same domain are sharing all values of that domain.
 A another predicate declaration, such as ::
 
   friends(name, name)
@@ -238,8 +238,8 @@ the ordinary formula template would produce 9 formulas: ::
   0.0 foo(?p1, X3) ^ foo(?p2, X3)
     
 where 3 of them (marked with the asterisk) are superfluous because
-the is a semantically  equivalent formula in the MLN already. Since
-since may cause unecessary computational effort druing learning and
+there is a semantically  equivalent formula in the MLN already. Since
+this may cause unecessary computational effort during learning and
 inference, pracmln provides a statement ``#unique``, which only produces
 unique expansions of the given variables wrt a formula template, e.g. ::
 
@@ -247,6 +247,8 @@ unique expansions of the given variables wrt a formula template, e.g. ::
   0.0 foo(?p1, +?x1) ^ foo(?p2, +?x2)
 
 produces only unique combinations of the variables ``+?x1`` and ``+?x2``.
+
+.. _sec-litgroups:
 
 Grouping Literals
 ~~~~~~~~~~~~~~~~~
@@ -288,6 +290,9 @@ will be expanded to ::
 
 Probability constraints on formulas
 -----------------------------------
+
+.. warning::
+    This feature is currently unsupported.
 
 You may want to require that certain formulas have a fixed prior 
 marginal probability regardless of the size of the domain with 
