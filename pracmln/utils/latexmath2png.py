@@ -1,7 +1,5 @@
 #!/usr/bin/python2.5
 from __future__ import with_statement # Until Python 2.6
-import thread
-
 
 """
 Converts LaTeX math to png images.
@@ -84,8 +82,8 @@ def __write_output(infile, outdir, workdir='.', filename='', size=1):
         # Convert the DVI file to PNG's
         dvifile = infile.replace('.tex', '.dvi')
         outfilename = os.path.join(outdir, filename)
-        dvicmd = "dvipng -T tight -x {} -z 9 -bg Transparent "\
-                "-o {}.png {}".format(size * 1000, outfilename, dvifile)
+        dvicmd = "dvipng -q* -T tight -x {} -z 9 -bg Transparent "\
+                "-o {}.png {} >/dev/null".format(size * 1000, outfilename, dvifile)
         rc = os.system(dvicmd)
         if rc != 0:
             raise Exception('dvipng error')
