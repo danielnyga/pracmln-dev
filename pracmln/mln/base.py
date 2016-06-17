@@ -23,6 +23,7 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+import pyparsing
 
 from pracmln.logic import FirstOrderLogic, FuzzyLogic
 
@@ -35,14 +36,13 @@ import platform
 from methods import InferenceMethods, LearningMethods
 from mrf import MRF
 from errors import MLNParsingError
-# from experimental.mlnboost import MLNBoost
 from pyparsing import ParseException
 from pracmln.mln.constants import HARD, comment_color, predicate_color, weight_color
 import copy
 import os
 import logging
-from pracmln.mln.util import StopWatch, fstr, mergedom, colorize, stripComments, out,\
-    trace, ifNone
+from pracmln.mln.util import StopWatch, mergedom, fstr, colorize, stripComments,\
+    ifNone
 from pracmln.mln.mlnpreds import Predicate, FuzzyPredicate, SoftFunctionalPredicate,\
     FunctionalPredicate
 from pracmln.mln.database import Database
@@ -51,9 +51,7 @@ import sys
 import re
 import traceback
 from pracmln.mln.learning.bpll import BPLL
-from pracmln.utils.project import MLNProject, mlnpath
-from pracmln.logic.common import Logic
-from pracmln.utils.multicore import make_memsafe
+from pracmln.utils.project import mlnpath
 
 
 logger = logging.getLogger(__name__)
@@ -214,10 +212,13 @@ class MLN(object):
         <Predicate: foo(arg0,arg1)>
         
         '''
+
         if isinstance(predicate, Predicate):
             return self.declare_predicate(predicate)
         elif isinstance(predicate, basestring):
             return self._predicates.get(predicate, None)
+        elif isinstance(predicate, pyparsing.ParseResults):
+            return predicate.asList()
         else:
             raise Exception('Illegal type of argument predicate: %s' % type(predicate))
         
@@ -317,8 +318,8 @@ class MLN(object):
             return self.weights[idx]
     
     
-    def __lshift__(self, input):
-        parse_mln(input, '.', logic=None, grammar=None, mln=self)
+    def __lshift__(self, _input):
+        parse_mln(_input, '.', logic=None, grammar=None, mln=self)
     
                 
     def materialize(self, *dbs):
@@ -335,13 +336,13 @@ class MLN(object):
         :param dbs:     list of :class:`database.Database` objects for materialization.
         '''
         logger.debug("materializing formula templates...")
-        
-        mln_ = self.copy()
 
-        # obtain full domain with all objects 
+        # obtain full domain with all objects
         fulldomain = mergedom(self.domains, *[db.domains for db in dbs])
         logger.debug('full domains: %s' % fulldomain)
-        
+
+        mln_ = self.copy()
+
         # collect the admissible formula templates. templates might be not
         # admissible since the domain of a template variable might be empty.
         for ft in list(mln_.formulas):
@@ -452,6 +453,7 @@ class MLN(object):
             else: dbs.append(db)
         logger.debug('loaded %s evidence databases for learning' % len(dbs))
         newmln = self.materialize(*dbs)
+
         logger.debug('MLN predicates:')
         for p in newmln.predicates: logger.debug(p)
         logger.debug('MLN domains:')
@@ -801,7 +803,13 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                             fixWeightOfNextFormula = False
                             fixweight = True
                             fixedWeightTemplateIndices.append(idxTemplate)
-                        mln.formula(formula, weight, fixweight, uniquevars)
+
+                        # expand predicate groups
+                        for variant in formula.expandgrouplits():
+                            mln.formula(variant, weight=weight,
+                                        fixweight=fixweight,
+                                        unique_templvars=uniquevars)
+
                         if uniquevars:
                             uniquevars = None
                     except ParseException, e:

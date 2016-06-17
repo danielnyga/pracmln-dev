@@ -23,7 +23,7 @@ then
 	rsync -qa .. src --exclude test
 else
 	echo cloning pracmln temporarily from $REPO
-	git clone --branch release $REPO src
+	git clone --branch master $REPO src
 fi 
 docker build -t pracmln/test .
 echo Removing temporary files...
