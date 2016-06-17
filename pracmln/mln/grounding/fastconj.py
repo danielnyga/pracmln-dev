@@ -28,8 +28,7 @@ import types
 from multiprocessing.pool import Pool
 from pracmln.utils.multicore import with_tracing
 from itertools import imap
-from pracmln.mln.mlnpreds import FunctionalPredicate, SoftFunctionalPredicate, \
-    FuzzyPredicate
+from pracmln.mln.mlnpreds import FunctionalPredicate, SoftFunctionalPredicate, FuzzyPredicate
 from pracmln.mln.util import dict_union, ProgressBar, rndbatches, cumsum
 from pracmln.mln.errors import SatisfiabilityException
 from pracmln.mln.constants import HARD
@@ -48,13 +47,11 @@ global_fastConjGrounding = None
 def create_formula_groundings(formulas):
     gfs = []
     for formula in sorted(formulas, key=global_fastConjGrounding._fsort):
-        if global_fastConjGrounding.mrf.mln.logic.islitconj(formula) or \
-                global_fastConjGrounding.mrf.mln.logic.isclause(formula):
+        if global_fastConjGrounding.mrf.mln.logic.islitconj(formula) or global_fastConjGrounding.mrf.mln.logic.isclause(formula):
             for gf in global_fastConjGrounding.itergroundings_fast(formula):
                 gfs.append(gf)
         else:
-            for gf in formula.itergroundings(global_fastConjGrounding.mrf,
-                                             simplify=True):
+            for gf in formula.itergroundings(global_fastConjGrounding.mrf, simplify=True):
                 gfs.append(gf)
     return gfs
 
@@ -69,10 +66,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
 
     def __init__(self, mrf, simplify=False, unsatfailure=False, formulas=None,
                  cache=None, **params):
-        DefaultGroundingFactory.__init__(self, mrf, simplify=simplify,
-                                         unsatfailure=unsatfailure,
-                                         formulas=formulas, cache=cache,
-                                         **params)
+        DefaultGroundingFactory.__init__(self, mrf, simplify=simplify, unsatfailure=unsatfailure, formulas=formulas, cache=cache, **params)
 
 
     def _conjsort(self, e):
@@ -83,14 +77,12 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         elif isinstance(e, Logic.GroundLit):
             if self.mrf.evidence[e.gndatom.idx] is not None:
                 return 2
-            elif type(self.mrf.mln.predicate(e.gndatom.predname)) in (
-                    FunctionalPredicate, SoftFunctionalPredicate):
+            elif type(self.mrf.mln.predicate(e.gndatom.predname)) in (FunctionalPredicate, SoftFunctionalPredicate):
                 return 3
             else:
                 return 4
         elif isinstance(e, Logic.Lit) and type(
-                self.mrf.mln.predicate(e.predname)) in (
-                FunctionalPredicate, SoftFunctionalPredicate, FuzzyPredicate):
+                self.mrf.mln.predicate(e.predname)) in (FunctionalPredicate, SoftFunctionalPredicate, FuzzyPredicate):
             return 5
         elif isinstance(e, Logic.Lit):
             return 6
@@ -113,8 +105,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
         """
         # make a copy of the formula to avoid side effects
         formula = formula.ground(self.mrf, {}, partial=True, simplify=True)
-        children = [formula] if not hasattr(formula,
-                                            'children') else formula.children
+        children = [formula] if not hasattr(formula, 'children') else formula.children
         # make equality constraints access their variable domains
         # this is a _really_ dirty hack but it does the job ;-)
         variables = formula.vardoms()
@@ -134,27 +125,17 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                 # our customized one
                 setattr(child, 'vardoms', types.MethodType(eqvardoms, child))
         lits = sorted(children, key=self._conjsort)
-        truthpivot, pivotfct = (1, FuzzyLogic.min_undef) if \
-            isinstance(formula, Logic.Conjunction) else \
-            ((0, FuzzyLogic.max_undef) if
-             isinstance(formula, Logic.Disjunction) else (None, None))
-        for gf in self._itergroundings_fast(formula, lits, 0, pivotfct,
-                                            truthpivot, {}):
+        truthpivot, pivotfct = (1, FuzzyLogic.min_undef) if isinstance(formula, Logic.Conjunction) else ((0, FuzzyLogic.max_undef) if isinstance(formula, Logic.Disjunction) else (None, None))
+        for gf in self._itergroundings_fast(formula, lits, 0, pivotfct, truthpivot, {}):
             yield gf
 
 
-    def _itergroundings_fast(self, formula, constituents, cidx, pivotfct,
-                             truthpivot, assignment, level=0):
-        if truthpivot == 0 and (isinstance(formula, Logic.Conjunction) or
-                                self.mrf.mln.logic.islit(formula)):
+    def _itergroundings_fast(self, formula, constituents, cidx, pivotfct, truthpivot, assignment, level=0):
+        if truthpivot == 0 and (isinstance(formula, Logic.Conjunction) or self.mrf.mln.logic.islit(formula)):
             if formula.weight == HARD:
-                raise SatisfiabilityException('MLN is unsatisfiable given '
-                                              'evidence due to hard '
-                                              'constraint violation: {}'
-                                              .format(str(formula)))
+                raise SatisfiabilityException('MLN is unsatisfiable given evidence due to hard constraint violation: {}'.format(str(formula)))
             return
-        if truthpivot == 1 and (isinstance(formula, Logic.Disjunction) or
-                                self.mrf.mln.logic.islit(formula)):
+        if truthpivot == 1 and (isinstance(formula, Logic.Disjunction) or self.mrf.mln.logic.islit(formula)):
             return
         if cidx == len(constituents):
             # we have reached the end of the formula constituents
@@ -174,10 +155,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                 truthpivot_ = truth
             else:
                 truthpivot_ = pivotfct(truthpivot, truth)
-            for gf in self._itergroundings_fast(formula, constituents,
-                                                cidx + 1, pivotfct,
-                                                truthpivot_, newass,
-                                                level + 1):
+            for gf in self._itergroundings_fast(formula, constituents, cidx + 1, pivotfct, truthpivot_, newass, level + 1):
                 yield gf
 
     def _itergroundings(self, simplify=True, unsatfailure=True):

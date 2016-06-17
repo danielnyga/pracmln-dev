@@ -59,8 +59,7 @@ def eval_queries(world):
             truth = gf(world)
             if gf.weight == HARD:
                 if truth in Interval(']0,1['):
-                    raise Exception('No real-valued degrees of truth are '
-                                    'allowed in hard constraints.')
+                    raise Exception('No real-valued degrees of truth are allowed in hard constraints.')
                 if truth == 1:
                     continue
                 else:
@@ -83,18 +82,13 @@ class EnumerationAsk(Inference):
 
     def __init__(self, mrf, queries, **params):
         Inference.__init__(self, mrf, queries, **params)
-        self.grounder = FastConjunctionGrounding(mrf, simplify=False,
-                                                 unsatfailure=False,
-                                                 formulas=mrf.formulas,
-                                                 cache=auto, verbose=False,
-                                                 multicore=False)
+        self.grounder = FastConjunctionGrounding(mrf, simplify=False, unsatfailure=False, formulas=mrf.formulas, cache=auto, verbose=False, multicore=False)
         # self.grounder = DefaultGroundingFactory(mrf, simplify=False,
         # unsatfailure=False, formulas=list(mrf.formulas), cache=auto,
         # verbose=False)
         # check consistency of fuzzy and functional variables
         for variable in self.mrf.variables:
-            variable.consistent(self.mrf.evidence,
-                                strict=isinstance(variable, FuzzyVariable))
+            variable.consistent(self.mrf.evidence, strict=isinstance(variable, FuzzyVariable))
 
 
     def _run(self):
@@ -109,8 +103,7 @@ class EnumerationAsk(Inference):
         """
         # check consistency with hard constraints:
         self._watch.tag('check hard constraints', verbose=self.verbose)
-        hcgrounder = FastConjunctionGrounding(self.mrf, simplify=False,
-                                              unsatfailure=True, 
+        hcgrounder = FastConjunctionGrounding(self.mrf, simplify=False, unsatfailure=True, 
                                               formulas=[f for f in self.mrf.formulas if f.weight == HARD], 
                                               **(self._params + {'multicore': False, 'verbose': False}))
         for gf in hcgrounder.itergroundings():
@@ -127,8 +120,7 @@ class EnumerationAsk(Inference):
         # start summing
         logger.debug("Summing over %d possible worlds..." % worlds)
         if worlds > 500000 and self.verbose:
-            print colorize('!!! %d WORLDS WILL BE ENUMERATED !!!' % worlds,
-                           (None, 'red', True), True)
+            print colorize('!!! %d WORLDS WILL BE ENUMERATED !!!' % worlds, (None, 'red', True), True)
         k = 0
         self._watch.tag('enumerating worlds', verbose=self.verbose)
         global global_enumAsk

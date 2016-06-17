@@ -73,11 +73,9 @@ class MultipleDatabaseLearner(AbstractLearner):
             bar = ProgressBar(width=100, steps=len(dbs), color='green')
         if self.multicore:
             pool = Pool(maxtasksperchild=1)
-            logger.debug('Setting up multi-core processing for '
-                         '{} cores'.format(pool._processes))
+            logger.debug('Setting up multi-core processing for {} cores'.format(pool._processes))
             try:
-                for i, learner in pool.imap(with_tracing(_setup_learner),
-                                            self._iterdbs(method)):
+                for i, learner in pool.imap(with_tracing(_setup_learner), self._iterdbs(method)):
                     self.learners[i] = learner
                     if self.verbose:
                         bar.label('Database %d, %s' % ((i + 1), learner.name))
@@ -208,8 +206,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         '''
         if len(v) != len(self.mln.formulas):
             raise Exception('Vector must have same length as formula weights')
-        return [v[i] for i in range(len(self.mln.formulas)) if
-                not self.mln.fixweights[i] and self.mln.weights[i] != HARD]
+        return [v[i] for i in range(len(self.mln.formulas)) if not self.mln.fixweights[i] and self.mln.weights[i] != HARD]
 
 
     def _add_fixweights(self, w):

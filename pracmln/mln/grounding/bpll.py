@@ -49,8 +49,7 @@ def create_formula_groundings(formula, unsatfailure=True):
             checkmem()
             results.append(res)
     else:
-        for gf in formula.itergroundings(global_bpll_grounding.mrf,
-                                         simplify=False):
+        for gf in formula.itergroundings(global_bpll_grounding.mrf, simplify=False):
             checkmem()
             stat = []
             for gndatom in gf.gndatoms():
@@ -61,14 +60,10 @@ def create_formula_groundings(formula, unsatfailure=True):
                     truth = gf(world)
                     if truth != 0:
                         stat.append((var.idx, validx, truth))
-                    elif unsatfailure and gf.weight == HARD and gf(
-                            global_bpll_grounding.mrf.evidence) != 1:
+                    elif unsatfailure and gf.weight == HARD and gf(global_bpll_grounding.mrf.evidence) != 1:
                         print
                         gf.print_structure(global_bpll_grounding.mrf.evidence)
-                        raise SatisfiabilityException('MLN is unsatisfiable '
-                                                      'due to hard constraint '
-                                                      'violation {} '
-                                                      '(see above)'.format(global_bpll_grounding.mrf.formulas[gf.idx]))
+                        raise SatisfiabilityException('MLN is unsatisfiable due to hard constraint violation {} (see above)'.format(global_bpll_grounding.mrf.formulas[gf.idx]))
             results.append((gf.idx, stat))
     return results
 
@@ -81,10 +76,7 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
 
 
     def __init__(self, mrf, formulas=None, cache=None, **params):
-        FastConjunctionGrounding.__init__(self, mrf, simplify=False,
-                                          unsatfailure=False,
-                                          formulas=formulas, cache=cache,
-                                          **params)
+        FastConjunctionGrounding.__init__(self, mrf, simplify=False, unsatfailure=False, formulas=formulas, cache=cache, **params)
         self._stat = {}
         self._varidx2fidx = defaultdict(set)
 
@@ -97,8 +89,7 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
         """
         # make a copy of the formula to avoid side effects
         formula = formula.ground(self.mrf, {}, partial=True)
-        children = [formula] if not hasattr(formula,
-                                            'children') else formula.children
+        children = [formula] if not hasattr(formula, 'children') else formula.children
         # make equality constraints access their variable domains
         # this is a _really_ dirty hack but it does the job ;-)
         vardoms = formula.vardoms()
@@ -115,18 +106,15 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
             if isinstance(child, Logic.Equality):
                 setattr(child, 'vardoms', types.MethodType(eqvardoms, child))
         lits = sorted(children, key=self._conjsort)
-        for gf in self._itergroundings_fast(formula, lits, 0, assignment={},
-                                            variables=[]):
+        for gf in self._itergroundings_fast(formula, lits, 0, assignment={}, variables=[]):
             yield gf
 
 
-    def _itergroundings_fast(self, formula, constituents, cidx, assignment,
-                             variables, falsevar=None, level=0):
+    def _itergroundings_fast(self, formula, constituents, cidx, assignment, variables, falsevar=None, level=0):
         if cidx == len(constituents):
             # no remaining literals to ground. return the ground formula
             # and statistics
-            stat = [(varidx, validx, count) for (varidx, validx, count) in
-                    variables]
+            stat = [(varidx, validx, count) for (varidx, validx, count) in variables]
             yield formula.idx, stat
             return
         c = constituents[cidx]
@@ -135,20 +123,14 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
             gnd = c.ground(self.mrf, dict_union(varass, assignment))
             # check if it violates a hard constraint
             if formula.weight == HARD and gnd(self.mrf.evidence) < 1:
-                raise SatisfiabilityException(
-                    'MLN is unsatisfiable by evidence due to hard constraint '
-                    'violation {} (see above)'.format(global_bpll_grounding.mrf.formulas[formula.idx]))
+                raise SatisfiabilityException('MLN is unsatisfiable by evidence due to hard constraint violation {} (see above)'.format(global_bpll_grounding.mrf.formulas[formula.idx]))
             if isinstance(gnd, Logic.Equality):
                 # if an equality grounding is false in a conjunction, we can
                 # stop since the  conjunction cannot be rendered true in any
                 # grounding that follows
                 if gnd.truth(None) == 0: continue
-                for gf in self._itergroundings_fast(formula, constituents,
-                                                    cidx + 1,
-                                                    dict_union(assignment,
-                                                               varass),
-                                                    variables, falsevar,
-                                                    level + 1):
+                for gf in self._itergroundings_fast(formula, constituents, cidx + 1, dict_union(assignment, varass),
+                                                    variables, falsevar, level + 1):
                     yield gf
             else:
                 var = self.mrf.variable(gnd.gndatom)
@@ -191,13 +173,7 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
                     stat = set(variables).intersection(stat)
                     skip = not bool(stat)  # skip if no values remain
                 if skip: continue
-                for gf in self._itergroundings_fast(formula, constituents,
-                                                    cidx + 1,
-                                                    dict_union(assignment,
-                                                               varass),
-                                                    vars_ + stat,
-                                                    falsevar=falsevar_,
-                                                    level=level + 1):
+                for gf in self._itergroundings_fast(formula, constituents, cidx + 1, dict_union(assignment, varass), vars_ + stat, falsevar=falsevar_, level=level + 1):
                     yield gf
 
 
@@ -207,9 +183,7 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
         if self.multicore:
             pool = Pool(maxtasksperchild=1)
             try:
-                for gndresult in pool.imap(
-                        with_tracing(create_formula_groundings),
-                        self.formulas):
+                for gndresult in pool.imap(with_tracing(create_formula_groundings), self.formulas):
                     for fidx, stat in gndresult:
                         for (varidx, validx, val) in stat:
                             self._varidx2fidx[varidx].add(fidx)
