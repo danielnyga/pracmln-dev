@@ -4,6 +4,7 @@ from rosmln.srv import *
 from rosmln.msg import *
 import rospy
 import traceback
+import os
 
 from pracmln.mln.base import MLN
 from pracmln.mln.database import parse_db, Database
@@ -14,6 +15,7 @@ class MLNInterfaceServer:
     def __init__(self):
         self.__config = None
         self.__mln = None
+        self.__mln_date = None
 
     def run(self, node_name="rosmln", service_name="mln_interface"):
         rospy.init_node(node_name)
@@ -25,8 +27,11 @@ class MLNInterfaceServer:
         try:
             rospy.loginfo("Processing request...")
             config = self.__get_config(request)
-            if not self.__config_equals(self.__config, config):
+            if self.__config_changed(config):
+                rospy.loginfo("Configuration changed")
                 self.__mln = MLN(config.logic, config.grammar, config.mlnFiles)
+                self.__mln_date = os.path.getmtime(config.mlnFiles)
+                self.__config = config
             db = self.__get_db(request, config, self.__mln)
             materialized_mln = self.__mln.materialize(db)
             mrf = materialized_mln.ground(db)
@@ -35,7 +40,6 @@ class MLNInterfaceServer:
             inference = InferenceMethods.clazz(config.method)(mrf, request.query.queries)
             result = inference.run()
             self.__save_results(config, result)
-            self.__config = config
             tuple_list = []
             for atom, probability in inference.results.items():
                 tuple_list.append(AtomProbPair(str(atom), float(probability)))
@@ -47,15 +51,16 @@ class MLNInterfaceServer:
             rospy.logfatal(traceback.format_exc())
             return MLNDatabase([])
 
-    def __config_equals(self, config1, config2):
-        if config1 is None or config2 is None:
-            return False
-        return  config1.db == config2.db and \
-                config1.logic == config2.logic and \
-                config1.mlnFiles == config2.mlnFiles and \
-                config1.output_filename == config2.output_filename and \
-                config1.saveResults == config2.saveResults and \
-                config1.grammar == config2.grammar
+    def __config_changed(self, config):
+        if self.__config is None or config is None:
+            return True
+        return  not (self.__config.db == config.db and \
+                     self.__config.logic == config.logic and \
+                     self.__config.mlnFiles == config.mlnFiles and \
+                     self.__config.output_filename == config.output_filename and \
+                     self.__config.saveResults == config.saveResults and \
+                     self.__config.grammar == config.grammar and \
+                     os.path.getmtime(config.mlnFiles) == self.__mln_date)
 
     def __get_config(self, request):
         if self.__config is None and request.config.mlnFiles == "":
