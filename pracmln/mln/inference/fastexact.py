@@ -31,6 +31,8 @@
 import logging
 
 from pracmln.logic.fuzzy import FuzzyLogic
+from pracmln.mln.grounding.default import DefaultGroundingFactory
+from pracmln.mln.grounding.fastconj import FastConjunctionGrounding
 from pracmln.mln.grounding.fastexistential import FastExistentialGrounding
 from pracmln.mln.inference.infer import Inference
 from pracmln.mln.constants import HARD
@@ -50,6 +52,15 @@ logger = logging.getLogger(__name__)
 class FastExact(Inference):
     def __init__(self, mrf, queries, **params):
         Inference.__init__(self, mrf, queries, **params)
+        grounder = ""
+        if "grounding" in params:
+            grounder = params["grounding"]
+        if grounder == "Default":
+            self.__grounder = DefaultGroundingFactory
+        elif grounder == "FastExistential":
+            self.__grounder = FastExistentialGrounding
+        else:
+            self.__grounder = FastConjunctionGrounding
 
     def _run(self):
         queries = [FastExact.QueryFormula(self.mrf, query, index) for index, query in enumerate(self.queries)]
@@ -69,7 +80,7 @@ class FastExact(Inference):
 
     def __get_ground_formulas(self):
         formulas = list(self.mrf.formulas)
-        grounder = FastExistentialGrounding(self.mrf, False, False, formulas, -1)
+        grounder = self.__grounder(self.mrf, False, False, formulas, -1)
         ground_formulas = list(grounder.itergroundings())
         hard_ground_formulas = filter(lambda f: f.weight == HARD, ground_formulas)
         logical_evidence = [self.mln.logic.gnd_lit(self.mrf.gndatom(i), self.mrf.evidence[i] == 0, self.mrf.mln)
