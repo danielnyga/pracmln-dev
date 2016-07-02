@@ -33,6 +33,7 @@ import logging
 from pracmln.logic.fuzzy import FuzzyLogic
 from pracmln.mln.grounding.default import DefaultGroundingFactory
 from pracmln.mln.grounding.fastconj import FastConjunctionGrounding
+from pracmln.mln.grounding.fasterconjunction import InSomeCasesFasterConjunctionGrounding
 from pracmln.mln.grounding.fastexistential import FastExistentialGrounding
 from pracmln.mln.inference.infer import Inference
 from pracmln.mln.constants import HARD
@@ -59,8 +60,10 @@ class FastExact(Inference):
             self.__grounder = DefaultGroundingFactory
         elif grounder == "FastExistential":
             self.__grounder = FastExistentialGrounding
-        else:
+        elif grounder == "FastConjunction":
             self.__grounder = FastConjunctionGrounding
+        else:
+            self.__grounder = InSomeCasesFasterConjunctionGrounding
 
     def _run(self):
         queries = [FastExact.QueryFormula(self.mrf, query, index) for index, query in enumerate(self.queries)]
