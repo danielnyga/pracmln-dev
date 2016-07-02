@@ -324,6 +324,7 @@ class MLN(object):
     
                 
     def materialize(self, *dbs):
+        return self #TODO: The materialize process takes too much time...disabling is just a workaround!
         '''
         Materializes this MLN with respect to the databases given. This must
         be called before learning or inference can take place.
