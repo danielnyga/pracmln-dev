@@ -39,6 +39,34 @@ logger = logging.getLogger(__name__)
 
 
 class InSomeCasesFasterConjunctionGrounding(DefaultGroundingFactory):
+    """
+    This class provides a grounder which is sometimes faster than the normal fast conjunction grounder.
+    It is applicable if the formulas consist of conjunctions of atoms. Negated atoms are not allowed!
+    The grounder is especially useful if one variable is used in more than one ground atom.
+    The current implementation supports first-order logic only.
+    In a nutshell, it first collects all atoms that might be true given the evidence for each predicate
+    Then, it grounds each formula:
+    First of all, the atoms are sorted by the number of possible true ground atoms
+    Then, the variables values for each atom are determined. The variable values tried in the end are
+    those creatable from an intersection of the variable values of the atoms.
+
+    An example is the formula foo(?x) ^ bar(?x).
+    Assume the evidence is
+    foo(A) True
+    foo(B) True
+    foo(C) True
+    foo(D) False
+    bar(A) ?
+    bar(B) False
+    bar(C) False
+    bar(D) True
+    The algorithm first looks at bar since there are less ground atoms which might be true (2).
+    The possible values for variable ?x considering bar are A and D.
+    The possible values for variable ?x considering foo are A, B and C.
+    The intersection of these values is A.
+    Thus, there is only one ground fromula: foo(A) ^ bar(A).
+    """
+
     def __init__(self, mrf, simplify=False, unsatfailure=False, formulas=None, cache=auto, **params):
         DefaultGroundingFactory.__init__(self, mrf, simplify, unsatfailure, formulas, cache, **params)
 
