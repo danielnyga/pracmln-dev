@@ -51,6 +51,21 @@ logger = logging.getLogger(__name__)
 
 
 class FastExact(Inference):
+    """
+    This class provides an inference algorithm for exact inference applicable if the formulas are litral conjunctions.
+    It might be faster than the normal exact inference if there are far more worlds than ground formula combinations.
+    In a nutshell, the algorithm generates all possible combinations of ground formulas and performs inferences
+    on them instead of iterating through all worlds.
+    The explanation of this algorithm goes beyond this docstring, but the idea is explained in the master's thesis of
+    Marc Niehaus.
+    This implementation adds some performance improvements, especially by handling query and evidence together.
+
+    In the options, one argument is accepted specifying the used grounder:
+    grounding="Default" uses the default grounding.
+    grounding="FastConjunction" uses the fast conjunction grounding
+    grounding="FastExistential" uses the fast existential grounder usable for negated existential quantifiers
+    omitting the grounding argument leads to the usage of the InSomeCasesFasterConjunctionGrounding.
+    """
     def __init__(self, mrf, queries, **params):
         Inference.__init__(self, mrf, queries, **params)
         grounder = ""

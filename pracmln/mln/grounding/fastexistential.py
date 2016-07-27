@@ -38,6 +38,17 @@ logger = logging.getLogger(__name__)
 
 
 class FastExistentialGrounding(DefaultGroundingFactory):
+    """
+    This class provides a grounder for formulas containing negated existential quantifiers.
+    The grounder especially good if formulas like the following shall be grounded:
+    !(EXIST ?p0 ,?p1 ((?p0=/="TYPE" v ?p1=/="mug") ^ (dP(?d0,?p0,?p1))) ^ (dP(?d0, "TYPE", "mug"))
+    shall be grounded.
+    It replaces the negated existential quantifier by a list of negated ground atoms.
+    For example, if the domain of ?d0 is D, the domain of ?po is "TYPE", "NAME" and the domain of ?p1 is "mug", "plate",
+    the grounder yields the following formula:
+    dP(D, "TYPE", "mug") ^ !dP(D, "TYPE", "plate") ^ !dP(D, "NAME", "mug") ^ !dp(D, "NAME", "plate")
+    """
+
     def __init__(self, mrf, simplify=False, unsatfailure=False, formulas=None, cache=auto, **params):
         DefaultGroundingFactory.__init__(self, mrf, simplify, unsatfailure, formulas, cache, **params)
 
