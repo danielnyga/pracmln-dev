@@ -1,16 +1,19 @@
 import logging
-from pracmln.praclog.logformat import RainbowLoggingHandler
 import sys
+from pracmln.praclog.logformat import RainbowLoggingHandler
 
 from logging import DEBUG
 from logging import INFO
 from logging import WARNING
 from logging import ERROR
+from logging import CRITICAL
 
-def logger(name): return logging.getLogger(name)
+def logger(name, level=WARNING):
+    _logger = logging.getLogger(name)
+    _logger.setLevel(level=level)
+    return _logger
 
 root_logger = logging.getLogger()
-
 
 
 def level(l=None):
