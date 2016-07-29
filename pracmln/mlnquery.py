@@ -37,7 +37,8 @@ from mln.inference import *
 from utils.widgets import FileEditBar
 from utils import config
 from pracmln import praclog
-from pracmln.mln.util import out, ifNone, parse_queries, headline, StopWatch
+from pracmln.mln.util import out, ifNone, parse_queries, headline, StopWatch, \
+    stop
 from pracmln.utils.config import global_config_filename
 from pracmln.mln.base import parse_mln, MLN
 from pracmln.mln.database import parse_db, Database
@@ -65,14 +66,17 @@ WINDOWTITLEEDITED = 'PRACMLN Query Tool - {}' + os.path.sep + '*{}'
 
 class MLNQuery(object):
 
-    def __init__(self, config=None, verbose=False, **params):
+    def __init__(self, config=None, verbose=None, **params):
         self.configfile = None
-        self._verbose = verbose
         if config is None:
             self._config = {}
         elif isinstance(config, PRACMLNConfig):
             self._config = config.config
             self.configfile = config
+        if verbose is not None:
+            self._verbose = verbose
+        else:
+            self._verbose = self._config.get('verbose', False)
         self._config.update(params)
 
 
@@ -154,7 +158,6 @@ class MLNQuery(object):
 
     @property
     def verbose(self):
-        # return self._config.get('verbose', False)
         return self._verbose
 
     @property
@@ -203,6 +206,7 @@ class MLNQuery(object):
         if 'params' in params:
             params.update(eval("dict(%s)" % params['params']))
             del params['params']
+        params['verbose'] = self.verbose
         if self.verbose:
             print tabulate(sorted(list(params.viewitems()), key=lambda (k, v): str(k)), headers=('Parameter:', 'Value:'))
         if type(db) is list and len(db) > 1:
