@@ -23,6 +23,7 @@
 from pracmln.mln.inference.gibbs import GibbsSampler
 from pracmln.mln.inference.mcsat import MCSAT
 from pracmln.mln.inference.exact import EnumerationAsk
+from pracmln.mln.inference.fastexact import FastExact
 from pracmln.mln.inference.wcspinfer import WCSPInference
 from pracmln.mln.inference.maxwalk import SAMaxWalkSAT
 from pracmln.mln.learning.cll import CLL, DCLL
@@ -78,6 +79,7 @@ InferenceMethods = Enum(
 #      (FuzzyMCSAT,  'Fuzzy MC-SAT'),
 #      (IPFPM, 'IPFP-M'), 
      (EnumerationAsk, 'Enumeration-Ask (exact)'),
+     (FastExact, 'FastExact (only for conjunctions)'),
      (WCSPInference, 'WCSP (exact MPE with toulbar2)'),
      (SAMaxWalkSAT, 'Max-Walk-SAT with simulated annealing (approx. MPE)')
     ))
