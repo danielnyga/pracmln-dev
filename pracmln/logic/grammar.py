@@ -291,8 +291,7 @@ class PRACGrammar(Grammar):
         closeSB = Literal(']').suppress()
 
         domName = Combine(Optional(Literal(':')) + lcName + Optional(Literal('!') | Literal('?')))
-
-        constant = Word(identifierCharacter) | Word(nums) | Combine(Literal('"') + Word(printables.replace('"', '')) + Literal('"')) #QuotedString(quoteChar = '"', escChar = '\\')
+        constant = Word(identifierCharacter) | Word(nums) | Combine(Literal('"') + Word((printables + " ").replace('"', '')) + Literal('"')) #QuotedString(quoteChar = '"', escChar = '\\')
         variable = Word(qMark, identifierCharacter)
 
         atomArgs = Group(delimitedList(constant | Combine(Optional("+") + variable)))
