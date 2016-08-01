@@ -37,7 +37,8 @@ from mln.inference import *
 from utils.widgets import FileEditBar
 from utils import config
 from pracmln import praclog
-from pracmln.mln.util import out, ifNone, parse_queries, headline, StopWatch
+from pracmln.mln.util import out, ifNone, parse_queries, headline, StopWatch, \
+    stop
 from pracmln.utils.config import global_config_filename
 from pracmln.mln.base import parse_mln, MLN
 from pracmln.mln.database import parse_db, Database
@@ -65,13 +66,17 @@ WINDOWTITLEEDITED = 'PRACMLN Query Tool - {}' + os.path.sep + '*{}'
 
 class MLNQuery(object):
 
-    def __init__(self, config=None, **params):
+    def __init__(self, config=None, verbose=None, **params):
         self.configfile = None
         if config is None:
             self._config = {}
         elif isinstance(config, PRACMLNConfig):
             self._config = config.config
             self.configfile = config
+        if verbose is not None:
+            self._verbose = verbose
+        else:
+            self._verbose = self._config.get('verbose', False)
         self._config.update(params)
 
 
@@ -153,8 +158,7 @@ class MLNQuery(object):
 
     @property
     def verbose(self):
-        return self._config.get('verbose', False)
-
+        return self._verbose
 
     @property
     def ignore_unknown_preds(self):
@@ -202,6 +206,7 @@ class MLNQuery(object):
         if 'params' in params:
             params.update(eval("dict(%s)" % params['params']))
             del params['params']
+        params['verbose'] = self.verbose
         if self.verbose:
             print tabulate(sorted(list(params.viewitems()), key=lambda (k, v): str(k)), headers=('Parameter:', 'Value:'))
         if type(db) is list and len(db) > 1:
@@ -241,6 +246,7 @@ class MLNQuery(object):
                 print
                 inference.write_elapsed_time()
         except SystemExit:
+            traceback.print_exc()
             print 'Cancelled...'
         finally:
             if self.profile:
@@ -971,25 +977,18 @@ if __name__ == '__main__':
     from optparse import OptionParser
 
     parser = OptionParser()
-    parser.add_option("-i", "--mln", dest="mlnarg",
-                      help="the MLN model file to use")
-    parser.add_option("-x", "--emln", dest="emlnarg",
-                      help="the MLN model extension file to use")
-    parser.add_option("-q", "--queries", dest="queryarg",
-                      help="queries (comma-separated)")
-    parser.add_option("-e", "--evidence", dest="dbarg",
-                      help="the evidence database file")
-    parser.add_option("-r", "--results-file", dest="outputfile",
-                      help="the results file to save")
-    parser.add_option("--run", action="store_true", dest="run", default=False,
-                      help="run with last settings (without showing GUI)")
+    parser.add_option("-i", "--mln", dest="mlnarg", help="the MLN model file to use")
+    parser.add_option("-x", "--emln", dest="emlnarg", help="the MLN model extension file to use")
+    parser.add_option("-q", "--queries", dest="queryarg", help="queries (comma-separated)")
+    parser.add_option("-e", "--evidence", dest="dbarg", help="the evidence database file")
+    parser.add_option("-r", "--results-file", dest="outputfile", help="the results file to save")
+    parser.add_option("--run", action="store_true", dest="run", default=False, help="run with last settings (without showing GUI)")
     (opts, args) = parser.parse_args()
     opts_ = vars(opts)
 
     root = Tk()
     conf = PRACMLNConfig(DEFAULT_CONFIG)
-    app = MLNQueryGUI(root, conf,
-                      directory=os.path.abspath(args[0]) if args else None)
+    app = MLNQueryGUI(root, conf, directory=os.path.abspath(args[0]) if args else None)
 
     if opts.run:
         logger.debug('running mlnlearn without gui')
