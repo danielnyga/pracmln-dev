@@ -115,13 +115,11 @@ def get_cond_prob_png(queries, dbs, filename='cond_prob', filedir='/tmp',
     evidencelist = []
     if isinstance(dbs, list):
         for db in dbs:
-            evidencelist.extend(
-                [e for e in db.evidence.keys() if db.evidence[e] == 1.0])
+            evidencelist.extend([e for e in db.evidence.keys() if db.evidence[e] == 1.0])
     elif isinstance(dbs, str):
         evidencelist = dbs.split(',')
     else:
-        evidencelist.extend([e if dbs.evidence[e] == 1.0 else '!' + e for e in
-                             dbs.evidence.keys()])
+        evidencelist.extend([e if dbs.evidence[e] == 1.0 else '!' + e for e in dbs.evidence.keys()])
 
     # escape possibly occurring underscores in predicate names
     query = r'''\\'''.join(
@@ -131,15 +129,15 @@ def get_cond_prob_png(queries, dbs, filename='cond_prob', filedir='/tmp',
          evidencelist])
 
     if mongo:
-        head = '\prod_{{ {0} }}'.format(query)
+        head = '\\prod_{{ {0} }}'.format(query)
         underset = '_{{ \\textit{{adt}} \in \\textit{{ADT-lib}} }}'
         fn = 'simil'
-        query = r'''\text{{ adt, }} '''
+        query = r'''\\text{{ adt, }} '''
         mongoword = '\\text{{ {} }}: '.format(mongoword)
 
     else:
         head = ''
-        underset = '_{{ \\tiny\\begin{{array}}{{c}}{0}\end{{array}} }}'.format(query)
+        underset = '_{{ \\begin{{array}}{{c}}{0}\end{{array}} }}'.format(query)
         fn = 'Pcond'
         mongoword = ''
 
@@ -149,7 +147,7 @@ def get_cond_prob_png(queries, dbs, filename='cond_prob', filedir='/tmp',
     bracket_term = r'''\{0}{{ \begin{{array}}{{c}}{1}\end{{array}} & {2}\begin{{array}}{{c}}{3}\end{{array}} }}'''.format(
         fn, query, mongoword,evidence)
     eq = r'''{} {}'''.format(head, bracket_term)
-
+    
     return math2png(eq, filedir, declarations=declarations,
                     filename=safefilename, size=10)
 
