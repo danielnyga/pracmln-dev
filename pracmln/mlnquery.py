@@ -180,10 +180,10 @@ class MLNQuery(object):
             raise Exception('No MLN specified')
 
         if self.use_emln and self.emln is not None:
-            mlnstr = StringIO.StringIO()
-            mln.write(mlnstr)
-            mlnstr.close()
-            mlnstr = str(mlnstr)
+            mlnstrio = StringIO.StringIO()
+            mln.write(mlnstrio)
+            mlnstr = mlnstrio.getvalue()
+            mlnstrio.close()
             emln = self.emln
             mln = parse_mln(mlnstr + emln, grammar=self.grammar,
                             logic=self.logic)
@@ -193,6 +193,8 @@ class MLNQuery(object):
             db = self.db
         elif isinstance(self.db, list) and len(self.db) == 1:
             db = self.db[0]
+        elif isinstance(self.db, list) and len(self.db) == 0:
+            db = Database(mln)
         elif isinstance(self.db, list):
             raise Exception(
                 'Got {} dbs. Can only handle one for inference.'.format(

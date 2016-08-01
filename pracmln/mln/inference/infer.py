@@ -191,6 +191,7 @@ class Inference(object):
             raise Exception('Unknown sorting: %s' % sort)
         results = dict(self.results)
         if group:
+            wrote_results = False
             for var in sorted(self.mrf.variables, key=str):
                 res = dict([(atom, prob) for atom, prob in results.iteritems() if atom in map(str, var.gndatoms)])
                 if not res: continue
@@ -202,6 +203,13 @@ class Inference(object):
                     res = sorted(res, key=str)
                 for atom in res:
                     stream.write('%s %s\n' % (barstr(barwidth, self.results[atom], color=color), atom))
+                wrote_results = True
+            if not wrote_results:
+                max_len = max([len(str(q)) for q, p in results.items()])
+                result_tuples = list(results.items())
+                result_tuples.sort(key=lambda pair: pair[1], reverse=True)
+                str_results = [("{:" + str(max_len) + "s}  {:7.2f}").format(str(q), p) for q, p in result_tuples]
+                stream.write(reduce(lambda a,b: a + "\n" + b, str_results, ""))
             return
         # first sort wrt to probability
         results = sorted(results, key=self.results.__getitem__, reverse=reverse)
