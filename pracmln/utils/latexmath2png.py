@@ -114,9 +114,13 @@ def math2png(content, outdir, packages=default_packages, declarations=[], filena
 
         # Get a temporary file
         fd, texfile = tempfile.mkstemp('.tex', 'eq', workdir, True)
+        
+        
+        content = content.replace('$', r'\$')
 
         # Create the TeX document and save to tempfile
         fileContent = '{}$${}$$\n\end{{document}}'.format(__build_preamble(packages, declarations), content)
+        
         with os.fdopen(fd, 'w+') as f:
             f.write(fileContent)
 
