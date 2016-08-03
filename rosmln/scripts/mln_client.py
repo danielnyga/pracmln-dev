@@ -7,6 +7,15 @@ from rosmln.msg import *
 
 
 def mln_interface_client(query, config=None):
+    '''
+    This is an example of the client quering the service.
+    The important thing to note is that you have the option
+    to set the configuration parameters only once and use the
+    the same settings in further calls.
+
+    :param query: The query to execute as string
+    :param config: The configuration to use
+    '''
     rospy.wait_for_service('mln_interface')
     try:
         mln_interface = rospy.ServiceProxy('mln_interface', MLNInterface)
@@ -17,6 +26,10 @@ def mln_interface_client(query, config=None):
 
 
 def print_results(results):
+    '''
+    This function prints the results from the :attr:`mln_interface_client`
+    to the command line, or an error message if the query was unsuceessul.
+    '''
     if not results.evidence:
         print("ERROR: Something went wrong...")
     else:

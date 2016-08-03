@@ -20,6 +20,7 @@ import datetime
 #sys.path.insert(0, os.path.abspath('.'))
 sys.path.append('..')
 sys.path.append(os.path.join('..', '3rdparty', 'logutils-0.3.3'))
+sys.path.append(os.path.join('..', 'rosmln', 'scripts'))
 sys.path.append('.')
 
 
