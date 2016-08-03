@@ -16,7 +16,8 @@ packages = [('numpy', 'numpy', False),
             ('tabulate', 'tabulate', False),
             ('pyparsing', 'pyparsing', False),
             ('psutil', 'psutil', False),
-            ('matplotlib', 'matplotlib', False)]
+            ('matplotlib', 'matplotlib', False),
+            ('networkx', 'networkx', False)]
 
 docspackages = [('sphinx', 'sphinx sphinxcontrib-bibtex', False)]
 
