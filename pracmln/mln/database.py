@@ -159,9 +159,10 @@ class Database(object):
         '''
         db_ = Database(mln if mln is not None else self.mln)
         if type(dbs) is list:
-            dbs = [list(d) for d in dbs] + list(self)
+            dbs = [e for d in dbs for e in list(d)] + list(self)
         if type(dbs) is Database:
             dbs = list(dbs) + list(self)
+		
         for atom, truth in dbs:
             try: db_ << (atom, truth)
             except NoSuchPredicateError: pass
