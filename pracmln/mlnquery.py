@@ -33,12 +33,10 @@ import tkMessageBox
 import traceback
 from pracmln.utils.project import MLNProject, PRACMLNConfig, mlnpath
 from mln.methods import InferenceMethods
-from mln.inference import *
 from utils.widgets import FileEditBar
 from utils import config
 from pracmln import praclog
-from pracmln.mln.util import out, ifNone, parse_queries, headline, StopWatch, \
-    stop
+from pracmln.mln.util import out, ifNone, parse_queries, headline, StopWatch
 from pracmln.utils.config import global_config_filename
 from pracmln.mln.base import parse_mln, MLN
 from pracmln.mln.database import parse_db, Database
@@ -67,6 +65,13 @@ WINDOWTITLEEDITED = 'PRACMLN Query Tool - {}' + os.path.sep + '*{}'
 class MLNQuery(object):
 
     def __init__(self, config=None, verbose=None, **params):
+        '''
+        Class for performing MLN inference
+        :param config:  the configuration file for the inference
+        :param verbose: boolean value whether verbosity logs will be
+                        printed or not
+        :param params:  dictionary of additional settings
+        '''
         self.configfile = None
         if config is None:
             self._config = {}
