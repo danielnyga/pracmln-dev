@@ -532,14 +532,20 @@ def parse_db(mln, content, ignore_unknown_preds=False, db=None, dirs=['.'], proj
     Reads one or more databases in a string representation and returns
     the respective Database objects.
     
-    :param mln:                      the MLN object which should be used to load the database.
-    :param content:                  the string representation of one or multiple ('---'-separated)
-                                     databases
-    :param ignore_unknown_preds:     by default this function raises an Exception when it encounters
-                                     a predicate in the DB that has not been declared in the associated
-                                     MLN. ignore_unknown_preds=True simply ignores such predicates.
-    :param db:                       the Database object that shall receive the facts stored in the new DB.
-                                     If None, a new `Database` object will be created.
+    :param mln:                     the MLN object which should be used to load
+                                    the database.
+    :param content:                 the string representation of one or
+                                    multiple ('---'-separated) databases
+    :param ignore_unknown_preds:    by default this function raises an
+                                    Exception when it encounters a predicate
+                                    in the DB that has not been declared in
+                                    the associated MLN.
+                                    ignore_unknown_preds=True simply ignores
+                                    such predicates.
+    :param db:                      The Database object that shall receive
+                                    the facts stored in the new DB. If None,
+                                    a new `Database` object will be created.
+    :return:                        a list of databases
     '''
     log = logging.getLogger('db')
     content = stripComments(content)

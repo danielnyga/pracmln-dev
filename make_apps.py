@@ -30,14 +30,14 @@ python_apps = [
 
 def check_package(pkg):
     try:
-        sys.stdout.write('checking dependency %s...' % pkg[0])
+        sys.stdout.write('checking dependency {}...'.format(pkg[0]))
         imp.find_module(pkg[0])
         sys.stdout.write(colorize('OK', (None, 'green', True), True))
         print
     except ImportError:
         print
-        print colorize('%s was not found. Please install by '
-                       '"sudo pip install %s" %s' % (pkg[0],
+        print colorize('{} was not found. Please install by '
+                       '"sudo pip install {}" {}'.format(pkg[0],
                                                      pkg[1],
                                                      '(optional)' if pkg[2] else ''),
                        (None, 'yellow', True), True)
@@ -149,8 +149,8 @@ if __name__ == '__main__':
 
     if '--help' in args:        
         print "PRACMLNs Apps Generator\n\n"
-        print "  usage: make_apps [--arch=%s] [--cppbindings] " \
-              "[--docs] [--test]\n" % "|".join(archs)
+        print "  usage: make_apps [--arch={}] [--cppbindings] " \
+              "[--docs] [--test]\n".format("|".join(archs))
         print
         print
         exit(0)
@@ -172,7 +172,7 @@ if __name__ == '__main__':
               " Please supply the --arch argument"
         sys.exit(1)
     if arch not in archs:
-        print "Unknown architecture '%s'" % arch
+        print "Unknown architecture '{}'".format(arch)
         sys.exit(1)
 
     if '--test' in args:
@@ -197,7 +197,7 @@ if __name__ == '__main__':
     if not os.path.exists("apps"):
         os.mkdir("apps")
 
-    print "\nCreating application files for %s..." % arch
+    print "\nCreating application files for {}...".format(arch)
     isWindows = "win" in arch
     isMacOSX = "macosx" in arch
     preamble = "@echo off\r\n" if isWindows else "#!/bin/sh\n"
@@ -205,14 +205,13 @@ if __name__ == '__main__':
     pathsep = os.path.pathsep
     
     for app in python_apps:
-        filename = os.path.join("apps", "%s%s" % (app["name"],
+        filename = os.path.join("apps", "{}{}".format(app["name"],
                                                   {True: ".bat",
                                                    False: ""}[isWindows]))
-        print "  %s" % filename
+        print "  {}".format(filename)
         f = file(filename, "w")
         f.write(preamble)
-        f.write("python -O \"%s\" %s\n" % (adapt(app["script"], arch),
-                                           allargs))
+        f.write("python -O \"{}\" {}\n".format(adapt(app["script"], arch), allargs))
         f.close()
         if not isWindows:
             os.chmod(filename,
@@ -254,12 +253,11 @@ if __name__ == '__main__':
     if "win" not in arch:
         f = file("env.sh", "w")
         f.write('#!/bin/bash\n')
-        f.write("export PATH=$PATH:%s\n" % appsDir)
-        f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % logutilsDir)
-        f.write("export PRACMLN_HOME=%s\n" % adapt("$PRACMLN_HOME", arch))
+        f.write("export PATH=$PATH:{}\n".format(appsDir))
+        f.write("export PYTHONPATH=$PYTHONPATH:{}\n".format(logutilsDir))
+        f.write("export PRACMLN_HOME={}\n".format(adapt("$PRACMLN_HOME", arch)))
         f.write("export PYTHONPATH=$PRACMLN_HOME:$PYTHONPATH\n")
-        f.write("export PRACMLN_EXPERIMENTS=%s\n" %
-                adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
+        f.write("export PRACMLN_EXPERIMENTS={}\n".format(adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch)))
         if extraExports:
             f.write(extraExports)
         f.close()
@@ -268,17 +266,16 @@ if __name__ == '__main__':
         print
         print 'To permantly configure your environment, add this line to ' \
               'your shell\'s initialization script (e.g. ~/.bashrc):'
-        print '    source %s' % adapt("$PRACMLN_HOME/env.sh", arch)
+        print '    source {}'.format(adapt("$PRACMLN_HOME/env.sh", arch))
         print
     else:
         pypath = ';'.join([adapt("$PRACMLN_HOME", arch), logutilsDir])
         f = file("env.bat", "w")
         f.write("@ECHO OFF\n")
-        f.write('SETX PATH "%%PATH%%;%s"\r\n' % appsDir)
-        f.write('SETX PRACMLN_HOME "%s"\r\n' % adapt("$PRACMLN_HOME", arch))
-        f.write('SETX PYTHONPATH "%%PYTHONPATH%%;%s"\r\n' % pypath)
-        f.write('SETX PRACMLN_EXPERIMENTS "%s"\r\n' %
-                adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
+        f.write('SETX PATH "%%PATH%%;{}"\r\n'.format(appsDir))
+        f.write('SETX PRACMLN_HOME "{}"\r\n'.format(adapt("$PRACMLN_HOME", arch)))
+        f.write('SETX PYTHONPATH "%%PYTHONPATH%%;{}"\r\n'.format(pypath))
+        f.write('SETX PRACMLN_EXPERIMENTS "{}"\r\n'.format(adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch)))
         f.close()
         print 'To temporarily set up your environment for the current ' \
               'session, type:'
@@ -286,5 +283,5 @@ if __name__ == '__main__':
         print
         print 'To permanently configure your environment, use Windows ' \
               'Control Panel to set the following environment variables:'
-        print '  To the PATH variable add the directory "%s"' % appsDir
+        print '  To the PATH variable add the directory "{}"'.format(appsDir)
         print 'Should any of these variables not exist, simply create them.'
