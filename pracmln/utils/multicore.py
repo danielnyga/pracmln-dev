@@ -1,12 +1,15 @@
 import traceback
-from multiprocessing import Pool
 import sys
 import signal
 import os
 from pracmln.mln.errors import OutOfMemoryError
 import psutil
+import multiprocessing.pool as multiprocessing
+
+     
 
 class CtrlCException(Exception): pass
+
 
 class with_tracing(object):
     '''
@@ -73,6 +76,21 @@ def make_memsafe():
             soft = hard
             resource.setrlimit(rsrc, (soft, hard)) #limit to 80% of available memory
     
+    
+
+class NoDaemonProcess(multiprocessing.Process):
+    def _get_daemon(self):
+        return False
+
+    def _set_daemon(self, value):
+        pass
+    
+    daemon = property(_get_daemon, _set_daemon)
+
+
+class NonDaemonicPool(multiprocessing.Pool):
+    Process = NoDaemonProcess
+
 
 # exmaple how to be used
 if __name__ == '__main__':
