@@ -120,11 +120,18 @@ class Inference(object):
     
     @property
     def resultdb(self):
+        if '_resultdb' in self.__dict__:
+            return self._resultdb
         db = Database(self.mrf.mln)
         for atom in sorted(self.results, key=str):
             db[str(atom)] = self.results[atom]
         return db
     
+    
+    @resultdb.setter
+    def resultdb(self, db):
+        self._resultdb = db
+
 
     @property
     def closedworld(self):
