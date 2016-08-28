@@ -592,6 +592,9 @@ class edict(dict):
     def __add__(self, d):
         return dict_union(self, d)
     
+    def __radd__(self, d):
+        return self + d
+    
     def __sub__(self, d):
         if type(d) in (dict, defaultdict):
             ret = dict(self)
