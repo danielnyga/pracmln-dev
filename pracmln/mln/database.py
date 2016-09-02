@@ -195,8 +195,8 @@ class Database(object):
         :param truth:      the truth value of this ground literal. 0 stands for false, 1 for true.
                            In case of soft or fuzzy evidence, any truth value in [0,1] is allowed.
         '''
-        if type(gndlit) is str:
-            true, predname, args = self.mln.logic.parse_literal(gndlit)
+        if isinstance(gndlit, basestring):
+            true, predname, args = self.mln.logic.parse_literal(str(gndlit))
             atom_str = str(self.mln.logic.gnd_atom(predname, args, self.mln))
         elif isinstance(gndlit, Logic.GroundLit):
             atom_str = str(gndlit.gndatom)
@@ -315,6 +315,15 @@ class Database(object):
 
 
     def rmval(self, domain, value):
+        '''
+        Removes the value ``value`` from the domain ``domain`` of this database.
+        
+        This removal is complete, i.e. it also retracts all atoms in this database
+        that the respective value is participating in as an argument.
+        
+        :param domain:    (str) the domain from which the value is to be removed.
+        :param value:     (str) the value to be removed.
+        '''
         for atom in list(self.evidence):
             _, predname, args = self.mln.logic.parse_literal(atom)
             for dom, val in zip(self.mln.predicate(predname).argdoms, args):
@@ -384,10 +393,10 @@ class Database(object):
         Makes to the database a 'prolog-like' query given by the specified formula.
         
         Returns a generator of dictionaries with variable-value assignments for which the formula has
-        a truth value of at least `truth_thr`.
+        a truth value of at least `thr`.
         
         :param formula:        the formula the database shall be queried with.
-        :param truth_thr:      the threshold for truth values.
+        :param thr:      the threshold for truth values.
         
         ..  warning:: 
             This is *very* inefficient, since all groundings will be instantiated; so keep the queries short.
