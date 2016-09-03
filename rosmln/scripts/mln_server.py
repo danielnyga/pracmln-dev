@@ -5,6 +5,8 @@ from rosmln.msg import *
 import rospy
 import traceback
 import os
+import sys
+import StringIO
 
 from pracmln.mln.base import MLN
 from pracmln.mln.database import parse_db, Database
@@ -14,11 +16,15 @@ from pracmln.mln.methods import InferenceMethods
 class MLNInterfaceServer:
     '''
     This class represents the ROS node.
+
+    :param verbose: Set to true if query, evidence and results should be printed
+    to the command line
     '''
-    def __init__(self):
+    def __init__(self, verbose=False):
         self.__config = None
         self.__mln = None
         self.__mln_date = None
+        self.__verbose = verbose
 
     def run(self, node_name="rosmln", service_name="mln_interface"):
         '''
@@ -58,7 +64,15 @@ class MLNInterfaceServer:
             if not request.query:
                 raise Exception("No query provided!")
             inference = InferenceMethods.clazz(config.method)(mrf, request.query.queries)
+            if self.__verbose:
+                print("\n=========\nQuery:\n=========\n\n" + request.query.queries)
+                print("\n=========\nEvidence:\n=========\n")
+                db.write(color=False)
             result = inference.run()
+            if self.__verbose:
+                print("\n=========\nResults:\n=========\n")
+                inference.write()
+                print("")
             self.__save_results(config, result)
             tuple_list = []
             for atom, probability in inference.results.items():
@@ -128,6 +142,5 @@ class MLNInterfaceServer:
             with open(config.output_filename, "w") as output:
                 resutls.write(output)
 
-
 if __name__ == "__main__":
-    MLNInterfaceServer().run()
+    MLNInterfaceServer(verbose = len(sys.argv)>1 and sys.argv[1]=="-verbose").run()

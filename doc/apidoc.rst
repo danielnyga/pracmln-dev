@@ -349,7 +349,10 @@ Server methods
 ~~~~~~~~~~~~~~
 
 The server can be started by executing ``rosrun rosmln start_mln_server``.
-It provides the following public classes and methods:
+For demonstration purposes, there is the option to print query, evidence and
+results to the command line. To activate this feature, the server has to be
+started by executing ``rosrun rosmln start_mln_server -verbose``. 
+The server provides the following public classes and methods:
 
 .. automodule:: mln_server
     :members: MLNInterfaceServer
