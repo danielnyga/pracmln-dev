@@ -120,30 +120,25 @@ def math2png(content, outdir, packages=default_packages, declarations=[], filena
 
         # Create the TeX document and save to tempfile
         fileContent = '{}$${}$$\n\end{{document}}'.format(__build_preamble(packages, declarations), content)
-        
         with os.fdopen(fd, 'w+') as f:
             f.write(fileContent)
-
         __write_output(texfile, outdir, workdir=workdir, filename=filename, size=size)
     finally:
         outfilename = os.path.join(outdir, '{}.png'.format(filename))
-
         # determine image size
         im = Image.open(outfilename)
         width, height = im.size
         ratio = float(width)/float(height)
-
         # create base64 encoded file content 
         png = open(outfilename)
         pngb64 = base64.b64encode(png.read())
-
         # cleanup and delete temporary files
         if os.path.exists(texfile):
             os.remove(texfile)
         if os.path.exists(outfilename):
             os.remove(outfilename)
-
         return (pngb64, ratio)
+
 
 def usage():
     print """
