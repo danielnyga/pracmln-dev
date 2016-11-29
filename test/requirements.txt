@@ -6,3 +6,5 @@ pyparsing
 psutil==0.4.1
 sphinx
 sphinxcontrib-bibtex
+networkx
+matplotlib
