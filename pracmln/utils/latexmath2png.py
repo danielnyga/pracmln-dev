@@ -86,7 +86,6 @@ def __write_output(infile, outdir, workdir='.', filename='', size=1, svg=True):
 
         if svg:
             dvicmd = "dvisvgm -o {}.svg {}".format(outfilename, dvifile)
-            out(dvicmd)
         else:
             dvicmd = "dvipng -q* -T tight -x {} -z 9 -bg Transparent "\
                     "-o {}.png {} >/dev/null".format(size * 1000, outfilename, dvifile)
@@ -156,6 +155,7 @@ def math2png(content, outdir, packages=default_packages, declarations=[], filena
             os.remove(outfilename)
 
         return (filecontent, ratio)
+
 
 def usage():
     print """
