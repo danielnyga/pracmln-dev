@@ -1,6 +1,8 @@
 #!/usr/bin/python2.5
 from __future__ import with_statement # Until Python 2.6
 
+from pracmln.mln.util import out
+
 
 """
 Converts LaTeX math to png images.
@@ -85,7 +87,7 @@ def __write_output(infile, outdir, workdir='.', filename='', size=1, svg=True):
         outfilename = os.path.join(outdir, filename)
 
         if svg:
-            dvicmd = "dvisvgm -o {}.svg {}".format(outfilename, dvifile)
+            dvicmd = "dvisvgm -o {}.svg --no-fonts {} >/dev/null".format(outfilename, dvifile)
         else:
             dvicmd = "dvipng -q* -T tight -x {} -z 9 -bg Transparent "\
                     "-o {}.png {} >/dev/null".format(size * 1000, outfilename, dvifile)
