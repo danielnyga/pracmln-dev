@@ -1,9 +1,9 @@
+
 Inference Methods
 =================
 
-
 Full posterior distributions
-----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following algorithms compute the full posterior distribution
 over a set of variables :math:`Q` given the evidence :math:`E, P(Q|E)`.
@@ -38,7 +38,7 @@ Performs Gibbs sampling on the ground MRF.
 
 
 Most Probable Explanation (MPE)
--------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In some cases, one is not interested in the full posterior distribution
 :math:`P(Q|E)` over query variables :math:`Q` given evidence :math:`E`,

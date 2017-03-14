@@ -1,3 +1,4 @@
+
 Tools for MLN evaluation
 ========================
 
@@ -5,13 +6,13 @@ PRACMLNs comes with a set of tools for convenient evaluation of an
 MLN or learning/inference algorithms.
 
 Confusion Matrices
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 .. automodule:: pracmln.utils.eval
     :members: ConfusionMatrix
     
 Examples
-~~~~~~~~
+^^^^^^^^
 
 ::
 
@@ -67,7 +68,7 @@ Examples
 The last command will produce a PDF ``example.pdf``, which will approzimately 
 look like the following:
 
-.. figure:: _static/conf_matrix.png
+.. figure:: _static/img/conf_matrix.png
   
   
 

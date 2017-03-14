@@ -1,5 +1,6 @@
+
 Learning Methods
-----------------
+================
 
 .. autoclass:: pracmln.MLNLearn
     :members: mln, db, output_filename, params, method, pattern, use_prior, prior_mean,
@@ -12,7 +13,7 @@ addition, specific parameters can be handed over to specific
 algorithms, which will be introduced in the following.
 
 General Parameters
-==================
+^^^^^^^^^^^^^^^^^^
 
 *  Gaussian prior on the formula weights: 
     This parameter enables `MAP-learning` (maximum-a-posteriori) with a Gaussian regularization
@@ -27,10 +28,10 @@ General Parameters
     
 
 Generative Learning Methods
-===========================
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Log-likelihood Learning
-^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~
 
 The standard learning method using maximum likelihood.
 
@@ -45,14 +46,14 @@ Additional parameters:
     using a more efficient learning method.
 
 Pseudo-likelihood Learning
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Learner for the pseudo-log-likelihood learning algorithm.
 
 * ``optimizer``: the optimization routine to be used.
 
 Pseudo-likelihood Learning (with Custom Grounding)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If the formulas in your model are prevalently conjunctions of
 literals, this method should be preferred over the previous
@@ -62,7 +63,7 @@ time instead of exponential time.
 * ``optimizer``: the optimization routine to be used.
 
 Composite-likelihood Learning
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Composite-likelihood Learning is a generalization of both log-likelihood
 and pseudo-log-likelihood learning, in that it partitions the set
@@ -76,7 +77,7 @@ learning, but comes with a slightly more efficient implementation.
 
 
 Discriminative Learning Methods
-===============================
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For most of the likelihood-based learning methods, `pracmln` provides
 discriminative variants, which are preferable if the reasoning 
@@ -101,7 +102,7 @@ generative variants, they have as additional parameters:
 
 
 Discriminative log-likelihood Learning
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Discriminative variant of log-likelihood learning.
 
@@ -116,7 +117,7 @@ Discriminative variant of log-likelihood learning.
 
 
 Discriminative Pseudo-likelihood Learning
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Discriminative learner for the pseudo-log-likelihood learning algorithm.
 
@@ -124,19 +125,19 @@ Discriminative learner for the pseudo-log-likelihood learning algorithm.
 
 
 Discriminative Pseudo-likelihood Learning (with Custom Grounding)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Discriminative learner for the pseudo-log-likelihood learning with custom grounding.
 
 * ``optimizer``: the optimization routine to be used.
 
 Discriminative Composite-likelihood Learning
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Discriminative variant of composite likelihood learning.
 
 Optimization Techniques
-=======================
+^^^^^^^^^^^^^^^^^^^^^^^
 
 In addition to the learning method, different optimization techniques
 can be specified in `pracmln`. The type of the optimizer and their
@@ -145,7 +146,7 @@ in the :doc:`mlnlearningtool` by specifying a parameter ``optimizer=<algo>``.
 Currently, the following optimization techniques are supported.
 
 BFGS (Broyden–Fletcher–Goldfarb–Shanno algorithm)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Command: ``optimizer='bfgs'``
 * Additional Parameters:
@@ -156,7 +157,7 @@ BFGS (Broyden–Fletcher–Goldfarb–Shanno algorithm)
     This is the standard SciPy implementation
 
 Conjugate Gradient
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~
 
 * Command: ``optimizer='cg'``
 * Additional Parameters:

@@ -29,7 +29,7 @@ Markov Logic Networks:
 
 
 File Formats
-------------
+^^^^^^^^^^^^
 
 The file formats for MLN and database files that our Python 
 implementation of MLNs processes are for the most part compatible 
@@ -37,7 +37,7 @@ with the ones used by the Alchemy system.
 
 
 MLN Files
----------
+^^^^^^^^^
 
 An MLN file may contain:
 
@@ -49,7 +49,7 @@ An MLN file may contain:
   A predicate declaration may coincide with a rule for mutual exclusiveness and exhaustiveness (see below).
 
 Predicate declarations
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^
 
 Every predicate that is used in the MLN needs to be declared once in
 the MLN file. A predicate declaration consists of the predicate name
@@ -132,7 +132,7 @@ declare a predicate being fuzzy, its declaration must be preceded by the
 
 
 Rules for mutual exclusiveness and exhaustiveness
--------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To declare that for a particular binding of some of the parameters 
 of a predicate, the value assignments of the remaining parameters 
@@ -195,7 +195,7 @@ specified by a ``#fixweight`` statement preceding the formula: ::
 
 
 Formula templates
------------------
+^^^^^^^^^^^^^^^^^
 
 MLN formulas are generated from templates which offer a number of convenient
 syntax notations to abstract repetitive formulas.
@@ -289,7 +289,7 @@ will be expanded to ::
 
 
 Probability constraints on formulas
------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. warning::
     This feature is currently unsupported.
@@ -326,7 +326,7 @@ of the MLN (i.e. you must add them to the MLN, with some weight).
     no definition can span multiple lines
 
 Inlcuding External Files
-------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 In an MLN file, other files can be imported by means of the ``#nclude``
 directive followed by an :class:`pracmln.mln.mlnpath` specification.
@@ -352,7 +352,7 @@ There are two different types of ``#include`` statements:
   relative paths are always relative to the referring project/file.
 
 Database/Evidence files
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 A database file may contain:
 

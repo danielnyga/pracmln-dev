@@ -66,20 +66,28 @@ Contents
 
    features
    installation
-   intro
+   tools
+   mlnquerytool
+   mlnlearningtool
+   learningmethods
+   inferencemethods
+   mln_syntax
+   mlntutorial
+   evaluation
    apidoc
+   tutorial
    
 
 Credits
 ^^^^^^^
 
 Lead Developer
-##############
+~~~~~~~~~~~~~~
 
 Daniel Nyga (`nyga@cs.uni-bremen.de <mailto:nyga@cs.uni-bremen.de>`_)
 
 Contributors
-############
+~~~~~~~~~~~~
 
 * Mareike Picklum
 * Ferenc Balint-Benczedi
@@ -87,7 +95,7 @@ Contributors
 * Valentine Chiwome
 
 Former Contributors (from ProbCog)
-##################################
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Dominik Jain
 * Stefan Waldherr
@@ -99,18 +107,18 @@ Former Contributors (from ProbCog)
 * Philipp Meyer
 
 Acknowledgments
-###############
+~~~~~~~~~~~~~~~
 
 This work is supported in part by the EU FP7 projects `RoboHow <http://www.robohow.org>`_ (grant number 288533) and `ACAT <http://www.acat-project.eu>`_ (grant number
 600578):
 
-.. image:: _static/robohow-logo.png
+.. image:: _static/img/robohow-logo.png
     :height: 70px
     :target: http://www.robohow.eu
-.. image:: _static/acat-logo.png
+.. image:: _static/img/acat-logo.png
     :height: 70px
     :target: http://www.acat-project.eu
-.. image:: _static/fp7-logo.png
+.. image:: _static/img/fp7-logo.png
     :height: 70px
     :target: http://ec.europa.eu/research/fp7/index_en.cfm
 

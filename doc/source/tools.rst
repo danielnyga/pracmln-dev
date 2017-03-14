@@ -1,8 +1,9 @@
+
 Tools for Statistical Relation Learning
 =======================================
 
 Overview
---------
+^^^^^^^^
 
 After the installation, all of these tools will be located in the 
 ``/path/to/pracmln/apps`` directory (which, if you've set up your 
@@ -21,7 +22,7 @@ Evaluation
   * ``xval`` - tool for conducting automated cross-validation with MLNs.
 
 Graphical Tools and Editors
----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Two graphical tools, whose usage is hopefully self-explanatory, are 
 part of the package: There's an inference tool (mlnquery.py) 
@@ -112,12 +113,12 @@ which has the following members:
 
 
 Integrated Editors
-------------------
+^^^^^^^^^^^^^^^^^^
 
 For every learning/inference task, you must specify which MLN syntax
 and logic calculus is to be used:
 
-.. figure:: _static/logic-grammar-selection.png
+.. figure:: _static/img/logic-grammar-selection.png
 
    Selection of the MLN syntax (grammar) and logic calculus.
 
@@ -125,7 +126,7 @@ The dropdown menus in the `MLN` and `DB` sections of the GUIs display
 all MLN or DB files in the project. In order to inspect or edit
 a file, just select them from the respective dropdown menu:
 
-.. figure:: _static/mln-selection.png
+.. figure:: _static/img/mln-selection.png
 
    File selection in the GUI tools.
 
@@ -161,8 +162,6 @@ Moreover, the query tool will save context-specific information:
     formulas to specify virtual evidence). The additional 
     parameters you specify are saved specific to the inference 
     engine. 
-
-
 
 
 Parameters

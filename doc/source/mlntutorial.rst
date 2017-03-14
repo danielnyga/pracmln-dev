@@ -1,15 +1,16 @@
+
 Tutorial: Learning and Inference in Markov Logic Networks
 =========================================================
 
 This tutorial will explain how to learn the parameters of a Markov 
 logic network from a training database and how to use to resulting 
 model to answer queries. We will make use of the well-known 
-``smoking scenario'' as used by Richardson and Domingos.
+``smoking scenario`` as used by Richardson and Domingos.
 
 We work in the ``examples/smokers`` directory.
 
 The Smoking Scenario
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 The Smoking scenario models the dependencies between smoking and 
 having cancer. Moreover, we consider the social network induced by 
@@ -32,7 +33,7 @@ The last rule states that if two persons are friends, they either
 both smoke or both do not smoke.
 
 Learning
---------
+^^^^^^^^
 
 We use the :doc:`mlnlearningtool` to learn the weights of the Markov logic network.::
 
@@ -61,7 +62,7 @@ gives us weights, e.g.::
 The resulting MLN is saved to the filename we entered under ''Output filename''.
 
 Inference
----------
+^^^^^^^^^
 
 We now invoke the :doc:`mlnquerytool` from the console.::
 

@@ -145,7 +145,7 @@ html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = os.path.join('_static','pracmln-brightondark-transp.png')
+html_logo = os.path.join('_static', 'img', 'pracmln-brightondark-transp.png')
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32

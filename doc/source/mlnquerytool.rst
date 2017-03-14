@@ -4,7 +4,7 @@ MLN Query-Tool
 
 Start the tool from the command line with ``mlnquery``.
 
-.. figure:: _static/mlnquerytool.png
+.. figure:: _static/img/mlnquerytool.png
 
    The MLN Query-Tool GUI.
 

@@ -1,3 +1,4 @@
+
 API-Specification
 =================
 
@@ -177,15 +178,7 @@ API Reference
 ~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: pracmln
-    :members: MLN
-
-
-:class:`pracmln.Database`
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: pracmln
-    :members: Database
-
+    :members: MLN, Database
 
 
 In this section, we will introduce the basic interface for using

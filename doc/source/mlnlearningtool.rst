@@ -4,7 +4,7 @@ MLN-Learning-Tool
 
 Start the tool from the command line with ``mlnlearn``.
 
-.. figure:: _static/mlnlearningtool.png
+.. figure:: _static/img/mlnlearningtool.png
 
    The MLN-Learning-Tool GUI.
 
@@ -29,12 +29,12 @@ the learning method is invoked, so that you can easily resume a
 session.
 
 Parameters
-----------
+^^^^^^^^^^
 
 For the learning methods, there are a couple of parameters that can 
 be handed over to the respective algorithm:
 
-.. figure:: _static/learning-parameters.png
+.. figure:: _static/img/learning-parameters.png
 
    Parameters in the GUI Tool.
    

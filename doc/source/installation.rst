@@ -3,12 +3,12 @@ Getting Started
 ===============
 
 Compatibility
--------------
+^^^^^^^^^^^^^
 
 This software suite works out-of-the-box on Linux and Windows 64-bit machines. 
 
 Source Code
------------
+^^^^^^^^^^^
 
 The source code is publicly available under BSD License: ::
 
@@ -16,11 +16,10 @@ The source code is publicly available under BSD License: ::
 
 
 Prerequisites
--------------
-
+^^^^^^^^^^^^^
 
 Linux
-^^^^^
+~~~~~
 
 * Python 2.7 with Tkinter installed.
 
@@ -43,7 +42,7 @@ Linux
 
 
 Windows
-^^^^^^^
+~~~~~~~
 
 * Python 2.7 with Tkinter installed.
 
@@ -76,7 +75,7 @@ Windows
 
 
 Installation
-------------
+^^^^^^^^^^^^
 
 #. Generating Apps
 
@@ -100,7 +99,7 @@ Installation
 .. _sec-cppbindings:
 
 C++ bindings
-------------
+^^^^^^^^^^^^
 
 * Requirements:
 
@@ -156,7 +155,7 @@ C++ bindings
     }
 
 Examples
---------
+^^^^^^^^
 
 There are example models in the ``./examples/`` directory.
 
