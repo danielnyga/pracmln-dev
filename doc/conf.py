@@ -67,7 +67,7 @@ copyright = u'%s, Daniel Nyga' % datetime.datetime.now().year
 # The short X.Y version.
 version = '1.1'
 # The full version, including alpha/beta/rc tags.
-release = '1.1.1'
+release = '1.1.2'
 
 rst_epilog = """
 .. |version| replace:: {version}

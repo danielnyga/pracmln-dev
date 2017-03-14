@@ -42,7 +42,11 @@ your own scripts, see :doc:`apidoc`.
 Release notes
 ^^^^^^^^^^^^^
 
-  * Release |release| (13.03.2017)
+  * Release |release| (14.03.2017)
+
+    * *Fix*: Patches for using toulbar2 on Windows platforms
+
+  * Release 1.1.1 (13.03.2017)
 
     * *Fix*: Patches for Windows support
 
