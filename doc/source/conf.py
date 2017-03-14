@@ -13,6 +13,7 @@
 
 import sys, os
 import datetime
+import sphinx_bootstrap_theme
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -23,7 +24,7 @@ sys.path.append(os.path.join('..', '3rdparty', 'logutils-0.3.3'))
 sys.path.append('.')
 
 
-import prac_theme
+import doc.prac_theme
 
 try:
     from sphinxcontrib import bibtex
@@ -41,7 +42,11 @@ except:
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.intersphinx', 'sphinxcontrib.bibtex', 'sphinx.ext.pngmath']
+extensions = ['sphinx.ext.autodoc',
+              'sphinx.ext.intersphinx',
+              'sphinxcontrib.bibtex',
+              'sphinx.ext.todo',
+              'sphinx.ext.imgmath']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -65,9 +70,9 @@ copyright = u'%s, Daniel Nyga' % datetime.datetime.now().year
 # built documents.
 #
 # The short X.Y version.
-version = '1.1'
+version = u'1.1'
 # The full version, including alpha/beta/rc tags.
-release = '1.1.2'
+release = u'1.1.2'
 
 rst_epilog = """
 .. |version| replace:: {version}
@@ -121,7 +126,9 @@ pygments_style = 'sphinx'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #theme = 'sphinx_rtd_theme'
-html_theme = 'prac_theme'
+# html_theme = 'prac_theme'
+html_theme = 'bootstrap'
+html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -129,7 +136,7 @@ html_theme = 'prac_theme'
 #html_theme_options = {}
 
 # Add any paths that contain custom themes here, relative to this directory.
-html_theme_path = ['.']
+# html_theme_path = ['.']
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -271,6 +278,44 @@ texinfo_documents = [
 # How to display URL addresses: 'footnote', 'no', or 'inline'.
 #texinfo_show_urls = 'footnote'
 
+# -- Options for Epub output ---------------------------------------------------
+
+# Bibliographic Dublin Core info.
+epub_title = u'PRAC'
+epub_author = u'Daniel Nyga'
+epub_publisher = u'Daniel Nyga'
+epub_copyright = u'2012, Daniel Nyga'
+
+# The language of the text. It defaults to the language option
+# or en if the language is not set.
+#epub_language = ''
+
+# The scheme of the identifier. Typical schemes are ISBN or URL.
+#epub_scheme = ''
+
+# The unique identifier of the text. This can be a ISBN number
+# or the project homepage.
+#epub_identifier = ''
+
+# A unique identification for the text.
+#epub_uid = ''
+
+# A tuple containing the cover image and cover page html template filenames.
+#epub_cover = ()
+
+# HTML files that should be inserted before the pages created by sphinx.
+# The format is a list of tuples containing the path and title.
+#epub_pre_files = []
+
+# HTML files shat should be inserted after the pages created by sphinx.
+# The format is a list of tuples containing the path and title.
+#epub_post_files = []
+
+# A list of files that should not be packed into the epub file.
+#epub_exclude_files = []
+
+# The depth of the table of contents in toc.ncx.
+#epub_tocdepth = 3
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'http://docs.python.org/': None}
