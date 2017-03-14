@@ -11,7 +11,8 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys, os
+import sys
+import os
 import datetime
 import sphinx_bootstrap_theme
 
@@ -22,9 +23,6 @@ import sphinx_bootstrap_theme
 sys.path.append('..')
 sys.path.append(os.path.join('..', '3rdparty', 'logutils-0.3.3'))
 sys.path.append('.')
-
-
-import doc.prac_theme
 
 try:
     from sphinxcontrib import bibtex
@@ -46,7 +44,7 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.intersphinx',
               'sphinxcontrib.bibtex',
               'sphinx.ext.todo',
-              'sphinx.ext.imgmath']
+              'sphinx.ext.pngmath']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
