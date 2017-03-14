@@ -3,16 +3,19 @@ var chartEl = document.getElementById("chart", true, true),
     h = chartEl.offsetHeight,
     fill = ["grey", "#bee280", "orange"];
 
+//d3.select("#chart").attr("align","center");
+
 var vis = d3.select("#chart")
   .append("svg:svg")
     .attr("width", '100%')
-    .attr("height", '100%');
+    .attr("height", '100%')
+    .attr("align","center");
 
 d3.json("_static/js/mrfgraph.json", function(json) {
   var force = d3.layout.force()
       .charge(-120)
       .linkDistance(30)
-      .gravity(0.2)
+      .gravity(0.1)
       .nodes(json.nodes)
       .links(json.links)
       .size([w, h])
