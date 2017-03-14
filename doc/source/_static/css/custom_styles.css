@@ -117,7 +117,7 @@ div.pcviz {
     background-repeat: no-repeat;
     background-position: center;
     margin:20px auto;
-    background-image: url(img/pc.png);
+    background-image: url(../img/pc.png);
 }
 
 .btn {

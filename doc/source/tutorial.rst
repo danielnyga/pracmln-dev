@@ -21,6 +21,7 @@ Server methods
 
 .. function:: handle_mln_query(req)
    :module: scripts.mln_server
+   :noindex:
 
 	Handles the query from the client. It expects
 	*req* to have two fields, *req.query* and an optional
@@ -32,12 +33,14 @@ Server methods
 
 .. function:: mln_interface_server
    :module: scripts.mln_server
+   :noindex:
 
    Keeps an infinite loop while waiting
    for clients to ask for the service.
 
 .. function:: getInstance
    :module: scripts.mln_server.Storage
+   :noindex:
 
    Storage is a singleton class that keeps
    track of an MLNInfer object together with
@@ -48,6 +51,7 @@ Example client
 
 .. function:: mln_interface_client(query, config=None)
    :module: scripts.mln_mln
+   :noindex:
 
     This is an example of the client quering the service.
     The important thing to note is that you have the option
