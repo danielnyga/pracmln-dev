@@ -27,7 +27,7 @@ from pracmln.logic.common import Logic
 import types
 from multiprocessing.pool import Pool
 from pracmln.utils.multicore import with_tracing
-from itertools import imap
+
 from pracmln.mln.mlnpreds import FunctionalPredicate, SoftFunctionalPredicate, FuzzyPredicate
 from pracmln.mln.util import dict_union, ProgressBar, rndbatches, cumsum
 from pracmln.mln.errors import SatisfiabilityException
@@ -186,7 +186,7 @@ class FastConjunctionGrounding(DefaultGroundingFactory):
                 pool.terminate()
                 pool.join()
         else:
-            for gfs in imap(create_formula_groundings, batches):
+            for gfs in map(create_formula_groundings, batches):
                 if self.verbose:
                     bar.inc(batchsizes[i])
                     bar.label(str(cumsum(batchsizes, i + 1)))

@@ -34,7 +34,7 @@ class BnBInference(Inference):
         bnb = RussianDoll(self.mrf)
         bnb.search()
         result = bnb.best_solution
-        strQueries = map(fstr, self.queries)
+        strQueries = list(map(fstr, self.queries))
         if result is None:
             raise Exception('Knowledge base is unsatisfiable.')
         result = dict([(i, 1. if result[q] == True else 0.) for i, q in enumerate(strQueries)])

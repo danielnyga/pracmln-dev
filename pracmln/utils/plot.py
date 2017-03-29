@@ -4,10 +4,10 @@ figureNo = 1
 LNCS_COLUMN_WIDTH = 347.12354
 
 class Plot(object):
-    '''
+    """
     on a Plot object, call any pylab function to add a plot
     and legend() to add your legend
-    '''
+    """
     
     def __init__(self, name = "Plot", LaTeX = False, **kwargs):
         global figureNo
@@ -99,7 +99,7 @@ class Plot(object):
             function(*args, **kwargs)
         if self.latex:
             filename = "%s.pdf" % self.name
-            print "saving %s" % filename
+            print("saving %s" % filename)
             pylab.savefig(filename)
         else:
             pylab.draw()

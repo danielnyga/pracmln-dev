@@ -36,9 +36,9 @@ logger = logging.getLogger(__name__)
 
 
 class MCMCInference(Inference):
-    '''
+    """
     Abstract super class for Markov chain Monte Carlo-based inference.
-    '''
+    """
     
     def __init__(self, mrf, queries=ALL, **params):
         Inference.__init__(self, mrf, queries, **params)
@@ -46,9 +46,9 @@ class MCMCInference(Inference):
     
     
     def random_world(self, evidence=None):
-        '''
+        """
         Get a random possible world, taking the evidence into account.
-        '''
+        """
         if evidence is None:
             world = list(self.mrf.evidence)
         else:
@@ -65,9 +65,9 @@ class MCMCInference(Inference):
                 
 
     class Chain:
-        '''
+        """
         Represents the state of a Markov Chain.
-        '''
+        """
         
         
         def __init__(self, infer, queries):
@@ -155,7 +155,7 @@ class MCMCInference(Inference):
         
         
         def avgtruth(self, formula):
-            ''' returns the fraction of chains in which the given formula is currently true '''
+            """ returns the fraction of chains in which the given formula is currently true """
             t = 0.0 
             for c in self.chains:
                 t += formula(c.state)

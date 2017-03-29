@@ -21,7 +21,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from branchandbound import BranchAndBound
+from .branchandbound import BranchAndBound
 from pracmln.mln.grounding.bnb import GroundingFactory
 
 class RussianDoll(BranchAndBound):
@@ -51,7 +51,7 @@ class RussianDoll(BranchAndBound):
             self._rd_recursive_expand(variables[1:])
         self.costs = 0.
         lb = self.upperbound
-        print variables, lb
+        print(variables, lb)
         self.upperbound = float('inf') # TODO: can this be improved?
         # call normal BnB search
         self._recursive_expand(variables, 0. if len(variables) == 1 else lb)
@@ -81,9 +81,9 @@ if __name__ == '__main__':
      
     bnb = RussianDoll(mrf)
     bnb.search()
-    print 'optimal solution (cost %f):' % bnb.upperbound
+    print('optimal solution (cost %f):' % bnb.upperbound)
     for s in sorted(bnb.best_solution):
-        print '', s, ':', bnb.best_solution[s]
+        print('', s, ':', bnb.best_solution[s])
          
     exit(0)
        

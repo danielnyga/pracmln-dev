@@ -24,21 +24,21 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-import StringIO
+import io
 
-from Tkinter import *
+from tkinter import *
 import sys
 import traceback
 from pracmln.mln.base import parse_mln
 from pracmln.utils.project import MLNProject, PRACMLNConfig
-from utils.widgets import *
-import tkMessageBox
+from .utils.widgets import *
+import tkinter.messagebox
 import fnmatch
-from mln.methods import LearningMethods
+from .mln.methods import LearningMethods
 from cProfile import Profile
 from pracmln.utils import config
 from pracmln.mln.util import ifNone, out, headline, StopWatch
-from tkFileDialog import asksaveasfilename, askopenfilename
+from tkinter.filedialog import asksaveasfilename, askopenfilename
 from pracmln.utils.config import global_config_filename
 from pracmln import praclog, MLN
 from tabulate import tabulate
@@ -342,11 +342,11 @@ class MLNLearn(object):
 
         # load the training databases
         if type(self.db) is list and all(
-                map(lambda e: isinstance(e, Database), self.db)):
+                [isinstance(e, Database) for e in self.db]):
             dbs = self.db
         elif isinstance(self.db, Database):
             dbs = [self.db]
-        elif isinstance(self.db, basestring):
+        elif isinstance(self.db, str):
             db = self.db
             if db is None or not db:
                 raise Exception('no trainig data given!')
@@ -358,7 +358,7 @@ class MLNLearn(object):
             raise Exception(
                 'Unexpected type of training databases: %s' % type(self.db))
         if self.verbose:
-            print 'loaded %d database(s).' % len(dbs)
+            print(('loaded %d database(s).' % len(dbs)))
 
         watch = StopWatch()
 
@@ -367,9 +367,9 @@ class MLNLearn(object):
             confg.update(eval("dict(%s)" % self.params))
             if type(confg.get('db', None)) is list:
                 confg['db'] = '%d Databases' % len(confg['db'])
-            print tabulate(
-                sorted(list(confg.viewitems()), key=lambda (key, v): str(key)),
-                headers=('Parameter:', 'Value:'))
+            print((tabulate(
+                sorted(list(confg.items()), key=lambda key_v: str(key_v[0])),
+                headers=('Parameter:', 'Value:'))))
 
         params = dict([(k, getattr(self, k)) for k in (
             'multicore', 'verbose', 'profile', 'ignore_zero_weight_formulas')])
@@ -390,7 +390,7 @@ class MLNLearn(object):
 
         if self.profile:
             prof = Profile()
-            print 'starting profiler...'
+            print('starting profiler...')
             prof.enable()
         else:
             prof = None
@@ -403,22 +403,22 @@ class MLNLearn(object):
             # run the learner
             mlnlearnt = mln.learn(dbs, self.method, **params)
             if self.verbose:
-                print
-                print headline('LEARNT MARKOV LOGIC NETWORK')
-                print
+                print()
+                print((headline('LEARNT MARKOV LOGIC NETWORK')))
+                print()
                 mlnlearnt.write()
         except SystemExit:
-            print 'Cancelled...'
+            print('Cancelled...')
         finally:
             if self.profile:
                 prof.disable()
-                print headline('PROFILER STATISTICS')
+                print((headline('PROFILER STATISTICS')))
                 ps = pstats.Stats(prof, stream=sys.stdout).sort_stats(
                     'cumulative')
                 ps.print_stats()
             # reset the debug level
             praclog.level(olddebug)
-        print
+        print()
         watch.finish()
         watch.printSteps()
         return mlnlearnt
@@ -481,8 +481,7 @@ class MLNLearnGUI:
         grammars = ['StandardGrammar', 'PRACGrammar']
         self.selected_grammar = StringVar(master)
         self.selected_grammar.trace('w', self.settings_setdirty)
-        l = apply(OptionMenu,
-                  (self.frame, self.selected_grammar) + tuple(grammars))
+        l = OptionMenu(*(self.frame, self.selected_grammar) + tuple(grammars))
         l.grid(row=row, column=1, sticky='NWE')
 
         # logic selection
@@ -491,8 +490,7 @@ class MLNLearnGUI:
         logics = ['FirstOrderLogic', 'FuzzyLogic']
         self.selected_logic = StringVar(master)
         self.selected_logic.trace('w', self.settings_setdirty)
-        l = apply(OptionMenu,
-                  (self.frame, self.selected_logic) + tuple(logics))
+        l = OptionMenu(*(self.frame, self.selected_logic) + tuple(logics))
         l.grid(row=row, column=1, sticky='NWE')
 
         # mln section
@@ -517,7 +515,7 @@ class MLNLearnGUI:
         Label(self.frame, text="Method: ").grid(row=row, column=0, sticky=E)
         self.selected_method = StringVar(master)
         methodnames = sorted(LearningMethods.names())
-        self.list_methods = apply(OptionMenu, (self.frame, self.selected_method) + tuple(methodnames))
+        self.list_methods = OptionMenu(*(self.frame, self.selected_method) + tuple(methodnames))
         self.list_methods.grid(row=row, column=1, sticky="NWE")
         self.selected_method.trace("w", self.select_method)
 
@@ -711,7 +709,7 @@ class MLNLearnGUI:
 
     def quit(self):
         if self.settings_dirty.get() or self.project_dirty.get():
-            savechanges = tkMessageBox.askyesnocancel("Save changes", "You have unsaved project changes. Do you want to save them before quitting?")
+            savechanges = tkinter.messagebox.askyesnocancel("Save changes", "You have unsaved project changes. Do you want to save them before quitting?")
             if savechanges is None:
                 return
             elif savechanges:
@@ -773,10 +771,10 @@ class MLNLearnGUI:
             self.mln_container.update_file_choices()
             self.db_container.update_file_choices()
             if len(self.project.mlns) > 0:
-                self.mln_container.selected_file.set(self.project.learnconf['mln'] or self.project.mlns.keys()[0])
+                self.mln_container.selected_file.set(self.project.learnconf['mln'] or list(self.project.mlns.keys())[0])
             self.mln_container.dirty = False
             if len(self.project.dbs) > 0:
-                self.db_container.selected_file.set(self.project.learnconf['db'] or self.project.dbs.keys()[0])
+                self.db_container.selected_file.set(self.project.learnconf['db'] or list(self.project.dbs.keys())[0])
             self.db_container.dirty = False
             self.write_gconfig(savegeometry=False)
             self.settings_dirty.set(0)
@@ -852,7 +850,7 @@ class MLNLearnGUI:
             content = self.mln_container.editor.get("1.0", END).strip()
 
         if old == new and askoverwrite:
-            savechanges = tkMessageBox.askyesno("Save changes",
+            savechanges = tkinter.messagebox.askyesno("Save changes",
                                                 "A file '{}' already exists. "
                                                 "Overwrite?".format(new))
             if savechanges:
@@ -865,7 +863,7 @@ class MLNLearnGUI:
         else:
             if new in self.project.mlns:
                 if askoverwrite:
-                    savechanges = tkMessageBox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
+                    savechanges = tkinter.messagebox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
                     if savechanges:
                         self.project.mlns[new] = content
                     else:
@@ -877,7 +875,7 @@ class MLNLearnGUI:
 
 
     def mlnfiles(self):
-        return self.project.mlns.keys()
+        return list(self.project.mlns.keys())
 
 
     def mlnfilecontent(self, filename):
@@ -909,7 +907,7 @@ class MLNLearnGUI:
             content = self.db_container.editor.get("1.0", END).strip()
 
         if old == new and askoverwrite:
-            savechanges = tkMessageBox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
+            savechanges = tkinter.messagebox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
             if savechanges:
                 self.project.dbs[old] = content
             else:
@@ -920,7 +918,7 @@ class MLNLearnGUI:
         else:
             if new in self.project.dbs:
                 if askoverwrite:
-                    savechanges = tkMessageBox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
+                    savechanges = tkinter.messagebox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
                     if savechanges:
                         self.project.dbs[new] = content
                     else:
@@ -932,7 +930,7 @@ class MLNLearnGUI:
 
 
     def dbfiles(self):
-        return self.project.dbs.keys()
+        return list(self.project.dbs.keys())
 
 
     def dbfilecontent(self, filename):
@@ -1055,7 +1053,7 @@ class MLNLearnGUI:
 
                 d, mask = os.path.split(os.path.abspath(patternpath))
                 for fname in os.listdir(d):
-                    print fname
+                    print(fname)
                     if fnmatch.fnmatch(fname, mask):
                         dbs.append(os.path.join(d, fname))
                 if len(dbs) == 0:
@@ -1125,8 +1123,8 @@ class MLNLearnGUI:
         self.master.withdraw()
 
         try:
-            print headline('PRAC LEARNING TOOL')
-            print
+            print((headline('PRAC LEARNING TOOL')))
+            print()
 
             if options.get('mlnarg') is not None:
                 mlnobj = MLN(mlnfile=os.path.abspath(options.get('mlnarg')),
@@ -1165,13 +1163,13 @@ class MLNLearnGUI:
             # write to file if run from commandline, otherwise save result
             # to project results
             if options.get('outputfile') is not None:
-                output = StringIO.StringIO()
+                output = io.StringIO()
                 result.write(output)
                 with open(os.path.abspath(options.get('outputfile')), 'w') as f:
                     f.write(output.getvalue())
                 logger.info('saved result to {}'.format(os.path.abspath(options.get('outputfile'))))
             elif self.save.get():
-                output = StringIO.StringIO()
+                output = io.StringIO()
                 result.write(output)
                 self.project.add_mln(self.output_filename.get(), output.getvalue())
                 self.mln_container.update_file_choices()

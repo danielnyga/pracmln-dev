@@ -22,13 +22,13 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from common import Logic
+from .common import Logic
 from pracmln.mln.util import fstr, ifNone
 
 class FirstOrderLogic(Logic):
-    '''
+    """
     Factory class for first-order logic.
-    '''
+    """
 
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 
@@ -42,17 +42,17 @@ class FirstOrderLogic(Logic):
     class Formula(Logic.Formula, Constraint): 
         
         def noisyor(self, world):
-            '''
+            """
             Computes the noisy-or distribution of this formula.
-            '''
+            """
             return self.cnf().noisyor(world)
             
             
         def _getEvidenceTruthDegreeCW(self, gndAtom, worldValues):
-            '''
+            """
                 gets (soft or hard) evidence as a degree of belief from 0 to 1, making the closed world assumption,
                 soft evidence has precedence over hard evidence
-            '''
+            """
             se = self._getSoftEvidence(gndAtom)
             if se is not None:
                 return se if (True == worldValues[gndAtom.idx] or None == worldValues[gndAtom.idx]) else 1.0 - se # TODO allSoft currently unsupported
@@ -280,10 +280,10 @@ class FirstOrderLogic(Logic):
 
     
     class ProbabilityConstraint(object):
-        '''
+        """
         Base class for representing a prior/posterior probability constraint (soft evidence)
         on a logical expression.
-        '''
+        """
         
         def __init__(self, formula, p):
             self.formula = formula
@@ -297,9 +297,9 @@ class FirstOrderLogic(Logic):
 
 
     class PriorConstraint(ProbabilityConstraint): 
-        '''
+        """
         Class representing a prior probability.
-        '''
+        """
 
         def __str__(self):
             return 'P(%s) = %.2f' % (fstr(self.formula), self.p)
@@ -309,9 +309,9 @@ class FirstOrderLogic(Logic):
 
         
     class PosteriorConstraint(ProbabilityConstraint): 
-        '''
+        """
         Class representing a posterior probability.
-        '''
+        """
         
         def __str__(self):
             return 'P(%s|E) = %.2f' % (fstr(self.formula), self.p)

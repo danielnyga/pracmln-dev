@@ -21,32 +21,33 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from common import Logic
+from .common import Logic
+from functools import reduce
 
 class FuzzyLogic(Logic):
-    '''
+    """
     Implementation of fuzzy logic for MLNs.
-    '''
+    """
 
 
     @staticmethod
     def min_undef(*args):
-        '''
+        """
         Custom minimum function return None if one of its arguments
         is None and min(*args) otherwise.
-        '''
-        if len(filter(lambda x: x == 0, args)) > 0:
+        """
+        if len([x for x in args if x == 0]) > 0:
             return 0
         return reduce(lambda x, y: None if (x is None or y is None) else min(x, y), args)
     
     
     @staticmethod
     def max_undef(*args):
-        '''
+        """
         Custom maximum function return None if one of its arguments
         is None and max(*args) otherwise.
-        '''
-        if len(filter(lambda x: x == 1, args)) > 0:
+        """
+        if len([x for x in args if x == 1]) > 0:
             return 1
         return reduce(lambda x, y: None if x is None or y is None else max(x, y), args)
     
@@ -121,7 +122,7 @@ class FuzzyLogic(Logic):
         
         
         def truth(self, world):
-            truthChildren = map(lambda a: a.truth(world), self.children)
+            truthChildren = [a.truth(world) for a in self.children]
             return FuzzyLogic.min_undef(*truthChildren)
         
         
@@ -155,7 +156,7 @@ class FuzzyLogic(Logic):
         
         
         def truth(self, world):
-            return FuzzyLogic.max_undef(*map(lambda a: a.truth(world), self.children))
+            return FuzzyLogic.max_undef(*[a.truth(world) for a in self.children])
     
     
         def simplify(self, world):

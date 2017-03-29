@@ -1,1 +1,1 @@
-from wcsp import WCSP, Constraint
+from .wcsp import WCSP, Constraint

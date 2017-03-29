@@ -36,7 +36,7 @@ from pracmln.mln.mrfvars import SoftMutexVariable
 class PLL(AbstractLearner):
     
     def __init__(self, mln, mrf, pmbMethod="old", diffMethod="blocking", **params):
-        '''
+        """
         pmbMethod: 'excl' or 'old'
             concerns the calculation of the probability of a ground atom assignment given the ground atom's Markov blanket
             If set to 'old', consider only the two assignments of the ground atom x (i.e. add the weights of any ground
@@ -52,27 +52,27 @@ class PLL(AbstractLearner):
             If set to 'blocking', then we not only consider the effects of flipping x itself but also flips of any
             ground atoms with which x appears together in a block, because flipping them may (or may not) affect the truth
             value of x and thus the truth of ground formulas within which x appears.        
-        '''
+        """
         AbstractLearner.__init__(self, mln, mrf, **params)
         self.pmbMethod = pmbMethod
         self.diffMethod = diffMethod
-        if len(filter(lambda b: isinstance(b, SoftMutexVariable), self.mrf.variables)) > 0:
+        if len([b for b in self.mrf.variables if isinstance(b, SoftMutexVariable)]) > 0:
             raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
     
     def getAtomProbMB(self, atom):
-        '''
+        """
         determines the probability of the given ground atom (string) given its Markov blanket
         (the MLN must have been provided with evidence using combineDB)
-        '''
+        """
         idxGndAtom = self.mrf.gndAtoms[atom].idx
         weights = self._weights()
         return self._getAtomProbMB(idxGndAtom, weights)
 
     def _getAtomProbMB(self, idxGndAtom, wt, relevantGroundFormulas=None):
-        '''            
+        """            
         gets the probability of the ground atom with index idxGndAtom when given its Markov blanket (evidence set)
         using the specified weight vector
-        '''
+        """
         #old_tv = self._getEvidence(idxGndAtom)
         # check if the ground atom is in a block
         block = None
@@ -153,7 +153,7 @@ class PLL(AbstractLearner):
                     # restore truth values
                     self.mrf._removeTemporaryEvidence()
                     idxSum += 1
-            expsums = map(exp, sums)
+            expsums = list(map(exp, sums))
             if self.pmbMethod == 'excl':
                 if mainAtomIsTrueone:
                     return expsums[idxBlockMainGA] / sum(expsums)
@@ -175,30 +175,30 @@ class PLL(AbstractLearner):
 
     # prints the probability of each ground atom truth assignment given its Markov blanket
     def printAtomProbsMB(self):
-        gndAtoms = self.mrf.gndAtoms.keys()
+        gndAtoms = list(self.mrf.gndAtoms.keys())
         gndAtoms.sort()
         values = []
         for gndAtom in gndAtoms:
             v = self.getAtomProbMB(gndAtom)
-            print "%s=%s  %f" % (gndAtom, str(self.mrf._getEvidence(self.mrf.gndAtoms[gndAtom].idx)), v)
+            print("%s=%s  %f" % (gndAtom, str(self.mrf._getEvidence(self.mrf.gndAtoms[gndAtom].idx)), v))
             values.append(v)
-        pll = fsum(map(log, values))
-        print "PLL = %f" % pll
+        pll = fsum(list(map(log, values)))
+        print("PLL = %f" % pll)
 
     def _calculateAtomProbsMB(self, wt):
         if ('wtsLastAtomProbMBComputation' not in dir(self)) or self.wtsLastAtomProbMBComputation != list(wt):
-            print "recomputing atom probabilities...",
+            print("recomputing atom probabilities...", end=' ')
             self.atomProbsMB = [self._getAtomProbMB(i, wt) for i in range(len(self.mrf.gndAtomsByIdx))]
-            self.atomProbsMB = map(lambda x: x if x > 0 else 1e-10, self.atomProbsMB)
+            self.atomProbsMB = [x if x > 0 else 1e-10 for x in self.atomProbsMB]
             self.wtsLastAtomProbMBComputation = list(wt)
-            print "done."
+            print("done.")
 
     def _f(self, wt, **params):
         self._calculateAtomProbsMB(wt)
         #print self.atomProbsMB
-        probs = map(lambda x: x if x > 0 else 1e-10, self.atomProbsMB) # prevent 0 probs
-        pll = fsum(map(log, probs))
-        print "pseudo-log-likelihood:", pll
+        probs = [x if x > 0 else 1e-10 for x in self.atomProbsMB] # prevent 0 probs
+        pll = fsum(list(map(log, probs)))
+        print("pseudo-log-likelihood:", pll)
         return pll
 
     def _addToDiff(self, idxFormula, idxGndAtom, diff):
@@ -243,7 +243,7 @@ class PLL(AbstractLearner):
         grad = numpy.zeros(len(self.mln.formulas), numpy.float64)
         fullWt = wt
         self._calculateAtomProbsMB(fullWt)
-        for (idxFormula, idxGndAtom), diff in self.diffs.iteritems():
+        for (idxFormula, idxGndAtom), diff in self.diffs.items():
             v = diff * (self.atomProbsMB[idxGndAtom] - 1)
             grad[idxFormula] += v            
         return grad
@@ -255,10 +255,10 @@ class PLL(AbstractLearner):
             raise Exception("Not implemented")
 
     def _prepareOpt(self):
-        print "computing differences..."
+        print("computing differences...")
         self._computeDiffs()
-        print "  %d differences recorded" % len(self.diffs)
-        print "determining relevant formulas for each ground atom..."
+        print("  %d differences recorded" % len(self.diffs))
+        print("determining relevant formulas for each ground atom...")
         self._getAtomRelevantGroundFormulas()
         
         
@@ -332,7 +332,7 @@ class PLL_ISE(SoftEvidenceLearner, PLL):
             for weight in wt:
                 pll += gaussianZeroMean(weight, self.gaussianPriorSigma)
         
-        print "pseudo-log-likelihood:", pll
+        print("pseudo-log-likelihood:", pll)
         return pll
         
     def _grad(self, wt, **params):        
@@ -349,7 +349,7 @@ class PLL_ISE(SoftEvidenceLearner, PLL):
 
 
 class DPLL_ISE(PLL_ISE):
-    ''' discriminative PLL_ISE with independent soft evidence for atLocation '''
+    """ discriminative PLL_ISE with independent soft evidence for atLocation """
     
     def __init__(self, mln, **params):
         DPLL.__init__(mln, **params)

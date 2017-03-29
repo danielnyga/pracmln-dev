@@ -27,7 +27,7 @@ from pracmln.mln.util import unifyDicts
 
 
 class FormulaGrounding(object):
-    '''
+    """
     Represents a particular (partial) grounding of a formula with respect to _one_ predicate
     and in terms of disjoint sets of variables occurring in that formula. A grounding of
     the formula is represented as a list of assignments of the independent variable sets.
@@ -36,16 +36,16 @@ class FormulaGrounding(object):
     - depth:    the depth of this formula grounding (node) in the search tree
                 The root node (the formula with no grounded variable has depth 0.
     - children: list of formula groundings that have been generate from this fg.
-    ''' 
+    """ 
 
     def __init__(self, formula, mrf, parent=None, assignment=None):
-        '''
+        """
         Instantiates the formula grounding for a given
         - formula:    the formula grounded in this node
         - mrf:        the MRF associated to this problem
         - parent:     the formula grounding this fg has been created from
         - assignment: dictionary mapping variables to their values
-        '''
+        """
         self.mrf = mrf
         self.formula = formula
         self.parent = Ref(parent)
@@ -62,7 +62,7 @@ class FormulaGrounding(object):
             for var in self.formula.getVariables(self.mrf.mln):
                 self.domains.extend(var, list(self.mrf.domains[self.formula.getVarDomain(var, self.mrf.mln)]))
         else:
-            for (v, d) in parent.domains.iteritems():
+            for (v, d) in parent.domains.items():
                 self.domains.extend(v, list(d))
         self.domains.epochEndsHere()
                 
@@ -75,10 +75,10 @@ class FormulaGrounding(object):
             mem.undoEpoch()
             
     def countGroundings(self):
-        '''
+        """
         Computes the number of ground formulas subsumed by this FormulaGrounding
         based on the domain sizes of the free (unbound) variables.
-        '''
+        """
         gf_count = 1
         for var in self.formula.getVariables(self.mrf):
             domain = self.mrf.domains[self.formula.getVarDomain(var, self.mrf)]
@@ -86,25 +86,25 @@ class FormulaGrounding(object):
         return gf_count
     
     def ground(self, assignment=None):
-        '''
+        """
         Takes an assignment of _one_ particular variable and
         returns a new FormulaGrounding with that assignment. If
         the assignment renders the formula false or true, then
         the costs are returned.
-        '''
+        """
         # calculate the number of ground formulas resulting from
         # the remaining set of free variables
         if assignment is None:
             assignment = {}
         gf_count = 1
 #         print self
-        for var in set(self.formula.getVariables(self.mrf.mln)).difference(assignment.keys()):
+        for var in set(self.formula.getVariables(self.mrf.mln)).difference(list(assignment.keys())):
             domain = self.domains[var]
             if domain is None: return 0.
             gf_count *= len(domain)
         gf = self.formula.ground(self.mrf, assignment, allowPartialGroundings=True, simplify=True)
         gf.weight = self.formula.weight
-        for var_name, val in assignment.iteritems(): break
+        for var_name, val in assignment.items(): break
         self.domains.drop(var_name, val)
         # if the simplified gf reduces to a TrueFalse instance, then
         # we return the costs if it's false, or 0 otherwise.
@@ -129,7 +129,7 @@ class FormulaGrounding(object):
 
 
 class GroundingFactory(object):
-    '''
+    """
     Implements a factory for generating the groundings of one formula. 
     The groundings are created incrementally with one
     particular ground atom being presented at a time.
@@ -147,12 +147,12 @@ class GroundingFactory(object):
                           have already been assigned so far.
     This class maintains a stack of all its fields in order allow undoing groundings
     that have been performed once.
-    '''
+    """
     
     def __init__(self, formula, mrf):
-        '''
+        """
         formula might be a formula or a FormulaGrounding instance.
-        '''
+        """
         self.mrf = mrf
         self.costs = .0
         if isinstance(formula, Logic.Formula):
@@ -180,10 +180,10 @@ class GroundingFactory(object):
             mem.undoEpoch()
         
     def ground(self, gndAtom):
-        '''
+        """
         Expects a ground atom and creates all groundings 
         that can be derived by it in terms of FormulaGroundings.
-        '''
+        """
         self.manipulatedFgs.clear()
         # get all variable assignments of matching literals in the formula 
         var_assignments = {}
@@ -237,7 +237,7 @@ class GroundingFactory(object):
         for var in list(self.variable_stack):
             if self.var2fgs[var] is None:
                 self.variable_stack.remove(var)
-        for var, value in var_assignments.iteritems():
+        for var, value in var_assignments.items():
             # skip the variables with values that have already been processed
             if not var in self.variable_stack:
                 depth = len(self.variable_stack)
@@ -260,13 +260,13 @@ class GroundingFactory(object):
                 else:
                     vars_and_values = []
                     varNotInTree = None
-                    for varNotInTree in [v for v in self.values_processed.keys() if v not in self.variable_stack]: break
+                    for varNotInTree in [v for v in list(self.values_processed.keys()) if v not in self.variable_stack]: break
                     if varNotInTree is None: continue
                     values = self.values_processed[varNotInTree]
                     for v in values:
                         vars_and_values.append({varNotInTree: v})
                 for var_value in vars_and_values:
-                    for var_name, val in var_value.iteritems(): break
+                    for var_name, val in var_value.items(): break
 #                     print fg.domains, 'contains', var_name, val, ':',fg.domains.contains(var_name, val) 
                     if not fg.domains.contains(var_name, val): continue
 #                     print 'grounding', var_value
@@ -297,19 +297,19 @@ class GroundingFactory(object):
     
     def printTree(self):
         queue = [self.root]
-        print '---'
+        print('---')
         while len(queue) > 0:
             n = queue.pop()
             space = ''
             for _ in range(n.depth): space += '--'
-            print space + str(n)
+            print(space + str(n))
             queue.extend(n.children.list)
-        print '---'
+        print('---')
         
     def gndAtom2Assignment(self, lit, atom):
-        '''
+        """
         Returns None if the literal and the atom do not match.
-        '''
+        """
         if type(lit) is Logic.Equality or lit.predName != atom.predName: return None
         assignment = {}
         for p1, p2 in zip(lit.params, atom.params):

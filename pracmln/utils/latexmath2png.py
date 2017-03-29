@@ -1,5 +1,5 @@
 #!/usr/bin/python2.5
-from __future__ import with_statement # Until Python 2.6
+ # Until Python 2.6
 
 from pracmln.mln.util import out
 
@@ -64,7 +64,7 @@ default_packages = [
 def __build_preamble(packages, declarations):
     preamble = '\documentclass{article}\n'
     for p in packages:
-        preamble += "\usepackage{{{}}}\n".format(p)
+        preamble += "\\usepackage{{{}}}\n".format(p)
 
     for d in declarations:
         preamble += '{}\n'.format(d)
@@ -160,7 +160,7 @@ def math2png(content, outdir, packages=default_packages, declarations=[], filena
 
 
 def usage():
-    print """
+    print('''
 Usage: {} [OPTION] ... [FILE] ...
 Converts LaTeX math input to PNG.
 
@@ -180,7 +180,7 @@ Options are:
 Reads equations from the specified FILEs or standard input if none is given. One
 equation is allowed per line of text and each equation is rendered to a separate
 PNG image numbered sequentially from 1, with an optional filename.
-    """.format(os.path.split(sys.argv[0])[1])
+    '''.format(os.path.split(sys.argv[0])[1]))
 
 def main():
     try:
@@ -192,10 +192,10 @@ def main():
                 'filename=',
                 ]
         opts, args = getopt.getopt(sys.argv[1:], shortopts, longopts)
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         scriptname = os.path.split(sys.argv[0])[1]
-        print "{}: {}".format(scriptname, err)
-        print "Try `{} --help` for more information.".format(scriptname)
+        print("{}: {}".format(scriptname, err))
+        print("Try `{} --help` for more information.".format(scriptname))
         sys.exit(2)
 
     packages = []
@@ -221,11 +221,11 @@ def main():
         for a in args:
             fd = os.open(a, os.O_RDONLY)
             with os.fdopen(fd, 'r') as f:
-                cur = map(lambda i: i.strip('\n'), f.readlines())
+                cur = [i.strip('\n') for i in f.readlines()]
                 input.extend(cur)
     else:
         # Otherwise read from stdin
-        input = map(lambda i: i.strip('\n'), sys.stdin.readlines())
+        input = [i.strip('\n') for i in sys.stdin.readlines()]
 
     # Engage!
     math2png(input, outdir, packages, declarations, filename)

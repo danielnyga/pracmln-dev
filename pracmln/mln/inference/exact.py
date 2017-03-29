@@ -75,10 +75,10 @@ def eval_queries(world):
 
 
 class EnumerationAsk(Inference):
-    '''
+    """
     Inference based on enumeration of (only) the worlds compatible with the
     evidence; supports soft evidence (assuming independence)
-    '''
+    """
 
     def __init__(self, mrf, queries, **params):
         Inference.__init__(self, mrf, queries, **params)
@@ -120,7 +120,7 @@ class EnumerationAsk(Inference):
         # start summing
         logger.debug("Summing over %d possible worlds..." % worlds)
         if worlds > 500000 and self.verbose:
-            print colorize('!!! %d WORLDS WILL BE ENUMERATED !!!' % worlds, (None, 'red', True), True)
+            print(colorize('!!! %d WORLDS WILL BE ENUMERATED !!!' % worlds, (None, 'red', True), True))
         k = 0
         self._watch.tag('enumerating worlds', verbose=self.verbose)
         global global_enumAsk
@@ -163,7 +163,7 @@ class EnumerationAsk(Inference):
             raise SatisfiabilityException(
                 'MLN is unsatisfiable. All probability masses returned 0.')
         # normalize answers
-        dist = map(lambda x: float(x) / denominator, numerators)
+        dist = [float(x) / denominator for x in numerators]
         result = {}
         for q, p in zip(self.queries, dist):
             result[str(q)] = p
@@ -171,4 +171,4 @@ class EnumerationAsk(Inference):
 
 
     def soft_evidence_formula(self, gf):
-        return isinstance(self.mrf.mln.logic, FirstOrderLogic) and any(map(lambda a: a.truth(self.mrf.evidence) in Interval('(0,1)'), gf.gndatoms()))
+        return isinstance(self.mrf.mln.logic, FirstOrderLogic) and any([a.truth(self.mrf.evidence) in Interval('(0,1)') for a in gf.gndatoms()])

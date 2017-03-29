@@ -23,7 +23,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from infer import Inference
+from .infer import Inference
 from pracmln import praclog
 from pracmln.mln.inference.exact import EnumerationAsk
 
@@ -32,7 +32,7 @@ logger = praclog.logger(__name__)
 
 
 class IPFPM(Inference):
-    ''' the iterative proportional fitting procedure applied at the model level (IPFP-M) '''
+    """ the iterative proportional fitting procedure applied at the model level (IPFP-M) """
     
     def __init__(self, mrf):
         # check if there's any soft evidence to actually work on

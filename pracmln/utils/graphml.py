@@ -82,7 +82,7 @@ class Node(object):
         self.label = str(self.id)
         self.xpos = 0
         self.ypos = 0
-        for key, value in kwargs.iteritems():
+        for key, value in kwargs.items():
             if type(value)==str:
                 value = value.replace('<','').replace('>','')
             self.__setattr__(key, value)
@@ -113,7 +113,7 @@ class Edge(object):
         self.toNode = toNode
         self.sourceArrow = "none"
         self.targetArrow = "standard"
-        for key, value in kwargs.iteritems():
+        for key, value in kwargs.items():
         	self.__setattr__(key, value)
     
     def write(self, out):

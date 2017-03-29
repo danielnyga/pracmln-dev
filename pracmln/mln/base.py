@@ -29,13 +29,13 @@ from pracmln.logic import FirstOrderLogic, FuzzyLogic
 
 from string import whitespace
 
-import learning
+from . import learning
 # from inference import *
 
 import platform
-from methods import InferenceMethods, LearningMethods
-from mrf import MRF
-from errors import MLNParsingError
+from .methods import InferenceMethods, LearningMethods
+from .mrf import MRF
+from .errors import MLNParsingError
 from pyparsing import ParseException
 from pracmln.mln.constants import HARD, comment_color, predicate_color, weight_color
 import copy
@@ -52,22 +52,22 @@ import re
 import traceback
 from pracmln.mln.learning.bpll import BPLL
 from pracmln.utils.project import mlnpath
-
+from importlib import util as imputil
 
 logger = logging.getLogger(__name__)
 
 
 if platform.architecture()[0] == '32bit':
-    try:
+    if imputil.find_spec('psyco') is not None:
         import psyco # Don't use Psyco when debugging! @UnresolvedImport
         psyco.full()
-    except:
+    else:
         logger.warning("Note: Psyco (http://psyco.sourceforge.net) was not loaded. On 32bit systems, it is recommended to install it for improved performance.")
 
 
 
 class MLN(object):
-    '''
+    """
     Represents a Markov logic network.
     
     :member formulas:    a list of :class:`logic.common.Formula` objects representing the formulas of the MLN.
@@ -78,7 +78,7 @@ class MLN(object):
     :param grammar:      (string) the syntax to be used. Possible grammars are
                          `PRACGrammar` and `StandardGrammar`.
     :param mlnfile:      can be a path to an MLN file or a file object.
-    '''
+    """
     
 
     def __init__(self, logic='FirstOrderLogic', grammar='PRACGrammar', mlnfile=None):
@@ -136,7 +136,7 @@ class MLN(object):
     def weights(self, wts):
         if len(wts) != len(self._formulas):
             raise Exception('Weight vector must have the same length as formula vector.')
-        wts = map(lambda w: float('%-10.6f' % float(eval(str(w)))) if type(w) in (float, int) and w is not HARD else w, wts)
+        wts = [float('%-10.6f' % float(eval(str(w)))) if type(w) in (float, int) and w is not HARD else w for w in wts]
         self._weights = wts
     
         
@@ -173,9 +173,9 @@ class MLN(object):
 
 
     def copy(self):
-        '''
+        """
         Returns a deep copy of this MLN, which is not yet materialized.
-        '''
+        """
         mln_ = MLN(logic=self.logic.__class__.__name__, grammar=self.logic.grammar.__class__.__name__)
         for pred in self.iterpreds():
             mln_.predicate(copy.copy(pred))
@@ -190,7 +190,7 @@ class MLN(object):
     
     
     def predicate(self, predicate):
-        '''
+        """
         Returns the predicate object with the given predicate name, or declares a new predicate.
         
         If predicate is a string, this method returns the predicate object 
@@ -211,11 +211,11 @@ class MLN(object):
         >>> mln.predicate('foo')
         <Predicate: foo(arg0,arg1)>
         
-        '''
+        """
 
         if isinstance(predicate, Predicate):
             return self.declare_predicate(predicate)
-        elif isinstance(predicate, basestring):
+        elif isinstance(predicate, str):
             return self._predicates.get(predicate, None)
         elif isinstance(predicate, pyparsing.ParseResults):
             return predicate.asList()
@@ -224,31 +224,31 @@ class MLN(object):
         
         
     def iterpreds(self):
-        '''
+        """
         Yields the predicates defined in this MLN alphabetically ordered.
-        '''
+        """
         for predname in sorted(self._predicates):
             yield self.predicate(predname)
     
     
     def update_predicates(self, mln):
-        '''
+        """
         Merges the predicate definitions of this MLN with the definitions
         of the given one.
         
         :param mln:     an instance of an MLN object.
-        '''
+        """
         for pred in mln.iterpreds():
             self.declare_predicate(pred)
     
 
     def declare_predicate(self, predicate):
-        '''
+        """
         Adds a predicate declaration to the MLN:
         
         :param predicate:      an instance of a Predicate or one of its subclasses 
                                specifying a predicate declaration.
-        '''
+        """
         pred = self._predicates.get(predicate.name)
         if pred is not None and  pred != predicate:
             raise Exception('Contradictory predicate definitions: %s <--> %s' % (pred, predicate))
@@ -261,7 +261,7 @@ class MLN(object):
 
             
     def formula(self, formula, weight=0., fixweight=False, unique_templvars=None):
-        '''
+        """
         Adds a formula to this MLN. The respective domains of constants
         are updated, if necessary. If `formula` is an integer, returns the formula
         with the respective index or the formula object that has been created from
@@ -275,14 +275,14 @@ class MLN(object):
                                     formula should be fixed during learning.
         :param unique_templvars:    specifies a list of template variables that will create
                                     only unique combinations of expanded formulas
-        '''
-        if isinstance(formula, basestring):
+        """
+        if isinstance(formula, str):
             formula = self.logic.parse_formula(formula)
         elif type(formula) is int:
             return self._formulas[formula]
         constants = {}
         formula.vardoms(None, constants)
-        for domain, constants in constants.iteritems():
+        for domain, constants in constants.items():
             for c in constants: self.constant(domain, c)
         formula.mln = self
         formula.idx = len(self._formulas)
@@ -301,17 +301,17 @@ class MLN(object):
     
     
     def iterformulas(self):
-        '''
+        """
         Returns a generator yielding (idx, formula) tuples.
-        '''
+        """
         for i, f in enumerate(self._formulas):
             yield i, f
     
     
     def weight(self, idx, weight=None):
-        '''
+        """
         Returns or sets the weight of the formula with index `idx`.
-        '''
+        """
         if weight is not None:
             self.weights[idx] = weight
         else:
@@ -323,7 +323,7 @@ class MLN(object):
     
                 
     def materialize(self, *dbs):
-        '''
+        """
         Materializes this MLN with respect to the databases given. This must
         be called before learning or inference can take place.
         
@@ -334,7 +334,7 @@ class MLN(object):
         of the databases, all formulas that make use of this predicate are ignored.
 
         :param dbs:     list of :class:`database.Database` objects for materialization.
-        '''
+        """
         logger.debug("materializing formula templates...")
 
         # obtain full domain with all objects
@@ -346,7 +346,7 @@ class MLN(object):
         # collect the admissible formula templates. templates might be not
         # admissible since the domain of a template variable might be empty.
         for ft in list(mln_.formulas):
-            domnames = ft.vardoms().values()
+            domnames = list(ft.vardoms().values())
             if any([not domname in fulldomain for domname in domnames]):
                 logger.debug('Discarding formula template %s, since it cannot be grounded (domain(s) %s empty).' % \
                     (fstr(ft), ','.join([d for d in domnames if d not in fulldomain])))
@@ -369,7 +369,7 @@ class MLN(object):
             
         # permanently transfer domains of variables that were expanded from templates
         for _, ft in mln_.iterformulas():
-            domnames = ft.template_variables().values()
+            domnames = list(ft.template_variables().values())
             for domname in domnames:
                 mln_.domains[domname] = fulldomain[domname]
 
@@ -379,7 +379,7 @@ class MLN(object):
         for i, template in mln_.iterformulas():
             for variant in template.template_variants():
                 idx = len(mln__._formulas)
-                f = mln__.formula(variant, weight=template.weight if isinstance(template.weight, basestring) else template.weight, 
+                f = mln__.formula(variant, weight=template.weight if isinstance(template.weight, str) else template.weight, 
                                   fixweight=mln_.fixweights[i])
                 f.idx = idx
         mln__._materialized = True
@@ -387,14 +387,14 @@ class MLN(object):
 
 
     def constant(self, domain, *values):
-        '''
+        """
         Adds to the MLN a constant domain value to the domain specified.
         
         If the domain doesn't exist, it is created.
         
         :param domain:    (string) the name of the domain the given value shall be added to.
         :param values:     (string) the values to be added.
-        '''
+        """
         if domain not in self.domains: self.domains[domain] = []
         dom = self.domains[domain]
         for value in values:
@@ -403,41 +403,41 @@ class MLN(object):
 
 
     def ground(self, db):
-        '''
+        """
         Creates and returns a ground Markov Random Field for the given database.
         
         :param db:         database filename (string) or Database object
         :param cw:         if the closed-world assumption shall be applied (to all predicates)
         :param cwpreds:    a list of predicate names the closed-world assumption shall be applied.
-        '''
+        """
         logger.debug('creating ground MRF...')
         mrf = MRF(self, db)
         for pred in self.predicates:
             for gndatom in pred.groundatoms(self, mrf.domains):
                 mrf.gndatom(gndatom.predname, *gndatom.args)
-        evidence = dict([(atom, value) for atom, value in db.evidence.iteritems() if mrf.gndatom(atom) is not None])
+        evidence = dict([(atom, value) for atom, value in db.evidence.items() if mrf.gndatom(atom) is not None])
         mrf.set_evidence(evidence, erase=False)
         return mrf
 
 
     def update_domain(self, domain):
-        '''
+        """
         Combines the existing domain (if any) with the given one.
         
         :param domain: a dictionary with domain Name to list of string constants to add
-        '''
+        """
         for domname in domain: break
         for value in domain[domname]:
             self.constant(domname, value)
 
 
     def learn(self, databases, method=BPLL, **params):
-        '''
+        """
         Triggers the learning parameter learning process for a given set of databases.
         Returns a new MLN object with the learned parameters.
         
         :param databases:     list of :class:`mln.database.Database` objects or filenames
-        '''
+        """
         verbose = params.get('verbose', False)
         
         # get a list of database objects
@@ -445,7 +445,7 @@ class MLN(object):
             raise Exception('At least one database is needed for learning.')
         dbs = []
         for db in databases:
-            if isinstance(db, basestring):
+            if isinstance(db, str):
                 db = Database.load(self, db)
                 if type(db) is list: dbs.extend(db)
                 else: dbs.append(db)
@@ -457,7 +457,7 @@ class MLN(object):
         logger.debug('MLN predicates:')
         for p in newmln.predicates: logger.debug(p)
         logger.debug('MLN domains:')
-        for d in newmln.domains.iteritems(): logger.debug(d)
+        for d in newmln.domains.items(): logger.debug(d)
         if not newmln.formulas:
             raise Exception('No formulas in the materialized MLN.')
         logger.debug('MLN formulas:')
@@ -481,7 +481,7 @@ class MLN(object):
                 "fittingThreshold": self.probabilityFittingThreshold
             }
             fittingParams.update(params)
-            print "fitting with params ", fittingParams
+            print("fitting with params ", fittingParams)
             self._fitProbabilityConstraints(self.probreqs, **fittingParams)
         
         if params.get('ignore_zero_weight_formulas', False):
@@ -495,16 +495,16 @@ class MLN(object):
 
 
     def tofile(self, filename):
-        '''
+        """
         Creates the file with the given filename and writes this MLN into it.
-        '''
+        """
         f = open(filename, 'w+')
         self.write(f, color=False)   
         f.close()
 
 
     def write(self, stream=sys.stdout, color=None):
-        '''
+        """
         Writes the MLN to the given stream.
         
         The default stream is `sys.stdout`. In order to print the MLN to the console, a simple
@@ -513,7 +513,7 @@ class MLN(object):
         
         :param stream:        the stream to write the MLN to.
         :param color:         whether or not output should be colorized.
-        '''
+        """
         if color is None:
             if stream != sys.stdout: 
                 color = False
@@ -527,7 +527,7 @@ class MLN(object):
         stream.write('\n')
         # variable definitions
         if self.vars: stream.write(colorize('// variable definitions\n', comment_color, color))
-        for var, val in self.vars.iteritems():
+        for var, val in self.vars.items():
             stream.write('%s = %s' % (var, val))
         stream.write('\n')
         stream.write(colorize("\n// predicate declarations\n", comment_color, color))
@@ -550,17 +550,17 @@ class MLN(object):
 
 
     def print_formulas(self):
-        '''
+        """
         Nicely prints the formulas and their weights.
-        '''
+        """
         for f in self.iterFormulasPrintable():
-            print f
+            print(f)
 
                 
     def iter_formulas_printable(self):
-        '''
+        """
         Iterate over all formulas, yield nicely formatted strings.
-        '''
+        """
         formulas = sorted(self.formulas)
         for f in formulas:
             if f.weight == HARD:
@@ -573,14 +573,14 @@ class MLN(object):
         
     @staticmethod
     def load(files, logic='FirstOrderLogic', grammar='PRACGrammar', mln=None):
-        '''
+        """
         Reads an MLN object from a file or a set of files.
         
         :param files:     one or more :class:`pracmln.mlnpath` strings. If multiple file names are given,
                           the contents of all files will be concatenated.
         :param logic:     (string) the type of logic to be used. Either `FirstOrderLogic` or `FuzzyLogic`.
         :param grammar:   (string) the syntax to be used for parsing the MLN file. Either `PRACGrammar` or `StandardGrammar`.
-        '''
+        """
         # read MLN file
         text = ''
         if files is not None:
@@ -588,7 +588,7 @@ class MLN(object):
                 files = [files]
             projectpath = None
             for f in files:
-                if isinstance(f, basestring):
+                if isinstance(f, str):
                     p = mlnpath(f)
                     if p.project is not None: 
                         projectpath = p.projectloc
@@ -602,9 +602,9 @@ class MLN(object):
 
 
 def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic', grammar='PRACGrammar', mln=None):
-    '''
+    """
     Reads an MLN from a stream providing a 'read' method.
-    '''
+    """
     dirs = [os.path.abspath(os.path.expandvars(os.path.expanduser(p))) for p in searchpaths]
     formulatemplates = []
     text = str(text)
@@ -690,7 +690,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                 try:
                     uniVars = re.search('#unique{(.+)}', line)
                     uniVars = uniVars.groups()[0]
-                    uniVars = map(str.strip, uniVars.split(','))
+                    uniVars = list(map(str.strip, uniVars.split(',')))
                     uniquevars = uniVars
                 except:
                     raise MLNParsingError('Malformed #unique expression: "%s"' % line)
@@ -712,7 +712,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                 if parse is not None:
                     domName, constants = parse
                     domName = str(domName)
-                    constants = map(str, constants)
+                    constants = list(map(str, constants))
                     if domName in mln.domains: 
                         logger.debug("Domain redefinition: Domain '%s' is being updated with values %s." % (domName, str(constants)))
                     if domName not in mln.domains:
@@ -753,11 +753,11 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                     isPredDecl = True
                     try:
                         pred = mln.logic.parse_predicate(line)
-                    except Exception, e:
+                    except Exception as e:
                         isPredDecl = False
                 if isPredDecl:
                     predname = str(pred[0])
-                    argdoms = map(str, pred[1])
+                    argdoms = list(map(str, pred[1]))
                     softmutex = False
                     mutex = None
                     for i, dom in enumerate(argdoms):
@@ -767,7 +767,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                             if fuzzy: raise Exception('(Soft-)functional predicates must not be fuzzy.')
                             mutex = i
                         if dom[-1] == '?': softmutex = True
-                    argdoms = map(lambda x: x.strip('!?'), argdoms)
+                    argdoms = [x.strip('!?') for x in argdoms]
                     pred = None
                     if mutex is not None:
                         if softmutex:
@@ -812,7 +812,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
 
                         if uniquevars:
                             uniquevars = None
-                    except ParseException, e:
+                    except ParseException as e:
                         raise MLNParsingError("Error parsing formula '%s'\n" % formula)
                 if fuzzy and not isPredDecl: raise Exception('"#fuzzy" decorator not allowed at this place: %s' % line)
         except MLNParsingError:
@@ -825,7 +825,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
     for _, f in mln.iterformulas():
         constants = {}
         f.vardoms(None, constants)
-        for domain, constants in constants.iteritems():
+        for domain, constants in constants.items():
             for c in constants: mln.constant(domain, c)
     
     # save data on formula templates for materialization

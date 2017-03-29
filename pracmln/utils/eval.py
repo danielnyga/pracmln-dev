@@ -89,7 +89,7 @@ class ConfusionMatrix(object):
 		classification counts (in this order).
 		'''
 		tp = self.matrix.get(classname,{}).get(classname,0)
-		classes = self.matrix.keys()
+		classes = list(self.matrix.keys())
 		fp = 0		
 		for c in classes:
 			if c != classname:
@@ -207,9 +207,9 @@ class ConfusionMatrix(object):
 		for cf in classes:
 			acc,pre,rec,f1 = self.getMetrics(cf)
 			
-			print '%s: - Acc=%.2f, Pre=%.2f, Rec=%.2f F1=%.2f' % (cf, acc, pre, rec, f1)
+			print('%s: - Acc=%.2f, Pre=%.2f, Rec=%.2f F1=%.2f' % (cf, acc, pre, rec, f1))
 			
-		print ""
+		print("")
 	def printAveragePrecision(self):
 		classes = []
 		for classification in self.matrix:
@@ -232,13 +232,13 @@ class ConfusionMatrix(object):
 			aRec += rec
 			aF1 += f1
 			
-		print '%s: - Acc=%.2f, Pre=%.2f, Rec=%.2f F1=%.2f' % ('Average: ', aAcc/len(classes), aPre/len(classes), aRec/len(classes), aF1/len(classes))	
-		print ""
+		print('%s: - Acc=%.2f, Pre=%.2f, Rec=%.2f F1=%.2f' % ('Average: ', aAcc/len(classes), aPre/len(classes), aRec/len(classes), aF1/len(classes)))	
+		print("")
 	@staticmethod	
 	def compareConfusionMatrices(*matricesPath):
 		for path in matricesPath:
 			cm = ConfusionMatrix.load(path)
-			print path
+			print(path)
 			cm.printAveragePrecision()
 	
 
@@ -254,33 +254,33 @@ class ConfusionMatrix(object):
 		'''
 		Combines another confusion matrix with this one.
 		'''
-		for (pred, clazz, count) in matrix.iteritems():
+		for (pred, clazz, count) in matrix.items():
 			self.addClassificationResult(pred, clazz, inc=count)
 
 	def __str__(self):
-		maxNumDigits = max(max(map(lambda x: x.values(), self.matrix.values()), key=max))
+		maxNumDigits = max(max([list(x.values()) for x in list(self.matrix.values())], key=max))
 		maxNumDigits = len(str(maxNumDigits))
-		maxClassLabelLength = max(map(len, self.matrix.keys()))
+		maxClassLabelLength = max(list(map(len, list(self.matrix.keys()))))
 		padding = 1
-		numLabels = len(self.matrix.keys())
+		numLabels = len(list(self.matrix.keys()))
 		cellwidth = max(maxClassLabelLength, maxNumDigits, 3) + 2 * padding
 		# create an horizontal line
-		print maxNumDigits
+		print(maxNumDigits)
 		hline = '|' + '-' * (cellwidth) + '+'
 		hline += '+'.join(['-' * (cellwidth)] * numLabels) + '|'
 		sep = '|'
 		outerHLine = '-' * len(hline)
  		
  		def createTableRow(args):
- 			return sep + sep.join(map(lambda a: str(a).rjust(cellwidth-padding) + ' ' * padding, args)) + sep			
+ 			return sep + sep.join([str(a).rjust(cellwidth-padding) + ' ' * padding for a in args]) + sep			
 		endl = '\n'
 		# draw the table
 		table = outerHLine + endl
 		table += createTableRow(['P\C'] + sorted(self.matrix.keys())) + endl
 		table += hline + endl
 		for i, clazz in enumerate(sorted(self.labels)):
-			table += createTableRow([clazz] + map(lambda x: self.getMatrixEntry(clazz, x), sorted(self.labels))) + endl
-			if i < len(self.matrix.keys()) - 1:
+			table += createTableRow([clazz] + [self.getMatrixEntry(clazz, x) for x in sorted(self.labels)]) + endl
+			if i < len(list(self.matrix.keys())) - 1:
 				table += hline + endl
 		table += outerHLine
 		return table
@@ -289,7 +289,7 @@ class ConfusionMatrix(object):
 		'''
 		Prints the confusion matrix nicely formatted onto the standard out.
 		'''
-		print self
+		print(self)
 		
 	def toFile(self, filename):
 		'''
@@ -370,6 +370,6 @@ if __name__ == '__main__':
 	
 	cm.printTable()
 	cm.printPrecisions()
-	print cm.getLatexTable()
+	print(cm.getLatexTable())
 	cm.toPDF('tmp')
-	print pickle.loads(pickle.dumps(cm))
+	print(pickle.loads(pickle.dumps(cm)))

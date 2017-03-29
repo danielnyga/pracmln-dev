@@ -33,9 +33,9 @@ import collections
 logger = praclog.logger(__name__)
 
 class MLNProject(object):
-    '''
+    """
     Represents a .pracmln project archive containing MLNs, DBs and config files.
-    '''
+    """
     
     def __init__(self, name=None):
         self._name = name if name is not None and '.pracmln' in name else '{}.pracmln'.format(name or 'unknown')
@@ -252,16 +252,16 @@ class MLNProject(object):
             # save the query.conf
             zf.writestr('query.conf', self.queryconf.dumps())
             # save the MLNs
-            for name, mln in self.mlns.iteritems():
+            for name, mln in self.mlns.items():
                 zf.writestr(os.path.join('mlns', name), mln)
             # save the model extensions
-            for name, emln in self.emlns.iteritems():
+            for name, emln in self.emlns.items():
                 zf.writestr(os.path.join('emlns', name), emln)
             # save the DBs
-            for name, db in self.dbs.iteritems():
+            for name, db in self.dbs.items():
                 zf.writestr(os.path.join('dbs', name), db)
             # save the results
-            for name, result in self.results.iteritems():
+            for name, result in self.results.items():
                 zf.writestr(os.path.join('results', name), result)
 
         
@@ -287,15 +287,15 @@ class MLNProject(object):
         
 
 def convert(data):
-    '''
+    """
     convert everything to ASCII
-    '''
-    if isinstance(data, basestring):
+    """
+    if isinstance(data, str):
         return str(data)
     elif isinstance(data, collections.Mapping):
-        return dict(map(convert, data.iteritems()))
+        return dict(list(map(convert, iter(data.items()))))
     elif isinstance(data, collections.Iterable):
-        return type(data)(map(convert, data))
+        return type(data)(list(map(convert, data)))
     else:
         return data
     
@@ -381,7 +381,7 @@ class PRACMLNConfig(object):
 
 
 class mlnpath(object):
-    '''
+    """
     Loads the MLN resource content from a location.
     
     A location can be a regular absolute or relative path to an `.mln` file. It may also refer
@@ -396,7 +396,7 @@ class mlnpath(object):
     ...
     
     
-    '''
+    """
     
     
     def __init__(self, path):
@@ -436,9 +436,9 @@ class mlnpath(object):
     
     @property
     def file(self):
-        '''
+        """
         Returns the name of the file specified by this ``mlnpath``.
-        '''
+        """
         return self._file
     
     
@@ -449,9 +449,9 @@ class mlnpath(object):
         
     @property
     def project(self):
-        '''
+        """
         Returns the project name specified.
-        '''
+        """
         return self._project
     
     
@@ -462,9 +462,9 @@ class mlnpath(object):
     
     @property
     def content(self):
-        '''
+        """
         Returns the content of the file specified by this ``mlnpath``.
-        '''
+        """
         path = self.resolve_path()
         if self.project is not None:
             proj = MLNProject.open(os.path.join(self.resolve_path(), self.project))
@@ -490,9 +490,9 @@ class mlnpath(object):
 
     @property
     def projectloc(self):
-        '''
+        """
         Returns the location of the project file, if any is specified.
-        '''
+        """
         if self.project is None:
             raise Exception('No project specified in the path.')
         return os.path.join(self.resolve_path(), self.project)
@@ -500,9 +500,9 @@ class mlnpath(object):
 
     @property
     def exists(self):
-        '''
+        """
         Checks if the file exists.
-        '''
+        """
         return os.path.exists(os.path.join(self.resolve_path(), ifNone(self.project, self.file)))
         
 
@@ -528,7 +528,7 @@ if __name__ == '__main__':
 #     proj.save()
     proj = MLNProject.open('/home/mareikep/Desktop/mln/test.pracmln')
     proj.write()
-    print proj.queryconf.config
+    print(proj.queryconf.config)
     
     
     

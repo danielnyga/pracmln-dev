@@ -21,7 +21,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from common import AbstractLearner
+from .common import AbstractLearner
 import sys
 from pracmln.mln.util import StopWatch, ProgressBar, edict
 from multiprocessing import Pool
@@ -34,7 +34,8 @@ from pracmln.mln.constants import HARD
 logger = logging.getLogger(__name__)
 
 
-def _setup_learner((i, mln_, db, method, params)):
+def _setup_learner(xxx_todo_changeme):
+    (i, mln_, db, method, params) = xxx_todo_changeme
     checkmem()
     mrf = mln_.ground(db)
     algo = method(mrf, **params)
@@ -42,14 +43,14 @@ def _setup_learner((i, mln_, db, method, params)):
 
 
 class MultipleDatabaseLearner(AbstractLearner):
-    '''
+    """
     Learns from multiple databases using an arbitrary sub-learning method for
     each database, assuming independence between individual databases.
-    '''
+    """
 
 
     def __init__(self, mln_, dbs, method, **params):
-        '''
+        """
         :param dbs:         list of :class:`mln.database.Database` objects to
                             be used for learning.
         :param mln_:        the MLN object to be used for learning
@@ -58,7 +59,7 @@ class MultipleDatabaseLearner(AbstractLearner):
                             :class:`mln.methods.LearningMethods`.
         :param **params:    additional parameters handed over to the base
                             learners.
-        '''
+        """
 
         self.dbs = dbs
         self._params = edict(params)
@@ -95,7 +96,7 @@ class MultipleDatabaseLearner(AbstractLearner):
                     bar.label('Database %d, %s' % ((i + 1), learner.name))
                     bar.inc()
         if self.verbose:
-            print 'set up', self.name
+            print('set up', self.name)
         self.watch.finish('setup learners')
 
 
@@ -117,7 +118,7 @@ class MultipleDatabaseLearner(AbstractLearner):
             likelihood = 0
             pool = Pool()
             try:
-                for i, (f_, d_) in enumerate(pool.imap(with_tracing(_methodcaller('_f', sideeffects=True)), map(lambda l: (l, w), self.learners))):
+                for i, (f_, d_) in enumerate(pool.imap(with_tracing(_methodcaller('_f', sideeffects=True)), [(l, w) for l in self.learners])):
                     self.learners[i].__dict__ = d_
                     likelihood += f_
             except Exception as e:
@@ -129,7 +130,7 @@ class MultipleDatabaseLearner(AbstractLearner):
                 pool.join()
             return likelihood
         else:
-            return sum(map(lambda l: l._f(w), self.learners))
+            return sum([l._f(w) for l in self.learners])
 
 
     def _grad(self, w):
@@ -139,7 +140,7 @@ class MultipleDatabaseLearner(AbstractLearner):
             # in separate processes, so we turn it off 
             pool = Pool()
             try:
-                for i, (grad_, d_) in enumerate(pool.imap(with_tracing(_methodcaller('_grad', sideeffects=True)), map(lambda l: (l, w), self.learners))):
+                for i, (grad_, d_) in enumerate(pool.imap(with_tracing(_methodcaller('_grad', sideeffects=True)), [(l, w) for l in self.learners])):
                     self.learners[i].__dict__ = d_
                     grad += grad_
             except Exception as e:
@@ -160,7 +161,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         if self.multicore:
             pool = Pool()
             try:
-                for h in pool.imap(with_tracing(_methodcaller('_hessian')), map(lambda l: (l, w), self.learners)):
+                for h in pool.imap(with_tracing(_methodcaller('_hessian')), [(l, w) for l in self.learners]):
                     hessian += h
             except Exception as e:
                 logger.error('Error in child process. Terminating pool...')
@@ -200,10 +201,10 @@ class MultipleDatabaseLearner(AbstractLearner):
 
 
     def _filter_fixweights(self, v):
-        '''
+        """
         Removes from the vector `v` all elements at indices that correspond to
         a fixed weight formula index.
-        '''
+        """
         if len(v) != len(self.mln.formulas):
             raise Exception('Vector must have same length as formula weights')
         return [v[i] for i in range(len(self.mln.formulas)) if not self.mln.fixweights[i] and self.mln.weights[i] != HARD]

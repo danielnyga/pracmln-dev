@@ -27,8 +27,8 @@
 
 import sys
 
-from common import *
-from ll import *
+from .common import *
+from .ll import *
 from pracmln import logic
 
 
@@ -64,15 +64,15 @@ class MCMCSampler(object):
                 self.hessianProd = numpy.zeros((N,N), numpy.float64)
             
             self.mrf.mln.setWeights(wtFull)
-            print "calling MCSAT with weights:", wtFull
+            print("calling MCSAT with weights:", wtFull)
             
             #evidenceString = evidence2conjunction(self.mrf.getEvidenceDatabase())
             what = [logic.FirstOrderLogic.TrueFalse(True)]      
             mcsat = self.mrf.inferMCSAT(what, sampleCallback=self._sampleCallback, **self.mcsatParams)
             #print mcsat
-            print "sampled %d worlds" % self.numSamples
+            print("sampled %d worlds" % self.numSamples)
         else:
-            print "using cached values, no sampling (weights did not change)"
+            print("using cached values, no sampling (weights did not change)")
             
     def _sampleCallback(self, sample, step):
         world = sample.chains[0].state
@@ -98,23 +98,23 @@ class MCMCSampler(object):
         
         if self.computeHessian:
             #print "computing hessian"
-            for i in xrange(self.N):
+            for i in range(self.N):
                 self.hessianProd[i][i] += formulaCounts[i]**2
-                for j in xrange(i+1, self.N):
+                for j in range(i+1, self.N):
                     v = formulaCounts[i] * formulaCounts[j]
                     self.hessianProd[i][j] += v
                     self.hessianProd[j][i] += v
         
         if self.numSamples % 1000 == 0:
-            print "  MCSAT sample #%d" % self.numSamples
+            print("  MCSAT sample #%d" % self.numSamples)
     
     def getHessian(self):
         if not self.computeHessian: raise Exception("The Hessian matrix was not computed for this learning method")
         if not self.hessian is None: return self.hessian
         self.hessian = numpy.zeros((self.N,self.N), numpy.float64)
         eCounts = self.globalFormulaCounts / self.numSamples
-        for i in xrange(self.N):
-            for j in xrange(self.N):
+        for i in range(self.N):
+            for j in range(self.N):
                 self.hessian[i][j] = eCounts[i] * eCounts[j]
         self.hessian -= self.hessianProd / self.numSamples
         return self.hessian
@@ -124,13 +124,13 @@ class MCMCSampler(object):
 
 
 class SLL(AbstractLearner):
-    '''
+    """
         sample-based log-likelihood
-    '''
+    """
      
     def __init__(self, mrf, **params):
         AbstractLearner.__init__(self, mrf, **params)
-        if len(filter(lambda b: isinstance(b, SoftMutexBlock), self.mrf.gndAtomicBlocks)) > 0:
+        if len([b for b in self.mrf.gndAtomicBlocks if isinstance(b, SoftMutexBlock)]) > 0:
             raise Exception('%s cannot handle soft-functional constraints' % self.__class__.__name__)
         self.mcsatSteps = self.params.get("mcsatSteps", 2000)        
         self.samplerParams = dict(given="", softEvidence={}, maxSteps=self.mcsatSteps, 
@@ -166,7 +166,7 @@ class SLL(AbstractLearner):
      
     def _prepareOpt(self):
         # compute counts
-        print "computing counts for training database..."
+        print("computing counts for training database...")
         self.formulaCountsTrainingDB = self.mrf.countTrueGroundingsInWorld(self.mrf.evidence)
          
         # initialise sampler
@@ -181,9 +181,9 @@ class SLL(AbstractLearner):
  
  
 class SLL_DN(SLL):
-    '''
+    """
         sample-based log-likelihood via diagonal Newton
-    '''
+    """
      
     def __init__(self, mrf, **params):
         SLL.__init__(self, mrf, **params)
@@ -200,14 +200,14 @@ class SLL_DN(SLL):
         return "diagonalNewton"
          
  
-from softeval import truthDegreeGivenSoftEvidence
+from .softeval import truthDegreeGivenSoftEvidence
  
  
 # class SLL_ISE(LL_ISE):
-#     '''
+#     """
 #         Uses soft features to compute counts for a fictitious soft world (assuming independent soft evidence)
 #         Uses MCMC sampling to approximate the normalisation constant
-#     '''    
+#     """    
 #      
 #     def __init__(self, mrf, **params):
 #         LL_ISE.__init__(self, mrf, **params)
@@ -266,13 +266,13 @@ from softeval import truthDegreeGivenSoftEvidence
 #  
 #  
 # class SLL_SE(SoftEvidenceLearner):
-#     '''
+#     """
 #         NOTE: SLL_SE_DN should usually be preferred to this
 #      
 #         sampling-based maximum likelihood with soft evidence (SMLSE):
 #         uses MC-SAT-PC to sample soft evidence worlds
 #         uses MC-SAT to sample worlds in order to approximate Z
-#     '''
+#     """
 #      
 #     def __init__(self, mrf, **params):
 #         SoftEvidenceLearner.__init__(self, mrf, **params)        
@@ -323,9 +323,9 @@ from softeval import truthDegreeGivenSoftEvidence
 #  
 # 
 # class SLL_SE_DN(SoftEvidenceLearner):
-#     '''
+#     """
 #         sample-based log-likelihood with soft evidence via diagonal Newton
-#     '''
+#     """
 #     
 #     def __init__(self, mrf, **params):
 #         print "init soft ev learner"

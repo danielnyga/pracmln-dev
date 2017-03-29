@@ -35,18 +35,19 @@ from utils.clustering import CorrelationClustering
 from mln.util import fstr, fsum
 from mln.learning.wpll import WPLL
 from mln.grounding.pll import PLLGroundingFactory
+from functools import reduce
 
 
 class AtomCorrelationMatrix(object):
-    '''
+    """
     Matrix of correlations of atoms within a formula.
-    '''
+    """
     
     def __init__(self, mlnboost, formula, group_templ_atoms=False):
-        '''
+        """
         group_templ_atoms:     do not compute the correlations of atoms
                                that have been generated from the same template.
-        '''
+        """
         self.mlnboost = mlnboost
         self.mln = mlnboost.mln
         self.mrfs = mlnboost.mrfs
@@ -73,7 +74,8 @@ class AtomCorrelationMatrix(object):
                 else:
                     self.corr[i][j] = self._compute_atom_correlation(self.atoms[i], self.atoms[j], eq_constraints)
                 
-    def __getitem__(self, (i, j)):
+    def __getitem__(self, xxx_todo_changeme):
+        (i, j) = xxx_todo_changeme
         if isinstance(i, Logic.Lit):
             i = self.atom2idx[i]
         if isinstance(j, Logic.Lit):
@@ -82,7 +84,7 @@ class AtomCorrelationMatrix(object):
     
     def __str__(self):
         table = [[str(self.atoms[i])] + [self[i,j] for j in range(len(self.atoms))] for i in range(len(self.atoms))]
-        return tabulate(table, headers=map(str, self.atoms))
+        return tabulate(table, headers=list(map(str, self.atoms)))
     
     def __len__(self):
         return len(self.atoms)
@@ -94,11 +96,11 @@ class AtomCorrelationMatrix(object):
                 yield (self.atoms[i], self.atoms[j]), self[i, j]
                 
     def items(self):
-        return list(self.iteritems())
+        return list(self.items())
         
         
     def _compute_atom_correlation(self, atom1, atom2, *eq_constraints):
-        '''
+        """
         Computes the (weighted) correlation of two atoms with respect
         to truth values of all their ground atoms in all learning databases.
         
@@ -109,7 +111,7 @@ class AtomCorrelationMatrix(object):
         eq_constraints is an optional argument specifying a list of equality
         constraints on variables contained in atom1 or atom2 that have to be
         met by the ground atoms taken into account when computing the covariances. 
-        '''
+        """
         # construct a conjunction for counting covariances
         conj = self.mln.logic.conjunction([atom1, atom2])
         ecg = EqualityConstraintGrounder(self.mln, EqualityConstraintGrounder.getVarDomainsFromFormula(self.mln, conj))
@@ -146,14 +148,14 @@ class AtomCorrelationMatrix(object):
         var2 /= (n - 1) / n * w2_total
         var1 = max(1e-5, var1)
         var2 = max(1e-5, var2)
-        print len(datapoints)
+        print(len(datapoints))
         return w_total / (w_total ** 2 - wsq_total) * cov / math.sqrt(var1 * var2)
 
 
 class WeakMLNLearn():
-    '''
+    """
     Weight-sensitive learning of 'weak' Markov logic network structures.
-    '''
+    """
     
     def __init__(self, mlnboost):
         self.mln = mlnboost.mln
@@ -171,11 +173,11 @@ class WeakMLNLearn():
         
     def _learn_from_formula(self, from_formula):
         corr = AtomCorrelationMatrix(self.mlnboost, from_formula, group_templ_atoms=True)
-        print corr
-        clusters = CorrelationClustering(corr.items(), corr.atoms, corr, thr=.2).cluster2data
-        print clusters
+        print(corr)
+        clusters = CorrelationClustering(list(corr.items()), corr.atoms, corr, thr=.2).cluster2data
+        print(clusters)
         formulas = []
-        for idx, cluster in clusters.iteritems():
+        for idx, cluster in clusters.items():
             for f in self._formula_from_cluster(cluster, corr):
 #                 print idx, f
                 formulas.append(f)
@@ -187,7 +189,7 @@ class WeakMLNLearn():
         for atom in cluster_atoms:
             atom_groups[corr.groups[atom]].append(atom)
         cnf = []
-        for disj in atom_groups.values():
+        for disj in list(atom_groups.values()):
             if len(disj) == 1:
                 cnf.append(self.mln.logic.lit(False, disj[0].predName, disj[0].params))
             else:
@@ -215,9 +217,9 @@ class WeakMLNLearn():
 
 
 class MLNBoost(AbstractLearner):
-    '''
+    """
     Learning MLNs via functional gradient boosting.
-    '''
+    """
     
     def __init__(self, mln, dbs, **params):
         AbstractLearner.__init__(self, mln, mrf=None, **params)
@@ -235,7 +237,7 @@ class MLNBoost(AbstractLearner):
         for db in self.dbs:
             mrf = mln.groundMRF(db, cwAssumption=True, groundingMethod='NoGroundingFactory', **self.params)
             self.mrfs.append(mrf)
-        self.variables = reduce(list.__add__, map(lambda mrf: list(mrf.variables.values()), self.mrfs))
+        self.variables = reduce(list.__add__, [list(mrf.variables.values()) for mrf in self.mrfs])
         # materialize the variable weights
         for idx, var in enumerate(self.variables):
             var.global_idx = idx
@@ -257,13 +259,13 @@ class MLNBoost(AbstractLearner):
         if T is None: T = 5
         formulas = []
         for t in range(T):
-            print 'MLN-BOOST ITERATION #%s / %d' % (str(t+1).rjust(3, ' '), T)
+            print('MLN-BOOST ITERATION #%s / %d' % (str(t+1).rjust(3, ' '), T))
             weak_formulas = WeakMLNLearn(self).learn()
             weakmln = self.mln.duplicate()
             weakmln.formulas = weak_formulas
             weakmln = weakmln.materializeFormulaTemplates(self.dbs)
             for f in weak_formulas:
-                print f.idxFormula, f
+                print(f.idxFormula, f)
             exit(0)
             formulas.extend(weak_formulas)
             # ground the weak MLN and adjust the cll learners
@@ -282,7 +284,7 @@ class MLNBoost(AbstractLearner):
             # compute the targets
             self.clock.tag('computing the regression targets')
             y = [-(gndatom.truth - gndatom.prob) / (gndatom.prob * (1. - gndatom.prob)) for gndatom in self.gndatoms]
-            if len(filter(lambda x: float('inf') == x or float('inf') == -x, y)) > 0:
+            if len([x for x in y if float('inf') == x or float('inf') == -x]) > 0:
                 log.error('Learning has stopped due to numerical instability.')
                 break
             self.clock.finish()
@@ -324,7 +326,7 @@ class MLNBoost(AbstractLearner):
                 probs = probs / fsum(probs)
                 gndatom.prob = probs[gndatom.value_idx]
         for gndatom in self.gndatoms:
-            print '%.3f  %.3f  %s' % (gndatom.truth, gndatom.prob, str(gndatom.atom))
+            print('%.3f  %.3f  %s' % (gndatom.truth, gndatom.prob, str(gndatom.atom)))
         self.clock.printSteps()
         self.mln.formulas = formulas
         for f, w in zip(formulas, formula_weights):
@@ -346,7 +348,7 @@ class MLNBoost(AbstractLearner):
     def merge_attribute_domains(mln, *dbs):
         attr_domains = defaultdict(set)
         for db in dbs:
-            for dom, values in db.domains.iteritems():
+            for dom, values in db.domains.items():
                 if dom.startswith(':'): continue
                 attr_domains[dom].update(values)
         return attr_domains
@@ -375,10 +377,10 @@ class MLNBoost(AbstractLearner):
         return w_true / w_total
         
     def _compute_atom_means(self):
-        '''
+        """
         Computes the _atom_means attribute storing all weighted 
         mean truth values of all template atoms.
-        '''
+        """
         means = []
         for atom in self.templ_atoms:
             means.append(self._atom_mean(atom))
@@ -386,19 +388,19 @@ class MLNBoost(AbstractLearner):
         
     
     class BoostedMRF(object):
-        '''
+        """
         Extends the ordinary MRF by a list of BoostedGroundAtoms.
-        '''
+        """
         
         def __init__(self, mrf):
             self.bgnd_atoms = [None] * len(mrf.gndAtoms)
             self.mrf = mrf
     
     class BoostedGroundAtom(object):
-        '''
+        """
         An extension to ordinary ground atom with a weight and a probability
         assignment.
-        '''
+        """
         
         def __init__(self, atom, idx, truth, prob, weight, mrf, cll):
             self.atom = atom

@@ -33,6 +33,7 @@ import traceback
 from pracmln.praclog.logformat import RainbowLoggingHandler
 from collections import defaultdict
 import random
+from functools import reduce
 
 # math functions
 
@@ -87,17 +88,17 @@ def caller(tb=1):
 
 def out(*args, **kwargs):
     rv = caller(kwargs.get('tb', 1))
-    print '%s: l.%d: %s' % (os.path.basename(rv[0]), rv[1], ' '.join(map(str, args)))
+    print(('%s: l.%d: %s' % (os.path.basename(rv[0]), rv[1], ' '.join(map(str, args)))))
 
 
 def stop(*args, **kwargs):
     out(*args, **edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
     sys.stdout.write('<press enter to continue>\r')
-    raw_input()
+    eval(input())
     
 
 def trace(*args, **kwargs):
-    print '=== STACK TRACE ==='
+    print('=== STACK TRACE ===')
     sys.stdout.flush()
     traceback.print_stack(file=sys.stdout)
     out(*args, **edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
@@ -111,15 +112,15 @@ def stoptrace(*args, **kwargs):
 
 def crash(*args, **kwargs):
     out(*args, **edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
-    print colorize('TERMINATING.', ('red', None, True), True)
+    print((colorize('TERMINATING.', ('red', None, True), True)))
     exit(-1)
 
 def flip(value):
-    '''
+    """
     Flips the given binary value to its complement.
     
     Works with ints and booleans. 
-    '''
+    """
     if type(value) is bool:
         return True if value is False else False
     elif type(value) is int:
@@ -168,12 +169,12 @@ def stripComments(text):
 
 
 def parse_queries(mln, query_str):
-    '''
+    """
     Parses a list of comma-separated query strings.
     
     Admissible queries are all kinds of formulas or just predicate names.
     Returns a list of the queries.
-    '''
+    """
     queries = []
     query_preds = set()
     q = ''
@@ -186,7 +187,7 @@ def parse_queries(mln, query_str):
                 # try to read it as a formula and update query predicates
                 f = mln.logic.parse_formula(q)
                 literals = f.literals()
-                prednames = map(lambda l: l.predname, literals)
+                prednames = [l.predname for l in literals]
                 query_preds.update(prednames)
             except:
                 # not a formula, must be a pure predicate name 
@@ -198,17 +199,19 @@ def parse_queries(mln, query_str):
 
 
 def predicate_declaration_string(predName, domains, blocks):
-    '''
+    """
     Returns a string representation of the given predicate.
-    '''
+    """
     args_list = ['%s%s' % (arg, {True: '!', False: ''}[block]) for arg, block in zip(domains, blocks)]
     args = ', '.join(args_list)
     return '%s(%s)' % (predName, args)
 
 
 def getPredicateList(filename):
-    ''' gets the set of predicate names from an MLN file '''
-    content = file(filename, "r").read() + "\n"
+    """ 
+    Gets the set of predicate names from an MLN file 
+    """
+    content = open(filename, "r").read() + "\n"
     content = stripComments(content)
     lines = content.split("\n")
     predDecl = re.compile(r"(\w+)\([^\)]+\)")
@@ -225,10 +228,10 @@ def avg(*a):
 
 
 class CallByRef(object):
-    '''
+    """
     Convenience class for treating any kind of variable as an object that can be
     manipulated in-place by a call-by-reference, in particular for primitive data types such as numbers.
-    '''
+    """
     
     def __init__(self, value):
         self.value = value
@@ -260,7 +263,7 @@ class Interval():
         
     
 def ifNone(expr, else_expr, transform=None):
-    '''
+    """
     Short version of the ternary if-then-else construct that returns the given expression `expr` if it is
     not `None` or else_expr otherwise. Optionally, a transformation can be specified, which
     is applied to `expr` in case it is not None.
@@ -276,7 +279,7 @@ def ifNone(expr, else_expr, transform=None):
     Thu Jun 18 11:27:23 2015
     >>> print ifNone(None, 'N/A', time.ctime)
     N/A
-    '''
+    """
     if expr is None:
         return else_expr
     else:
@@ -287,7 +290,7 @@ def ifNone(expr, else_expr, transform=None):
 
 
 def elapsedtime(start, end=None):
-    '''
+    """
     Compute the elapsed time of the interval `start` to `end`.
     
     Returns a pair (t,s) where t is the time in seconds elapsed thus 
@@ -295,7 +298,7 @@ def elapsedtime(start, end=None):
     
     :param start:    the starting point of the time interval.
     :param end:      the end point of the time interval. If `None`, the current time is taken.
-    '''
+    """
     if end is not None:
         elapsed = end - start
     else:
@@ -339,10 +342,10 @@ def cumsum(i, upto=None):
 
 
 def evidence2conjunction(evidence):
-    '''
+    """
     Converts the evidence obtained from a database (dict mapping ground atom names to truth values) to a conjunction (string)
-    '''
-    evidence = map(lambda x: ("" if x[1] else "!") + x[0], evidence.iteritems())
+    """
+    evidence = [("" if x[1] else "!") + x[0] for x in iter(list(evidence.items()))]
     return " ^ ".join(evidence)
 
 
@@ -351,21 +354,21 @@ def tty(stream):
     return isatty and isatty()
     
 def barstr(width, percent, color=None):
-    '''
+    """
     Returns the string representation of an ASCII 'progress bar'.
     
     
-    '''
+    """
     barw = int(round(width * percent))
     bar = ''.ljust(barw, '=')
     bar = bar.ljust(width, ' ')
     if color is not None:
-        filler = u'\u25A0'
+        filler = '\\u25A0'
         bar = bar.replace('=', filler)
         bar = colorize('[', format=(None, None, True), color=True) + colorize(bar, format=(None, color, False), color=True) + colorize(']', format=(None, None, True), color=True)
     else:
         bar = '[%s]' % bar
-    return u'{0} {1: >7.3f} %'.format(bar, percent * 100.).encode('utf8') 
+    return '{0} {1: >7.3f} %'.format(bar, percent * 100.).encode('utf8') 
 
 
 class ProgressBar():
@@ -423,17 +426,17 @@ def gradGaussianZeroMean(x, sigma):
 
 
 def mergedom(*domains):
-    ''' 
+    """ 
     Returning a new domains dictionary that contains the elements of all the given domains
-    '''
+    """
     fullDomain = {}
     for domain in domains:
-        for domName, values in domain.iteritems():
+        for domName, values in list(domain.items()):
             if domName not in fullDomain:
                 fullDomain[domName] = set(values)
             else:
                 fullDomain[domName].update(values)
-    for key, s in fullDomain.iteritems():
+    for key, s in list(fullDomain.items()):
         fullDomain[key] = list(s)
     return fullDomain
 
@@ -441,7 +444,7 @@ def mergedom(*domains):
 
 
 def colorize(message, format, color=False):
-    '''
+    """
     Returns the given message in a colorized format
     string with ANSI escape codes for colorized console outputs:
     - message:   the message to be formatted.
@@ -450,7 +453,7 @@ def colorize(message, format, color=False):
                  'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'
     - color:     boolean determining whether or not the colorization
                  is to be actually performed.
-    '''
+    """
     colorize.colorHandler = RainbowLoggingHandler(sys.stdout)
     if color is False: return message
     params = []
@@ -484,9 +487,9 @@ class StopWatchTag:
     
 
 class StopWatch(object):
-    '''
+    """
     Simple tagging of time spans.
-    '''
+    """
     
     
     def __init__(self):
@@ -495,7 +498,7 @@ class StopWatch(object):
         
     def tag(self, label, verbose=True):
         if verbose:
-            print '%s...' % label
+            print(('%s...' % label))
         tag = self.tags.get(label)
         now = time.time()
         if tag is None:
@@ -508,7 +511,7 @@ class StopWatch(object):
     def finish(self, label=None):
         now = time.time()
         if label is None:
-            for _, tag in self.tags.iteritems():
+            for _, tag in list(self.tags.items()):
                 tag.stoptime = ifNone(tag.stoptime, now)
         else:
             tag = self.tags.get(label)
@@ -526,11 +529,11 @@ class StopWatch(object):
 
         
     def printSteps(self):
-        for t in sorted(self.tags.values(), key=lambda t: t.starttime):
+        for t in sorted(list(self.tags.values()), key=lambda t: t.starttime):
             if t.finished:
-                print '%s took %s' % (colorize(t.label, (None, None, True), True), elapsed_time_str(t.elapsedtime))
+                print(('%s took %s' % (colorize(t.label, (None, None, True), True), elapsed_time_str(t.elapsedtime))))
             else:
-                print '%s is running for %s now...' % (colorize(t.label, (None, None, True), True), elapsed_time_str(t.elapsedtime))
+                print(('%s is running for %s now...' % (colorize(t.label, (None, None, True), True), elapsed_time_str(t.elapsedtime))))
 
 
 def combinations(domains):
@@ -547,11 +550,11 @@ def _combinations(domains, comb):
             yield ret
             
 def deprecated(func):
-    '''
+    """
     This is a decorator which can be used to mark functions
     as deprecated. It will result in a warning being emmitted
     when the function is used.
-    '''
+    """
     def newFunc(*args, **kwargs):
         logging.getLogger().warning("Call to deprecated function: %s." % func.__name__)
         return func(*args, **kwargs)
@@ -561,30 +564,30 @@ def deprecated(func):
     return newFunc
             
 def unifyDicts(d1, d2):
-    '''
+    """
     Adds all key-value pairs from d2 to d1.
-    '''
+    """
     for key in d2:
         d1[key] = d2[key]
         
 def dict_union(d1, d2):
-    '''
+    """
     Returns a new dict containing all items from d1 and d2. Entries in d1 are
     overridden by the respective items in d2.
-    '''
+    """
     d_new = {}
-    for key, value in d1.iteritems():
+    for key, value in list(d1.items()):
         d_new[key] = value
-    for key, value in d2.iteritems():
+    for key, value in list(d2.items()):
         d_new[key] = value
     return d_new
 
 
 def dict_subset(subset, superset):
-    '''
+    """
     Checks whether or not a dictionary is a subset of another dictionary.
-    '''
-    return all(item in superset.items() for item in subset.items())
+    """
+    return all(item in list(superset.items()) for item in list(subset.items()))
 
 
 class edict(dict):
@@ -613,16 +616,16 @@ class eset(set):
     
 
 def item(s):
-    '''
+    """
     Returns an arbitrary item from the given set `s`.
-    '''
+    """
     if not s:
         raise Exception('Argument of type %s is empty.' % type(s).__name__)
     for i in s: break
     return i
 
 class temporary_evidence():
-    '''
+    """
     Context guard class for enabling convenient handling of temporary evidence in
     MRFs using the python `with` statement. This guarantees that the evidence
     is set back to the original whatever happens in the `with` block.
@@ -630,7 +633,7 @@ class temporary_evidence():
     :Example:
     
     >> with temporary_evidence(mrf, [0, 0, 0, 1, 0, None, None]) as mrf_:
-    '''
+    """
     
     
     def __init__(self, mrf, evidence=None):

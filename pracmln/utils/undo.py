@@ -22,33 +22,33 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 class Undoable(object):
-    '''
+    """
     Base class for all data structures that support  histories of
     manipulations for undoing changes. Supports the concept of epochs:
     An epoch denotes a subsequence of actions that can be undone in a batch. 
-    '''
+    """
 
     def __init__(self):
         self.actionStack = []
         
     def reset(self):
-        '''
+        """
         Undoes all actions until the initial state is reached.
-        '''
+        """
         while not self.isReset():
             self.undo()
             
     def isReset(self):
-        '''
+        """
         Returns True if there is no action to be undone, thus the
         dict is entirely reset.
-        '''
+        """
         return len(self.actionStack) == 0
     
     def undo(self):
-        '''
+        """
         Undoes the most recent undoable action. Ignores epochs.
-        '''
+        """
         if len(self.actionStack) == 0:
             raise Exception('There is nothing to be undone.')
         action = self.actionStack.pop()
@@ -58,15 +58,15 @@ class Undoable(object):
             action.undo()
         
     def epochEndsHere(self):
-        '''
+        """
         Mark the current epoch as ended with the most recent action.
-        '''
+        """
         self.actionStack.append(None) # None serves as a separator between epochs
         
     def undoEpoch(self):
-        '''
+        """
         Undo all changes back to the previous epoch.
-        '''
+        """
         if len(self.actionStack) == 0:
             raise Exception('There is nothing to be undone.')
         if self.actionStack[-1] is not None:
@@ -81,10 +81,10 @@ class Undoable(object):
                 action.undo()
     
     def do(self, action, *args):
-        '''
+        """
         Executes the action and pushes it onto the stack of actions.
         *args is the arguments to the action.
-        '''
+        """
         self.actionStack.append(action)
         action.do(*args)
 
@@ -93,23 +93,23 @@ class Undoable(object):
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 class UndoableAction(object):
-    '''
+    """
     An abstract interface for wrapper classes implementing
     some doable/undoable actions.
-    '''
+    """
     def __init__(self, struct):
         self.struct = struct
     
     def do(self, **args):
-        '''
+        """
         Called when the action should be performed.
-        '''
+        """
         pass
         
     def undo(self):
-        '''
+        """
         Called when the action should be undone.
-        '''
+        """
         pass
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -322,14 +322,14 @@ class Ref(Undoable):
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 class ListDict(Undoable):
-    '''
+    """
     A dictionary mapping to lists of items. The main difference to the 
     normal dicts is that the methods for putting an item to the dict
     automatically create the empty list, when an entry does not exist
     so far. Analogously, when removing a item, an possibly empty list
     is removed from the dict. Also supports a history of all operations 
     for undoing changes.
-    '''
+    """
     
     def __init__(self, dictionary=None):
         Undoable.__init__(self)
@@ -344,10 +344,10 @@ class ListDict(Undoable):
         return len(self.d)
         
     def __getitem__(self, key):
-        '''
+        """
         As opposed to the standard dict, this method returns None if
         there is no dict entry for key, instead of raising an exception.
-        '''
+        """
         return self.d.get(key, None)
     
     def get(self, key, default=None):
@@ -364,39 +364,39 @@ class ListDict(Undoable):
         
         
     def put(self, key, element):
-        '''
+        """
         Undoable putting action of an element to the list associated to
         the key. If the list doesn't exist, it's created.
-        '''
+        """
         self.do(ListDictPut(self), key, element)
         
     def extend(self, key, elements):
-        '''
+        """
         Extend the list associated to the key by the elements.
-        '''
+        """
         self.do(ListDictExtend(self), key, elements)
         
     def drop(self, key, element):
-        '''
+        """
         Undoable action for dropping an element from the list 
         associated to the key. If the list gets empty, it's being
         deleted from the dict.
-        '''
+        """
         self.do(ListDictRemove(self), key, element)
     
 #     def __iter__(self):
 #         return self.d.keys()
         
     def keys(self):
-        return self.d.keys()
+        return list(self.d.keys())
         
     def values(self):
-        return self.d.values()
+        return list(self.d.values())
         
     def contains(self, key, element):
-        '''
+        """
         Checks if the element is the list associated with the key.
-        '''
+        """
         l = self[key]
         if l is None: return False
         else: return element in l
@@ -409,7 +409,7 @@ class ListDict(Undoable):
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 class Number(Undoable):
-    '''
+    """
     Represents a numeric value, which keeps track of all changes made to it.
     The changes can be undone. Example:
         n = Number(0) # initialization
@@ -419,7 +419,7 @@ class Number(Undoable):
         print n # will print "0"
     Caution: since "=" cannot be overridden, assignments need to be made
     by calling n.set(x)
-    '''
+    """
     
     @staticmethod
     def __value(number):
@@ -433,9 +433,9 @@ class Number(Undoable):
         self.value = value
     
     def set(self, number):
-        '''
+        """
         Assigns a new value to the variable.
-        '''
+        """
         self.do(Assignment(self), Number.__value(number))
     
     def __iadd__(self, other):
@@ -477,9 +477,9 @@ class Number(Undoable):
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 class Boolean(Undoable):
-    '''
+    """
     Boolean supporting undo operations.
-    '''
+    """
     
     def __init__(self, isTrue):
         Undoable.__init__(self)
@@ -493,9 +493,9 @@ class Boolean(Undoable):
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 class List(Undoable):
-    '''
+    """
     List supporting undo operations.
-    '''
+    """
     
     def __init__(self, *args):
         Undoable.__init__(self)
@@ -545,63 +545,63 @@ if __name__ == '__main__':
     
     # test the ListDict history and epochs
     d = ListDict()
-    print d
+    print(d)
     d.put('a', 1)
-    print d
+    print(d)
     d.put('a', 2)
-    print d
+    print(d)
     d.put('b', 4)
-    print d
+    print(d)
     d.put('b', 4)
-    print d
+    print(d)
     d.put('b', 4)
-    print d
+    print(d)
     d.put('b', 4)
-    print d
+    print(d)
     d.drop('a', 2)
-    print d
-    print len(d)
+    print(d)
+    print(len(d))
     while not d.isReset():
         d.undo()
-        print d
+        print(d)
         
     l = List()
     l.append(1)
     l.append(2)
     l.clear()
     l.append(1)
-    print l
+    print(l)
     l.undo()
     l.undo()
-    print l
+    print(l)
     
     # test the Number history
     n = Number(0)
     for _ in range(10):
         n += 1
-        print n
+        print(n)
     while not n.isReset():
         n.undo()
-        print n
+        print(n)
         
     # test the Ref history
     r = Ref('Hello, world!')
-    print len(r.obj)
-    print r
+    print(len(r.obj))
+    print(r)
     l = [1,2,3]
     r.set(l)
-    print r.obj
+    print(r.obj)
     r.undo()
-    print r
+    print(r)
     
     b = Boolean(False)
     b.set(True)
     b.set(True)
     b.set(False)
-    print b.value
+    print(b.value)
     while not b.isReset():
         b.undo()
-        print b.value
+        print(b.value)
    
         
         

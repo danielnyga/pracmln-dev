@@ -33,9 +33,9 @@ from pracmln.logic.common import Logic
 from pracmln.mln.constants import HARD, ALL
 
 class SAMaxWalkSAT(MCMCInference):
-    '''
+    """
     A MaxWalkSAT MPE solver using simulated annealing.
-    '''
+    """
     
     
     def __init__(self, mrf, queries=ALL, state=None, **params):
@@ -56,7 +56,7 @@ class SAMaxWalkSAT(MCMCInference):
         grounder = FastConjunctionGrounding(mrf, formulas=formulas, simplify=True, unsatfailure=True)
         for gf in grounder.itergroundings():
             if isinstance(gf, Logic.TrueFalse): continue
-            vars_ = set(map(lambda a: self.mrf.variable(a).idx, gf.gndatoms()))
+            vars_ = set([self.mrf.variable(a).idx for a in gf.gndatoms()])
             for v in vars_: self.var2gf[v].add(gf)
             self.sum += (self.hardw if gf.weight == HARD else gf.weight) * (1 - gf(self.state))
         
@@ -121,7 +121,7 @@ class SAMaxWalkSAT(MCMCInference):
                 bar.label('sum = %f' % self.sum)
                 bar.inc()
         if self.verbose:
-            print "SAMaxWalkSAT: %d iterations, sum=%f, threshold=%f" % (i, self.sum, self.thr)
+            print("SAMaxWalkSAT: %d iterations, sum=%f, threshold=%f" % (i, self.sum, self.thr))
         self.mrf.mln.weights = self.weights
         return dict([(str(q), self.state[q.gndatom.idx]) for q in self.queries])
     

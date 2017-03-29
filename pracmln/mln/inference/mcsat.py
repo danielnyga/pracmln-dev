@@ -46,9 +46,9 @@ logger = praclog.logger(__name__)
 
 
 class MCSAT(MCMCInference):
-    ''' 
+    """ 
     MC-SAT/MC-SAT-PC
-    '''
+    """
     
     def __init__(self, mrf, queries=ALL, **params):
         MCMCInference.__init__(self, mrf, queries, **params)
@@ -56,9 +56,9 @@ class MCSAT(MCMCInference):
  
     
     def _initkb(self, verbose=False):
-        '''
+        """
         Initialize the knowledge base to the required format and collect structural information for optimization purposes
-        '''
+        """
         # convert the MLN ground formulas to CNF
         logger.debug("converting formulas to cnf...")
         #self.mln._toCNF(allPositive=True)
@@ -180,7 +180,7 @@ class MCSAT(MCMCInference):
     
     
     def _run(self):
-        '''
+        """
         p: probability of a greedy (WalkSAT) move
         initAlgo: algorithm to use in order to find an initial state that satisfies all hard constraints ("SampleSAT" or "SAMaxWalkSat")
         verbose: whether to display results upon completion
@@ -195,7 +195,7 @@ class MCSAT(MCMCInference):
         sampleCallback: function that is called for every sample with the sample and step number as parameters
         softEvidence: if None, use soft evidence from MLN, otherwise use given dictionary of soft evidence
         handleSoftEvidence: if False, ignore all soft evidence in the MCMC sampling (but still compute softe evidence statistics if soft evidence is there)
-        '''
+        """
         logger.debug("starting MC-SAT with maxsteps=%d, softevidence=%s" % (self.maxsteps, self.softevidence))
         # initialize the KB and gather required info
         self._initkb()
@@ -203,7 +203,7 @@ class MCSAT(MCMCInference):
         logger.debug("CNF KB:")
         for gf in self.gndformulas:
             logger.debug("%7.3f  %s" % (gf.weight, str(gf)))
-        print
+        print()
         # set the random seed if it was given
         if self.rndseed is not None:
             random.seed(self.rndseed)
@@ -220,7 +220,7 @@ class MCSAT(MCMCInference):
                 if gf.weight == HARD:
                     if gf.islogical():
                         clause_range = self.gf2clauseidx[i]
-                        M.extend(range(*clause_range))
+                        M.extend(list(range(*clause_range)))
                     else:
                         NLC.append(gf)
             if M or NLC:
@@ -252,10 +252,10 @@ class MCSAT(MCMCInference):
     
     
     def _satisfy_subset(self, chain):
-        '''
+        """
         Choose a set of logical formulas M to be satisfied (more specifically, M is a set of clause indices)
         and also choose a set of non-logical constraints NLC to satisfy
-        '''
+        """
         M = []
         NLC = []
         for gfidx, gf in enumerate(self.gndformulas):
@@ -265,7 +265,7 @@ class MCSAT(MCMCInference):
                 if u > 1:
                     if gf.islogical():
                         clause_range = self.gf2clauseidx[gfidx]
-                        M.extend(range(*clause_range))
+                        M.extend(list(range(*clause_range)))
                     else:
                         NLC.append(gf)
         # add soft evidence constraints
@@ -283,7 +283,7 @@ class MCSAT(MCMCInference):
                     if p < se['p']:
                         add = True
                     if add:
-                        M.extend(range(*se["idxClausePositive"]))
+                        M.extend(list(range(*se["idxClausePositive"])))
                     #print "positive case: add=%s, %s, %f should become %f" % (add, map(str, [map(str, self.clauses[i]) for i in range(*se["idxClausePositive"])]), p, se["p"])
                 else:
                     #print "false case"
@@ -291,7 +291,7 @@ class MCSAT(MCMCInference):
                     if p > se["p"]:
                         add = True
                     if add:
-                        M.extend(range(*se["idxClauseNegative"]))
+                        M.extend(list(range(*se["idxClauseNegative"])))
                     #print "negative case: add=%s, %s, %f should become %f" % (add, map(str, [map(str, self.clauses[i]) for i in range(*se["idxClauseNegative"])]), p, se["p"])
         # (uniformly) sample a state that satisfies them
         return SampleSAT(self.mrf, chain.state, M, NLC, self, p=self.p).run()
@@ -324,17 +324,17 @@ class MCSAT(MCMCInference):
 
 
 class SampleSAT:
-    '''
+    """
     Sample-SAT algorithm.
-    '''
+    """
     
     def __init__(self, mrf, state, clause_indices, nlcs, infer, p=1):
-        '''
+        """
         clause_indices: list of indices of clauses to satisfy
         p: probability of performing a greedy WalkSAT move
         state: the state (array of booleans) to work with (is reinitialized randomly by this constructor)
         NLConstraints: list of grounded non-logical constraints
-        '''
+        """
         self.debug = praclog.level() == logging.DEBUG
         self.infer = infer
         self.mrf = mrf
@@ -372,7 +372,7 @@ class SampleSAT:
         
         
     def _print_unsatisfied_constraints(self):
-        out("   %d unsatisfied:  %s" % (len(self.unsatisfied), map(str, [self.clauses[i] for i in self.unsatisfied])), tb=2)
+        out("   %d unsatisfied:  %s" % (len(self.unsatisfied), list(map(str, [self.clauses[i] for i in self.unsatisfied]))), tb=2)
     
     
     def run(self):
@@ -380,7 +380,7 @@ class SampleSAT:
         worlds = []
         for world in self.mrf.worlds():
             skip = False
-            for clause in self.clauses.values():
+            for clause in list(self.clauses.values()):
                 if not clause.satisfied_in_world(world):
                     skip = True
                     break
@@ -400,10 +400,10 @@ class SampleSAT:
     
     
     def _walksat_move(self):
-        '''
+        """
         Randomly pick one of the unsatisfied constraints and satisfy it
         (or at least make one step towards satisfying it
-        '''
+        """
         clauseidx = list(self.unsatisfied)[random.randint(0, len(self.unsatisfied) - 1)]
         # get the literal that makes the fewest other formulas false
         clause = self.clauses[clauseidx]
@@ -433,9 +433,9 @@ class SampleSAT:
                 
                 
     def _setvar(self, var, val):
-        '''
+        """
         Set the truth value of a variable and update the information in the constraints.
-        '''
+        """
         var.setval(val, self.state)
         for c in self.var2clauses[var]:
             satisfied, _ = c.update(var, val)
@@ -504,34 +504,34 @@ class SampleSAT:
             if len(self.truelits) != 1 or atomidx not in self.truelits: return False
             if len(atomidx2lits[atomidx]) == 1: return True
             fst = item(atomidx2lits[atomidx])
-            if all(map(lambda x: x == fst, atomidx2lits[atomidx])): return False # the atom appears with different polarity in the clause, this is not a bottleneck
+            if all([x == fst for x in atomidx2lits[atomidx]]): return False # the atom appears with different polarity in the clause, this is not a bottleneck
             return True
         
         
         def turns_false_with(self, var, val):
-            '''
+            """
             Returns whether or not this clause would become false if the given variable would take
             the given value. Returns False if the clause is already False.
-            '''
+            """
             for a, v in var.atomvalues(val):
                 if a.idx == self.bottleneck and v not in self.atomidx2lits[a.idx]: return True
             return False
         
         
         def turns_true_with(self, var, val):
-            '''
+            """
             Returns true if this clause will be rendered true by the given variable taking
             its given value.
-            '''
+            """
             for a, v in var.atomvalues(val):
                 if self.unsatisfied and v in self.atomidx2lits[a.idx]: return True
             return False
             
         
         def update(self, var, val):
-            '''
+            """
             Updates the clause information with the given variable and value set in a SampleSAT state.
-            '''
+            """
             for a, v in var.atomvalues(val):
                 if v not in self.atomidx2lits[a.idx]:
                     if a.idx in self.truelits: self.truelits.remove(a.idx)
@@ -559,7 +559,7 @@ class SampleSAT:
             return [self.mrf.variable(self.mrf.gndatom(a)) for a in self.atomidx2lits]
         
         def greedySatisfy(self):
-            self.ss._pickAndFlipLiteral(map(lambda x: x.gndAtom.idx, self.lits), self)
+            self.ss._pickAndFlipLiteral([x.gndAtom.idx for x in self.lits], self)
         
         def __str__(self):
             return ' v '.join(map(str, self.lits))
@@ -628,10 +628,10 @@ class SampleSAT:
             return eval("c2 %s self.cc.count" % self.cc.op)
         
         def handleFlip(self, idxGA):
-            '''
+            """
             Handle all effects of the flip except bottlenecks of the flipped
             gnd atom and clauses that became unsatisfied as a result of a bottleneck flip
-            '''
+            """
             wasSatisfied = self._isSatisfied()
             # update true and false ones
             if idxGA in self.trueOnes:
@@ -664,9 +664,9 @@ class SampleSAT:
     
 
 # class FuzzyMCSAT(Inference):
-#     '''
+#     """
 #     MC-SAT version supporting fuzzy evidence atoms.
-#     '''
+#     """
 #     
 #     def __init__(self, mrf, queries=ALL, **params):
 #         Inference.__init__(self, mrf, queries, **params)

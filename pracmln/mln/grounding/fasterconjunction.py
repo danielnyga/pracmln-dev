@@ -86,7 +86,7 @@ class InSomeCasesFasterConjunctionGrounding(DefaultGroundingFactory):
     def __is_applicable(self, formula):
         if not isinstance(formula, Conjunction):
             return False
-        return not filter(lambda c: not isinstance(c, Lit) or c.negated, formula.children) #TODO: Allow negation...
+        return not [c for c in formula.children if not isinstance(c, Lit) or c.negated] #TODO: Allow negation...
 
     def __get_predicate_to_true_ga_map(self):
         to_return = {}
@@ -102,31 +102,31 @@ class InSomeCasesFasterConjunctionGrounding(DefaultGroundingFactory):
     def __ground_formula(self, formula, predicate_to_true_ground_atoms, cache):
         if not all([l.predname in predicate_to_true_ground_atoms for l in formula.children]):
             return
-        literals = filter(lambda l: len(filter(lambda a: self.mrf.mln.logic.isvar(a), l.args))>0, formula.children)
+        literals = [l for l in formula.children if len([a for a in l.args if self.mrf.mln.logic.isvar(a)])>0]
         literals = sorted(literals, key=lambda l: len(predicate_to_true_ground_atoms[l.predname]))
         allowed_variable_domains = {}
         for literal in literals:
             literal_var_doms = self.__get_literal_variable_domains(literal, predicate_to_true_ground_atoms, cache)
-            for variable, values in literal_var_doms.items():
+            for variable, values in list(literal_var_doms.items()):
                 if variable not in allowed_variable_domains:
                     allowed_variable_domains[variable] = set(values)
                 else:
                     allowed_variable_domains[variable].intersection_update(values)
             if not all(allowed_variable_domains.values()):
                 return
-        variables = allowed_variable_domains.keys()
+        variables = list(allowed_variable_domains.keys())
         for assignment in self.__get_variable_assignments(formula, allowed_variable_domains, variables, {}):
             ground_formula = formula.ground(self.mrf, assignment)
             yield ground_formula
 
     def __get_literal_variable_domains(self, literal, predicate_to_true_ground_atoms, variable_domain_cache):
         logic = self.mrf.mln.logic
-        cache_key = tuple([literal.predname] + filter(lambda ia: not logic.isvar(ia[1]), enumerate(literal.args)))
+        cache_key = tuple([literal.predname] + [ia for ia in enumerate(literal.args) if not logic.isvar(ia[1])])
         if cache_key in variable_domain_cache:
             literal_var_idx_domains = variable_domain_cache[cache_key]
         else:
             variable_indices = [idx for idx, arg in enumerate(literal.args) if logic.isvar(arg)]
-            non_variable_literal_args = filter(lambda arg: not logic.isvar(arg), literal.args)
+            non_variable_literal_args = [arg for arg in literal.args if not logic.isvar(arg)]
             literal_var_idx_domains = {idx: set() for idx in variable_indices}
             for ground_atom in predicate_to_true_ground_atoms[literal.predname]:
                 non_variable_args = [a for i, a in enumerate(ground_atom.args) if not logic.isvar(literal.args[i])]
@@ -136,7 +136,7 @@ class InSomeCasesFasterConjunctionGrounding(DefaultGroundingFactory):
                 for index, value in zip(variable_indices, variable_args):
                     literal_var_idx_domains[index].add(value)
             variable_domain_cache[cache_key] = literal_var_idx_domains
-        return {literal.args[idx]: domain for idx, domain in literal_var_idx_domains.items()}
+        return {literal.args[idx]: domain for idx, domain in list(literal_var_idx_domains.items())}
 
     def __get_variable_assignments(self, formula, variable_domains, remaining_variables, assignment):
         if not remaining_variables:

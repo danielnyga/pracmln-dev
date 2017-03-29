@@ -21,8 +21,8 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from multidb import MultipleDatabaseLearner
-from ll import *
-from sll import *
-from bpll import *
-from cll import *
+from .multidb import MultipleDatabaseLearner
+from .ll import *
+from .sll import *
+from .bpll import *
+from .cll import *

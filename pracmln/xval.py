@@ -30,11 +30,11 @@ import shutil
 from optparse import OptionParser
 from random import shuffle, sample
 import math
-from mln.methods import LearningMethods, InferenceMethods
-from utils.eval import ConfusionMatrix
+from .mln.methods import LearningMethods, InferenceMethods
+from .utils.eval import ConfusionMatrix
 from multiprocessing import Pool
 import logging
-import praclog
+from . import praclog
 from logging import FileHandler
 from pracmln.mln.database import Database
 from pracmln.mlnquery import MLNQuery
@@ -296,7 +296,7 @@ if __name__ == '__main__':
     expdir = os.getenv('PRACMLN_EXPERIMENTS', '.')
     expdir = os.path.join(expdir, dirname)
     if os.path.exists(expdir):
-        print 'Directory "%s" exists. Overwrite? ([y]/n)' % expdir,
+        print('Directory "%s" exists. Overwrite? ([y]/n)' % expdir, end=' ')
         answer = sys.stdin.read(1)
         if answer not in ('y','\n'):
             exit(0)

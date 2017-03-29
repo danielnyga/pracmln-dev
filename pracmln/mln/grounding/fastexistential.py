@@ -33,6 +33,7 @@ from pracmln.logic.fol import Conjunction, Negation, Disjunction, Exist, Lit, Eq
 from pracmln.mln.grounding.default import DefaultGroundingFactory
 from pracmln.mln.constants import auto
 from pracmln.mln.util import dict_union, dict_subset
+from functools import reduce
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                 for gf in formula.itergroundings(self.mrf):
                     yield gf
                 continue
-            negated_existential_quantifiers = filter(self.__is_negated_existential_quantifier, formula.children)
+            negated_existential_quantifiers = list(filter(self.__is_negated_existential_quantifier, formula.children))
             other_child = filter(lambda c: not self.__is_negated_existential_quantifier(c), formula.children)[0]
             for variable_assignment in other_child.itervargroundings(self.mrf):
                 other_child_grounded = other_child.ground(self.mrf, variable_assignment)
@@ -78,7 +79,7 @@ class FastExistentialGrounding(DefaultGroundingFactory):
     def __is_applicable(self, formula):
         if not isinstance(formula, Conjunction):
             return False
-        other_children = filter(lambda c: not self.__is_negated_existential_quantifier(c), formula.children)
+        other_children = [c for c in formula.children if not self.__is_negated_existential_quantifier(c)]
         if len(other_children) != 1:
             return False
         return True
@@ -90,8 +91,8 @@ class FastExistentialGrounding(DefaultGroundingFactory):
         quantified_variables = set(existential_quantifier.vars)
         for conjunction in existential_quantifier.children:
             if isinstance(conjunction, Conjunction):
-                literals = filter(lambda x: isinstance(x, Lit), conjunction.children)
-                equality_comparisons = filter(lambda x: isinstance(x, Equality), conjunction.children)
+                literals = [x for x in conjunction.children if isinstance(x, Lit)]
+                equality_comparisons = [x for x in conjunction.children if isinstance(x, Equality)]
                 for equality_comparison in equality_comparisons:
                     if not equality_comparison.negated:
                         return False
@@ -99,12 +100,12 @@ class FastExistentialGrounding(DefaultGroundingFactory):
                             or self.mrf.mln.logic.isvar(equality_comparison.args[1]):
                         return False
 
-                others = filter(lambda x: not isinstance(x, Lit) and
+                others = [x for x in conjunction.children if not isinstance(x, Lit) and
                                           not isinstance(x, Disjunction) and
-                                          not isinstance(x, Equality), conjunction.children)
+                                          not isinstance(x, Equality)]
                 if len(literals) != 1 or len(others) > 0:
                     return False
-                for disjunction in filter(lambda x: isinstance(x, Disjunction), conjunction.children):
+                for disjunction in [x for x in conjunction.children if isinstance(x, Disjunction)]:
                     for equality_comparison in disjunction.children:
                         if not isinstance(equality_comparison, Equality) or not equality_comparison.negated:
                             return False

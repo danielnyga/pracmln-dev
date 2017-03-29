@@ -25,9 +25,9 @@ from pracmln.mln.learning import AbstractLearner
 
 
 class CD(AbstractLearner):
-    '''
+    """
     Log-likelihood learning with Contrastive Divergence (CD) approximation.
-    '''
+    """
     
     def __init__(self, mln, mrf, cdSamples=5, **params):
         AbstractLearner.__init__(self, mln, mrf)

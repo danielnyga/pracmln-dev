@@ -19,7 +19,7 @@ def test_inference_smokers():
                    'WCSPInference',
                    'GibbsSampler'):
         for multicore in (False, True):
-            print '=== INFERENCE TEST:', method, '==='
+            print('=== INFERENCE TEST:', method, '===')
             query(queries='Cancer,Smokes,Friends',
                   method=method,
                   mln=mln,
@@ -35,7 +35,7 @@ def test_inference_taxonomies():
               logic='FuzzyLogic')
     db = Database(mln, dbfile='%s:evidence.db' % p)
     for method in ('EnumerationAsk', 'WCSPInference'):
-        print '=== INFERENCE TEST:', method, '==='
+        print('=== INFERENCE TEST:', method, '===')
         query(queries='has_sense, action_role',
               method=method,
               mln=mln,
@@ -51,7 +51,7 @@ def test_learning_smokers():
     db = Database(mln, dbfile='%s:smoking-train.db' % p)
     for method in ('BPLL', 'BPLL_CG', 'CLL'):
         for multicore in (True, False):
-            print '=== LEARNING TEST:', method, '==='
+            print('=== LEARNING TEST:', method, '===')
             learn(method=method,
                   mln=mln,
                   db=db,
@@ -66,7 +66,7 @@ def test_learning_taxonomies():
     dbs = Database.load(mln, dbfiles='%s:training.db' % p)
     for method in ('DPLL', 'DBPLL_CG', 'DCLL'):
         for multicore in (True, False):
-            print '=== LEARNING TEST:', method, '==='
+            print('=== LEARNING TEST:', method, '===')
             learn(method=method,
                   mln=mln,
                   db=dbs,
@@ -82,8 +82,8 @@ def runall():
     test_inference_taxonomies()
     test_learning_smokers()
     test_learning_taxonomies()
-    print
-    print 'all test finished after', time.time() - start, 'secs'
+    print()
+    print('all test finished after', time.time() - start, 'secs')
 
 if __name__ == '__main__':
     runall()

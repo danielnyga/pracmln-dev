@@ -1,10 +1,11 @@
+import multiprocessing
+from multiprocessing import pool
 import traceback
 import sys
 import signal
 import os
 from pracmln.mln.errors import OutOfMemoryError
 import psutil
-import multiprocessing.pool as multiprocessing
 
      
 
@@ -12,10 +13,10 @@ class CtrlCException(Exception): pass
 
 
 class with_tracing(object):
-    '''
+    """
     Wrapper class for functions intended to be executed in parallel
     on multiple cores. This facilitates debugging with multiprocessing.
-    '''
+    """
     
     def __init__(self, func):
         self.func = func
@@ -28,7 +29,7 @@ class with_tracing(object):
         except CtrlCException: pass
 #             traceback.print_exc()
 #             sys.exit(0)
-        except Exception, e:
+        except Exception as e:
             traceback.print_exc()
             raise e
         
@@ -39,9 +40,9 @@ def signal_handler(signal, frame):
     sys.exit(0)
 
 class _methodcaller:
-    '''
+    """
     Convenience class for calling a method of an object in a worker pool  
-    '''
+    """
     
     
     def __init__(self, method, sideeffects=False):
@@ -76,7 +77,6 @@ def make_memsafe():
             soft = hard
             resource.setrlimit(rsrc, (soft, hard)) #limit to 80% of available memory
     
-    
 
 class NoDaemonProcess(multiprocessing.Process):
     def _get_daemon(self):
@@ -88,7 +88,7 @@ class NoDaemonProcess(multiprocessing.Process):
     daemon = property(_get_daemon, _set_daemon)
 
 
-class NonDaemonicPool(multiprocessing.Pool):
+class NonDaemonicPool(pool.Pool):
     Process = NoDaemonProcess
 
 
@@ -96,8 +96,8 @@ class NonDaemonicPool(multiprocessing.Pool):
 if __name__ == '__main__':
     def f(x):
         return x*x
-    pool = Pool(processes=4)              # start 4 worker processes
-    print pool.map(with_tracing(f), range(10))          # prints "[0, 1, 4,..., 81]"
+    pool = multiprocessing.Pool(processes=4)              # start 4 worker processes
+    print(pool.map(with_tracing(f), list(range(10))))          # prints "[0, 1, 4,..., 81]"
     
     
    

@@ -32,11 +32,12 @@ import sys
 from pracmln.mln.errors import NoSuchPredicateError
 from pracmln import praclog
 from pracmln.mln.mlnpreds import SoftFunctionalPredicate, FunctionalPredicate
+from functools import reduce
 
 logger = praclog.logger(__name__)
 
 class Inference(object):
-    '''
+    """
     Represents a super class for all inference methods.
     Also provides some convenience methods for collecting statistics
     about the inference process and nicely outputting results.
@@ -51,7 +52,7 @@ class Inference(object):
     
     :param cw:         (bool) if `True`, the closed-world assumption will be applied 
                        to all but the query atoms.
-    '''
+    """
     
     def __init__(self, mrf, queries=ALL, **params):
         self.mrf = mrf
@@ -144,10 +145,10 @@ class Inference(object):
         
 
     def _expand_queries(self, queries):
-        ''' 
+        """ 
         Expands the list of queries where necessary, e.g. queries that are 
         just predicate names are expanded to the corresponding list of atoms.
-        '''
+        """
         equeries = []
         for query in queries:
             if type(query) == str:
@@ -176,12 +177,12 @@ class Inference(object):
 
 
     def run(self):
-        '''
+        """
         Starts the inference process.
-        '''
+        """
         
         # perform actual inference (polymorphic)
-        if self.verbose: print 'Inference engine: %s' % self.__class__.__name__
+        if self.verbose: print('Inference engine: %s' % self.__class__.__name__)
         self._watch.tag('inference', verbose=self.verbose)
         _weights_backup = list(self.mln.weights)
         self._results = self._run()
@@ -200,7 +201,7 @@ class Inference(object):
         if group:
             wrote_results = False
             for var in sorted(self.mrf.variables, key=str):
-                res = dict([(atom, prob) for atom, prob in results.iteritems() if atom in map(str, var.gndatoms)])
+                res = dict([(atom, prob) for atom, prob in results.items() if atom in list(map(str, var.gndatoms))])
                 if not res: continue
                 if isinstance(var, MutexVariable) or isinstance(var, SoftMutexVariable):
                     stream.write('%s:\n' % var)
@@ -212,7 +213,7 @@ class Inference(object):
                     stream.write('%s %s\n' % (barstr(barwidth, self.results[atom], color=color), atom))
                 wrote_results = True
             if not wrote_results:
-                max_len = max([len(str(q)) for q, p in results.items()])
+                max_len = max([len(str(q)) for q, p in list(results.items())])
                 result_tuples = list(results.items())
                 result_tuples.sort(key=lambda pair: pair[1], reverse=True)
                 str_results = [("{:" + str(max_len) + "s}  {:7.2f}").format(str(q), p) for q, p in result_tuples]
@@ -236,9 +237,9 @@ class Inference(object):
         else: col = None
         total = float(self._watch['inference'].elapsedtime)
         stream.write(headline('INFERENCE RUNTIME STATISTICS'))
-        print
+        print()
         self._watch.finish()
-        for t in sorted(self._watch.tags.values(), key=lambda t: t.elapsedtime, reverse=True):
+        for t in sorted(list(self._watch.tags.values()), key=lambda t: t.elapsedtime, reverse=True):
             stream.write('%s %s %s\n' % (barstr(width=30, percent=t.elapsedtime / total, color=col), elapsed_time_str(t.elapsedtime), t.label))
     
     

@@ -41,8 +41,8 @@ def segmentify(s):
 def evalLabels(groundTruthFile, resultsFile, verbose=True):
     ret = {}
     
-    labels1 = map(lambda x: int(float(x.strip())), file(groundTruthFile).readlines()) # ground truth
-    labels2 = map(lambda x: int(float(x.strip())), file(resultsFile).readlines()) # classification
+    labels1 = [int(float(x.strip())) for x in file(groundTruthFile).readlines()] # ground truth
+    labels2 = [int(float(x.strip())) for x in file(resultsFile).readlines()] # classification
     i = 1
     numCorrect = 0
     dist = 0
@@ -78,10 +78,10 @@ def evalLabels(groundTruthFile, resultsFile, verbose=True):
             # regular error
             d = min(d1,d2,1.0)
             
-            if verbose: print "%d: %d should have been %d [d=%.2f]" % (i,l2,l1,d)
+            if verbose: print("%d: %d should have been %d [d=%.2f]" % (i,l2,l1,d))
         else:
             d = 0
-            if verbose: print "%d: %d" % (i,l1)
+            if verbose: print("%d: %d" % (i,l1))
             numCorrect += 1
         dist += d
         i += 1
@@ -92,12 +92,12 @@ def evalLabels(groundTruthFile, resultsFile, verbose=True):
     ret["semanticErrors"] = dist
     ret["semanticAccuracy"] = (i-dist)/i*100
     if verbose:    
-        print "\n\n*** Per-Frame Accuracy ***\n"
-        print "errors: %d" % ret["perFrameErrors"]
-        print "correct: %d/%d (%f%%)" % (numCorrect, i, ret["perFrameAccuracy"])
+        print("\n\n*** Per-Frame Accuracy ***\n")
+        print("errors: %d" % ret["perFrameErrors"])
+        print("correct: %d/%d (%f%%)" % (numCorrect, i, ret["perFrameAccuracy"]))
         
-        print "\n\n*** Semantic Distance ***\n"
-        print "semantic distance: %f   implied accuracy: %f%%" % (ret["semanticErrors"], ret["semanticAccuracy"])
+        print("\n\n*** Semantic Distance ***\n")
+        print("semantic distance: %f   implied accuracy: %f%%" % (ret["semanticErrors"], ret["semanticAccuracy"]))
     
     # segment-level comparisons
     segs1 = segmentify(labels1[:len(labels2)])
@@ -105,17 +105,17 @@ def evalLabels(groundTruthFile, resultsFile, verbose=True):
     ret["segmentsEditDist"] = dist = editDistance(segs1, segs2)
     ret["segmentsAccuracy"] = accuracy = 100.0 - (float(dist) * 100.0 / len(segs2))
     if verbose:
-        print "\n\n*** Segment-Level Edit Distance ***\n"
-        print "identified segments: %d" % len(segs2)
-        print segs2
-        print "true segments: %d" % len(segs1)
-        print segs1
-        print "\nedit distance at segment level: %d  (implied accuracy %d/%d = %f%%)\n\n" % (dist, len(segs2)-dist, len(segs2), accuracy)
+        print("\n\n*** Segment-Level Edit Distance ***\n")
+        print("identified segments: %d" % len(segs2))
+        print(segs2)
+        print("true segments: %d" % len(segs1))
+        print(segs1)
+        print("\nedit distance at segment level: %d  (implied accuracy %d/%d = %f%%)\n\n" % (dist, len(segs2)-dist, len(segs2), accuracy))
     
     return ret
 
 if __name__ == '__main__':
     if len(argv) != 3:
-        print "usage: evalSeqLabels <ground truth file> <classified file>"
+        print("usage: evalSeqLabels <ground truth file> <classified file>")
         exit(1)
     evalLabels(argv[1], argv[2])

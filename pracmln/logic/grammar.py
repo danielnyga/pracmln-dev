@@ -29,9 +29,9 @@ from pracmln.mln.util import out
 
 
 class TreeBuilder(object):
-    '''
+    """
     The parsing tree.
-    '''
+    """
     
     def __init__(self, logic):
         self.logic = logic
@@ -95,7 +95,7 @@ class TreeBuilder(object):
         elif op == 'ex':
             if len(toks) == 2:
                 formula = self.stack.pop()
-                variables = map(str, toks[0])
+                variables = list(map(str, toks[0]))
                 self.stack.append(self.logic.exist(variables, formula, self.logic.mln))
         elif op == 'count':
             if len(toks) in (3,4):                
@@ -125,9 +125,9 @@ class TreeBuilder(object):
 # ======================================================================================
 
 class Grammar(object):
-    '''
+    """
     Abstract super class for all logic grammars.
-    '''
+    """
     
     
     def __deepcopy__(self, memo):
@@ -140,13 +140,13 @@ class Grammar(object):
         return constr
     
     def parse_atom(self, string):
-        '''
+        """
         Parses a predicate such as p(A,B) and returns a tuple where the first item 
         is the predicate name and the second is a list of parameters, e.g. ("p", ["A", "B"])
-        '''
+        """
         m = re.match(r'(\w+)\((.*?)\)$', string)
         if m is not None:
-            return (m.group(1), map(str.strip, m.group(2).split(",")))
+            return (m.group(1), list(map(str.strip, m.group(2).split(","))))
         raise Exception("Could not parse predicate '%s'" % string)
     
     def parse_predicate(self, s):
@@ -162,22 +162,22 @@ class Grammar(object):
         return s[0] == '+' and self.isvar(s[1:])
     
     def parse_domain(self, s):
-        '''
+        """
         Parses a domain declaration and returns a tuple (domain name, list of constants)
         Returns None if it cannot be parsed.
-        '''
+        """
         m = re.match(r'(\w+)\s*=\s*{(.*?)}', s)
         if m == None:
             return None
 #             raise Exception("Could not parse the domain declaration '%s'" % line)
-        return (m.group(1), map(str.strip, m.group(2).split(',')))
+        return (m.group(1), list(map(str.strip, m.group(2).split(','))))
     
     def parse_literal(self, s):
-        '''
+        """
         Parses a literal such as !p(A,B) or p(A,B)=False and returns a tuple 
         where the first item is whether the literal is true, the second is the 
         predicate name and the third is a list of parameters, e.g. (False, "p", ["A", "B"])
-        '''
+        """
         # try regular MLN syntax
         self.tree.reset()
         lit = self.literal.parseString(s)
@@ -190,9 +190,9 @@ class Grammar(object):
 
     
 class StandardGrammar(Grammar):
-    '''
+    """
     The standard MLN logic syntax.
-    '''
+    """
     
     def __init__(self, logic):
         identifierCharacter = alphanums + '_' + '-' + "'"
@@ -271,10 +271,10 @@ class StandardGrammar(Grammar):
             
 
 class PRACGrammar(Grammar):
-    '''
+    """
     The specialized PRAC MLN grammar supporting infix not-equals and
     arbitrary constants. Variables need to start with '?'
-    '''
+    """
     
     def __init__(self, logic):
         # grammar
@@ -326,7 +326,7 @@ class PRACGrammar(Grammar):
             try:
                 return tree.trigger(a, b, c, 'litgroup')
             except Exception as e:
-                print e
+                print(e)
 
         def lit_parse_action(a, b, c): return tree.trigger(a,b,c,'lit')
         def neg_parse_action(a, b, c): return tree.trigger(a,b,c,'!')
@@ -358,10 +358,10 @@ class PRACGrammar(Grammar):
         self.literal = literal
         
     def isvar(self, identifier):
-        '''
+        """
         Variables must start with a question mark (or the + operator, 
         anything else is considered a constant.
-        '''
+        """
         return identifier[0] == '?' or identifier[0] == "+"
 
 
@@ -387,15 +387,15 @@ if __name__ == '__main__':
     
     f = 'a|b|c(s) => (bar(y) <=> bar(x))'
     # f = 'a|b|c(s)'
-    print 'mln:'
+    print('mln:')
     mln.write()
-    print '---------------------------------------------------'
+    print('---------------------------------------------------')
     f = mln.logic.grammar.parse_formula(f)
-    print f, '==================================================================================='
+    print(f, '===================================================================================')
     f.print_structure()
-    print list(f.literals())
+    print(list(f.literals()))
     # print mln.logic.parse_formula('bar(x)') in f.literals()
-    print 'f:', f
+    print('f:', f)
 
     mln << 'coreference(a,b)'
     mln << 'distance(d,e,f)'
@@ -443,9 +443,9 @@ if __name__ == '__main__':
 # main app for testing purposes only
 # if __name__=='__main__':
 # 
-#     gr = CFG.fromstring('''
+#     gr = CFG.fromstring("""
 #     ATOM -> 
-#     ''')
+#     """)
 
 #     f = [r'((a(x) ^ b(x, y, z)) v !(coo(a,"x,^)(\"",?u) v (?r =/= k) ^ !(d(x,i) ^ !e(x) ^ g(x)))) => E. a,b (f(x))']
 #     esc = esc_seq(f)

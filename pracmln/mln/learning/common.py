@@ -23,7 +23,7 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-import optimize
+from . import optimize
 import logging
 import sys
 from numpy.ma.core import exp
@@ -40,9 +40,9 @@ logger = logging.getLogger(__name__)
 
 
 class AbstractLearner(object):
-    '''
+    """
     Abstract base class for every MLN learning algorithm.
-    '''
+    """
     
     def __init__(self, mrf=None, **params):
         self.mrf = mrf
@@ -152,13 +152,13 @@ class AbstractLearner(object):
     
     
     def _fDummy(self, wt):
-        ''' a dummy target function that is used when f is disabled '''
+        """ a dummy target function that is used when f is disabled """
         if not hasattr(self, 'dummy_f'):
             self.dummyFCount = 0
         self.dummyFCount += 1
         if self.dummyFCount > 150:
             return 0
-        print "self.dummyFCount", self.dummyFCount
+        print("self.dummyFCount", self.dummyFCount)
         
         if not hasattr(self, 'dummyFValue'):
             self.dummyFValue = 0
@@ -166,15 +166,15 @@ class AbstractLearner(object):
             self.dummyFValue = 0
         else:
             self.dummyFValue += sum(abs(self.lastFullGradient))
-        print "_f: self.dummyFValue = ", self.dummyFValue
+        print("_f: self.dummyFValue = ", self.dummyFValue)
         return self.dummyFValue
     
     
     def _filter_fixweights(self, v):
-        '''
+        """
         Removes from the vector `v` all elements at indices that correspond to a fixed weight formula index.
         or a hard constraint formula.
-        '''
+        """
         if len(v) != len(self.mrf.formulas):
             raise Exception('Vector must have same length as formula weights')
         v_ = []#numpy.zeros(len(v), numpy.float64)
@@ -184,10 +184,10 @@ class AbstractLearner(object):
     
     
     def run(self, **params):
-        '''
+        """
         Learn the weights of the MLN given the training data previously 
         loaded 
-        '''
+        """
         if not 'scipy' in sys.modules:
             raise Exception("Scipy was not imported! Install numpy and scipy if you want to use weight learning.")
         # initial parameter vector: all zeros or weights from formulas
@@ -227,7 +227,7 @@ class AbstractLearner(object):
         
     def hessian(self, wt):
         wt = self._reconstructFullWeightVectorWithFixedWeights(wt)
-        wt = map(float, wt)
+        wt = list(map(float, wt))
         fullHessian = self._hessian(wt)
         return self._projectMatrixToNonFixedWeightIndices(fullHessian)
     
@@ -239,11 +239,11 @@ class AbstractLearner(object):
         dim = len(self.mln.formulas) - len(self._fixedWeightFormulas)
         proj = numpy.zeros((dim, dim), numpy.float64)
         i2 = 0
-        for i in xrange(len(self.mln.formulas)):
+        for i in range(len(self.mln.formulas)):
             if (i in self._fixedWeightFormulas):
                 continue
             j2 = 0
-            for j in xrange(len(self.mln.formulas)):
+            for j in range(len(self.mln.formulas)):
                 if (j in self._fixedWeightFormulas):
                     continue
                 proj[i2][j2] = matrix[i][j]
@@ -271,20 +271,20 @@ class AbstractLearner(object):
     
 
 class DiscriminativeLearner(AbstractLearner):
-    '''
+    """
     Abstract superclass of all discriminative learning algorithms.
     Provides some convenience methods for determining the set of 
     query predicates from the common parameters.
-    '''
+    """
     
     
     @property
     def qpreds(self):
-        '''
+        """
         Computes from the set parameters the list of query predicates
         for the discriminative learner. Eitehr the 'qpreds' or 'epreds'
         parameters must be given, both are lists of predicate names.
-        '''
+        """
         if not hasattr(self, '_preds'):
             qpreds = self._params.get('qpreds', [])
             if 'epreds' in self._params:
@@ -313,9 +313,9 @@ class DiscriminativeLearner(AbstractLearner):
     
     
 class SoftEvidenceLearner(AbstractLearner):
-    '''
+    """
     Superclass for all soft-evidence learners.
-    '''
+    """
     def __init__(self, mrf, **params):
         AbstractLearner.__init__(self, mrf, **params)
         

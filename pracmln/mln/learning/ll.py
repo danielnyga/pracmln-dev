@@ -26,7 +26,7 @@
 
 import sys
 
-from common import *
+from .common import *
 from pracmln.mln.mrfvars import SoftMutexVariable
 from pracmln.mln.grounding.default import DefaultGroundingFactory
 from pracmln.mln.util import ProgressBar
@@ -35,9 +35,9 @@ from pracmln.mln.errors import SatisfiabilityException
 
 
 class LL(AbstractLearner):
-    '''
+    """
     Exact Log-Likelihood learner.
-    '''
+    """
     
     def __init__(self, mrf, **params):
         AbstractLearner.__init__(self, mrf, **params)
@@ -52,16 +52,16 @@ class LL(AbstractLearner):
         
 
     def _l(self, w):
-        '''
+        """
         computes the likelihoods of all possible worlds under weights w
-        '''
+        """
         if self._lastw is None or list(w) != self._lastw:
             self._lastw = list(w)
             expsums = []
             for fvalues in self._stat:
                 s = 0
                 hc_violation = False
-                for fidx, val in fvalues.iteritems():
+                for fidx, val in fvalues.items():
                     if self.mrf.mln.formulas[fidx].weight == HARD:
                         if val == 0:
                             hc_violation = True
@@ -74,7 +74,7 @@ class LL(AbstractLearner):
                     expsums.append(exp(s))
             z = sum(expsums)
             if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: probability masses of all possible worlds are zero.')
-            self._ls = map(lambda v: v / z, expsums) 
+            self._ls = [v / z for v in expsums] 
         return self._ls 
             
 
@@ -87,7 +87,7 @@ class LL(AbstractLearner):
         ls = self._l(w)
         grad = numpy.zeros(len(self.mrf.formulas), numpy.float64)
         for widx, values in enumerate(self._stat):
-            for fidx, count in values.iteritems():
+            for fidx, count in values.items():
                 if widx == self._eworld_idx:
                     grad[fidx] += count
                 grad[fidx] -= count * ls[widx]

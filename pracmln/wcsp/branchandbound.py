@@ -40,7 +40,7 @@ class BranchAndBound(object):
         self.gndAtom2VarIndex = {}
         self.createVariables()
         self.transformFormulas()
-        self.evidence = dict([(a.idx, a.isTrue(mrf.evidence)) for a in mrf.gndAtoms.values()])
+        self.evidence = dict([(a.idx, a.isTrue(mrf.evidence)) for a in list(mrf.gndAtoms.values())])
         
     def transformFormulas(self):
         '''
@@ -54,7 +54,7 @@ class BranchAndBound(object):
                 f_ = Logic.Negation([f])
                 w = -w
                 f = f_
-            print w, f
+            print(w, f)
             f = f.toNNF()
             f.weight = w
             f.isHard = hard
@@ -66,7 +66,7 @@ class BranchAndBound(object):
         Considers also mutually exclusive blocks of ground atoms.
         '''
         handledBlocks = set()
-        for gndAtom in self.mrf.gndAtoms.values():
+        for gndAtom in list(self.mrf.gndAtoms.values()):
             blockName = self.mrf.gndBlockLookup.get(gndAtom.idx, None)
             if blockName is not None:
                 if blockName not in handledBlocks:
@@ -120,7 +120,7 @@ class BranchAndBound(object):
         for _ in range(len(self.varIdx2GndAtom)-len(variables)): indent += '    '
         if len(variables) == 0: # all gndAtoms have been assigned
             if lowerbound <= self.upperbound:
-                solution = dict([(str(a), self.mrf.evidence[a.idx]) for a in self.mrf.gndAtoms.values()])
+                solution = dict([(str(a), self.mrf.evidence[a.idx]) for a in list(self.mrf.gndAtoms.values())])
 #                 print indent + 'New solution:', solution
 #                 print indent + 'costs:', lowerbound
                 self.upperbound = lowerbound
@@ -149,14 +149,14 @@ class BranchAndBound(object):
         # test the assignments
 #         print truthAssignments
         for truthAssignment in truthAssignments:
-            print indent + 'testing', truthAssignment, '(lb=%f)' % lowerbound
+            print(indent + 'testing', truthAssignment, '(lb=%f)' % lowerbound)
             # set the temporary evidence
 #             self.setEvidence(truthAssignment)
             backtrack = {}
             doBacktracking = False
             costs = .0
             evidence = []
-            for gndAtom, truth in truthAssignment.iteritems():
+            for gndAtom, truth in truthAssignment.items():
                 self.setEvidence({gndAtom: truth})
                 evidence.append(gndAtom)
                 for factory in self.factories:
@@ -165,7 +165,7 @@ class BranchAndBound(object):
                     backtrack[factory] = backtrack.get(factory, 0) + 1
 #                     print indent + 'LB:' + str(lowerbound + costs)
                     if lowerbound + costs >= self.upperbound:
-                        print indent + 'backtracking (C=%.2f >= %.2f=UB)' % (lowerbound + costs, self.upperbound)
+                        print(indent + 'backtracking (C=%.2f >= %.2f=UB)' % (lowerbound + costs, self.upperbound))
                         doBacktracking = True
                         break
                 if doBacktracking:
@@ -211,9 +211,9 @@ if __name__ == '__main__':
      
     bnb = BranchAndBound(mrf)
     bnb.search()
-    print 'optimal solution (cost %f):' % bnb.upperbound
+    print('optimal solution (cost %f):' % bnb.upperbound)
     for s in sorted(bnb.best_solution):
-        print '', s, ':', bnb.best_solution[s]
+        print('', s, ':', bnb.best_solution[s])
          
     exit(0)
 #     groundingFactories = [GroundingFactory(f, mrf) for f in mrf.formulas]

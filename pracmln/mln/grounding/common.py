@@ -23,9 +23,9 @@
 
 
 class AbstractGroundingFactory(object):
-    '''
+    """
     Abstract super class for all grounding factories.
-    '''
+    """
     
     def __init__(self, mrf, db, **params):
         self.params = params

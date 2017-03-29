@@ -12,9 +12,9 @@ except:
 
 
 class DirectDescent(object):
-    '''
+    """
     Naive gradient descent optimization.
-    '''    
+    """    
     
     def __init__(self, wt, learner, gtol=1e-3, maxiter=None, learningRate=0.1, **params):
         self.learner = learner
@@ -36,8 +36,8 @@ class DirectDescent(object):
             grad = self.learner.grad(self.wt)
             norm = numpy.linalg.norm(grad)
             f_ = self.learner.f(self.wt)
-            print
-            print '|grad| =', norm
+            print()
+            print('|grad| =', norm)
             if norm < self.gtol or (self.maxiter is not None and step > self.maxiter):
                 break
             exitNow = False
@@ -47,7 +47,7 @@ class DirectDescent(object):
             f_opt = f_
             while not exitNow:
                 w = self.wt + grad * alpha
-                print
+                print()
                 f = self.learner.f(w, verbose=True)
                 if f_ < f:
 #                     if smaller:
@@ -70,8 +70,8 @@ class DirectDescent(object):
                 else:
                     exitNow = True
                 f_ = f
-            print
-            print 'alpha =', alpha
+            print()
+            print('alpha =', alpha)
         return self.wt
 
 
@@ -102,14 +102,14 @@ class DiagonalNewton(object):
             # determine convergence
             normg = numpy.linalg.norm(g)
             if normg <= self.gtol:
-                print "\nThreshold reached after %d steps. final gradient: %s (norm: %f <= %f)" % (step, g.transpose(), normg, self.gtol)
+                print("\nThreshold reached after %d steps. final gradient: %s (norm: %f <= %f)" % (step, g.transpose(), normg, self.gtol))
                 break
             
             H = -p.hessian(wtarray)
             
             # scale gradient with inverse diagonal Hessian
             sgrad = numpy.asmatrix(numpy.zeros(N)).transpose()
-            for i in xrange(N):
+            for i in range(N):
                 v = H[i][i]
                 if v == 0.0: # HACK: if any variance component is zero, set corresponding gradient component to zero
                     sgrad[i] = g[i] = 0.0
@@ -147,20 +147,20 @@ class DiagonalNewton(object):
                     else: l = 1.0e-5
                 
                 if delta_actual >= 0: # accept move                    
-                    print
-                    print "step %d" % step
-                    print "H:\n%s" % H
-                    print "|g|: %f" % normg
-                    print "sgrad: %s" % sgrad.transpose()
-                    print "delta_a: %f" % delta_actual
-                    print "delta_p: %f" % delta_predict                    
-                    print "lambda: %.18f" % l
-                    print "alpha: %f" % alpha            
-                    print "old wt: %s" % wt_old.transpose()
-                    print "new wt: %s" % wt.transpose()
+                    print()
+                    print("step %d" % step)
+                    print("H:\n%s" % H)
+                    print("|g|: %f" % normg)
+                    print("sgrad: %s" % sgrad.transpose())
+                    print("delta_a: %f" % delta_actual)
+                    print("delta_p: %f" % delta_predict)                    
+                    print("lambda: %.18f" % l)
+                    print("alpha: %f" % alpha)            
+                    print("old wt: %s" % wt_old.transpose())
+                    print("new wt: %s" % wt.transpose())
                     break
                 else: # reject move
-                    print "delta_a=%f, adjusted lambda to %f" % (delta_actual, l)
+                    print("delta_a=%f, adjusted lambda to %f" % (delta_actual, l))
                     wt = wt_old
 
             step += 1
@@ -170,9 +170,9 @@ class DiagonalNewton(object):
 
 
 class SciPyOpt(object):
-    '''
+    """
     Wrapper around the optimization techniques implemented by SciPy.
-    '''
+    """
     
     
     def __init__(self, optimizer, wt, problem, verbose=False, **optParams):
@@ -191,7 +191,7 @@ class SciPyOpt(object):
         
         # coerce return types
         f = lambda wt: numpy.float64(p.f(wt))
-        grad = lambda wt: numpy.array(map(numpy.float64, p.grad(wt)))
+        grad = lambda wt: numpy.array(list(map(numpy.float64, p.grad(wt))))
         
         # negate for minimization
         neg_f = lambda wt: -f(wt)
@@ -201,36 +201,36 @@ class SciPyOpt(object):
             neg_f = lambda wt: -p._fDummy(wt)
         log = logging.getLogger(self.__class__.__name__)
         if optimizer == "bfgs":
-            params = dict(filter(lambda (k,v): k in ["gtol", "epsilon", "maxiter"], self.optParams.iteritems()))
-            if self.verbose: print "starting optimization with %s... %s" % (optimizer, params)
+            params = dict([k_v for k_v in iter(self.optParams.items()) if k_v[0] in ["gtol", "epsilon", "maxiter"]])
+            if self.verbose: print("starting optimization with %s... %s" % (optimizer, params))
             wt, f_opt, grad_opt, Hopt, func_calls, grad_calls, warn_flags = fmin_bfgs(neg_f, self.wt, fprime=neg_grad, full_output=True, **params)
             if self.verbose: 
-                print "optimization done with %s..." % optimizer
-                print "f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags)
+                print("optimization done with %s..." % optimizer)
+                print("f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags))
         elif optimizer == "cg":            
-            params = dict(filter(lambda (k,v): k in ["gtol", "epsilon", "maxiter"], self.optParams.iteritems()))
+            params = dict([k_v1 for k_v1 in iter(self.optParams.items()) if k_v1[0] in ["gtol", "epsilon", "maxiter"]])
             log.info("starting optimization with %s... %s" % (optimizer, params))
             wt, f_opt, func_calls, grad_calls, warn_flags = fmin_cg(neg_f, self.wt, fprime=neg_grad, args=(), full_output=True, **params)
             log.info("optimization done with %s..." % optimizer)
             log.info("f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags))
         elif optimizer == "ncg":            
-            params = dict(filter(lambda (k,v): k in ["avextol", "epsilon", "maxiter"], self.optParams.iteritems()))
+            params = dict([k_v2 for k_v2 in iter(self.optParams.items()) if k_v2[0] in ["avextol", "epsilon", "maxiter"]])
             log.info("starting optimization with %s... %s" % (optimizer, params))
             wt, f_opt, func_calls, grad_calls, warn_flags = fmin_ncg(neg_f, self.wt, fprime=neg_grad, args=(), full_output=True, **params)
             log.info("optimization done with %s..." % optimizer)
             log.info("f-opt: %.16f\nfunction evaluations: %d\nwarning flags: %d\n" % (-f_opt, func_calls, warn_flags))
         elif optimizer == "fmin":
-            params = dict(filter(lambda (k,v): k in ["xtol", "ftol", "maxiter"], self.optParams.iteritems()))
+            params = dict([k_v3 for k_v3 in iter(self.optParams.items()) if k_v3[0] in ["xtol", "ftol", "maxiter"]])
             log.info("starting optimization with %s... %s" % (optimizer, params))
             wt = fmin(neg_f, self.wt, args=(), full_output=True, **params)
             log.info("optimization done with %s..." % optimizer)
         elif optimizer == "powell":
-            params = dict(filter(lambda (k,v): k in ["xtol", "ftol", "maxiter"], self.optParams.iteritems()))
+            params = dict([k_v4 for k_v4 in iter(self.optParams.items()) if k_v4[0] in ["xtol", "ftol", "maxiter"]])
             log.info("starting optimization with %s... %s" % (optimizer, params))
             wt = fmin_powell(neg_f, self.wt, args=(), full_output=True, **params)
             log.info("optimization done with %s..." % optimizer)
         elif optimizer == 'l-bfgs-b':
-            params = dict(filter(lambda (k,v): k in ["gtol", "epsilon", "maxiter", 'bounds'], self.optParams.iteritems()))
+            params = dict([k_v5 for k_v5 in iter(self.optParams.items()) if k_v5[0] in ["gtol", "epsilon", "maxiter", 'bounds']])
             log.info("starting optimization with %s... %s" % (optimizer, params))
             if 'bounds' in params:
                 params['bounds'] = (params['bounds'],) * len(self.wt)

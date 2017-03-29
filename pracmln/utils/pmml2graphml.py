@@ -66,7 +66,7 @@ class Node:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2 or sys.argv[1][-5:] != ".pmml":
-        print "Usage: pmml2graphml *.pmml"
+        print("Usage: pmml2graphml *.pmml")
     else:
         name = sys.argv[1][:-5]
         inputFile = open(sys.argv[1],"r")

@@ -1,0 +1,11 @@
+tabulate
+pymongo
+numpy
+tabulate
+logutils
+pyparsing
+psutil
+matplotlib
+networkx
+mpmath
+Image

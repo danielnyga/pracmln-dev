@@ -58,9 +58,9 @@ class WCSPInference(Inference):
     
     
     def result_dict(self, verbose=False):
-        '''
+        """
         Returns a Database object with the most probable truth assignment.
-        '''
+        """
         wcsp = self.converter.convert()
         solution, _ = wcsp.solve()
         if solution is None:
@@ -69,15 +69,15 @@ class WCSPInference(Inference):
         for varidx, validx in enumerate(solution):
             value = self.converter.domains[varidx][validx]
             result.update(self.converter.variables[varidx].value2dict(value))
-        return dict([(str(self.mrf.gndatom(idx)), val) for idx, val in result.iteritems()])
+        return dict([(str(self.mrf.gndatom(idx)), val) for idx, val in result.items()])
 
 
 
 class WCSPConverter(object):
-    '''
+    """
     Class for converting an MLN into a WCSP problem for efficient
     MPE inference.
-    '''
+    """
     
     
     def __init__(self, mrf, verbose=False, multicore=False):
@@ -91,10 +91,10 @@ class WCSPConverter(object):
     
     
     def _createvars(self):
-        '''
+        """
         Create the variables, one binary for each ground atom.
         Considers also mutually exclusive blocks of ground atoms.
-        '''
+        """
         self.variables = {} # maps an index to its MRF variable
         self.domains = defaultdict(list) # maps a var index to a list of its MRF variable value tuples
         self.atom2var = {} # maps ground atom indices to their variable index
@@ -117,9 +117,9 @@ class WCSPConverter(object):
             varidx += 1
 
     def convert(self):
-        '''
+        """
         Performs a conversion from an MLN into a WCSP.
-        '''
+        """
         # mln to be restored after inference
         self._weights = list(self.mrf.mln.weights)
         mln = self.mrf.mln
@@ -148,10 +148,10 @@ class WCSPConverter(object):
 
 
     def generate_constraint(self, wf):
-        '''
+        """
         Generates and adds a constraint from a given weighted formula.
-        '''
-        varindices = tuple(map(lambda x: self.atom2var[x], wf.gndatom_indices()))
+        """
+        varindices = tuple([self.atom2var[x] for x in wf.gndatom_indices()])
         # collect the constraint tuples
         cost2assignments = self._gather_constraint_tuples(varindices, wf)
         if cost2assignments is None:
@@ -160,20 +160,20 @@ class WCSPConverter(object):
         del cost2assignments[defcost] # remove the default cost values
         
         constraint = Constraint(varindices, defcost=defcost)
-        for cost, tuples in cost2assignments.iteritems():
+        for cost, tuples in cost2assignments.items():
             for t in tuples:
                 constraint.tuple(t, cost)
         self.wcsp.constraint(constraint)
         
         
     def _gather_constraint_tuples(self, varindices, formula):
-        '''
+        """
         Collects and evaluates all tuples that belong to the constraint
         given by a formula. In case of disjunctions and conjunctions,
         this is fairly efficient since not all combinations
         need to be evaluated. Returns a dictionary mapping the constraint
         costs to the list of respective variable assignments.
-        '''
+        """
         logic = self.mrf.mln.logic
         # we can treat conjunctions and disjunctions fairly efficiently
         defaultProcedure = False
@@ -264,11 +264,11 @@ class WCSPConverter(object):
                 # the MRF feature imposed by this formula 
                 truth = formula(world)
                 if truth is None:
-                    print 'POSSIBLE WORLD:'
-                    print '==============='
+                    print('POSSIBLE WORLD:')
+                    print('===============')
                     self.mrf.print_world_vars(world)
-                    print 'GROUND FORMULA:'
-                    print '==============='
+                    print('GROUND FORMULA:')
+                    print('===============')
                     formula.print_structure(world)
                     raise Exception('Something went wrong: Truth of ground formula cannot be evaluated (see above)')
                 
@@ -287,10 +287,10 @@ class WCSPConverter(object):
         
         
     def forbid_gndatom(self, atom, truth=True):
-        '''
+        """
         Adds a unary constraint that prohibits the given ground atom
         being true.
-        '''
+        """
         atomidx = atom if type(atom) is int else (self.mrf.gndatom(atom).idx if type(atom) is str else atom.idx)
         varidx = self.atom2var[atomidx]
         variable = self.variables[varidx]
@@ -304,19 +304,19 @@ class WCSPConverter(object):
         
         
     def getPseudoDistributionForGndAtom(self, gndAtom):
-        '''
+        """
         Computes a relative "distribution" for all possible variable assignments of 
         a mutex constraint. This can be used to determine the confidence in particular
         most probable world by comparing the score with the second-most probable one.
-        '''
-        if isinstance(gndAtom, basestring):
+        """
+        if isinstance(gndAtom, str):
             gndAtom = self.mrf.gndAtoms[gndAtom]
         
         if not isinstance(gndAtom, Logic.GroundAtom):
             raise Exception('Argument must be a ground atom')
         
         varIdx = self.gndAtom2VarIndex[gndAtom]
-        valIndices = range(len(self.varIdx2GndAtom[varIdx]))
+        valIndices = list(range(len(self.varIdx2GndAtom[varIdx])))
         mutex = len(self.varIdx2GndAtom[varIdx]) > 1
         if not mutex:
             raise Exception("Pseudo distribution is provided for mutex constraints only.")

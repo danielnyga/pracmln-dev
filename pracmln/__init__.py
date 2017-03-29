@@ -18,14 +18,14 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-from mln.base import MLN
-from mln.database import Database
-from mln.constants import *
-from mlnlearn import MLNLearn
-from mlnlearn import MLNLearn as learn
-from mlnquery import MLNQuery
-from mlnquery import MLNQuery as query
-from mlnlearn import QUERY_PREDS
-from mlnlearn import EVIDENCE_PREDS
-from utils.project import mlnpath
-from utils.project import PRACMLNConfig
+from .mln.base import MLN
+from .mln.database import Database
+from .mln.constants import *
+from .mlnlearn import MLNLearn
+from .mlnlearn import MLNLearn as learn
+from .mlnquery import MLNQuery
+from .mlnquery import MLNQuery as query
+from .mlnlearn import QUERY_PREDS
+from .mlnlearn import EVIDENCE_PREDS
+from .utils.project import mlnpath
+from .utils.project import PRACMLNConfig

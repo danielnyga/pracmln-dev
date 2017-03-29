@@ -1,11 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 import os
 import stat
 import sys
 import platform
 import shutil
-import imp
+from importlib import util as imputil
 
 sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
 
@@ -41,16 +41,12 @@ def colorize(message, format, color=False):
 packages = [('numpy', 'numpy', False), ('scipy', 'scipy', False), ('tabulate', 'tabulate', False), ('pyparsing', 'pyparsing', False), ('psutil', 'psutil', False)]
 
 def check_package(pkg):
-    try:
-        sys.stdout.write('checking dependency %s...' % pkg[0]) 
-        imp.find_module(pkg[0])
+    sys.stdout.write('checking dependency {}...'.format(pkg[0]))
+    if imputil.find_spec(pkg[0]) is not None:
         sys.stdout.write(colorize('OK', (None, 'green', True), True))
-        print
-    except ImportError: 
-        print
-        print colorize('The package %s was not found. Please install by "sudo pip install %s" %s' % (pkg[0], pkg[1], '(optional)' if pkg[2] else ''), (None, 'red', True), True)
-        return False
-    return True
+    else:
+        print(colorize('{} was not found. Please install by "sudo pip install {}" {}'.format(pkg[0], pkg[1], '(optional)' if pkg[2] else ''), (None, 'yellow', True), True))
+
 
     
 # check the package dependecies
@@ -67,8 +63,8 @@ python_apps = [
     {"name": "xval", "script": "$PRACMLN_HOME/pracmln/xval.py"},
 ]
 
-def adapt(name, arch):
-    return name.replace("<ARCH>", arch).replace("$PRACMLN_HOME", os.path.abspath(".")).replace("/", os.path.sep)
+def adapt(name, archit):
+    return name.replace("<ARCH>", archit).replace("$PRACMLN_HOME", os.path.abspath(".")).replace("/", os.path.sep)
 
 def buildLibpracmln():
     envSetup  = 'export LD_LIBRARY_PATH="{0}/lib:${{LD_LIBRARY_PATH}}"\n'
@@ -117,10 +113,10 @@ if __name__ == '__main__':
     args = sys.argv[1:]
 
     if '--help' in args:        
-        print "PRACMLNs Apps Generator\n\n"
-        print "  usage: make_apps [--arch=%s] [--cppbindings]\n" % "|".join(archs)
-        print
-        print
+        print("PRACMLNs Apps Generator\n\n")
+        print("  usage: make_apps [--arch=%s] [--cppbindings]\n" % "|".join(archs))
+        print()
+        print()
         exit(0)
     
     # determine architecture
@@ -136,10 +132,10 @@ if __name__ == '__main__':
     elif platform.dist()[0] != "":
         arch = "linux_i386" if bits == 32 else "linux_amd64"
     if arch is None:
-        print "Could not automatically determine your system's architecture. Please supply the --arch argument"
+        print("Could not automatically determine your system's architecture. Please supply the --arch argument")
         sys.exit(1)
     if arch not in archs:
-        print "Unknown architecture '%s'" % arch
+        print("Unknown architecture '%s'" % arch)
         sys.exit(1)
 
     check_dependencies()
@@ -149,13 +145,13 @@ if __name__ == '__main__':
         buildlib = True;
 #         args = args[1:]
 
-    print 'Removing old app folder...'
+    print('Removing old app folder...')
     shutil.rmtree('apps', ignore_errors=True)
 
     if not os.path.exists("apps"):
         os.mkdir("apps")
 
-    print "\nCreating application files for %s..." % arch
+    print("\nCreating application files for %s..." % arch)
     isWindows = "win" in arch
     isMacOSX = "macosx" in arch
     preamble = "@echo off\r\n" if isWindows else "#!/bin/sh\n"
@@ -164,14 +160,14 @@ if __name__ == '__main__':
     
     for app in python_apps:
         filename = os.path.join("apps", "%s%s" % (app["name"], {True:".bat", False:""}[isWindows]))
-        print "  %s" % filename
-        f = file(filename, "w")
+        print("  %s" % filename)
+        f = open(filename, "w")
         f.write(preamble)
         f.write("python -O \"%s\" %s\n" % (adapt(app["script"], arch), allargs))
         f.close()
         if not isWindows: os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
     
-    print
+    print()
 
     # write shell script for environment setup
     appsDir = adapt("$PRACMLN_HOME/apps", arch)
@@ -186,7 +182,7 @@ if __name__ == '__main__':
         extraExports = buildLibpracmln()
 
     if not "win" in arch:
-        f = file("env.sh", "w")
+        f = open("env.sh", "w")
         f.write('#!/bin/bash\n')
         f.write("export PATH=$PATH:%s\n" % appsDir)
         f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % logutilsDir)
@@ -196,24 +192,24 @@ if __name__ == '__main__':
         if extraExports:
             f.write(extraExports)
         f.close()
-        print 'Now, to set up your environment type:'
-        print '    source env.sh'
-        print
-        print 'To permantly configure your environment, add this line to your shell\'s initialization script (e.g. ~/.bashrc):'
-        print '    source %s' % adapt("$PRACMLN_HOME/env.sh", arch)
-        print
+        print('Now, to set up your environment type:')
+        print('    source env.sh')
+        print()
+        print('To permantly configure your environment, add this line to your shell\'s initialization script (e.g. ~/.bashrc):')
+        print('    source %s' % adapt("$PRACMLN_HOME/env.sh", arch))
+        print()
     else:
         pypath = ';'.join([adapt("$PRACMLN_HOME", arch), logutilsDir])
-        f = file("env.bat", "w")
+        f = open("env.bat", "w")
         f.write("@ECHO OFF\n")
         f.write('SETX PATH "%%PATH%%;%s"\r\n' % appsDir)
         f.write('SETX PRACMLN_HOME "%s"\r\n' % adapt("$PRACMLN_HOME", arch))
         f.write('SETX PYTHONPATH "%%PYTHONPATH%%;%s"\r\n' % pypath)
         f.write('SETX PRACMLN_EXPERIMENTS "%s"\r\n' % adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
         f.close()
-        print 'To temporarily set up your environment for the current session, type:'
-        print '    env.bat'
-        print
-        print 'To permanently configure your environment, use Windows Control Panel to set the following environment variables:'
-        print '  To the PATH variable add the directory "%s"' % appsDir
-        print 'Should any of these variables not exist, simply create them.'
+        print('To temporarily set up your environment for the current session, type:')
+        print('    env.bat')
+        print()
+        print('To permanently configure your environment, use Windows Control Panel to set the following environment variables:')
+        print('  To the PATH variable add the directory "%s"' % appsDir)
+        print('Should any of these variables not exist, simply create them.')

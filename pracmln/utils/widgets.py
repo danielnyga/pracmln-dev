@@ -22,16 +22,16 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from Tkinter import _setit, Menu, TclError, Frame, StringVar, Button, Text,\
+from tkinter import _setit, Menu, TclError, Frame, StringVar, Button, Text,\
     IntVar, Checkbutton, Entry, OptionMenu, Scrollbar, Grid, Place, Pack
-from ScrolledText import ScrolledText
+from tkinter.scrolledtext import ScrolledText
 from string import ascii_letters, digits, punctuation
 import re
-from Tkconstants import NONE, INSERT, LEFT, W, END, DISABLED, NORMAL, RIGHT, Y,\
+from tkinter.constants import NONE, INSERT, LEFT, W, END, DISABLED, NORMAL, RIGHT, Y,\
     TOP, BOTTOM, X, BOTH, HORIZONTAL, SEL
-from tkFileDialog import askopenfilename
-import tkMessageBox
-import tkSimpleDialog
+from tkinter.filedialog import askopenfilename
+import tkinter.messagebox
+import tkinter.simpledialog
 from pracmln import praclog
 from pracmln.utils.project import mlnpath
 from pracmln.mln.util import trace, out
@@ -71,8 +71,8 @@ class ScrolledText2(Text):
 
         # Copy geometry methods of self.frame without overriding Text
         # methods -- hack!
-        text_meths = vars(Text).keys()
-        methods = vars(Pack).keys() + vars(Grid).keys() + vars(Place).keys()
+        text_meths = list(vars(Text).keys())
+        methods = list(vars(Pack).keys()) + list(vars(Grid).keys()) + list(vars(Place).keys())
         methods = set(methods).difference(text_meths)
 
         for m in methods:
@@ -101,8 +101,8 @@ class Highlighter(object):
                 'pred': dict(font=BOLDFONT) # predicate hightlighting
                 }
         self.brackets = (('(',')'), ('{', '}'))
-        self.open_brackets = map(lambda x: x[0], self.brackets)
-        self.close_brackets = map(lambda x: x[1], self.brackets)
+        self.open_brackets = [x[0] for x in self.brackets]
+        self.close_brackets = [x[1] for x in self.brackets]
         self.operators = ['v', '^', '!', '+', '=>', '<=>']
         self.keywords = [] #keyword.kwlist
 
@@ -153,7 +153,7 @@ class SyntaxHighlightingText(ScrolledText2):
             highlighter = Highlighter()
         self.highlighter = highlighter
         # sets up the tags
-        for tag, settings in self.highlighter.tags.items():
+        for tag, settings in list(self.highlighter.tags.items()):
             self.tag_config(tag, **settings)
 
     def popup(self, event):
@@ -174,7 +174,7 @@ class SyntaxHighlightingText(ScrolledText2):
             text.configure(tabs=pixels)
 
     def remove_singleline_tags(self, start, end):
-        for tag in self.highlighter.tags.keys():
+        for tag in list(self.highlighter.tags.keys()):
             if tag[:2] != 'ml':
                 self.tag_remove(tag, start, end)
 
@@ -468,19 +468,17 @@ class FileEditBar(Frame, object):
         self.files_list_hook = fileslisthook
         self.onchange_hook = onchangehook
 
-
-        Frame.__init__(self, master)
         row = 0
         self.columnconfigure(1, weight=2)
 
-        self.selected_file = StringVar(master)
+        self.selected_file = StringVar()
         files = []
         self.file_buffer = {}
         self.file_reload = True
         if len(files) == 0: files.append("")
-        self.list_files = apply(OptionMenu, (self, self.selected_file) + tuple(files))
+        self.list_files = OptionMenu(*(self, self.selected_file) + tuple(files))
         self.list_files.grid(row=row, column=1, sticky="NWE")
-        self.selected_file.trace("w", self.select_file)
+        self.selected_file.trace("w", self.select_file_hook)
 
         # new file
         self.btn_newfile = Button(self, text='New', command=self.new_file)
@@ -593,7 +591,7 @@ class FileEditBar(Frame, object):
 
     def saveas_file(self):
         oldfname = self.selected_file.get().strip()
-        res = tkSimpleDialog.askstring('Save as', "Enter a filename", initialvalue=oldfname.strip('*'))
+        res = tkinter.simpledialog.askstring('Save as', "Enter a filename", initialvalue=oldfname.strip('*'))
         if res is None: return
         elif res:
             if not res.endswith(self.fsettings.get('extension')):
@@ -669,7 +667,7 @@ class FileEditBar(Frame, object):
         if self.files_list_hook is not None:
             files = self.files_list_hook()
 
-        new_files = sorted([i for i in files if '*'+i not in self.file_buffer] + self.file_buffer.keys())
+        new_files = sorted([i for i in files if '*'+i not in self.file_buffer] + list(self.file_buffer.keys()))
         for f in new_files:
             self.list_files['menu'].add_command(label=f, command=_setit(self.selected_file, f))
 
@@ -703,9 +701,9 @@ class FilePickEdit(Frame):
     
     def __init__(self, master, file_mask, default_file, edit_height = None, user_onChange = None, 
                  rename_on_edit=0, font = None, coloring=True, allowNone=False, highlighter=None, directory='.'):
-        '''
+        """
             file_mask: file mask (e.g. "*.foo") or list of file masks (e.g. ["*.foo", "*.abl"])
-        '''
+        """
         self.master = master
         self.directory = directory
         self.user_onChange = user_onChange
@@ -726,7 +724,7 @@ class FilePickEdit(Frame):
         self.list_frame.grid(row=row, column=0, sticky="WE")
         self.list_frame.columnconfigure(0, weight=1)
         # create list
-        self.picked_name = StringVar(self)
+        self.picked_name = StringVar()
         self.makelist()
         # refresh button
         self.refresh_button = Button(self.list_frame, text='<- refresh', command=self.refresh, height=1)
@@ -762,7 +760,7 @@ class FilePickEdit(Frame):
         self.filename_frame.grid(row=row, column=0, sticky="WE")
         self.filename_frame.columnconfigure(0, weight=1)
         # save as filename
-        self.save_name = StringVar(self)
+        self.save_name = StringVar()
         self.save_edit = Entry(self.filename_frame, textvariable = self.save_name)
         self.save_edit.grid(row=0, column=0, sticky="WE")
         self.save_name.trace("w", self.onSaveChange)
@@ -793,7 +791,7 @@ class FilePickEdit(Frame):
         self.editor.delete("1.0", END)
         filename = self.picked_name.get()
         if os.path.exists(os.path.join(self.directory, filename)):
-            new_text = file(os.path.join(self.directory, filename)).read()
+            new_text = open(os.path.join(self.directory, filename)).read()
             if new_text.strip() == "":
                 new_text = "// %s is empty\n" % filename;
             new_text = new_text.replace("\r", "")
@@ -802,10 +800,10 @@ class FilePickEdit(Frame):
         self.editor.insert(INSERT, new_text)
         
     def setText(self, txt):
-        '''
+        """
         Replaces the text in the edit field as by typing
         into it.
-        '''
+        """
         self.select("")
         if txt.strip() == "":
             txt = "// empty database\n";
@@ -883,7 +881,7 @@ class FilePickEdit(Frame):
         
 
     def select(self, filename, notify=True):
-        ''' selects the item given by filename '''
+        """ selects the item given by filename """
         if filename in self.files:
             if not havePMW:
                 self.picked_name.set(filename)
@@ -904,7 +902,7 @@ class FilePickEdit(Frame):
             self.list.component('entryfield').component('entry').configure(state = 'readonly', relief = 'raised')
             self.picked_name = self.list
         else:
-            self.list = apply(OptionMenu, (self.list_frame, self.picked_name) + tuple(self.files))
+            self.list = OptionMenu(*(self.list_frame, self.picked_name) + tuple(self.files))
             self.list.grid(row=0, column=0, sticky="NEW")
             self.picked_name.trace("w", self.onSelChange)
 
@@ -915,12 +913,12 @@ class FilePickEdit(Frame):
         self.select(selected_item)
 
     def get(self):
-        ''' gets the name of the currently selected file, saving it first if necessary '''
+        """ gets the name of the currently selected file, saving it first if necessary """
         filename = self.save_name.get()
         if self.unmodified == False:
             self.unmodified = True
             # save the file
-            f = file(os.path.join(self.directory, filename), "w")
+            f = open(os.path.join(self.directory, filename), "w")
             f.write(self.editor.get("1.0", END).encode('utf-8'))
             f.close()
             # add it to the list of files
@@ -961,7 +959,7 @@ class FilePickEdit(Frame):
 
 class FilePick(Frame):
     def __init__(self, master, file_mask, default_file, user_onChange = None, font = None, dirs = (".", ), allowNone = False):
-        ''' file_mask: file mask or list of file masks '''
+        """ file_mask: file mask or list of file masks """
         self.master = master
         self.user_onChange = user_onChange
         Frame.__init__(self, master)
@@ -1011,7 +1009,7 @@ class FilePick(Frame):
         self.set(prev_sel)
 
     def getList(self):
-        ''' returns the current list of files '''
+        """ returns the current list of files """
         return self.files
 
     def _makelist(self):
@@ -1024,8 +1022,8 @@ class FilePick(Frame):
             self.list.component('entryfield').component('entry').configure(state = 'readonly', relief = 'raised')
             self.picked_name = self.list
         else:
-            self.picked_name = StringVar(self)
-            self.list = apply(OptionMenu, (self, self.picked_name) + tuple(self.files))
+            self.picked_name = StringVar()
+            self.list = OptionMenu(*(self, self.picked_name) + tuple(self.files))
             self.list.grid(row=0, column=0, sticky="NEW")
             self.picked_name.trace("w", self.onSelChange)
 
@@ -1055,14 +1053,14 @@ class DropdownList:
         self.file_mask = filemask
         self.updateList()
         if havePMW:
-            self.list = Pmw.ComboBox(master, selectioncommand = onselchange, scrolledlist_items = self.files)
+            self.list = Pmw.ComboBox(master, selectioncommand=onselchange, scrolledlist_items = self.files)
             self.list.component('entryfield').component('entry').configure(state = 'readonly', relief = 'raised')
             self.picked_name = self.list
         else:
-            self.picked_name = StringVar(master)
-            self.list = apply(OptionMenu, (master, self.picked_name) + tuple(self.files))
+            self.picked_name = StringVar()
+            self.list = OptionMenu(*(master, self.picked_name) + tuple(self.files))
             if onselchange is not None:
-                self.picked_name.trace("w", onselchange)
+                self.picked_name.trace("w", self.onchange)
         if default is not None:
             self.select(default)
         else:
@@ -1109,7 +1107,7 @@ class DropdownList:
             self.list.component('entryfield').component('entry').configure(state = 'readonly', relief = 'raised')
             self.picked_name = self.list
         else:
-            self.list = apply(OptionMenu, (self.list_frame, self.picked_name) + tuple(self.files))
+            self.list = OptionMenu(*(self.list_frame, self.picked_name) + tuple(self.files))
             self.list.grid(row=0, column=0, sticky="NEW")
             self.picked_name.trace("w", self.onSelChange)
         self.select(self.files[0])

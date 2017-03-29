@@ -21,7 +21,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from common import AbstractGroundingFactory
+from .common import AbstractGroundingFactory
 import logging
 from pracmln.mln.util import fstr, dict_union, StopWatch, ProgressBar, out,\
     ifNone, stop
@@ -36,7 +36,7 @@ CACHE_SIZE = 100000
 
 
 class DefaultGroundingFactory:
-    '''
+    """
     Implementation of the default grounding algorithm, which
     creates ALL ground atoms and ALL ground formulas.
 
@@ -44,7 +44,7 @@ class DefaultGroundingFactory:
                             evidence given.
     :param unsatfailure:    raises a :class:`mln.errors.SatisfiabilityException` if a 
                             hard logical constraint is violated by the evidence.
-    '''
+    """
     
     def __init__(self, mrf, simplify=False, unsatfailure=False, formulas=None, cache=auto, **params):
         self.mrf = mrf
@@ -92,9 +92,9 @@ class DefaultGroundingFactory:
     
     
     def itergroundings(self):
-        '''
+        """
         Iterates over all formula groundings.
-        '''
+        """
         self.watch.tag('grounding', verbose=self.verbose)
         if self.grounder is None:
             self.grounder = iter(self._itergroundings(simplify=self.simplify, unsatfailure=self.unsatfailure))
@@ -107,7 +107,7 @@ class DefaultGroundingFactory:
                 yield self._cache[counter]
             elif not self.__cachecomplete:
                 try:
-                    gf = self.grounder.next()
+                    gf = next(self.grounder)
                 except StopIteration:
                     self.__cachecomplete = True
                     return
@@ -117,7 +117,7 @@ class DefaultGroundingFactory:
                     yield gf
             else: return
         self.watch.finish('grounding')
-        if self.verbose: print
+        if self.verbose: print()
             
             
     def _itergroundings(self, simplify=False, unsatfailure=False):
@@ -127,38 +127,38 @@ class DefaultGroundingFactory:
             if self.verbose: bar.update((i+1) / float(len(self.formulas)))
             for gndformula in formula.itergroundings(self.mrf, simplify=simplify):
                 if unsatfailure and gndformula.weight == HARD and gndformula(self.mrf.evidence) != 1:
-                    print
+                    print()
                     gndformula.print_structure(self.mrf.evidence)
                     raise SatisfiabilityException('MLN is unsatisfiable due to hard constraint violation %s (see above)' % self.mrf.formulas[gndformula.idx])
                 yield gndformula
                 
                 
 class EqualityConstraintGrounder(object):
-    '''
+    """
     Grounding factory for equality constraints only.
-    '''
+    """
     
     def __init__(self, mrf, domains, mode, eq_constraints):
-        '''
+        """
         Initialize the equality constraint grounder with the given MLN
         and formula. A formula is required that contains all variables
         in the equalities in order to infer the respective domain names.
         
         :param mode: either ``alltrue`` or ``allfalse``
-        '''
+        """
         self.constraints = eq_constraints
         self.mrf = mrf
         self.truth = {'alltrue': 1, 'allfalse': 0}[mode]
         self.mode = mode
         eqvars = [c for eq in eq_constraints for c in eq.args if self.mrf.mln.logic.isvar(c)]
-        self.vardomains = dict([(v, d) for v, d in domains.iteritems() if v in eqvars]) 
+        self.vardomains = dict([(v, d) for v, d in domains.items() if v in eqvars]) 
     
     def iter_valid_variable_assignments(self):
-        '''
+        """
         Yields all variable assignments for which all equality constraints
         evaluate to true.
-        '''
-        return self._iter_valid_variable_assignments(self.vardomains.keys(), {}, self.constraints)
+        """
+        return self._iter_valid_variable_assignments(list(self.vardomains.keys()), {}, self.constraints)
 
     
     def _iter_valid_variable_assignments(self, variables, assignments, eq_groundings):
@@ -183,7 +183,7 @@ class EqualityConstraintGrounder(object):
     
     @staticmethod
     def vardoms_from_formula(mln, formula, *varnames):
-        if isinstance(formula, basestring):
+        if isinstance(formula, str):
             formula = mln.logic.parse_formula(formula)
         vardomains = {}
         f_vardomains = formula.vardoms(mln)

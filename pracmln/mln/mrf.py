@@ -26,15 +26,15 @@
 
 import logging
 from pracmln.mln.database import Database
-from util import mergedom
+from .util import mergedom
 import copy
 import sys
 import re
-from util import fstr
+from .util import fstr
 from pracmln.logic import FirstOrderLogic
-from util import logx
+from .util import logx
 import time
-from grounding import *
+from .grounding import *
 from pracmln.logic.common import Logic
 from pracmln.mln.constants import HARD, nan
 from pracmln.logic.fuzzy import FuzzyLogic
@@ -88,7 +88,7 @@ class MRF(object):
 #         self.gndAtomsByIdx = {}
 #         self.gndFormulas = []
 #         self.gndAtomOccurrencesInGFs = []
-        if isinstance(db, basestring):
+        if isinstance(db, str):
             db = Database.load(self.mln, dbfile=db)
         elif isinstance(db, Database): 
             pass
@@ -119,12 +119,12 @@ class MRF(object):
 
     @property
     def variables(self):
-        return sorted(self._variables.values(), key=lambda v: v.idx)
+        return sorted(list(self._variables.values()), key=lambda v: v.idx)
     
     
     @property
     def gndatoms(self):
-        return self._gndatoms.values()
+        return list(self._gndatoms.values())
     
     
     @property
@@ -157,7 +157,7 @@ class MRF(object):
         '''
         # get the string represenation of the first grounding of the predicate
         if predName not in self.predicates:
-            raise Exception('Unknown predicate "%s" (%s)' % (predName, map(str, self.predicates)))
+            raise Exception('Unknown predicate "%s" (%s)' % (predName, list(map(str, self.predicates))))
         domNames = self.predicates[predName]
         params = []
         for domName in domNames:
@@ -190,7 +190,7 @@ class MRF(object):
         gndAtom = "%s(%s)" % (predName, ",".join(params))
         if gndAtom not in self.gndAtoms: return []
         idxFirst = self.gndAtoms[gndAtom].idx
-        return range(idxFirst, idxFirst + numGroundings)
+        return list(range(idxFirst, idxFirst + numGroundings))
 
 
     def domsize(self, domname):
@@ -256,7 +256,7 @@ class MRF(object):
         '''
         # check validity of evidence values
         atomvalues_ = {}
-        for key, value in dict(atomvalues).iteritems():
+        for key, value in dict(atomvalues).items():
             # convert boolean to numeric values
             if value in (True, False):
                 atomvalues[key] = {True: 1, False: 0}[value]
@@ -272,13 +272,13 @@ class MRF(object):
                     raise MRFValueException('Illegal value for the  (soft-) mutex or binary variable "%s": %s' % (str(var), value))
         atomvalues = atomvalues_
         if erase: # erase all variable assignments appearing in atomvalues
-            for key, _ in atomvalues.iteritems():
+            for key, _ in atomvalues.items():
                 var = self.variable(self.gndatom(key))
                 # unset all atoms in this variable
                 for atom in var.gndatoms:
                     self._evidence[atom.idx] = None
         
-        for key, value in atomvalues.iteritems():
+        for key, value in atomvalues.items():
             gndatom = self.gndatom(key)
             var = self.variable(gndatom)
             # create a template with admissible truth values for all
@@ -354,7 +354,7 @@ class MRF(object):
         foo(x,y)
         '''
         if not args:
-            if isinstance(identifier, basestring):
+            if isinstance(identifier, str):
                 atom = self._gndatoms.get(identifier)
                 if atom is None:
                     try:
@@ -387,7 +387,7 @@ class MRF(object):
             return self._variables_by_idx.get(identifier)
         elif isinstance(identifier, Logic.GroundAtom):
             return self._variables_by_gndatomidx[identifier.idx]
-        elif isinstance(identifier, basestring):
+        elif isinstance(identifier, str):
             return self._variables.get(identifier)
     
     
@@ -426,7 +426,7 @@ class MRF(object):
     
     def print_variables(self):
         for var in self.variables:
-            print str(var)
+            print(str(var))
     
     
     def print_world_atoms(self, world, stream=sys.stdout):
@@ -453,8 +453,8 @@ class MRF(object):
 
     def print_domains(self):
         out('=== MRF DOMAINS ==', tb=2)
-        for dom, values in self.domains.iteritems():
-            print dom, '=', ','.join(values) 
+        for dom, values in self.domains.items():
+            print(dom, '=', ','.join(values)) 
 
 
     def evidence_dicts(self):
@@ -596,7 +596,7 @@ class MRF(object):
         Prints the alphabetically sorted list of ground atoms in this MRF to the given `stream`.
         '''
         out('=== GROUND ATOMS ===', tb=2)
-        l = self._gndatoms.keys()
+        l = list(self._gndatoms.keys())
         for ga in sorted(l):
             stream.write(str(ga) + '\n')
 
@@ -653,7 +653,7 @@ class MRF(object):
                 formula = self.formulas[req["idxFormula"]]
                 variables = formula.getVariables(self)
                 groundVars = {}
-                for varName, domName in variables.iteritems(): # instantiate vars arbitrarily (just use first element of domain)
+                for varName, domName in variables.items(): # instantiate vars arbitrarily (just use first element of domain)
                     groundVars[varName] = self.domains[domName][0]
                 gndFormula = formula.ground(self, groundVars)
                 req["gndExpr"] = str(gndFormula)
@@ -723,7 +723,7 @@ class MRF(object):
             mlnFile = file(probabilityFittingResultFileName, "w")
             self.mln.write(mlnFile)
             mlnFile.close()
-            print "written MLN with probability constraints to:", probabilityFittingResultFileName
+            print("written MLN with probability constraints to:", probabilityFittingResultFileName)
 
         return (results[len(constraints):], {"steps": min(step, steps), "fittingSteps": fittingStep, "maxdiff": maxdiff, "meandiff": meandiff, "time": time.time() - t_start})
 
@@ -752,7 +752,7 @@ class MRF(object):
                         if not edge in graph:
                             f.write("  ga%d -- ga%d\n" % edge)
                             graph[edge] = True
-            for atom in self.gndatoms.values():
+            for atom in list(self.gndatoms.values()):
                 f.write('  ga%d [label="%s"]\n' % (atom.idx, str(atom)))
             f.write("}\n")
 
@@ -761,18 +761,18 @@ class MRF(object):
         import graphml  # @UnresolvedImport
         G = graphml.Graph()
         nodes = []
-        for i in xrange(len(self.gndAtomsByIdx)):
+        for i in range(len(self.gndAtomsByIdx)):
             ga = self.gndAtomsByIdx[i]
             nodes.append(graphml.Node(G, label=str(ga), shape="ellipse", color=graphml.randomVariableColor))
         links = {}
         for gf in self.gndFormulas:
-            print gf
+            print(gf)
             idxGAs = sorted(gf.idxGroundAtoms())
             for idx, i in enumerate(idxGAs):
                 for j in idxGAs[idx+1:]:
                     t = (i,j)
                     if not t in links:
-                        print "  %s -- %s" % (nodes[i], nodes[j])
+                        print("  %s -- %s" % (nodes[i], nodes[j]))
                         graphml.UndirectedEdge(G, nodes[i], nodes[j])
                         links[t] = True
         f = open(filename, "w")

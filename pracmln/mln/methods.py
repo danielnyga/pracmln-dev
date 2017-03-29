@@ -42,7 +42,7 @@ class Enum(object):
     def __getattr__(self, id_):
         if id_ in self.id2clazz:
             return self.id2clazz[id_]
-        raise KeyError('Enum does not define %s, only %s' % (id_, self.id2clazz.keys()))
+        raise KeyError('Enum does not define %s, only %s' % (id_, list(self.id2clazz.keys())))
     
     
     def clazz(self, key):
@@ -67,10 +67,10 @@ class Enum(object):
         raise KeyError('No element with id "%s"' % id_)
     
     def names(self):
-        return self.id2name.values()
+        return list(self.id2name.values())
     
     def ids(self):
-        return self.id2name.keys()
+        return list(self.id2name.keys())
     
 InferenceMethods = Enum(
     (
@@ -121,10 +121,10 @@ LearningMethods = Enum(
 
 if __name__ =='__main__':
     
-    print InferenceMethods.id2clazz
-    print InferenceMethods.id2name
-    print InferenceMethods.name2id
-    print LearningMethods.names()
-    print InferenceMethods.clazz(MCSAT)
-    print InferenceMethods.name('WCSPInference')
+    print(InferenceMethods.id2clazz)
+    print(InferenceMethods.id2name)
+    print(InferenceMethods.name2id)
+    print(LearningMethods.names())
+    print(InferenceMethods.clazz(MCSAT))
+    print(InferenceMethods.name('WCSPInference'))
     

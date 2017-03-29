@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-
-    Python logging tuned to extreme.
-
+Python logging tuned to extreme.
 """
 
 __author__ = "Mikko Ohtamaa <mikko@opensourcehacker.com>"
@@ -184,7 +182,7 @@ if __name__ == "__main__":
 
         try:
             raise RuntimeError("Opa!")
-        except Exception, e:
+        except Exception as e:
             logger.exception(e)
 
     test_func()

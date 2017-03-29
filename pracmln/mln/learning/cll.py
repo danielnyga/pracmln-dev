@@ -36,9 +36,9 @@ from pracmln import praclog
 logger = praclog.logger(__name__)
 
 class CLL(AbstractLearner):
-    '''
+    """
     Implementation of composite-log-likelihood learning.
-    '''
+    """
     
     def __init__(self, mrf, **params):
         AbstractLearner.__init__(self, mrf, **params)
@@ -125,9 +125,9 @@ class CLL(AbstractLearner):
     
     
     def _compute_stat_rec(self, literals, gndliterals, var_assign, formula, f_gndlit_parts=None, processed=None, isconj=False):
-        '''
+        """
         TODO: make sure that there are no equality constraints in the conjunction!
-        '''
+        """
 
         if len(literals) == 0:
             # at this point, we have a fully grounded conjunction in gndliterals
@@ -154,7 +154,7 @@ class CLL(AbstractLearner):
                 gndformula = formula.ground(self.mrf, var_assign)
                 # print 'gndformula', gndformula
                 # stop()
-            for partition, gndlits in part2gndlits.iteritems():
+            for partition, gndlits in part2gndlits.items():
                 # for each partition, select the ground atom truth assignments
                 # in such a way that the conjunction is rendered true. There
                 # is precisely one such assignment for each partition. (criterion 3/4)
@@ -171,12 +171,12 @@ class CLL(AbstractLearner):
                         # temporarily set the evidence in the MRF, compute the truth value of the 
                         # formula and remove the temp evidence
                         with temporary_evidence(self.mrf):
-                            for atomidx, value in partition.value2dict(world).iteritems():
+                            for atomidx, value in partition.value2dict(world).items():
                                 self.mrf.set_evidence({atomidx: value}, erase=True)
                             truth = gndformula(self.mrf.evidence)
                             if truth is None:
-                                print gndformula
-                                print gndformula.print_structure(self.mrf.evidence)
+                                print(gndformula)
+                                print(gndformula.print_structure(self.mrf.evidence))
 
                     if truth != 0:
                         self.partition2formulas[partition.idx].add(formula.idx)
@@ -265,7 +265,7 @@ class CLL(AbstractLearner):
             if p == 0: p = 1e-10
             likelihood[pidx] += p
         self.iter += 1
-        return fsum(map(log, likelihood))
+        return fsum(list(map(log, likelihood)))
             
             
     def _grad(self, w, **params):    
@@ -273,21 +273,21 @@ class CLL(AbstractLearner):
             self.current_wts = w
             self.probs = self._compute_probs(w)
         grad = numpy.zeros(len(w))
-        for fidx, partitions in self._stat.iteritems():
-            for part, values in partitions.iteritems():
+        for fidx, partitions in self._stat.items():
+            for part, values in partitions.items():
                 v = values[self.evidx[part]]
                 for i, val in enumerate(values):
                     v -= self.probs[part][i] * val
                 grad[fidx] += v
-        self.grad_opt_norm = float(sqrt(fsum(map(lambda x: x * x, grad))))
+        self.grad_opt_norm = float(sqrt(fsum([x * x for x in grad])))
         return numpy.array(grad)
     
     
     class Partition(object):
-        '''
+        """
         Represents a partition of the variables in the MRF. Provides a couple
         of convencience methods.
-        '''
+        """
         
         def __init__(self, mrf, variables, idx):
             self.variables = variables
@@ -304,10 +304,10 @@ class CLL(AbstractLearner):
             
             
         def __contains__(self, atom):
-            '''
+            """
             Returns True iff the given ground atom or ground atom index is part of
             this partition.
-            '''
+            """
             if isinstance(atom, Logic.GroundAtom):
                 return atom in self.gndatoms
             elif type(atom) is int:
@@ -317,10 +317,10 @@ class CLL(AbstractLearner):
             
             
         def value2dict(self, value):
-            '''
+            """
             Takes a possible world tuple of the form ((0,),(0,),(1,0,0),(1,)) and transforms
             it into a dict mapping the respective atom indices to their truth values
-            '''
+            """
             evidence = {}
             for var, val in zip(self.variables, value):
                 evidence.update(var.value2dict(val))
@@ -328,10 +328,10 @@ class CLL(AbstractLearner):
             
         
         def evidenceidx(self, evidence=None):
-            '''
+            """
             Returns the index of the possible world value of this partition that is represented
             by evidence. If evidence is None, the evidence set in the MRF is used.
-            '''
+            """
             if evidence is None:
                 evidence = self.mrf.evidence
             evidencevalue = []
@@ -341,7 +341,7 @@ class CLL(AbstractLearner):
         
         
         def valueidx(self, value):
-            '''
+            """
             Computes the index of the given possible world that would be assigned
             to it by recursively generating all worlds by itervalues().
             value needs to be represented by a (nested) tuple of truth values.
@@ -350,7 +350,7 @@ class CLL(AbstractLearner):
                  ((0,),(0,),(0,1,0),(0,)) --> 2
                  ((0,),(0,),(0,1,0),(1,)) --> 3
                  ...
-            '''
+            """
             idx = 0
             for i, (var, val) in enumerate(zip(self.variables, value)):
                 exponential = 2 ** (len(self.variables) - i - 1)
@@ -360,12 +360,12 @@ class CLL(AbstractLearner):
                     
                 
         def itervalues(self, evidence=None):
-            '''
+            """
             Yields possible world values of this partition in the form
             ((0,),(0,),(1,0,0),(0,)), for instance. Nested tuples represent mutex variables.
             All tuples are consistent with the evidence at hand. Evidence is
             a dict mapping a ground atom index to its (binary) truth value.
-            '''
+            """
             if evidence is None:
                 evidence = []
             for world in self._itervalues(self.variables, [], evidence):
@@ -373,10 +373,10 @@ class CLL(AbstractLearner):
         
         
         def _itervalues(self, variables, assignment, evidence):
-            '''
+            """
             Recursively generates all tuples of possible worlds that are consistent
             with the evidence at hand.
-            '''
+            """
             if not variables:
                 yield tuple(assignment)
                 return
@@ -387,9 +387,9 @@ class CLL(AbstractLearner):
                         
             
         def valuecount(self):
-            '''
+            """
             Returns the number of possible (partial) worlds of this partition
-            '''
+            """
             count = 1
             for v in self.variables:
                 count *= v.valuecount()
@@ -404,9 +404,9 @@ class CLL(AbstractLearner):
     
     
 class DCLL(CLL, DiscriminativeLearner):
-    '''
+    """
     Discriminative Composite-Likelihood Learner.
-    '''
+    """
     
     def __init__(self, mrf=None, **params):
         CLL.__init__(self, mrf, **params)

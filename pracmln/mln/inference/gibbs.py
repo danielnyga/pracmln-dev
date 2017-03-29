@@ -45,7 +45,7 @@ class GibbsSampler(MCMCInference):
         grounder = FastConjunctionGrounding(mrf, simplify=True, unsatfailure=True, cache=None)
         for gf in grounder.itergroundings():
             if isinstance(gf, Logic.TrueFalse): continue
-            vars_ = set(map(lambda a: self.mrf.variable(a).idx, gf.gndatoms()))
+            vars_ = set([self.mrf.variable(a).idx for a in gf.gndatoms()])
             for v in vars_: self.var2gf[v].add(gf)
     
     @property
@@ -120,12 +120,12 @@ class GibbsSampler(MCMCInference):
     
 
     def _run(self, **params):
-        '''
+        """
         infer one or more probabilities P(F1 | F2)
         what: a ground formula (string) or a list of ground formulas (list of strings) (F1)
         given: a formula as a string (F2)
         set evidence according to given conjunction (if any)
-        '''
+        """
 #         if softEvidence is None:
 #             self.softEvidence = self.mln.softEvidence
 #         else:

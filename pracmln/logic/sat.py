@@ -23,14 +23,14 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 def DPLL(clauses):
-    '''
+    """
     Implementation of the Davis-Putnam-Logemann-Loveland (DPLL) algorithm for 
     proving satisfiability of a sentence in CNF in propositional logic.
     Returns True iff clauses is satisfiable, or False otherwise.
     - clauses:     A Set of clauses, i.e. a list of sets of literals. Literals
                    are strings, a literal is considered having negative polarity
                    if it starts with "!".
-    '''
+    """
     # check for empty clauses first and collect unit clauses
     unitClauses = set()
     pureLiterals = set()
@@ -113,7 +113,7 @@ if __name__ == '__main__':
     c7 = set(['!M'])
 #     c7 = set(['!G'])
     cnf = [c1, c2, c3, c4, c5, c6, c7]
-    print DPLL(cnf)
+    print(DPLL(cnf))
                 
             
             

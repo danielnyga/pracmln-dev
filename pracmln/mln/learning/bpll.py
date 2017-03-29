@@ -24,7 +24,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from common import AbstractLearner
+from .common import AbstractLearner
 from collections import defaultdict
 import numpy
 import logging
@@ -44,14 +44,14 @@ logger = logging.getLogger(__name__)
 
 
 class BPLL(AbstractLearner):
-    '''
+    """
     Pseudo-log-likelihood learning with blocking, i.e. a generalization
     of PLL which takes into consideration the fact that the truth value of a
     blocked atom cannot be inverted without changing a further atom's truth
     value from the same block.
     This learner is fairly efficient, as it computes f and grad based only
     on a sufficient statistic.
-    '''    
+    """    
     
     def __init__(self, mrf, **params):
         AbstractLearner.__init__(self, mrf, **params)
@@ -67,9 +67,9 @@ class BPLL(AbstractLearner):
 #         print self._stat
     
     def _pl(self, varidx, w):
-        '''
+        """
         Computes the pseudo-likelihoods for the given variable under weights w. 
-        '''        
+        """        
         var = self.mrf.variable(varidx)
         values = var.valuecount()
         gfs = self._varidx2fidx.get(varidx)
@@ -90,7 +90,7 @@ class BPLL(AbstractLearner):
         expsums = [numpy.exp(s) if s is not None else 0 for s in sums]#numpy.exp(numpy.array(sums))
         z = sum(expsums)
         if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: all probability masses of variable %s are zero.' % str(var))
-        return map(lambda w_: w_ / z, expsums)
+        return [w_ / z for w_ in expsums]
 #         sum_max = numpy.max(sums)
 #         sums -= sum_max
 #         expsums = numpy.sum(numpy.exp(sums))
@@ -100,9 +100,9 @@ class BPLL(AbstractLearner):
     
     def write_pls(self):
         for var in self.mrf.variables:
-            print repr(var)
-            for i, value in var.itervalues():
-                print '    ', barstr(width=50, color='magenta', percent=self._pls[var.idx][i]) + ('*' if var.evidence_value_index() == i else ' '), i, value
+            print(repr(var))
+            for i, value in var.values():
+                print('    ', barstr(width=50, color='magenta', percent=self._pls[var.idx][i]) + ('*' if var.evidence_value_index() == i else ' '), i, value)
     
     
     def _compute_pls(self, w):
@@ -119,20 +119,20 @@ class BPLL(AbstractLearner):
             p = self._pls[var.idx][var.evidence_value_index()]
             if p == 0: p = 1e-10 # prevent 0 probabilities
             probs.append(p)
-        return fsum(map(log, probs))
+        return fsum(list(map(log, probs)))
 
    
     def _grad(self, w):
         self._compute_pls(w)
         grad = numpy.zeros(len(self.mrf.formulas), numpy.float64)        
-        for fidx, varval in self._stat.iteritems():
-            for varidx, counts in varval.iteritems():
+        for fidx, varval in self._stat.items():
+            for varidx, counts in varval.items():
                 evidx = self.mrf.variable(varidx).evidence_value_index()
                 g = counts[evidx]
                 for i, val in enumerate(counts):
                     g -= val * self._pls[varidx][i]
                 grad[fidx] += g
-        self.grad_opt_norm = float(sqrt(fsum(map(lambda x: x * x, grad))))
+        self.grad_opt_norm = float(sqrt(fsum([x * x for x in grad])))
         return numpy.array(grad)
 
     
@@ -146,9 +146,9 @@ class BPLL(AbstractLearner):
         
     
     def _compute_statistics(self):
-        '''
+        """
         computes the statistics upon which the optimization is based
-        '''
+        """
         self._stat = {}
         self._varidx2fidx = defaultdict(set)
         grounder = DefaultGroundingFactory(self.mrf, simplify=False, unsatfailure=True, verbose=self.verbose, cache=0)
@@ -156,7 +156,7 @@ class BPLL(AbstractLearner):
             for gndatom in f.gndatoms():
                 var = self.mrf.variable(gndatom)
                 with temporary_evidence(self.mrf):
-                    for validx, value in var.itervalues():
+                    for validx, value in var.values():
                         var.setval(value, self.mrf.evidence)
                         truth = f(self.mrf.evidence) 
                         if truth != 0:
@@ -165,9 +165,9 @@ class BPLL(AbstractLearner):
                 
                 
 class DPLL(BPLL, DiscriminativeLearner):
-    ''' 
+    """ 
     Discriminative pseudo-log-likelihood learning.
-    '''    
+    """    
 
     def _f(self, w, **params):
         self._compute_pls(w)
@@ -177,21 +177,21 @@ class DPLL(BPLL, DiscriminativeLearner):
             p = self._pls[var.idx][var.evidence_value_index()]
             if p == 0: p = 1e-10 # prevent 0 probabilities
             probs.append(p)
-        return fsum(map(log, probs))
+        return fsum(list(map(log, probs)))
 
     
     def _grad(self, w, **params):        
         self._compute_pls(w)
         grad = numpy.zeros(len(self.mrf.formulas), numpy.float64)        
-        for fidx, varval in self._stat.iteritems():
-            for varidx, counts in varval.iteritems():
+        for fidx, varval in self._stat.items():
+            for varidx, counts in varval.items():
                 if self.mrf.variable(varidx).predicate.name in self.epreds: continue
                 evidx = self.mrf.variable(varidx).evidence_value_index()
                 g = counts[evidx]
                 for i, val in enumerate(counts):
                     g -= val * self._pls[varidx][i]
                 grad[fidx] += g
-        self.grad_opt_norm = float(sqrt(fsum(map(lambda x: x * x, grad))))
+        self.grad_opt_norm = float(sqrt(fsum([x * x for x in grad])))
         return numpy.array(grad)
 
 

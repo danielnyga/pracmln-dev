@@ -28,7 +28,8 @@ from collections import defaultdict
 import itertools
 from pracmln.mln.constants import HARD, auto, predicate_color, inherit
 import logging
-from grammar import StandardGrammar, PRACGrammar
+from .grammar import StandardGrammar, PRACGrammar
+from functools import reduce
 
 logger = logging.getLogger(__name__)
 
@@ -44,20 +45,20 @@ def latexsym(sym):
     return r'\textit{%s}' % str(sym)
 
 class Logic(object):
-    '''
+    """
     Abstract factory class for instantiating logical constructs like conjunctions, 
     disjunctions etc. Every specifc logic should implement the methods and return
     an instance of the respective element. They also might override the respective
     implementations and behavior of the logic.
-    '''
+    """
     
     def __init__(self, grammar, mln):
-        '''
+        """
         Creates a new instance of a Logic factory class.
         
         :param grammar:     an instance of grammar.Grammar
         :param mln:         the MLN instance that the logic shall be tied to.
-        '''
+        """
         if grammar not in ('StandardGrammar', 'PRACGrammar'):
             raise Exception('Invalid grammar: %s' % grammar)
         self.grammar = eval(grammar)(self)
@@ -76,44 +77,44 @@ class Logic(object):
     
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #   
     class Constraint(object):
-        '''
+        """
         Super class of every constraint.
-        '''
+        """
         
         
         def template_variants(self, mln):
-            '''
+            """
             Gets all the template variants of the constraint for the given mln/ground markov random field.
-            '''
+            """
             raise Exception("%s does not implement getTemplateVariants" % str(type(self)))
         
         
         def truth(self, world):
-            '''
+            """
             Returns the truth value of the constraint in given a complete possible world
             
             
             :param world:     a possible world as a list of truth values
-            '''
+            """
             raise Exception("%s does not implement truth" % str(type(self)))
     
     
         def islogical(self):
-            '''
+            """
             Returns whether this is a logical constraint, i.e. a logical formula
-            '''
+            """
             raise Exception("%s does not implement islogical" % str(type(self)))
     
     
         def itergroundings(self, mrf, simplify=False, domains=None):
-            '''
+            """
             Iteratively yields the groundings of the formula for the given ground MRF
             - simplify:     If set to True, the grounded formulas will be simplified
                             according to the evidence set in the MRF.
             - domains:      If None, the default domains will be used for grounding.
                             If its a dict mapping the variable names to a list of values,
                             these values will be used instead.
-            '''
+            """
             raise Exception("%s does not implement itergroundings" % str(type(self)))
     
         
@@ -129,9 +130,9 @@ class Logic(object):
 
       
     class Formula(Constraint): 
-        ''' 
+        """ 
         The base class for all logical formulas.
-        '''
+        """
         
         def __init__(self, mln=None, idx=None):
             self.mln = mln
@@ -142,9 +143,9 @@ class Logic(object):
         
         @property
         def idx(self):
-            '''
+            """
             The formula's weight.
-            '''
+            """
 #             if self._idx is None:
 #                 try: return self.mln._formulas.index(self)
 #                 except ValueError: 
@@ -160,9 +161,9 @@ class Logic(object):
             
         @property
         def mln(self):
-            '''
+            """
             Specifies whether the weight of this formula is fixed for learning.
-            '''
+            """
             return self._mln
         
         
@@ -192,9 +193,9 @@ class Logic(object):
         
         
         def contains_gndatom(self, gndatomidx):
-            '''
+            """
             Checks if this formula contains the ground atom with the given index.
-            '''
+            """
             if not hasattr(self, "children"):
                 return False
             for child in self.children:
@@ -204,10 +205,10 @@ class Logic(object):
     
     
         def gndatom_indices(self, l=None):
-            '''
+            """
             Returns a list of the indices of all ground atoms that
             are contained in this formula.
-            '''
+            """
             if l == None: l = []
             if not hasattr(self, "children"):
                 return l
@@ -217,10 +218,10 @@ class Logic(object):
     
     
         def gndatoms(self, l=None):
-            '''
+            """
             Returns a list of all ground atoms that are contained
             in this formula.
-            '''
+            """
             if l is None: l = []
             if not hasattr(self, "children"):
                 return l
@@ -230,7 +231,7 @@ class Logic(object):
     
     
         def templ_atoms(self):
-            '''
+            """
             Returns a list of template variants of all atoms 
             that can be generated from this formula and the given mln.
             
@@ -238,7 +239,7 @@ class Logic(object):
             
             foo(?x, +?y) ^ bar(?x, +?z) --> [foo(?x, X1), foo(?x, X2), ..., 
                                                       bar(?x, Z1), bar(?x, Z2), ...]
-            '''
+            """
             templ_atoms = []
             for literal in self.literals():
                 for templ in literal.template_variants():
@@ -247,23 +248,23 @@ class Logic(object):
         
         
         def atomic_constituents(self, oftype=None):
-            '''
+            """
             Returns a list of all atomic logical constituents, optionally filtered
             by type. 
             
             Example: f.atomic_constituents(oftype=Logic.Equality)
             
             returns a list of all equality constraints in this formula.
-            '''
+            """
             const = list(self.literals())
             if oftype is None: return const
-            else: return filter(lambda c: isinstance(c, oftype), const)
+            else: return [c for c in const if isinstance(c, oftype)]
             
     
         def template_variants(self):
-            '''
+            """
             Gets all the template variants of the formula for the given MLN 
-            '''
+            """
             uniqvars = list(self.mln._unique_templvars[self.idx])
             vardoms = self.template_variables()
             # get the vars with the same domains that should not be expanded ambiguously
@@ -273,7 +274,7 @@ class Logic(object):
                 uniqvars_[dom].add(var)
             assignments = []
             # create sets of admissible variable assignments for the groups of unique template variables
-            for domain, variables in uniqvars_.iteritems():
+            for domain, variables in uniqvars_.items():
                 group = []
                 domvalues = self.mln.domains[domain] 
                 if not domvalues:
@@ -282,7 +283,7 @@ class Logic(object):
                     group.append(dict([(var, val) for var, val in zip(variables, values)]))
                 assignments.append(group)
             # add the non-unique variables
-            for variable, domain in vardoms.iteritems():
+            for variable, domain in vardoms.items():
                 if variable in uniqvars: continue
                 group = []
                 domvalues = self.mln.domains[domain] 
@@ -307,29 +308,29 @@ class Logic(object):
                         yield t
 
         def template_variables(self, variable=None):
-            '''
+            """
             Gets all variables of this formula that are required to be expanded 
             (i.e. variables to which a '+' was appended) and returns a 
             mapping (dict) from variable name to domain name.
-            '''
+            """
             raise Exception("%s does not implement template_variables" % str(type(self)))
         
         
         def _ground_template(self, assignment):
-            '''
+            """
             Grounds this formula for the given assignment of template variables 
             and returns a list of formulas, the list of template variants
             - assignment: a mapping from variable names to constants
-            '''
+            """
             raise Exception("%s does not implement _ground_template" % str(type(self)))
     
     
         def itervargroundings(self, mrf, partial=None):
-            '''
+            """
             Yields dictionaries mapping variable names to values
             this formula may be grounded with without grounding it. If there are not free
             variables in the formula, returns an empty dict.
-            '''
+            """
 #             try:
             variables = self.vardoms()
             if partial is not None: 
@@ -358,7 +359,7 @@ class Logic(object):
                     
     
         def itergroundings(self, mrf, simplify=False, domains=None):
-            '''
+            """
             Iteratively yields the groundings of the formula for the given grounder
             
             :param mrf:          an object, such as an MRF instance, which
@@ -368,17 +369,17 @@ class Logic(object):
                                  If its a dict mapping the variable names to a list of values,
                                  these values will be used instead.
             :returns:            a generator for all ground formulas
-            '''
+            """
             try:
                 variables = self.vardoms()
-            except Exception, e:
+            except Exception as e:
                 raise Exception("Error grounding '%s': %s" % (str(self), str(e)))
             for grounding in self._itergroundings(mrf, variables, {}, simplify, domains):
                 yield grounding
             
             
         def iter_true_var_assignments(self, mrf, world=None, truth_thr=1.0, strict=False, unknown=False, partial=None):
-            '''
+            """
             Iteratively yields the variable assignments (as a dict) for which this
             formula exceeds the given truth threshold. 
             
@@ -391,7 +392,7 @@ class Logic(object):
             :param strict:     if `True`, the truth value of the formula must be strictly greater than the `thr`.
                                if `False`, it can be greater or equal.
             :param unknown:    If `True`, also groundings with the truth value `None` are returned
-            '''
+            """
             if world is None:
                 world = list(mrf.evidence)
             if partial is None:
@@ -400,7 +401,7 @@ class Logic(object):
                 variables = self.vardoms()
                 for var in partial:
                     if var in variables: del variables[var]
-            except Exception, e:
+            except Exception as e:
                 raise Exception("Error grounding '%s': %s" % (str(self), str(e)))
             for assignment in self._iter_true_var_assignments(mrf, variables, partial, world,
                                                                 dict(variables), truth_thr=truth_thr, strict=strict, unknown=unknown):
@@ -447,22 +448,22 @@ class Logic(object):
         
         
         def vardoms(self, variables=None, constants=None):
-            '''
+            """
             Returns a dictionary mapping each variable name in this formula to
             its domain name as specified in the associated MLN.
-            '''
+            """
             raise Exception("%s does not implement vardoms()" % str(type(self)))
         
         
         def prednames(self, prednames=None):
-            '''
+            """
             Returns a list of all predicate names used in this formula.
-            '''
+            """
             raise Exception('%s does not implement prednames()' % str(type(self)))
         
         
         def ground(self, mrf, assignment, simplify=False, partial=False):
-            '''
+            """
             Grounds the formula using the given assignment of variables to values/constants and, if given a list in referencedAtoms, 
             fills that list with indices of ground atoms that the resulting ground formula uses
             
@@ -472,12 +473,12 @@ class Logic(object):
             :param partial:        by default, only complete groundings are allowed. If `partial` is `True`,
                                    the result formula may also contain free variables.
             :returns:              a new formula object instance representing the grounded formula
-            '''
+            """
             raise Exception("%s does not implement ground" % str(type(self)))
         
         
         def copy(self, mln=None, idx=inherit):
-            '''
+            """
             Produces a deep copy of this formula.
             
             If `mln` is specified, the copied formula will be tied to `mln`. If not, it will be tied to the same
@@ -488,35 +489,35 @@ class Logic(object):
                             If `None`, the index of this formula will be erased to `None`.
                             if `idx` is `auto`, the formula will get a new index from the MLN. 
                             if `idx` is :class:`mln.constants.inherit`, the index from this formula will be inherited to the copy (default). 
-            '''
+            """
             raise Exception('%s does not implement copy()' % str(type(self)))#self._copy(ifNone(mln, self.mln), ifNone(idx, self.idx))        
         
         
         def vardom(self, varname):
-            '''
+            """
             Returns the domain values of the variable with name `vardom`.
-            '''
+            """
             return self.mln.domains.get(self.vardoms()[varname])
             
         
         def cnf(self, level=0):
-            '''
+            """
             Convert to conjunctive normal form.
-            '''
+            """
             return self
         
         
         def nnf(self, level=0):
-            '''
+            """
             Convert to negation normal form.
-            '''
+            """
             return self.copy()
         
             
         def print_structure(self, world=None, level=0, stream=sys.stdout):
-            '''
+            """
             Prints the structure of the formula to the given `stream`.
-            '''
+            """
             stream.write(''.rjust(level * 4, ' '))
             stream.write('%s: [idx=%s, weight=%s] %s = %s\n' % (repr(self), ifNone(self.idx, '?'), '?' if self.idx is None else self.weight, 
                                                                 str(self), ifNone(world, '?', lambda mrf: ifNone(self.truth(world), '?'))))
@@ -530,17 +531,17 @@ class Logic(object):
         
         
         def simplify(self, mrf):
-            '''
+            """
             Simplify the formula by evaluating it with respect to the ground atoms given 
             by the evidence in the mrf.
-            '''
+            """
             raise Exception('%s does not implement simplify()' % str(type(self)))
         
         
         def literals(self):
-            '''
+            """
             Traverses the formula and returns a generator for the literals it contains.
-            ''' 
+            """ 
             if not hasattr(self, 'children'):
                 yield self
                 return
@@ -557,42 +558,42 @@ class Logic(object):
 
 
         def truth(self, world):
-            '''
+            """
             Evaluates the formula for its truth wrt. the truth values
             of ground atoms in the possible world `world`.
             
             :param world:     a vector of truth values representing a possible world.
             :returns:         the truth of the formula in `world` in [0,1] or None if
                               the truth value cannot be determined.
-            '''
+            """
             raise Exception('%s does not implement truth()' % str(type(self)))
     
         
         def countgroundings(self, mrf):
-            '''
+            """
             Computes the number of ground formulas based on the domains of free
             variables in this formula. (NB: this does _not_ generate the groundings.)
-            '''
+            """
             gf_count = 1
-            for _, dom in self.vardoms().iteritems():
+            for _, dom in self.vardoms().items():
                 domain = mrf.domains[dom]
                 gf_count *= len(domain)
             return gf_count
     
     
         def maxtruth(self, world):
-            '''
+            """
             Returns the maximum truth value of this formula given the evidence.
             For FOL, this is always 1 if the formula is not rendered false by evidence.
-            '''
+            """
             raise Exception('%s does not implement maxtruth()' % self.__class__.__name__)
         
         
         def mintruth(self, world):
-            '''
+            """
             Returns the minimum truth value of this formula given the evidence.
             For FOL, this is always 0 if the formula is not rendered true by evidence.
-            '''
+            """
             raise Exception('%s does not implement mintruth()' % self.__class__.__name__)
         
         
@@ -607,16 +608,16 @@ class Logic(object):
 
     
     class ComplexFormula(Formula): 
-        '''
+        """
         A formula that has other formulas as subelements (children)
-        '''
+        """
         
         def __init__(self, mln, idx=None):
             Formula.__init__(self, mln, idx)
         
         
         def vardoms(self, variables=None, constants=None):
-            '''
+            """
             Get the free (unquantified) variables of the formula in a dict that maps the variable name to the corresp. domain name
             The vars and constants parameters can be omitted.
             If vars is given, it must be a dictionary with already known variables.
@@ -624,7 +625,7 @@ class Logic(object):
                 it will be a dictionary mapping domain names to lists of constants
             If constants is not given, then constants are not collected, only variables.
             The dictionary of variables is returned.
-            '''
+            """
             if variables is None: variables = defaultdict(set)
             for child in self.children:
                 if not hasattr(child, "vardoms"): continue
@@ -633,10 +634,10 @@ class Logic(object):
         
         
         def constants(self, constants=None):
-            ''' 
+            """ 
             Get the constants appearing in the formula in a dict that maps the constant 
             name to the domain name the constant belongs to.
-            '''
+            """
             if constants == None: constants = defaultdict
             for child in self.children:
                 if not hasattr(child, "constants"): continue
@@ -704,9 +705,9 @@ class Logic(object):
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
         
     class Conjunction(ComplexFormula):
-        '''
+        """
         Represents a logical conjunction.
-        '''
+        """
         
         
         def __init__(self, children, mln, idx=None):
@@ -725,15 +726,15 @@ class Logic(object):
     
     
         def __str__(self):
-            return ' ^ '.join(map(lambda c: ('(%s)' % str(c)) if isinstance(c, Logic.ComplexFormula) else str(c), self.children))
+            return ' ^ '.join([('(%s)' % str(c)) if isinstance(c, Logic.ComplexFormula) else str(c) for c in self.children])
     
         
         def cstr(self, color=False):
-            return ' ^ '.join(map(lambda c:('(%s)' % c.cstr(color)) if isinstance(c, Logic.ComplexFormula) else c.cstr(color), self.children))
+            return ' ^ '.join([('(%s)' % c.cstr(color)) if isinstance(c, Logic.ComplexFormula) else c.cstr(color) for c in self.children])
     
             
         def latex(self):
-            return ' \land '.join(map(lambda c: ('(%s)' % c.latex()) if isinstance(c, Logic.ComplexFormula) else c.latex(), self.children))
+            return ' \land '.join([('(%s)' % c.latex()) if isinstance(c, Logic.ComplexFormula) else c.latex() for c in self.children])
 
 
         def maxtruth(self, world):
@@ -814,9 +815,9 @@ class Logic(object):
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  
 
     class Disjunction(ComplexFormula): 
-        '''
+        """
         Represents a disjunction of formulas.
-        '''
+        """
         
         
         def __init__(self, children, mln, idx=None):
@@ -826,9 +827,9 @@ class Logic(object):
     
         @property
         def children(self):
-            '''
+            """
             A list of disjuncts.
-            '''
+            """
             return self._children
         
         
@@ -840,15 +841,15 @@ class Logic(object):
     
     
         def __str__(self):
-            return ' v '.join(map(lambda c: ('(%s)' % str(c)) if isinstance(c, Logic.ComplexFormula) else str(c), self.children))
+            return ' v '.join([('(%s)' % str(c)) if isinstance(c, Logic.ComplexFormula) else str(c) for c in self.children])
     
         
         def cstr(self, color=False):
-            return ' v '.join(map(lambda c:('(%s)' % c.cstr(color)) if isinstance(c, Logic.ComplexFormula) else c.cstr(color), self.children))
+            return ' v '.join([('(%s)' % c.cstr(color)) if isinstance(c, Logic.ComplexFormula) else c.cstr(color) for c in self.children])
     
     
         def latex(self):
-            return ' \lor '.join(map(lambda c: ('(%s)' % c.latex()) if isinstance(c, Logic.ComplexFormula) else c.latex(), self.children))
+            return ' \lor '.join([('(%s)' % c.latex()) if isinstance(c, Logic.ComplexFormula) else c.latex() for c in self.children])
             
         def maxtruth(self, world):
             maxtruth = 0
@@ -931,9 +932,9 @@ class Logic(object):
 
 
     class Lit(Formula):
-        '''
+        """
         Represents a literal.
-        '''
+        """
         
         def __init__(self, negated, predname, args, mln, idx=None):
             Formula.__init__(self, mln, idx)
@@ -1033,7 +1034,7 @@ class Logic(object):
     
     
         def ground(self, mrf, assignment, simplify=False, partial=False):
-            args = map(lambda x: assignment.get(x, x), self.args)
+            args = [assignment.get(x, x) for x in self.args]
             if not any(map(self.mln.logic.isvar, args)):
                 atom = "%s(%s)" % (self.predname, ",".join(args))
                 gndatom = mrf.gndatom(atom)
@@ -1049,16 +1050,16 @@ class Logic(object):
             else:
                 if partial:
                     return self.mln.logic.lit(self.negated, self.predname, args, mln=self.mln, idx=self.idx)
-                if any(map(lambda arg: self.mln.logic.isvar(arg), args)):
+                if any([self.mln.logic.isvar(arg) for arg in args]):
                     raise Exception('Partial formula groundings are not allowed. Consider setting partial=True if desired.')
                 else:
-                    print "\nground atoms:"
+                    print("\nground atoms:")
                     mrf.print_gndatoms()
                     raise Exception("Could not ground formula containing '%s' - this atom is not among the ground atoms (see above)." % self.predname)
     
     
         def _ground_template(self, assignment):
-            args = map(lambda x: assignment.get(x, x), self.args)
+            args = [assignment.get(x, x) for x in self.args]
             if self.negated == 2: # template
                 return [self.mln.logic.lit(False, self.predname, args, mln=self.mln), self.mln.logic.lit(True, self.predname, args, mln=self.mln)]
             else:
@@ -1110,9 +1111,9 @@ class Logic(object):
 
 
     class LitGroup(Formula):
-        '''
+        """
         Represents a group of literals with identical arguments.
-        '''
+        """
 
         def __init__(self, negated, predname, args, mln, idx=None):
             Formula.__init__(self, mln, idx)
@@ -1138,9 +1139,9 @@ class Logic(object):
 
         @predname.setter
         def predname(self, prednames):
-            '''
+            """
             predname is a list of predicate names, of which each is tested if it is None
-            '''
+            """
             if self.mln is not None and any(self.mln.predicate(p) is None for p in prednames):
                 erroneouspreds = [p for p in prednames if self.mln.predicate(p) is None]
                 raise NoSuchPredicateError('Predicate{} {} is undefined.'.format('s' if len(erroneouspreds) > 1 else '', ', '.join(erroneouspreds)))
@@ -1274,9 +1275,9 @@ class Logic(object):
 
 
     class GroundLit(Formula): 
-        '''
+        """
         Represents a ground literal.
-        '''
+        """
         
         
         def __init__(self, gndatom, negated, mln, idx=None):
@@ -1421,9 +1422,9 @@ class Logic(object):
 
         
     class GroundAtom:
-        '''
+        """
         Represents a ground atom.
-        '''
+        """
         
         def __init__(self, predname, args, mln, idx=None):
             self.predname = predname
@@ -1522,9 +1523,9 @@ class Logic(object):
 
         
     class Equality(ComplexFormula):
-        '''
+        """
         Represents (in)equality constraints between two symbols.
-        '''
+        """
 
         
         def __init__(self, args, negated, mln, idx=None):
@@ -1569,7 +1570,7 @@ class Logic(object):
         def ground(self, mrf, assignment, simplify=False, partial=False):
             # if the parameter is a variable, do a lookup (it must be bound by now), 
             # otherwise it's a constant which we can use directly
-            args = map(lambda x: assignment.get(x, x), self.args) 
+            args = [assignment.get(x, x) for x in self.args] 
             if self.mln.logic.isvar(args[0]) or self.mln.logic.isvar(args[1]):
                 if partial:
                     return self.mln.logic.equality(args, self.negated, mln=self.mln)
@@ -1650,9 +1651,9 @@ class Logic(object):
 
         
     class Implication(ComplexFormula): 
-        '''
+        """
         Represents an implication
-        '''
+        """
         
         
         def __init__(self, children, mln, idx=None):
@@ -1705,9 +1706,9 @@ class Logic(object):
 
 
     class Biimplication(ComplexFormula):
-        '''
+        """
         Represents a bi-implication.
-        '''
+        """
     
         
         def __init__(self, children, mln, idx=None):
@@ -1767,9 +1768,9 @@ class Logic(object):
 
     
     class Negation(ComplexFormula):
-        '''
+        """
         Represents a negation of a complex formula.
-        '''
+        """
         
         def __init__(self, children, mln, idx=None):
             ComplexFormula.__init__(self, mln, idx)
@@ -1893,9 +1894,9 @@ class Logic(object):
 
             
     class Exist(ComplexFormula):
-        '''
+        """
         Existential quantifier.
-        '''
+        """
     
         
         def __init__(self, variables, formula, mln, idx=None):
@@ -1955,7 +1956,7 @@ class Logic(object):
                 except:
                     raise Exception("Variable '%s' in '%s' not bound to a domain!" % (var, str(self)))
             # add the remaining ones that are not None and return
-            variables.update(dict([(k, v) for k, v in newvars.iteritems() if v is not None]))
+            variables.update(dict([(k, v) for k, v in newvars.items() if v is not None]))
             return variables
 
              
@@ -1964,7 +1965,7 @@ class Logic(object):
             vardoms = self.formula.vardoms()
             if not set(self.vars).issubset(vardoms):
                 raise Exception('One or more variables do not appear in formula: %s' % str(set(self.vars).difference(vardoms)))
-            variables = dict([(k,v) for k,v in vardoms.iteritems() if k in self.vars])
+            variables = dict([(k,v) for k,v in vardoms.items() if k in self.vars])
             # ground
             gndings = []
             self._ground(self.children[0], variables, assignment, gndings, mrf, partial=partial)
@@ -2009,9 +2010,9 @@ class Logic(object):
 
 
     class TrueFalse(Formula):
-        '''
+        """
         Represents constant truth values.
-        '''
+        """
         
         def __init__(self, truth, mln, idx=None):
             Formula.__init__(self, mln, idx)
@@ -2055,9 +2056,9 @@ class Logic(object):
     
     
     class NonLogicalConstraint(Constraint):
-        '''
+        """
         A constraint that is not somehow made up of logical connectives and (ground) atoms.
-        '''
+        """
         
         def template_variants(self, mln):
             # non logical constraints are never templates; therefore, there is just one variant, the constraint itself
@@ -2074,12 +2075,12 @@ class Logic(object):
 
 
     class CountConstraint(NonLogicalConstraint):
-        '''
+        """
         A constraint that tests the number of relation instances against an integer.
-        '''
+        """
         
         def __init__(self, predicate, predicate_params, fixed_params, op, count):
-            '''op: an operator; one of "=", "<=", ">=" '''
+            """op: an operator; one of "=", "<=", ">=" """
             self.literal = self.mln.logic.lit(False, predicate, predicate_params)
             self.fixed_params = fixed_params
             self.count = count
@@ -2114,8 +2115,8 @@ class Logic(object):
                 yield self.mln.logic.gnd_count_constraint(gndAtoms, self.op, self.count), []
             
         def _iterAssignment(self, mrf, variables, assignment):
-            '''iterates over all possible assignments for the given variables of this constraint's literal
-                    variables: the variables that are still to be grounded'''
+            """iterates over all possible assignments for the given variables of this constraint's literal
+                    variables: the variables that are still to be grounded"""
             # if all variables have been grounded, we have the complete assigment
             if len(variables) == 0:
                 yield dict(assignment)
@@ -2159,7 +2160,7 @@ class Logic(object):
         def cstr(self, color=False):
             op = self.op
             if op == "==": op = "="
-            return "count(%s) %s %d" % (";".join(map(lambda c: c.cstr(color), self.gndAtoms)), op, self.count)
+            return "count(%s) %s %d" % (";".join([c.cstr(color) for c in self.gndAtoms]), op, self.count)
     
         def negate(self):
             if self.op == "==":
@@ -2190,29 +2191,29 @@ class Logic(object):
 
 
     def isvar(self, identifier):
-        '''
+        """
         Returns True if identifier is a logical variable according
         to the used grammar, and False otherwise.
-        '''
+        """
         return self.grammar.isvar(identifier)
     
     def isconstant(self, identifier):
-        '''
+        """
         Returns True if identifier is a logical constant according
         to the used grammar, and False otherwise.
-        '''
+        """
         return self.grammar.isConstant(identifier)
     
     def istemplvar(self, s):
-        '''
+        """
         Returns True if `s` is template variable or False otherwise.
-        '''
+        """
         return self.grammar.istemplvar(s)
     
     def parse_formula(self, formula):
-        '''
+        """
         Returns the Formula object parsed by the grammar.
-        '''
+        """
         return self.grammar.parse_formula(formula)
     
     def parse_predicate(self, string):
@@ -2229,23 +2230,23 @@ class Logic(object):
     
 
     def islit(self, f):
-        '''
+        """
         Determines whether or not a formula is a literal.
-        '''
+        """
         return isinstance(f, Logic.GroundLit) or isinstance(f, Logic.Lit) or isinstance(f, Logic.GroundAtom)
     
     
     def iseq(self, f):
-        '''
+        """
         Determines wheter or not a formula is an equality consttaint.
-        '''
+        """
         return isinstance(f, Logic.Equality)
     
     
     def islitconj(self, f):
-        '''
+        """
         Returns true if the given formula is a conjunction of literals.
-        '''
+        """
         if self.islit(f): return True
         if not isinstance(f, Logic.Conjunction):
             if not isinstance(f, Logic.Lit) and \
@@ -2264,9 +2265,9 @@ class Logic(object):
     
     
     def isclause(self, f):
-        '''
+        """
         Returns true if the given formula is a clause (a disjunction of literals)
-        '''
+        """
         if self.islit(f): return True
         if not isinstance(f, Logic.Disjunction):
             if not isinstance(f, Logic.Lit) and \
@@ -2285,14 +2286,14 @@ class Logic(object):
     
     
     def negate(self, formula):
-        '''
+        """
         Returns a negation of the given formula.
         
         The original formula will be copied first. The resulting negation is tied
         to the same mln and will have the same formula index. Also performs
         a rudimentary simplification in case of `formula` is a (ground) literal
         or equality. 
-        '''
+        """
         if isinstance(formula, Logic.Lit) or isinstance(formula, Logic.GroundLit):
             ret = formula.copy()
             ret.negated = not ret.negated
@@ -2305,12 +2306,12 @@ class Logic(object):
     
     
     def conjugate(self, children, mln=None, idx=inherit):
-        '''
+        """
         Returns a conjunction of the given children.
         
         Performs rudimentary simplification in the sense that if children 
         has only one element, it returns this element (e.g. one literal)
-        '''
+        """
         if not children:
             return self.true_false(0, mln=ifNone(mln, self.mln), idx=idx)
         elif len(children) == 1:
@@ -2320,12 +2321,12 @@ class Logic(object):
         
     
     def disjugate(self, children, mln=None, idx=inherit):
-        '''
+        """
         Returns a conjunction of the given children.
         
         Performs rudimentary simplification in the sense that if children 
         has only one element, it returns this element (e.g. one literal)
-        '''
+        """
         if not children:
             return self.true_false(0, mln=ifNone(mln, self.mln), idx=idx)
         elif len(children) == 1:
@@ -2336,11 +2337,11 @@ class Logic(object):
     
     @staticmethod
     def iter_eq_varassignments(eq, f, mln):
-        '''
+        """
         Iterates over all variable assignments of an (in)equality constraint.
         
         Needs a formula since variables in equality constraints are not typed per se.
-        '''
+        """
         doms = f.vardoms()
         eqVars_ = eq.vardoms()
         if not set(eqVars_).issubset(doms):
@@ -2366,10 +2367,10 @@ class Logic(object):
 
     @staticmethod
     def clauseset(cnf):
-        '''
+        """
         Takes a formula in CNF and returns a set of clauses, i.e. a list of sets
         containing literals. All literals are converted into strings.
-        '''
+        """
         clauses = []
         if isinstance(cnf, Logic.Disjunction):
             clauses.append(set(map(str, cnf.children)))
@@ -2389,7 +2390,7 @@ class Logic(object):
     
     @staticmethod
     def cnf(gfs, formulas, logic, allpos=False):
-        '''
+        """
         convert the given ground formulas to CNF
         if allPositive=True, then formulas with negative weights are negated to make all weights positive
         @return a new pair (gndformulas, formulas)
@@ -2398,7 +2399,7 @@ class Logic(object):
         
         If allpos is True, this might have side effects on the formula weights of the MLN.
         
-        '''    
+        """    
         # get list of formula indices which we must negate
         formulas_ = []    
         negated = []
@@ -2432,88 +2433,88 @@ class Logic(object):
     
     
     def conjunction(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a Conjunction object.
-        '''
+        """
         raise Exception('%s does not implement conjunction()' % str(type(self)))
     
     def disjunction(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a Disjunction object.
-        '''
+        """
         raise Exception('%s does not implement disjunction()' % str(type(self)))
     
     def negation(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a Negation object.
-        '''
+        """
         raise Exception('%s does not implement negation()' % str(type(self)))
     
     def implication(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a Implication object.
-        '''
+        """
         raise Exception('%s does not implement implication()' % str(type(self)))
     
     def biimplication(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a Biimplication object.
-        '''
+        """
         raise Exception('%s does not implement biimplication()' % str(type(self)))
     
     def equality(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a Equality object.
-        '''
+        """
         raise Exception('%s does not implement equality()' % str(type(self)))
     
     def exist(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a Exist object.
-        '''
+        """
         raise Exception('%s does not implement exist()' % str(type(self)))
     
     def gnd_atom(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a GndAtom object.
-        '''
+        """
         raise Exception('%s does not implement gnd_atom()' % str(type(self)))
     
     def lit(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a Lit object.
-        '''
+        """
         raise Exception('%s does not implement lit()' % str(type(self)))
     
     def litgroup(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a Lit object.
-        '''
+        """
         raise Exception('%s does not implement litgroup()' % str(type(self)))
 
     def gnd_lit(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a GndLit object.
-        '''
+        """
         raise Exception('%s does not implement gnd_lit()' % str(type(self)))
     
     def count_constraint(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a CountConstraint object.
-        '''
+        """
         raise Exception('%s does not implement count_constraint()' % str(type(self)))
     
     def true_false(self, *args, **kwargs):
-        '''
+        """
         Returns a new instance of a TrueFalse constant object.
-        '''
+        """
         raise Exception('%s does not implement true_false()' % str(type(self)))
     
     def create(self, clazz, *args, **kwargs):
-        '''
+        """
         Takes the type of a logical element (class type) and creates
         a new instance of it.
-        '''
+        """
         return clazz(*args, **kwargs)
     
 

@@ -27,11 +27,12 @@ from subprocess import Popen, PIPE
 import bisect
 import re
 from collections import defaultdict
-import thread
+import _thread
 from pracmln import praclog
 import platform
 from pracmln.mln.errors import NoConstraintsError
 import tempfile
+from functools import reduce
 
 
 logger = praclog.logger(__name__)
@@ -121,8 +122,8 @@ class Constraint(object):
         index of the value in the domain of the respective variable.
         '''
         if not len(t) == len(self.variables):
-            print 'tuple:', t
-            print 'vars:', self.variables
+            print('tuple:', t)
+            print('vars:', self.variables)
             raise Exception('List of variables and tuples must have the same length.')
         self.tuples[tuple(t)] = cost
     
@@ -130,7 +131,7 @@ class Constraint(object):
     def write(self, stream=sys.stdout):
         stream.write('%d %s %d %d\n' % (len(self.variables), ' '.join(map(str, \
                             self.variables)), self.defcost, len(self.tuples)))
-        for t in self.tuples.keys():
+        for t in list(self.tuples.keys()):
             stream.write('%s %d\n' % (' '.join(map(str, t)), self.tuples[t]))
             
             
@@ -154,7 +155,7 @@ class WCSP(object):
     '''
     
     # maximum costs imposed by toulbar
-    MAX_COST = 1537228672809129301L
+    MAX_COST = 1537228672809129301
     
 
     def __init__(self, name=None, domsizes=None, top=-1):
@@ -174,14 +175,14 @@ class WCSP(object):
         cold = self.constraints.get(tuple(sorted(varindices)))
         if cold is not None:
             c_ = Constraint(cold.variables, defcost=constraint.defcost)
-            for t, cost in constraint.tuples.iteritems():
+            for t, cost in constraint.tuples.items():
                 t = [t[constraint.variables.index(v)] for v in cold.variables]
                 c_.tuple(t, cost)
             constraint = c_
             varindices = constraint.variables
             
             # update all the tuples of the old constraint with the tuples of the new constraint
-            for t, cost in constraint.tuples.iteritems():
+            for t, cost in constraint.tuples.items():
                 oldcost = cold.tuples.get(t, None)
                 # if the tuple has caused maximal costs in the old constraint, it must also cause maximal costs in the
                 # merged one. Or if the tuple was not part of the old constraint and the defcosts were maximal.
@@ -199,7 +200,7 @@ class WCSP(object):
                 # all tuples that are part of the old constraint but not of the new constraint
                 # have to be added the default costs of the new constraint, or made tops cost
                 # in case the defcosts of the new constraint are top
-                for t in filter(lambda x: x not in constraint.tuples, cold.tuples):
+                for t in [x for x in cold.tuples if x not in constraint.tuples]:
                     oldcost = cold.tuples[t]
                     if oldcost != self.top:
                         cold.tuple(t, self.top if constraint.defcost == self.top else oldcost + constraint.defcost)
@@ -208,15 +209,15 @@ class WCSP(object):
                 cold.defcost = self.top if constraint.defcost == self.top else cold.defcost + constraint.defcost
             # if the constraint is fully specified by its tuples,
             # simplify it by introducing default costs
-            if reduce(lambda x, y: x * y, map(lambda x: self.domsizes[x], varindices)) == len(cold.tuples):
+            if reduce(lambda x, y: x * y, [self.domsizes[x] for x in varindices]) == len(cold.tuples):
                 cost2assignments = defaultdict(list)
-                for t, c in cold.tuples.iteritems():
+                for t, c in cold.tuples.items():
                     cost2assignments[c].append(t)
                 defaultCost = max(cost2assignments, key=lambda x: len(cost2assignments[x]))
                 del cost2assignments[defaultCost]
                 cold.defcost = defaultCost
                 cold.tuples = {}
-                for cost, tuples in cost2assignments.iteritems():
+                for cost, tuples in cost2assignments.items():
                     for t in tuples: cold.tuple(t, cost)
         else:
             self.constraints[tuple(sorted(varindices))] = constraint
@@ -230,9 +231,9 @@ class WCSP(object):
         self._make_integer_cost()
         stream.write('%s %d %d %d %d\n' % (self.name, len(self.domsizes), max(self.domsizes), len(self.constraints), int(self.top)))
         stream.write(' '.join(map(str, self.domsizes)) + '\n')
-        for c in self.constraints.values():
+        for c in list(self.constraints.values()):
             stream.write('%d %s %d %d\n' % (len(c.variables), ' '.join(map(str, c.variables)), c.defcost, len(c.tuples)))
-            for t in c.tuples.keys():
+            for t in list(c.tuples.keys()):
                 stream.write('%s %d\n' % (' '.join(map(str, t)), int(c.tuples[t])))
         
         
@@ -247,16 +248,16 @@ class WCSP(object):
                 self.name = tokens[0]
                 self.top = int(tokens[-1])
             elif i == 1:
-                self.domsizes = map(int, tokens)
+                self.domsizes = list(map(int, tokens))
             else:
                 if tuplesToRead == 0:
                     tuplesToRead = int(tokens[-1])
-                    variables = map(int, tokens[1:-2])
+                    variables = list(map(int, tokens[1:-2]))
                     defcost = int(tokens[-2])
                     constraint = Constraint(variables, defcost=defcost)
                     self.constraints.append(constraint)
                 else:
-                    constraint.tuple(map(int,tokens[0:-1]), int(tokens[-1]))
+                    constraint.tuple(list(map(int,tokens[0:-1])), int(tokens[-1]))
                     tuplesToRead -= 1
                     
                     
@@ -269,8 +270,8 @@ class WCSP(object):
         minWeight = None
         if len(self.constraints) == 0:
             raise NoConstraintsError('There are no satisfiable constraints.')
-        for constraint in self.constraints.values():
-            for value in [constraint.defcost] + constraint.tuples.values():
+        for constraint in list(self.constraints.values()):
+            for value in [constraint.defcost] + list(constraint.tuples.values()):
                 if value == self.top: continue
                 value = eval('%.6f' % value)
                 if value in costs:
@@ -306,11 +307,11 @@ class WCSP(object):
         '''
         if divisor is None:
             return 1
-        costSum = long(0)
-        for constraint in self.constraints.values():
-            maxCost = max([constraint.defcost] + constraint.tuples.values())
+        costSum = int(0)
+        for constraint in list(self.constraints.values()):
+            maxCost = max([constraint.defcost] + list(constraint.tuples.values()))
             if maxCost == self.top or maxCost == 0.0: continue
-            cost = abs(long(maxCost / divisor))
+            cost = abs(int(maxCost / divisor))
             newSum = costSum + cost
             if newSum < costSum:
                 raise Exception("Numeric Overflow")
@@ -321,7 +322,7 @@ class WCSP(object):
         if top > WCSP.MAX_COST:
             logger.critical('Maximum costs exceeded: %d > %d' % (top, WCSP.MAX_COST))
             raise MaxCostExceeded()
-        return long(top)
+        return int(top)
     
     
     def _make_integer_cost(self):
@@ -334,16 +335,16 @@ class WCSP(object):
         if self.top != -1: return
         divisor = self._compute_divisor()
         top = self._compute_hardcost(divisor)
-        for constraint in self.constraints.values():
+        for constraint in list(self.constraints.values()):
             if constraint.defcost == self.top:
                 constraint.defcost = top
             else:
-                constraint.defcost = 0 if divisor is None else long(float(constraint.defcost) / divisor)
-            for tup, cost in constraint.tuples.iteritems():
+                constraint.defcost = 0 if divisor is None else int(float(constraint.defcost) / divisor)
+            for tup, cost in constraint.tuples.items():
                 if cost == self.top:
                     constraint.tuples[tup] = top
                 else:
-                    constraint.tuples[tup] = 0 if divisor is None else long(float(cost) / divisor)
+                    constraint.tuples[tup] = 0 if divisor is None else int(float(cost) / divisor)
         self.top = top
     
                     
@@ -374,7 +375,7 @@ class WCSP(object):
             m = re.match(r'(\d+)\s+solution:([\s\d]+)', l) 
             if m is not None:
                 num = m.group(1)
-                solution = map(int, m.group(2).strip().split())
+                solution = list(map(int, m.group(2).strip().split()))
                 yield (num, solution)
         p.wait()        
         logger.debug('toulbar2 process returned %s' % str(p.returncode))
@@ -394,7 +395,7 @@ class WCSP(object):
         if not is_executable(toulbar2_path()):
             raise Exception('toulbar2 cannot be found.')
         # append the process id to the filename to make it "process safe"
-        tmpfile = tempfile.NamedTemporaryFile(prefix='{}-{}'.format(os.getpid(), thread.get_ident()), suffix='.wcsp', delete=False)
+        tmpfile = tempfile.NamedTemporaryFile(prefix='{}-{}'.format(os.getpid(), _thread.get_ident()), suffix='.wcsp', delete=False)
         wcspfilename = tmpfile.name
         self.write(tmpfile)
         tmpfile.close()
@@ -408,11 +409,11 @@ class WCSP(object):
             l = p.stdout.readline()
             if not l: break
             if l.startswith('New solution'):
-                cost = long(l.split()[2])
+                cost = int(l.split()[2])
                 nextLineIsSolution = True
                 continue
             if nextLineIsSolution:
-                solution = map(int, l.split())
+                solution = list(map(int, l.split()))
                 nextLineIsSolution = False
         p.wait()        
         logger.debug('toulbar2 process returned %s' % str(p.returncode))
@@ -430,5 +431,5 @@ if __name__ == '__main__':
     wcsp = WCSP()
     wcsp.read(open('/home/nyga/code/test/nqueens.wcsp'))
     for i, s in wcsp.itersolutions():
-        print i, s
-    print 'best solution:', wcsp.solve()
+        print(i, s)
+    print('best solution:', wcsp.solve())

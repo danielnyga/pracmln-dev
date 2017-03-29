@@ -25,16 +25,18 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from Tkinter import *
-from tkFileDialog import askopenfilename, asksaveasfilename
 import os
+import sys
 import ntpath
-import tkMessageBox
 import traceback
+from tkinter import Frame, BOTH, Label, Button, OptionMenu, IntVar, Checkbutton, \
+    W, E, Entry, messagebox, END, DISABLED, NORMAL, Tk
+from tkinter.filedialog import askopenfilename, asksaveasfilename, StringVar
+
 from pracmln.utils.project import MLNProject, PRACMLNConfig, mlnpath
-from mln.methods import InferenceMethods
-from utils.widgets import FileEditBar
-from utils import config
+from pracmln.mln.methods import InferenceMethods
+from pracmln.utils.widgets import FileEditBar
+from pracmln.utils import config
 from pracmln import praclog
 from pracmln.mln.util import out, ifNone, parse_queries, headline, StopWatch
 from pracmln.utils.config import global_config_filename
@@ -43,7 +45,7 @@ from pracmln.mln.database import parse_db, Database
 from tabulate import tabulate
 from cProfile import Profile
 import pstats
-import StringIO
+import io
 import pracmln
 import logging #import used in eval, do not remove
 
@@ -113,7 +115,7 @@ class MLNQuery(object):
     @property
     def queries(self):
         q = self._config.get('queries', pracmln.ALL)
-        if isinstance(q, basestring):
+        if isinstance(q, str):
             return parse_queries(self.mln, q)
         return q
 
@@ -133,7 +135,7 @@ class MLNQuery(object):
         preds = self._config.get('cw_preds', '')
         if type(preds) is str:
             preds = preds.split(',')
-        return map(str.strip, preds)
+        return list(map(str.strip, preds))
 
 
     @property
@@ -185,7 +187,7 @@ class MLNQuery(object):
             raise Exception('No MLN specified')
 
         if self.use_emln and self.emln is not None:
-            mlnstrio = StringIO.StringIO()
+            mlnstrio = io.StringIO()
             mln.write(mlnstrio)
             mlnstr = mlnstrio.getvalue()
             mlnstrio.close()
@@ -215,19 +217,19 @@ class MLNQuery(object):
             del params['params']
         params['verbose'] = self.verbose
         if self.verbose:
-            print tabulate(sorted(list(params.viewitems()), key=lambda (k, v): str(k)), headers=('Parameter:', 'Value:'))
+            print((tabulate(sorted(list(params.items()), key=lambda k_v: str(k_v[0])), headers=('Parameter:', 'Value:'))))
         if type(db) is list and len(db) > 1:
             raise Exception('Inference can only handle one database at a time')
         elif type(db) is list:
             db = db[0]
-        params['cw_preds'] = filter(lambda x: bool(x), self.cw_preds)
+        params['cw_preds'] = [x for x in self.cw_preds if bool(x)]
         # extract and remove all non-algorithm
         for s in GUI_SETTINGS:
             if s in params: del params[s]
 
         if self.profile:
             prof = Profile()
-            print 'starting profiler...'
+            print('starting profiler...')
             prof.enable()
         # set the debug level
         olddebug = praclog.level()
@@ -238,33 +240,33 @@ class MLNQuery(object):
             mrf = mln_.ground(db)
             inference = self.method(mrf, self.queries, **params)
             if self.verbose:
-                print
-                print headline('EVIDENCE VARIABLES')
-                print
+                print()
+                print((headline('EVIDENCE VARIABLES')))
+                print()
                 mrf.print_evidence_vars()
 
             result = inference.run()
             if self.verbose:
-                print
-                print headline('INFERENCE RESULTS')
-                print
+                print()
+                print((headline('INFERENCE RESULTS')))
+                print()
                 inference.write()
             if self.verbose:
-                print
+                print()
                 inference.write_elapsed_time()
         except SystemExit:
             traceback.print_exc()
-            print 'Cancelled...'
+            print('Cancelled...')
         finally:
             if self.profile:
                 prof.disable()
-                print headline('PROFILER STATISTICS')
+                print((headline('PROFILER STATISTICS')))
                 ps = pstats.Stats(prof, stream=sys.stdout).sort_stats('cumulative')
                 ps.print_stats()
             # reset the debug level
             praclog.level(olddebug)
         if self.verbose:
-            print
+            print()
             watch.finish()
             watch.printSteps()
         return result
@@ -315,18 +317,18 @@ class MLNQueryGUI(object):
         row += 1
         Label(self.frame, text='Grammar: ').grid(row=row, column=0, sticky='E')
         grammars = ['StandardGrammar', 'PRACGrammar']
-        self.selected_grammar = StringVar(master)
+        self.selected_grammar = StringVar()
         self.selected_grammar.trace('w', self.settings_setdirty)
-        l = apply(OptionMenu, (self.frame, self.selected_grammar) + tuple(grammars))
+        l = OptionMenu(*(self.frame, self.selected_grammar) + tuple(grammars))
         l.grid(row=row, column=1, sticky='NWE')
 
         # logic selection
         row += 1
         Label(self.frame, text='Logic: ').grid(row=row, column=0, sticky='E')
         logics = ['FirstOrderLogic', 'FuzzyLogic']
-        self.selected_logic = StringVar(master)
+        self.selected_logic = StringVar()
         self.selected_logic.trace('w', self.settings_setdirty)
-        l = apply(OptionMenu, (self.frame, self.selected_logic) + tuple(logics))
+        l = OptionMenu(*(self.frame, self.selected_logic) + tuple(logics))
         l.grid(row=row, column=1, sticky='NWE')
 
         # mln section
@@ -341,7 +343,8 @@ class MLNQueryGUI(object):
                                          filecontenthook=self.mlnfilecontent,
                                          fileslisthook=self.mlnfiles,
                                          updatehook=self.update_mln,
-                                         onchangehook=self.project_setdirty)
+                                         onchangehook=self.project_setdirty,
+                                         selectfilehook=lambda *args: print('blubbel'))
         self.mln_container.grid(row=row, column=1, sticky="NEWS")
         self.mln_container.columnconfigure(1, weight=2)
         self.frame.rowconfigure(row, weight=1)
@@ -369,7 +372,8 @@ class MLNQueryGUI(object):
                                           filecontenthook=self.emlnfilecontent,
                                           fileslisthook=self.emlnfiles,
                                           updatehook=self.update_emln,
-                                          onchangehook=self.project_setdirty)
+                                          onchangehook=self.project_setdirty,
+                                          selectfilehook=lambda *args: print('blubbel'))
         self.emln_container.grid(row=self.emlncontainerrow, column=1, sticky="NEWS")
         self.emln_container.columnconfigure(1, weight=2)
         self.onchange_use_emln(dirty=False)
@@ -387,7 +391,8 @@ class MLNQueryGUI(object):
                                         filecontenthook=self.dbfilecontent,
                                         fileslisthook=self.dbfiles,
                                         updatehook=self.update_db,
-                                        onchangehook=self.project_setdirty)
+                                        onchangehook=self.project_setdirty,
+                                        selectfilehook=lambda *args: print('blubbel'))
         self.db_container.grid(row=row, column=1, sticky="NEWS")
         self.db_container.columnconfigure(1, weight=2)
         self.frame.rowconfigure(row, weight=1)
@@ -396,10 +401,10 @@ class MLNQueryGUI(object):
         row += 1
         self.list_methods_row = row
         Label(self.frame, text="Method: ").grid(row=row, column=0, sticky=E)
-        self.selected_method = StringVar(master)
+        self.selected_method = StringVar()
         self.selected_method.trace('w', self.select_method)
         methodnames = sorted(InferenceMethods.names())
-        self.list_methods = apply(OptionMenu, (self.frame, self.selected_method) + tuple(methodnames))
+        self.list_methods = OptionMenu(*(self.frame, self.selected_method) + tuple(methodnames))
         self.list_methods.grid(row=self.list_methods_row, column=1, sticky="NWE")
 
         # options
@@ -429,7 +434,7 @@ class MLNQueryGUI(object):
         self.cb_verbose.grid(row=0, column=4, sticky=W)
 
         # options
-        self.ignore_unknown_preds = IntVar(master)
+        self.ignore_unknown_preds = IntVar()
         self.cb_ignore_unknown_preds = Checkbutton(option_container,
                                                    text='ignore unkown predicates',
                                                    variable=self.ignore_unknown_preds,
@@ -439,14 +444,14 @@ class MLNQueryGUI(object):
         # queries
         row += 1
         Label(self.frame, text="Queries: ").grid(row=row, column=0, sticky=E)
-        self.query = StringVar(master)
+        self.query = StringVar()
         self.query.trace('w', self.settings_setdirty)
         Entry(self.frame, textvariable=self.query).grid(row=row, column=1, sticky="NEW")
 
         # additional parameters
         row += 1
         Label(self.frame, text="Add. params: ").grid(row=row, column=0, sticky="NE")
-        self.params = StringVar(master)
+        self.params = StringVar()
         self.params.trace('w', self.settings_setdirty)
         self.entry_params = Entry(self.frame, textvariable=self.params)
         self.entry_params.grid(row=row, column=1, sticky="NEW")
@@ -459,7 +464,7 @@ class MLNQueryGUI(object):
         cw_container.grid(row=row, column=1, sticky='NEWS')
         cw_container.columnconfigure(0, weight=1)
 
-        self.cwPreds = StringVar(master)
+        self.cwPreds = StringVar()
         self.cwPreds.trace('w', self.settings_setdirty)
         self.entry_cw = Entry(cw_container, textvariable=self.cwPreds)
         self.entry_cw.grid(row=0, column=0, sticky="NEWS")
@@ -478,7 +483,7 @@ class MLNQueryGUI(object):
 
         # - filename
         Label(self.frame, text="Output: ").grid(row=row, column=0, sticky="NE")
-        self.output_filename = StringVar(master)
+        self.output_filename = StringVar()
         self.entry_output_filename = Entry(output_cont, textvariable=self.output_filename)
         self.entry_output_filename.grid(row=0, column=0, sticky="NEW")
 
@@ -518,7 +523,7 @@ class MLNQueryGUI(object):
 
     def quit(self):
         if self.settings_dirty.get() or self.project_dirty.get():
-            savechanges = tkMessageBox.askyesnocancel("Save changes", "You have unsaved project changes. Do you want to save them before quitting?")
+            savechanges = messagebox.askyesnocancel("Save changes", "You have unsaved project changes. Do you want to save them before quitting?")
             if savechanges is None:
                 return
             elif savechanges:
@@ -581,13 +586,13 @@ class MLNQueryGUI(object):
             self.mln_container.update_file_choices()
             self.db_container.update_file_choices()
             if len(self.project.mlns) > 0:
-                self.mln_container.selected_file.set(self.project.queryconf['mln'] or self.project.mlns.keys()[0])
+                self.mln_container.selected_file.set(self.project.queryconf['mln'] or list(self.project.mlns.keys())[0])
             self.mln_container.dirty = False
             if len(self.project.emlns) > 0:
-                self.emln_container.selected_file.set(self.project.queryconf['emln'] or self.project.emlns.keys()[0])
+                self.emln_container.selected_file.set(self.project.queryconf['emln'] or list(self.project.emlns.keys())[0])
             self.emln_container.dirty = False
             if len(self.project.dbs) > 0:
-                self.db_container.selected_file.set(self.project.queryconf['db'] or self.project.dbs.keys()[0])
+                self.db_container.selected_file.set(self.project.queryconf['db'] or list(self.project.dbs.keys())[0])
             self.db_container.dirty = False
             self.write_gconfig(savegeometry=False)
             self.settings_dirty.set(0)
@@ -662,7 +667,7 @@ class MLNQueryGUI(object):
             content = self.mln_container.editor.get("1.0", END).strip()
 
         if old == new and askoverwrite:
-            savechanges = tkMessageBox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
+            savechanges = messagebox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
             if savechanges:
                 self.project.mlns[old] = content
             else:
@@ -673,7 +678,7 @@ class MLNQueryGUI(object):
         else:
             if new in self.project.mlns:
                 if askoverwrite:
-                    savechanges = tkMessageBox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
+                    savechanges = messagebox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
                     if savechanges:
                         self.project.mlns[new] = content
                     else:
@@ -685,7 +690,7 @@ class MLNQueryGUI(object):
 
 
     def mlnfiles(self):
-        return self.project.mlns.keys()
+        return list(self.project.mlns.keys())
 
 
     def mlnfilecontent(self, filename):
@@ -717,7 +722,7 @@ class MLNQueryGUI(object):
             content = self.emln_container.editor.get("1.0", END).strip()
 
         if old == new and askoverwrite:
-            savechanges = tkMessageBox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
+            savechanges = messagebox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
             if savechanges:
                 self.project.emlns[old] = content
             else:
@@ -728,7 +733,7 @@ class MLNQueryGUI(object):
         else:
             if new in self.project.emlns:
                 if askoverwrite:
-                    savechanges = tkMessageBox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
+                    savechanges = messagebox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
                     if savechanges:
                         self.project.emlns[new] = content
                     else:
@@ -740,7 +745,7 @@ class MLNQueryGUI(object):
 
 
     def emlnfiles(self):
-        return self.project.emlns.keys()
+        return list(self.project.emlns.keys())
 
 
     def emlnfilecontent(self, filename):
@@ -770,7 +775,7 @@ class MLNQueryGUI(object):
             content = self.db_container.editor.get("1.0", END).strip()
 
         if old == new and askoverwrite:
-            savechanges = tkMessageBox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
+            savechanges = messagebox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
             if savechanges:
                 self.project.dbs[old] = content
             else:
@@ -781,7 +786,7 @@ class MLNQueryGUI(object):
         else:
             if new in self.project.dbs:
                 if askoverwrite:
-                    savechanges = tkMessageBox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
+                    savechanges = messagebox.askyesno("Save changes", "A file '{}' already exists. Overwrite?".format(new))
                     if savechanges:
                         self.project.dbs[new] = content
                     else:
@@ -793,7 +798,7 @@ class MLNQueryGUI(object):
 
 
     def dbfiles(self):
-        return self.project.dbs.keys()
+        return list(self.project.dbs.keys())
 
 
     def dbfilecontent(self, filename):
@@ -921,8 +926,8 @@ class MLNQueryGUI(object):
         self.master.withdraw()
 
         try:
-            print headline('PRACMLN QUERY TOOL')
-            print
+            print((headline('PRACMLN QUERY TOOL')))
+            print()
 
             if options.get('mlnarg') is not None:
                 mlnobj = MLN(mlnfile=os.path.abspath(options.get('mlnarg')),
@@ -954,13 +959,13 @@ class MLNQueryGUI(object):
 
             # write to file if run from commandline, otherwise save result to project results
             if options.get('outputfile') is not None:
-                output = StringIO.StringIO()
+                output = io.StringIO()
                 result.write(output)
                 with open(os.path.abspath(options.get('outputfile')), 'w') as f:
                     f.write(output.getvalue())
                 logger.info('saved result to {}'.format(os.path.abspath(options.get('outputfile'))))
             elif self.save.get():
-                output = StringIO.StringIO()
+                output = io.StringIO()
                 result.write(output)
                 fname = self.output_filename.get()
                 self.project.add_result(fname, output.getvalue())

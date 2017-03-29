@@ -31,7 +31,7 @@ class MLNTestCase(unittest.TestCase):
     
     def assertApproxListEqual(self, a, b, delta = 1e-5):
         self.assertEqual(len(a), len(b))
-        for i in xrange(len(a)):
+        for i in range(len(a)):
             self.assertApproxEqual(a[i], b[i], delta)
     
     def getSmokersModel(self):
@@ -85,7 +85,7 @@ class MLNTestCase(unittest.TestCase):
     def test_groundAMLN(self):
         mln = readMLNFromFile(os.path.join(self.studentDir, "student_course2.a.mln"))
         mrf = mln.groundMRF(self.studentDB)
-        weights = map(lambda p: float(p[0]), mrf.getGroundFormulas())
+        weights = [float(p[0]) for p in mrf.getGroundFormulas()]
         correctWeights = [1.5604290525533999, 3.6511741317144004, -0.7968133588156, 7.0145072690164003, 0.151252120947, -1.6360797755282002, -1.5131502151878, -8.4313192249819995, -0.38454063647300002, -1.16283955905, 1.3519705598595, -2.8760315103522003]
         self.assertApproxListEqual(weights, correctWeights)
     
@@ -93,21 +93,21 @@ class MLNTestCase(unittest.TestCase):
         mln = readMLNFromFile(os.path.join(self.studentDir, "student_course2_simLearned.mln"))
         mln.write(sys.stdout)
         mrf = mln.groundMRF(self.studentDB)
-        weights = map(lambda p: float(p[0]), mrf.getGroundFormulas())
+        weights = [float(p[0]) for p in mrf.getGroundFormulas()]
         correctWeights = [-0.40546510810816444, -1.0986122886681098, -0.22314355131420957, -1.6094379124341012, -7.3508372506616082, -0.0006422607799453446, -1.0986122886681098, -0.40546510810816427, -6.1468644463356723, -0.0021424753776469402, 27.350837250661606, 27.350837250661606]
         self.assertApproxListEqual(weights, correctWeights)
     
     def test_softEvidenceIPFPM(self):
         mln = readMLNFromFile(os.path.join(self.posteriorCDir, "simple.mln"))
         mrf = mln.groundMRF(os.path.join(self.posteriorCDir, "test.db"))
-        results = map(float, (mrf.inferIPFPM("attr")))
+        results = list(map(float, (mrf.inferIPFPM("attr"))))
         correctResults = [0.6666666666666666, 0.10]
         self.assertApproxListEqual(results, correctResults)
 
     def test_softEvidenceMCSATPC(self):
         mln = readMLNFromFile(os.path.join(self.posteriorCDir, "simple.mln"))
         mrf = mln.groundMRF(os.path.join(self.posteriorCDir, "test.db"))
-        results = map(float, (mrf.inferMCSAT("attr")))
+        results = list(map(float, (mrf.inferMCSAT("attr"))))
         correctResults = [0.6666666666666666, 0.10]
         self.assertApproxListEqual(results, correctResults, 0.04)
         

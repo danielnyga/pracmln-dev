@@ -24,10 +24,10 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from base import MLN
-from base import HARD
-from base import Predicate
-from base import FunctionalPredicate
-from base import SoftFunctionalPredicate
-from database import Database
-from errors import *
+from .base import MLN
+from .base import HARD
+from .base import Predicate
+from .base import FunctionalPredicate
+from .base import SoftFunctionalPredicate
+from .database import Database
+from .errors import *
