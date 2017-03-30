@@ -334,7 +334,7 @@ class MLNQueryGUI(object):
         # mln section
         row += 1
         Label(self.frame, text="MLN: ").grid(row=row, column=0, sticky='NE')
-        self.mln_container = FileEditBar(self.frame, dir=self.dir,
+        self.mln_container = FileEditBar(self.frame, directory=self.dir,
                                          filesettings={'extension': '.mln', 'ftypes': [('MLN files', '.mln')]},
                                          defaultname='*unknown{}',
                                          importhook=self.import_mln,
@@ -363,7 +363,7 @@ class MLNQueryGUI(object):
         self.emln_label = Label(self.frame, text="EMLN: ")
         self.emln_label.grid(row=self.emlncontainerrow, column=0, sticky='NE')
         self.emln_container = FileEditBar(self.frame,
-                                          dir=self.dir,
+                                          directory=self.dir,
                                           filesettings={'extension': '.emln', 'ftypes': [('MLN extension files','.emln')]},
                                           defaultname='*unknown{}',
                                           importhook=self.import_emln,
@@ -382,7 +382,7 @@ class MLNQueryGUI(object):
         # db section
         row += 1
         Label(self.frame, text="Evidence: ").grid(row=row, column=0, sticky='NE')
-        self.db_container = FileEditBar(self.frame, dir=self.dir,
+        self.db_container = FileEditBar(self.frame, directory=self.dir,
                                         filesettings={'extension': '.db', 'ftypes': [('Database files', '.db')]},
                                         defaultname='*unknown{}',
                                         importhook=self.import_db,
