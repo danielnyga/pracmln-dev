@@ -22,28 +22,29 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from tkinter import _setit, Menu, TclError, Frame, StringVar, Button, Text,\
-    IntVar, Checkbutton, Entry, OptionMenu, Scrollbar, Grid, Place, Pack
-from tkinter.scrolledtext import ScrolledText
-from string import ascii_letters, digits, punctuation
 import re
-from tkinter.constants import NONE, INSERT, LEFT, W, END, DISABLED, NORMAL, RIGHT, Y,\
-    TOP, BOTTOM, X, BOTH, HORIZONTAL, SEL
-from tkinter.filedialog import askopenfilename
-import tkinter.messagebox
-import tkinter.simpledialog
-from pracmln import praclog
-from pracmln.utils.project import mlnpath
-from pracmln.mln.util import trace, out
-try:
-    import Pmw  # @UnresolvedImport
-    havePMW = True
-except:
-    havePMW = False
 import os
 import ntpath
 from fnmatch import fnmatch
-#import keyword
+import tkinter.messagebox
+import tkinter.simpledialog
+from importlib import util as imputil
+from string import ascii_letters, digits, punctuation
+from tkinter import _setit, Menu, TclError, Frame, StringVar, Button, Text, \
+    IntVar, Checkbutton, Entry, OptionMenu, Scrollbar, Grid, Place, Pack
+from tkinter.constants import INSERT, LEFT, W, END, DISABLED, NORMAL, RIGHT, Y, \
+    BOTTOM, X, BOTH, HORIZONTAL, SEL
+from tkinter.filedialog import askopenfilename
+
+from pracmln import praclog
+from pracmln.mln.util import out
+from pracmln.utils.project import mlnpath
+
+if imputil.find_spec('Pmw'):
+    from Pmw.Pmw_2_0_1.lib.PmwComboBox import ComboBox
+    havePMW = True
+else:
+    havePMW = False
 
 BOLDFONT = '*-Monospace-Bold-R-Normal-*-12-*'
 ITALICFONT = '*-Monospace-Medium-O-Normal-*-12-*'
@@ -57,6 +58,7 @@ class ScrolledText2(Text):
         self.frame = Frame(master)
         self.vbar = Scrollbar(self.frame)
         self.vbar.pack(side=RIGHT, fill=Y)
+        self.change_hook = change_hook
 
         self.hbar = Scrollbar(self.frame, orient=HORIZONTAL)
         self.hbar.pack(side=BOTTOM,fill=X)
@@ -126,6 +128,7 @@ class SyntaxHighlightingText(ScrolledText2):
         self.indention = 0   # The current indention level
         self.set_tabwidth(self.indentwidth) # IDLE...
         self.previous_line = "0"
+        self.highlighter = None
 
         # create a popup menu
         self.menu = Menu(root, tearoff=0)
@@ -149,7 +152,7 @@ class SyntaxHighlightingText(ScrolledText2):
         self.setHighlighter(highlighter)
 
     def setHighlighter(self, highlighter):
-        if highlighter == None:
+        if highlighter is None:
             highlighter = Highlighter()
         self.highlighter = highlighter
         # sets up the tags
@@ -196,7 +199,7 @@ class SyntaxHighlightingText(ScrolledText2):
         self.focus_set()
         return 'break'
 
-    def cut(self,event=0):
+    def cut(self, event=0):
         self.clipboard_clear()
         Selection=self.get_selection_indices()
         if Selection is not None:
@@ -205,14 +208,14 @@ class SyntaxHighlightingText(ScrolledText2):
             self.clipboard_append(SelectedText)
             self.onChange()
 
-    def copy(self,event=0):
+    def copy(self, event=0):
         self.clipboard_clear()
         Selection=self.get_selection_indices()
         if Selection is not None:
             SelectedText = self.get(Selection[0],Selection[1])
             self.clipboard_append(SelectedText)
 
-    def paste(self,event=0):
+    def paste(self, event=0):
         # This should call colorize for the pasted lines.
         SelectedText = self.root.selection_get(selection='CLIPBOARD')
         Selection=self.get_selection_indices()
@@ -222,7 +225,7 @@ class SyntaxHighlightingText(ScrolledText2):
         self.onChange()
         return "break"
 
-    def autoindent(self,event):
+    def autoindent(self, event):
         if event.keysym == 'Return':
             self.edit_separator() # For undo/redo
             index = self.index(INSERT).split('.')
@@ -249,7 +252,7 @@ class SyntaxHighlightingText(ScrolledText2):
             if self.get('%s.%d'%(line, column-1)) == '\t':
                 self.indention -= 1
 
-    def recolorCurrentLine(self, *foo):
+    def recolorCurrentLine(self, *_):
         pos = self.index(INSERT)
         cline = pos.split('.')[0]
         #print "recoloring %s, %s" % (cline, self.previous_line)
@@ -270,11 +273,11 @@ class SyntaxHighlightingText(ScrolledText2):
             ranges = self.tag_ranges('mlcom')
             i = 0
             while i < len(ranges):
-                range = ranges[i:i+2]
-                second_range = (self.index(str(range[0]) + " + 1 char"), self.index(str(range[1]) + " - 1 char"))
+                r = ranges[i:i+2]
+                second_range = (self.index(str(r[0]) + " + 1 char"), self.index(str(r[1]) + " - 1 char"))
                 #print pos, range, second_range
-                if pos in range or pos in second_range:
-                    self.tag_remove('mlcom', range[0], range[1])
+                if pos in r or pos in second_range:
+                    self.tag_remove('mlcom', r[0], r[1])
                 i += 2
         # notify of change if any. masks for the key.state variable
         # 0x0001     Shift.
@@ -319,10 +322,10 @@ class SyntaxHighlightingText(ScrolledText2):
 
     def colorize(self, cline):
         cursorPos = self.index(INSERT)
-        buffer = self.get('%s.%d' % (cline,0), '%s.end' % (cline))
+        buffer = self.get('%s.%d' % (cline,0), '%s.end' % cline)
 
         # remove non-multiline tags
-        self.remove_singleline_tags('%s.%d'% (cline, 0), '%s.end'% (cline))
+        self.remove_singleline_tags('%s.%d' % (cline, 0), '%s.end' % cline)
 
         in_quote = False
         quote_start = 0
@@ -344,7 +347,7 @@ class SyntaxHighlightingText(ScrolledText2):
                             self.tag_add('op', "%s.%d" % (cline, i), "%s.%d" % (cline, i+len(op)))
                 # comments
                 if buffer[i:i+2] == "//":
-                    self.tag_add('com', '%s.%d' % (cline, i), '%s.end' % (cline))
+                    self.tag_add('com', '%s.%d' % (cline, i), '%s.end' % cline)
                 # multiline comments
                 elif buffer[i:i+2] == "/*":
                     if not here in self.tag_ranges('mlcom'):
@@ -442,7 +445,7 @@ class SyntaxHighlightingText(ScrolledText2):
 class FileEditBar(Frame, object):
 
 
-    def __init__(self, master, dir='.', filesettings=None, defaultname='*unknown{}', importhook=None,
+    def __init__(self, master, directory='.', filesettings=None, defaultname='*unknown{}', importhook=None,
                  deletehook=None, projecthook=None, filecontenthook=None, selectfilehook=None,
                  fileslisthook=None, updatehook=None, onchangehook=None):
 
@@ -456,7 +459,7 @@ class FileEditBar(Frame, object):
         self._dirty_file_name = ''
         self._editor_dirty = False
 
-        self.dir = dir
+        self.dir = directory
         self.fsettings = filesettings
         self.defaultname = defaultname
 
@@ -622,7 +625,7 @@ class FileEditBar(Frame, object):
                 self.save_project_hook()
 
 
-    def select_file(self, *args):
+    def select_file(self, *_):
         filename = self.selected_file.get().strip()
         self.dirty = True
 
@@ -673,7 +676,7 @@ class FileEditBar(Frame, object):
         return new_files
 
 
-    def onchange_filecontent(self, *args):
+    def onchange_filecontent(self, *_):
         if not self._editor_dirty:
             self._editor_dirty = True
             self.dirty = True
@@ -737,7 +740,7 @@ class FilePickEdit(Frame):
             self.editor = SyntaxHighlightingText(self, self.onEdit, highlighter=highlighter)
         else:
             self.editor = ScrolledText2(self, self.onEdit)
-        if font != None:
+        if font is not None:
             self.editor.configure(font=font)
         if edit_height is not None:
             self.editor.configure(height=edit_height)
@@ -792,7 +795,7 @@ class FilePickEdit(Frame):
         if os.path.exists(os.path.join(self.directory, filename)):
             new_text = open(os.path.join(self.directory, filename)).read()
             if new_text.strip() == "":
-                new_text = "// %s is empty\n" % filename;
+                new_text = "// %s is empty\n" % filename
             new_text = new_text.replace("\r", "")
         else:
             new_text = ""
@@ -805,23 +808,22 @@ class FilePickEdit(Frame):
         """
         self.select("")
         if txt.strip() == "":
-            txt = "// empty database\n";
+            txt = "// empty database\n"
         self.editor.insert(INSERT, txt)
         self.onEdit()
         
 
-    def onSelChange(self, name, index=0, mode=0):
+    def onSelChange(self):
         self.reloadFile()
         filename = self.picked_name.get()
         self.save_name.set(filename)
         self.save_edit.configure(state=DISABLED)
         self.unmodified = True
-        if self.user_onChange != None:
+        if self.user_onChange is not None:
             self.user_onChange(filename)
 
-    def onSaveChange(self, name, index, mode): pass
-#         if self.user_onChange != None:
-#             self.user_onChange(self.save_name.get())
+    def onSaveChange(self, name, index, mode):
+        pass
 
     def autoRename(self):
         # modify "save as" name
@@ -846,11 +848,11 @@ class FilePickEdit(Frame):
                 break
         self.save_name.set(filename)
         # user callback
-        if self.user_onChange != None:
+        if self.user_onChange is not None:
             self.user_onChange(filename)
 
     def onEdit(self):
-        if self.unmodified == True:
+        if self.unmodified:
             self.unmodified = False
             # do auto rename if it's enabled or there is no file selected (editing new file)
             if self.rename_on_edit.get() == 1 or self.picked_name.get() == "":
@@ -876,7 +878,7 @@ class FilePickEdit(Frame):
                     if fnmatch(filename, fm):
                         self.files.append(filename)
         self.files.sort()
-        if len(self.files) == 0 and not self.allowNone: self.files.append("(no %s files found)" % str(self.file_mask    ))
+        if len(self.files) == 0 and not self.allowNone: self.files.append("(no %s files found)" % str(self.file_mask))
         
 
     def select(self, filename, notify=True):
@@ -893,7 +895,7 @@ class FilePickEdit(Frame):
 
     def makelist(self):
         if havePMW:
-            self.list = Pmw.ComboBox(self.list_frame,
+            self.list = ComboBox(self.list_frame,
                     selectioncommand = self.onSelChange,
                     scrolledlist_items = self.files,
             )
@@ -1013,7 +1015,7 @@ class FilePick(Frame):
 
     def _makelist(self):
         if havePMW:
-            self.list = Pmw.ComboBox(self,
+            self.list = ComboBox(self,
                     selectioncommand = self.onSelChange,
                     scrolledlist_items = self.files,
             )
@@ -1052,7 +1054,7 @@ class DropdownList:
         self.file_mask = filemask
         self.updateList()
         if havePMW:
-            self.list = Pmw.ComboBox(master, selectioncommand=onselchange, scrolledlist_items = self.files)
+            self.list = ComboBox(master, selectioncommand=onselchange, scrolledlist_items = self.files)
             self.list.component('entryfield').component('entry').configure(state = 'readonly', relief = 'raised')
             self.picked_name = self.list
         else:
@@ -1098,7 +1100,7 @@ class DropdownList:
 
     def makelist(self):
         if havePMW:
-            self.list = Pmw.ComboBox(self.list_frame,
+            self.list = ComboBox(self.list_frame,
                     selectioncommand = self.onSelChange,
                     scrolledlist_items = self.files,
             )

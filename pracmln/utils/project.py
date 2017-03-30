@@ -186,7 +186,7 @@ class MLNProject(object):
     def save(self, dirpath='.'):
         filename = self.name
         self.path = dirpath
-        with open(os.path.join(dirpath, filename), 'w') as zf:
+        with open(os.path.join(dirpath, filename), 'wb') as zf:
             self.tostream(zf)
         self.dirty = False
         

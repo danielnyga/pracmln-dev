@@ -815,11 +815,11 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                     except ParseException as e:
                         raise MLNParsingError("Error parsing formula '%s'\n" % formula)
                 if fuzzy and not isPredDecl: raise Exception('"#fuzzy" decorator not allowed at this place: %s' % line)
-        except MLNParsingError:
+        except MLNParsingError as err:
             sys.stderr.write("Error processing line '%s'\n" % line)
             cls, e, tb = sys.exc_info()
             traceback.print_tb(tb)
-            raise MLNParsingError(e.message)
+            raise MLNParsingError(err)
 
     # augment domains with constants appearing in formula templates
     for _, f in mln.iterformulas():

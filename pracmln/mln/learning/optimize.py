@@ -202,7 +202,7 @@ class SciPyOpt(object):
         log = logging.getLogger(self.__class__.__name__)
         if optimizer == "bfgs":
             params = dict([k_v for k_v in iter(self.optParams.items()) if k_v[0] in ["gtol", "epsilon", "maxiter"]])
-            if self.verbose: print("starting optimization with %s... %s" % (optimizer, params))
+            if self.verbose: print("starting optimization with %s... %s\n" % (optimizer, params))
             wt, f_opt, grad_opt, Hopt, func_calls, grad_calls, warn_flags = fmin_bfgs(neg_f, self.wt, fprime=neg_grad, full_output=True, **params)
             if self.verbose: 
                 print("optimization done with %s..." % optimizer)

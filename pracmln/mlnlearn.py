@@ -40,7 +40,7 @@ from pracmln.mln.base import parse_mln
 from pracmln.mln.database import Database, parse_db
 from pracmln.mln.learning.common import DiscriminativeLearner
 from pracmln.mln.methods import LearningMethods
-from pracmln.mln.util import ifNone, out, headline, StopWatch
+from pracmln.mln.util import ifNone, headline, StopWatch
 from pracmln.utils import config
 from pracmln.utils.config import global_config_filename
 from pracmln.utils.project import MLNProject, PRACMLNConfig
@@ -403,7 +403,7 @@ class MLNLearn(object):
             mlnlearnt = mln.learn(dbs, self.method, **params)
             if self.verbose:
                 print()
-                print((headline('LEARNT MARKOV LOGIC NETWORK')))
+                print(headline('LEARNT MARKOV LOGIC NETWORK'))
                 print()
                 mlnlearnt.write()
         except SystemExit:
@@ -411,7 +411,7 @@ class MLNLearn(object):
         finally:
             if self.profile:
                 prof.disable()
-                print((headline('PROFILER STATISTICS')))
+                print(headline('PROFILER STATISTICS'))
                 ps = pstats.Stats(prof, stream=sys.stdout).sort_stats(
                     'cumulative')
                 ps.print_stats()
@@ -495,7 +495,7 @@ class MLNLearnGUI:
         # mln section
         row += 1
         Label(self.frame, text="MLN: ").grid(row=row, column=0, sticky='NE')
-        self.mln_container = FileEditBar(self.frame, dir=self.dir,
+        self.mln_container = FileEditBar(self.frame, directory=self.dir,
                                          filesettings={'extension': '.mln', 'ftypes': [('MLN files', '.mln')]},
                                          defaultname='*unknown{}',
                                          importhook=self.import_mln,
@@ -593,7 +593,7 @@ class MLNLearnGUI:
         # db section
         row += 1
         Label(self.frame, text="Evidence: ").grid(row=row, column=0, sticky='NE')
-        self.db_container = FileEditBar(self.frame, dir=self.dir,
+        self.db_container = FileEditBar(self.frame, directory=self.dir,
                                         filesettings={'extension': '.db', 'ftypes': [('Database files', '.db')]},
                                         defaultname='*unknown{}',
                                         importhook=self.import_db,
@@ -1111,8 +1111,8 @@ class MLNLearnGUI:
     def learn(self, savegeometry=True, options=None, *_):
         if options is None:
             options = {}
-        mln_content = self.mln_container.editor.get("1.0", END).encode('utf8').strip()
-        db_content = self.db_container.editor.get("1.0", END).encode('utf8').strip()
+        mln_content = self.mln_container.editor.get("1.0", END).strip()
+        db_content = self.db_container.editor.get("1.0", END).strip()
 
         # create conf from current gui settings
         self.update_config()

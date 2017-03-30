@@ -34,25 +34,26 @@ from pracmln.praclog.logformat import RainbowLoggingHandler
 from collections import defaultdict
 import random
 from functools import reduce
+from importlib import util as imputil
 
 # math functions
 
 USE_MPMATH = True
 
-try:
-    if not USE_MPMATH:
-        raise Exception()
+if not USE_MPMATH:
+    raise Exception()
+if imputil.find_spec('mpmath') is not None:
     import mpmath  # @UnresolvedImport
     mpmath.mp.dps = 80
     from mpmath import exp, fsum, log  # @UnresolvedImport
-except:
+else:
     from math import exp, log
-    try:
-        from math import fsum 
-    except: # not support   ed in Python 2.5
+    if imputil.find_spec('math', 'fsum') is not None:
+        from math import fsum
+    else:
         fsum = sum
-#sys.stderr.write("Warning: Falling back to standard math module because mpmath is not installed. If overflow errors occur, consider installing mpmath.")
-from math import floor, ceil, e, sqrt
+
+from math import sqrt
 
 import math
 
@@ -187,7 +188,7 @@ def parse_queries(mln, query_str):
                 # try to read it as a formula and update query predicates
                 f = mln.logic.parse_formula(q)
                 literals = f.literals()
-                prednames = [l.predname for l in literals]
+                prednames = [lit.predname for lit in literals]
                 query_preds.update(prednames)
             except:
                 # not a formula, must be a pure predicate name 
@@ -239,7 +240,7 @@ class CallByRef(object):
 INC = 1
 EXC = 2
 
-class Interval():
+class Interval:
     
     def __init__(self, interval):
         tokens = re.findall(r'(\(|\[|\])([-+]?\d*\.\d+|\d+),([-+]?\d*\.\d+|\d+)(\)|\]|\[)', interval.strip())[0]
@@ -356,26 +357,25 @@ def tty(stream):
 def barstr(width, percent, color=None):
     """
     Returns the string representation of an ASCII 'progress bar'.
-    
-    
     """
     barw = int(round(width * percent))
     bar = ''.ljust(barw, '=')
     bar = bar.ljust(width, ' ')
     if color is not None:
-        filler = '\\u25A0'
+        filler = u"\u25A0"
         bar = bar.replace('=', filler)
         bar = colorize('[', format=(None, None, True), color=True) + colorize(bar, format=(None, color, False), color=True) + colorize(']', format=(None, None, True), color=True)
     else:
         bar = '[%s]' % bar
-    return '{0} {1: >7.3f} %'.format(bar, percent * 100.).encode('utf8') 
+    return '{0} {1: >7.3f} %'.format(bar, percent * 100.)
 
 
-class ProgressBar():
+class ProgressBar:
     
     def __init__(self, width, value=0, steps=None, label='', color=None, stream=sys.stdout):
         self.width = width
         self.steps = steps
+        self.stream = stream
         if steps is not None:
             self.step = value
             self.value = float(value) / steps
@@ -399,7 +399,7 @@ class ProgressBar():
         if label is not None: self._label = label
         if value == 1: self._label = ''
         if tty(sys.stdout):
-            sys.stdout.write('\r' + barstr(self.width, value, color=self.color) + ' ' + self._label[:min(len(self._label), 20)].ljust(20, ' ') )
+            sys.stdout.write('\r' + barstr(self.width, value, color=self.color) + ' ' + self._label[:min(len(self._label), 20)].ljust(20, ' ') + '\n')
             sys.stdout.flush()
             
     
@@ -413,8 +413,8 @@ class ProgressBar():
 BOLD = (None, None, True)
             
 def headline(s):
-    l = ''.ljust(len(s), '=')
-    return '%s\n%s\n%s' % (colorize(l, BOLD, True), colorize(s, BOLD, True), colorize(l, BOLD, True))
+    line = ''.ljust(len(s), '=')
+    return '%s\n%s\n%s' % (colorize(line, BOLD, True), colorize(s, BOLD, True), colorize(line, BOLD, True))
 
 
 def gaussianZeroMean(x, sigma):
@@ -529,11 +529,11 @@ class StopWatch(object):
 
         
     def printSteps(self):
-        for t in sorted(list(self.tags.values()), key=lambda t: t.starttime):
-            if t.finished:
-                print(('%s took %s' % (colorize(t.label, (None, None, True), True), elapsed_time_str(t.elapsedtime))))
+        for tag in sorted(list(self.tags.values()), key=lambda ta: ta.starttime):
+            if tag.finished:
+                print(('%s took %s' % (colorize(tag.label, (None, None, True), True), elapsed_time_str(tag.elapsedtime))))
             else:
-                print(('%s is running for %s now...' % (colorize(t.label, (None, None, True), True), elapsed_time_str(t.elapsedtime))))
+                print(('%s is running for %s now...' % (colorize(tag.label, (None, None, True), True), elapsed_time_str(tag.elapsedtime))))
 
 
 def combinations(domains):
@@ -587,7 +587,7 @@ def dict_subset(subset, superset):
     """
     Checks whether or not a dictionary is a subset of another dictionary.
     """
-    return all(item in list(superset.items()) for item in list(subset.items()))
+    return all(it in list(superset.items()) for it in list(subset.items()))
 
 
 class edict(dict):
@@ -621,10 +621,10 @@ def item(s):
     """
     if not s:
         raise Exception('Argument of type %s is empty.' % type(s).__name__)
-    for i in s: break
-    return i
+    for it in s: break
+    return it
 
-class temporary_evidence():
+class temporary_evidence:
     """
     Context guard class for enabling convenient handling of temporary evidence in
     MRFs using the python `with` statement. This guarantees that the evidence

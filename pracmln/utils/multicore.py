@@ -64,7 +64,7 @@ class _methodcaller:
     
 
 def checkmem():
-    if float(psutil.phymem_usage().percent) > 75.:
+    if float(psutil.virtual_memory().percent) > 75.:
         raise OutOfMemoryError('Aborting due to excessive memory consumption.')
 
 def make_memsafe():
@@ -72,7 +72,7 @@ def make_memsafe():
         import resource
         import psutil
         for rsrc in (resource.RLIMIT_AS, resource.RLIMIT_DATA):
-            freemem = psutil.virtmem_usage().free
+            freemem = psutil.virtual_memory().free
             hard = int(round(freemem *.8))
             soft = hard
             resource.setrlimit(rsrc, (soft, hard)) #limit to 80% of available memory

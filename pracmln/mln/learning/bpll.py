@@ -24,20 +24,19 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from .common import AbstractLearner
-from collections import defaultdict
-import numpy
 import logging
-import time
-from pracmln.mln.util import barstr, fsum, temporary_evidence, out
+from collections import defaultdict
+
+import numpy
 from numpy.ma.core import sqrt, log
-from pracmln.mln.grounding.default import DefaultGroundingFactory
-from pracmln.mln.mrfvars import SoftMutexVariable
-from pracmln.mln.learning.common import DiscriminativeLearner
-from pracmln.mln.grounding.bpll import BPLLGroundingFactory
-import traceback
+
 from pracmln.mln.constants import HARD
 from pracmln.mln.errors import SatisfiabilityException
+from pracmln.mln.grounding.bpll import BPLLGroundingFactory
+from pracmln.mln.grounding.default import DefaultGroundingFactory
+from pracmln.mln.learning.common import DiscriminativeLearner
+from pracmln.mln.util import barstr, fsum, temporary_evidence
+from .common import AbstractLearner
 
 
 logger = logging.getLogger(__name__)
@@ -101,7 +100,7 @@ class BPLL(AbstractLearner):
     def write_pls(self):
         for var in self.mrf.variables:
             print(repr(var))
-            for i, value in var.values():
+            for i, value in var.itervalues():
                 print('    ', barstr(width=50, color='magenta', percent=self._pls[var.idx][i]) + ('*' if var.evidence_value_index() == i else ' '), i, value)
     
     
@@ -132,7 +131,7 @@ class BPLL(AbstractLearner):
                 for i, val in enumerate(counts):
                     g -= val * self._pls[varidx][i]
                 grad[fidx] += g
-        self.grad_opt_norm = float(sqrt(fsum([x * x for x in grad])))
+        self.grad_opt_norm = float(sqrt(float(fsum([x * x for x in grad]))))
         return numpy.array(grad)
 
     
@@ -156,7 +155,7 @@ class BPLL(AbstractLearner):
             for gndatom in f.gndatoms():
                 var = self.mrf.variable(gndatom)
                 with temporary_evidence(self.mrf):
-                    for validx, value in var.values():
+                    for validx, value in var.itervalues():
                         var.setval(value, self.mrf.evidence)
                         truth = f(self.mrf.evidence) 
                         if truth != 0:
@@ -191,7 +190,7 @@ class DPLL(BPLL, DiscriminativeLearner):
                 for i, val in enumerate(counts):
                     g -= val * self._pls[varidx][i]
                 grad[fidx] += g
-        self.grad_opt_norm = float(sqrt(fsum([x * x for x in grad])))
+        self.grad_opt_norm = float(sqrt(float(fsum([x * x for x in grad]))))
         return numpy.array(grad)
 
 

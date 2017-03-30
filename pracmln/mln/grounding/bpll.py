@@ -55,7 +55,7 @@ def create_formula_groundings(formula, unsatfailure=True):
             for gndatom in gf.gndatoms():
                 world = list(global_bpll_grounding.mrf.evidence)
                 var = global_bpll_grounding.mrf.variable(gndatom)
-                for validx, value in var.values():
+                for validx, value in var.itervalues():
                     var.setval(value, world)
                     truth = gf(world)
                     if truth != 0:
@@ -139,7 +139,7 @@ class BPLLGroundingFactory(FastConjunctionGrounding):
                 skip = False
                 falsevar_ = falsevar
                 vars_ = list(variables)
-                for validx, value in var.values():
+                for validx, value in var.itervalues():
                     var.setval(value, world_)
                     truth = gnd(world_)
                     if truth == 0 and value == var.evidence_value():

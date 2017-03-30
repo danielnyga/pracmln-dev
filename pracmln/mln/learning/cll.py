@@ -279,7 +279,7 @@ class CLL(AbstractLearner):
                 for i, val in enumerate(values):
                     v -= self.probs[part][i] * val
                 grad[fidx] += v
-        self.grad_opt_norm = float(sqrt(fsum([x * x for x in grad])))
+        self.grad_opt_norm = float(sqrt(float(fsum([x * x for x in grad]))))
         return numpy.array(grad)
     
     
