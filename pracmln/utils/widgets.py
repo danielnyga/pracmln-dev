@@ -450,6 +450,8 @@ class FileEditBar(Frame, object):
 
         Frame.__init__(self, master)
 
+        self.selected_file = StringVar()
+        self.selected_file.trace("w", self.select_file)
         self._dirty = False
         self._dirty_file_name = ''
         self._editor_dirty = False
@@ -471,14 +473,12 @@ class FileEditBar(Frame, object):
         row = 0
         self.columnconfigure(1, weight=2)
 
-        self.selected_file = StringVar()
         files = []
         self.file_buffer = {}
         self.file_reload = True
         if len(files) == 0: files.append("")
         self.list_files = OptionMenu(*(self, self.selected_file) + tuple(files))
         self.list_files.grid(row=row, column=1, sticky="NWE")
-        self.selected_file.trace("w", self.select_file_hook)
 
         # new file
         self.btn_newfile = Button(self, text='New', command=self.new_file)
@@ -659,7 +659,6 @@ class FileEditBar(Frame, object):
             # should not happen
             self.editor.delete("1.0", END)
             self.list_files['menu'].delete(0, 'end')
-
 
     def update_file_choices(self):
         self.list_files['menu'].delete(0, 'end')

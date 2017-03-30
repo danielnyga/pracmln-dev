@@ -200,23 +200,23 @@ class MLNProject(object):
         with ZipFile(fullpath, 'r') as zf:
             for member in zf.namelist():
                 if member == 'learn.conf':
-                    tmpconf = eval(zf.open(member).read())
+                    tmpconf = eval(zf.open(member).read().decode("utf-8"))
                     proj.learnconf = PRACMLNConfig()
                     proj.learnconf.update(tmpconf)
                 elif member == 'query.conf':
-                    tmpconf = eval(zf.open(member).read())
+                    tmpconf = eval(zf.open(member).read().decode("utf-8"))
                     proj.queryconf = PRACMLNConfig()
                     proj.queryconf.update(tmpconf)
                 else:
                     path, f = os.path.split(member)
                     if path == 'mlns':
-                        proj._mlns[f] = zf.open(member).read()
+                        proj._mlns[f] = zf.open(member).read().decode("utf-8")
                     elif path == 'emlns':
-                        proj._emlns[f] = zf.open(member).read()
+                        proj._emlns[f] = zf.open(member).read().decode("utf-8")
                     elif path == 'dbs':
-                        proj._dbs[f] = zf.open(member).read()
+                        proj._dbs[f] = zf.open(member).read().decode("utf-8")
                     elif path == 'results':
-                        proj._results[f] = zf.open(member).read()
+                        proj._results[f] = zf.open(member).read().decode("utf-8")
         return proj
 
     @staticmethod
@@ -226,23 +226,23 @@ class MLNProject(object):
         with ZipFile(stream, 'r') as zf:
             for member in zf.namelist():
                 if member == 'learn.conf':
-                    tmpconf = eval(zf.open(member).read())
+                    tmpconf = eval(zf.open(member).read().decode("utf-8"))
                     proj.learnconf = PRACMLNConfig()
                     proj.learnconf.update(tmpconf)
                 elif member == 'query.conf':
-                    tmpconf = eval(zf.open(member).read())
+                    tmpconf = eval(zf.open(member).read().decode("utf-8"))
                     proj.queryconf = PRACMLNConfig()
                     proj.queryconf.update(tmpconf)
                 else:
                     path, f = os.path.split(member)
                     if path == 'mlns':
-                        proj._mlns[f] = zf.open(member).read()
+                        proj._mlns[f] = zf.open(member).read().decode("utf-8")
                     elif path == 'emlns':
-                        proj._emlns[f] = zf.open(member).read()
+                        proj._emlns[f] = zf.open(member).read().decode("utf-8")
                     elif path == 'dbs':
-                        proj._dbs[f] = zf.open(member).read()
+                        proj._dbs[f] = zf.open(member).read().decode("utf-8")
                     elif path == 'results':
-                        proj._results[f] = zf.open(member).read()
+                        proj._results[f] = zf.open(member).read().decode("utf-8")
         return proj
 
     def tostream(self, stream):

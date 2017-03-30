@@ -913,8 +913,8 @@ class MLNQueryGUI(object):
 
 
     def infer(self, savegeometry=True, options={}, *args):
-        mln_content = self.mln_container.editor.get("1.0", END).encode('utf8').strip()
-        db_content = self.db_container.editor.get("1.0", END).encode('utf8').strip()
+        mln_content = self.mln_container.editor.get("1.0", END).strip()
+        db_content = self.db_container.editor.get("1.0", END).strip()
 
         # create conf from current gui settings
         self.update_config()
@@ -942,7 +942,7 @@ class MLNQueryGUI(object):
             if options.get('emlnarg') is not None:
                 emln_content = mlnpath(options.get('emlnarg')).content
             else:
-                emln_content = self.emln_container.editor.get("1.0", END).encode('utf8').strip()
+                emln_content = self.emln_container.editor.get("1.0", END).strip()
 
             if options.get('dbarg') is not None:
                 dbobj = Database.load(mlnobj, dbfiles=[options.get('dbarg')], ignore_unknown_preds=self.config.get('ignore_unknown_preds', True))

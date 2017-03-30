@@ -24,29 +24,28 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-import io
-
-from tkinter import *
-import sys
-import traceback
-from pracmln.mln.base import parse_mln
-from pracmln.utils.project import MLNProject, PRACMLNConfig
-from .utils.widgets import *
-import tkinter.messagebox
 import fnmatch
-from .mln.methods import LearningMethods
-from cProfile import Profile
-from pracmln.utils import config
-from pracmln.mln.util import ifNone, out, headline, StopWatch
-from tkinter.filedialog import asksaveasfilename, askopenfilename
-from pracmln.utils.config import global_config_filename
-from pracmln import praclog, MLN
-from tabulate import tabulate
+import io
 import pstats
+import tkinter.messagebox
+import traceback
+from cProfile import Profile
+from tkinter import *
+from tkinter.filedialog import asksaveasfilename
+
+from tabulate import tabulate
+
+from pracmln import MLN
+from pracmln.mln.base import parse_mln
 from pracmln.mln.database import Database, parse_db
 from pracmln.mln.learning.common import DiscriminativeLearner
+from pracmln.mln.methods import LearningMethods
+from pracmln.mln.util import ifNone, out, headline, StopWatch
+from pracmln.utils import config
+from pracmln.utils.config import global_config_filename
+from pracmln.utils.project import MLNProject, PRACMLNConfig
+from pracmln.utils.widgets import *
 import logging #import used in eval, do not remove
-
 
 
 logger = praclog.logger(__name__)
@@ -734,13 +733,13 @@ class MLNLearnGUI:
         self.settings_setdirty()
 
 
-    def project_setdirty(self, dirty=False, *args):
+    def project_setdirty(self, dirty=False, *_):
         self.project_dirty.set(
             dirty or self.mln_container.dirty or self.db_container.dirty)
         self.changewindowtitle()
 
 
-    def settings_setdirty(self, *args):
+    def settings_setdirty(self, *_):
         self.settings_dirty.set(1)
         self.changewindowtitle()
 
@@ -950,14 +949,14 @@ class MLNLearnGUI:
         self.settings_setdirty()
 
 
-    def onchange_pattern(self, *args):
+    def onchange_pattern(self, *_):
         self.db_container.editor.disable(self.pattern.get())
         self.db_container.list_files.config(
             state=DISABLED if self.pattern.get() else NORMAL)
         self.settings_setdirty()
 
 
-    def onchange_useprior(self, *args):
+    def onchange_useprior(self, *_):
         self.en_prior_mean.configure(
             state=NORMAL if self.use_prior.get() else DISABLED)
         self.en_stdev.configure(
@@ -983,13 +982,13 @@ class MLNLearnGUI:
             self.output_filename.set(filename)
 
 
-    def select_method(self, *args):
+    def select_method(self, *_):
         self.change_discr_preds()
         self.set_outputfilename()
         self.settings_setdirty()
 
 
-    def change_discr_preds(self, *args):
+    def change_discr_preds(self, *_):
         methodname = self.selected_method.get()
         if methodname:
             method = LearningMethods.clazz(methodname)
@@ -1109,7 +1108,9 @@ class MLNLearnGUI:
         self.gconf.dump()
 
 
-    def learn(self, savegeometry=True, options={}, *args):
+    def learn(self, savegeometry=True, options=None, *_):
+        if options is None:
+            options = {}
         mln_content = self.mln_container.editor.get("1.0", END).encode('utf8').strip()
         db_content = self.db_container.editor.get("1.0", END).encode('utf8').strip()
 
