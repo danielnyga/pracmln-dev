@@ -3,7 +3,6 @@ tabulate
 pymongo
 numpy
 scipy
-tabulate
 logutils
 pyparsing
 psutil
