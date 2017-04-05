@@ -58,7 +58,7 @@ from math import sqrt
 import math
 
 def currentframe():
-    """Return the frame object for the caller's stack frame."""
+    '''Return the frame object for the caller's stack frame.'''
     try:
         raise Exception()
     except:
@@ -69,10 +69,10 @@ if hasattr(sys, '_getframe'): currentframe = lambda: sys._getframe(2)
 
 
 def caller(tb=1):
-    """
+    '''
     Find the stack frame of the caller so that we can note the source
     file name, line number and function name.
-    """
+    '''
     f = currentframe()
     #On some versions of IronPython, currentframe() returns None if
     #IronPython isn't run with -X:Frames.
@@ -113,21 +113,21 @@ def stoptrace(*args, **kwargs):
 
 def crash(*args, **kwargs):
     out(*args, **edict(kwargs) + {'tb': kwargs.get('tb', 1) + 1})
-    print((colorize('TERMINATING.', ('red', None, True), True)))
+    print(colorize('TERMINATING.', ('red', None, True), True))
     exit(-1)
 
 def flip(value):
-    """
+    '''
     Flips the given binary value to its complement.
     
     Works with ints and booleans. 
-    """
+    '''
     if type(value) is bool:
         return True if value is False else False
     elif type(value) is int:
         return 1 - value
     else:
-        TypeError('type %s not allowed' % type(value))
+        TypeError('type {} not allowed'.format(type(value)))
 
 def logx(x):
     if x == 0:
@@ -170,12 +170,12 @@ def stripComments(text):
 
 
 def parse_queries(mln, query_str):
-    """
+    '''
     Parses a list of comma-separated query strings.
     
     Admissible queries are all kinds of formulas or just predicate names.
     Returns a list of the queries.
-    """
+    '''
     queries = []
     query_preds = set()
     q = ''
@@ -198,20 +198,19 @@ def parse_queries(mln, query_str):
     if q != '': raise Exception('Unbalanced parentheses in queries: ' + q)
     return queries
 
-
 def predicate_declaration_string(predName, domains, blocks):
-    """
+    '''
     Returns a string representation of the given predicate.
-    """
-    args_list = ['%s%s' % (arg, {True: '!', False: ''}[block]) for arg, block in zip(domains, blocks)]
+    '''
+    args_list = ['{}{}'.format(arg, {True: '!', False: ''}[block]) for arg, block in zip(domains, blocks)]
     args = ', '.join(args_list)
-    return '%s(%s)' % (predName, args)
+    return '{}({})'.format(predName, args)
 
 
 def getPredicateList(filename):
-    """ 
+    ''' 
     Gets the set of predicate names from an MLN file 
-    """
+    '''
     content = open(filename, "r").read() + "\n"
     content = stripComments(content)
     lines = content.split("\n")
@@ -229,10 +228,10 @@ def avg(*a):
 
 
 class CallByRef(object):
-    """
+    '''
     Convenience class for treating any kind of variable as an object that can be
     manipulated in-place by a call-by-reference, in particular for primitive data types such as numbers.
-    """
+    '''
     
     def __init__(self, value):
         self.value = value
@@ -249,13 +248,13 @@ class Interval:
         elif tokens[0] == '[':
             self.left = INC
         else:
-            raise Exception('Illegal interval: %s' % interval)
+            raise Exception('Illegal interval: {}'.format(interval))
         if tokens[3] in (')', '['): 
             self.right = EXC
         elif tokens[3] == ']':
             self.right = INC
         else:
-            raise Exception('Illegal interval: %s' % interval)
+            raise Exception('Illegal interval: {}'.format(interval))
         self.start = float(tokens[1]) 
         self.end = float(tokens[2])
         
@@ -264,7 +263,7 @@ class Interval:
         
     
 def ifNone(expr, else_expr, transform=None):
-    """
+    '''
     Short version of the ternary if-then-else construct that returns the given expression `expr` if it is
     not `None` or else_expr otherwise. Optionally, a transformation can be specified, which
     is applied to `expr` in case it is not None.
@@ -280,7 +279,7 @@ def ifNone(expr, else_expr, transform=None):
     Thu Jun 18 11:27:23 2015
     >>> print ifNone(None, 'N/A', time.ctime)
     N/A
-    """
+    '''
     if expr is None:
         return else_expr
     else:
@@ -291,7 +290,7 @@ def ifNone(expr, else_expr, transform=None):
 
 
 def elapsedtime(start, end=None):
-    """
+    '''
     Compute the elapsed time of the interval `start` to `end`.
     
     Returns a pair (t,s) where t is the time in seconds elapsed thus 
@@ -299,7 +298,7 @@ def elapsedtime(start, end=None):
     
     :param start:    the starting point of the time interval.
     :param end:      the end point of the time interval. If `None`, the current time is taken.
-    """
+    '''
     if end is not None:
         elapsed = end - start
     else:
@@ -314,7 +313,7 @@ def elapsed_time_str(elapsed):
     elapsed -= minutes * 60
     secs = int(elapsed)
     msecs = int((elapsed - secs) * 1000)
-    return "%d:%02d:%02d.%03d" % (hours, minutes, secs, msecs)
+    return '{}:{:02d}:{:02d}.{:03d}'.format(hours, minutes, secs, msecs)
 
 
 def balancedParentheses(s):
@@ -343,9 +342,9 @@ def cumsum(i, upto=None):
 
 
 def evidence2conjunction(evidence):
-    """
+    '''
     Converts the evidence obtained from a database (dict mapping ground atom names to truth values) to a conjunction (string)
-    """
+    '''
     evidence = [("" if x[1] else "!") + x[0] for x in iter(list(evidence.items()))]
     return " ^ ".join(evidence)
 
@@ -355,9 +354,9 @@ def tty(stream):
     return isatty and isatty()
     
 def barstr(width, percent, color=None):
-    """
+    '''
     Returns the string representation of an ASCII 'progress bar'.
-    """
+    '''
     barw = int(round(width * percent))
     bar = ''.ljust(barw, '=')
     bar = bar.ljust(width, ' ')
@@ -366,9 +365,8 @@ def barstr(width, percent, color=None):
         bar = bar.replace('=', filler)
         bar = colorize('[', format=(None, None, True), color=True) + colorize(bar, format=(None, color, False), color=True) + colorize(']', format=(None, None, True), color=True)
     else:
-        bar = '[%s]' % bar
+        bar = '[{}]'.format(bar)
     return '{0} {1: >7.3f} %'.format(bar, percent * 100.)
-
 
 class ProgressBar:
     
@@ -414,7 +412,7 @@ BOLD = (None, None, True)
             
 def headline(s):
     line = ''.ljust(len(s), '=')
-    return '%s\n%s\n%s' % (colorize(line, BOLD, True), colorize(s, BOLD, True), colorize(line, BOLD, True))
+    return '{}\n{}\n{}'.format(colorize(line, BOLD, True), colorize(s, BOLD, True), colorize(line, BOLD, True))
 
 
 def gaussianZeroMean(x, sigma):
@@ -426,9 +424,9 @@ def gradGaussianZeroMean(x, sigma):
 
 
 def mergedom(*domains):
-    """ 
+    ''' 
     Returning a new domains dictionary that contains the elements of all the given domains
-    """
+    '''
     fullDomain = {}
     for domain in domains:
         for domName, values in list(domain.items()):
@@ -441,10 +439,8 @@ def mergedom(*domains):
     return fullDomain
 
 
-
-
-def colorize(message, format, color=False):
-    """
+def colorize(message, frmt, color=False):
+    '''
     Returns the given message in a colorized format
     string with ANSI escape codes for colorized console outputs:
     - message:   the message to be formatted.
@@ -453,11 +449,12 @@ def colorize(message, format, color=False):
                  'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'
     - color:     boolean determining whether or not the colorization
                  is to be actually performed.
-    """
+    '''
+
     colorize.colorHandler = RainbowLoggingHandler(sys.stdout)
     if color is False: return message
     params = []
-    (bg, fg, bold) = format
+    (bg, fg, bold) = frmt
     if bg in colorize.colorHandler.color_map:
         params.append(str(colorize.colorHandler.color_map[bg] + 40))
     if fg in colorize.colorHandler.color_map:
@@ -465,8 +462,7 @@ def colorize(message, format, color=False):
     if bold:
         params.append('1')
     if params:
-        message = ''.join((colorize.colorHandler.csi, ';'.join(params),
-                           'm', message, colorize.colorHandler.reset))
+        message = ''.join((colorize.colorHandler.csi, ';'.join(params), 'm', message, colorize.colorHandler.reset))
     return message
 
 
@@ -487,9 +483,9 @@ class StopWatchTag:
     
 
 class StopWatch(object):
-    """
+    '''
     Simple tagging of time spans.
-    """
+    '''
     
     
     def __init__(self):
@@ -498,7 +494,7 @@ class StopWatch(object):
         
     def tag(self, label, verbose=True):
         if verbose:
-            print(('%s...' % label))
+            print('{}...'.format(label))
         tag = self.tags.get(label)
         now = time.time()
         if tag is None:
@@ -516,7 +512,7 @@ class StopWatch(object):
         else:
             tag = self.tags.get(label)
             if tag is None:
-                raise Exception('Unknown tag: %s' % label)
+                raise Exception('Unknown tag: {}'.format(label))
             tag.stoptime = now
 
     
@@ -531,9 +527,9 @@ class StopWatch(object):
     def printSteps(self):
         for tag in sorted(list(self.tags.values()), key=lambda ta: ta.starttime):
             if tag.finished:
-                print(('%s took %s' % (colorize(tag.label, (None, None, True), True), elapsed_time_str(tag.elapsedtime))))
+                print('{} took {}'.format(colorize(tag.label, (None, None, True), True), elapsed_time_str(tag.elapsedtime)))
             else:
-                print(('%s is running for %s now...' % (colorize(tag.label, (None, None, True), True), elapsed_time_str(tag.elapsedtime))))
+                print('{} is running for {} now...'.format(colorize(tag.label, (None, None, True), True), elapsed_time_str(tag.elapsedtime)))
 
 
 def combinations(domains):
@@ -550,13 +546,13 @@ def _combinations(domains, comb):
             yield ret
             
 def deprecated(func):
-    """
+    '''
     This is a decorator which can be used to mark functions
     as deprecated. It will result in a warning being emmitted
     when the function is used.
-    """
+    '''
     def newFunc(*args, **kwargs):
-        logging.getLogger().warning("Call to deprecated function: %s." % func.__name__)
+        logging.getLogger().warning("Call to deprecated function: {}.".format(func.__name__))
         return func(*args, **kwargs)
     newFunc.__name__ = func.__name__
     newFunc.__doc__ = func.__doc__
@@ -564,17 +560,17 @@ def deprecated(func):
     return newFunc
             
 def unifyDicts(d1, d2):
-    """
+    '''
     Adds all key-value pairs from d2 to d1.
-    """
+    '''
     for key in d2:
         d1[key] = d2[key]
         
 def dict_union(d1, d2):
-    """
+    '''
     Returns a new dict containing all items from d1 and d2. Entries in d1 are
     overridden by the respective items in d2.
-    """
+    '''
     d_new = {}
     for key, value in list(d1.items()):
         d_new[key] = value
@@ -584,9 +580,9 @@ def dict_union(d1, d2):
 
 
 def dict_subset(subset, superset):
-    """
+    '''
     Checks whether or not a dictionary is a subset of another dictionary.
-    """
+    '''
     return all(it in list(superset.items()) for it in list(subset.items()))
 
 
@@ -616,16 +612,16 @@ class eset(set):
     
 
 def item(s):
-    """
+    '''
     Returns an arbitrary item from the given set `s`.
-    """
+    '''
     if not s:
-        raise Exception('Argument of type %s is empty.' % type(s).__name__)
+        raise Exception('Argument of type {} is empty.'.format(type(s).__name__))
     for it in s: break
     return it
 
 class temporary_evidence:
-    """
+    '''
     Context guard class for enabling convenient handling of temporary evidence in
     MRFs using the python `with` statement. This guarantees that the evidence
     is set back to the original whatever happens in the `with` block.
@@ -633,7 +629,7 @@ class temporary_evidence:
     :Example:
     
     >> with temporary_evidence(mrf, [0, 0, 0, 1, 0, None, None]) as mrf_:
-    """
+    '''
     
     
     def __init__(self, mrf, evidence=None):

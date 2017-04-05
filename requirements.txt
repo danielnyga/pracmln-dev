@@ -2,6 +2,7 @@ Pmw
 tabulate
 pymongo
 numpy
+scipy
 tabulate
 logutils
 pyparsing
@@ -10,3 +11,4 @@ matplotlib
 networkx
 mpmath
 Image
+distro

@@ -1,18 +1,18 @@
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
-"""
+'''
 Python logging tuned to extreme.
-"""
+'''
 
 __author__ = "Mikko Ohtamaa <mikko@opensourcehacker.com>"
 __license__ = "MIT"
 
 import logging
-
 from logutils.colorize import ColorizingStreamHandler
 
 
 class RainbowLoggingHandler(ColorizingStreamHandler):
-    """ A colorful logging handler optimized for terminal debugging aestetichs.
+    ''' A colorful logging handler optimized for terminal debugging aestetichs.
 
     - Designed for diagnosis and debug mode output - not for disk logs
 
@@ -27,7 +27,7 @@ class RainbowLoggingHandler(ColorizingStreamHandler):
 
     The class provide few options as member variables you
     would might want to customize after instiating the handler.
-    """
+    '''
 
     # Define color for message payload
     level_map = {
@@ -47,7 +47,7 @@ class RainbowLoggingHandler(ColorizingStreamHandler):
     show_name = True
 
     def get_color(self, fg=None, bg=None, bold=False):
-        """
+        '''
         Construct a terminal color code
 
         :param fg: Symbolic name of foreground color
@@ -55,7 +55,7 @@ class RainbowLoggingHandler(ColorizingStreamHandler):
         :param bg: Symbolic name of background color
 
         :param bold: Brightness bit
-        """
+        '''
         params = []
         if bg in self.color_map:
             params.append(str(self.color_map[bg] + 40))
@@ -68,10 +68,10 @@ class RainbowLoggingHandler(ColorizingStreamHandler):
 
         return color_code
 
-    def colorize(self, record):
-        """
+    def colorize(self, message, record):
+        '''
         Get a special format string with ASCII color codes.
-        """
+        '''
 
         # Dynamic message color based on logging level
         if record.levelno in self.level_map:
@@ -132,9 +132,9 @@ class RainbowLoggingHandler(ColorizingStreamHandler):
         return output
 
     def colorize_traceback(self, formatter, record):
-        """
+        '''
         Turn traceback text to red.
-        """
+        '''
         if record.exc_info:
             # Cache the traceback text to avoid converting it multiple times
             # (it's constant anyway)
@@ -145,13 +145,13 @@ class RainbowLoggingHandler(ColorizingStreamHandler):
             ])
 
     def format(self, record):
-        """
+        '''
         Formats a record for output.
 
         Takes a custom formatting path on a terminal.
-        """
+        '''
         if self.is_tty:
-            message = self.colorize(record)
+            message = self.colorize(None, record)
         else:
             message = logging.StreamHandler.format(self, record)
 

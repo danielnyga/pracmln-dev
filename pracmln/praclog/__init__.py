@@ -21,7 +21,7 @@ def level(l=None):
     root_logger.setLevel(l)
 
 handler = RainbowLoggingHandler(sys.stdout)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-handler.setFormatter(formatter)
+# formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+# handler.setFormatter(formatter)
 root_logger.addHandler(handler)
 

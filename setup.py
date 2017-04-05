@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+import argparse
 import os
 import stat
 import sys
@@ -7,9 +8,14 @@ import platform
 import shutil
 from importlib import util as imputil
 
-sys.path.append(os.path.join(os.getcwd(), '3rdparty', 'logutils-0.3.3'))
+import distro
 
-from logutils.colorize import ColorizingStreamHandler
+if imputil.find_spec('logutils') is None:
+    print('cannot find logutils. Please install by "sudo pip install logutils".')
+    sys.exit(-1)
+else:
+    from logutils.colorize import ColorizingStreamHandler
+
 
 def colorize(message, format, color=False):
     '''
@@ -37,24 +43,22 @@ def colorize(message, format, color=False):
                            'm', message, colorize.colorHandler.reset))
     return message
 
-
-packages = [('numpy', 'numpy', False), ('scipy', 'scipy', False), ('tabulate', 'tabulate', False), ('pyparsing', 'pyparsing', False), ('psutil', 'psutil', False)]
-
 def check_package(pkg):
-    sys.stdout.write('checking dependency {}...'.format(pkg[0]))
-    if imputil.find_spec(pkg[0]) is not None:
-        sys.stdout.write(colorize('OK', (None, 'green', True), True))
+    sys.stdout.write('checking dependency "{}"...'.format(pkg))
+    if imputil.find_spec(pkg) is not None:
+        sys.stdout.write(colorize('OK\n', (None, 'green', True), True))
+        return True
     else:
-        print(colorize('{} was not found. Please install by "sudo pip install {}" {}'.format(pkg[0], pkg[1], '(optional)' if pkg[2] else ''), (None, 'yellow', True), True))
-
-
+        print(colorize('{0} was not found. Please install by "sudo pip install {0}"'.format(pkg), (None, 'yellow', True), True))
+        return False
     
 # check the package dependecies
 def check_dependencies():
-    allok = True
-    for pkg in packages:
-        allok &= check_package(pkg)
-    if not allok:
+    with open('requirements.txt', 'r') as req:
+        requirements = req.readlines()
+        packages = [p.strip() for p in requirements]
+
+    if not all([check_package(pkg) for pkg in packages]) and not ignoreimporterrors:
         exit(-1)
     
 python_apps = [
@@ -104,91 +108,84 @@ def buildLibpracmln():
     os.chdir(oldwd)
 
     return envSetup.format(installPath)
-    
 
-if __name__ == '__main__':
 
-    archs = ["win32", "linux_amd64", "linux_i386", "macosx", "macosx64"]
-
-    args = sys.argv[1:]
-
-    if '--help' in args:        
-        print("PRACMLNs Apps Generator\n\n")
-        print("  usage: make_apps [--arch=%s] [--cppbindings]\n" % "|".join(archs))
-        print()
-        print()
-        exit(0)
-    
-    # determine architecture
-    arch = None
+# determine architecture
+def arch(argarchit=None):
+    archit = None
     bits = 64 if "64" in platform.architecture()[0] else 32
-    if len(args) > 0 and args[0].startswith("--arch="):
-        arch = args[0][len("--arch="):].strip()
-        args = args[1:]
+    if argarchit is not None:
+        archit=argarchit
     elif platform.mac_ver()[0] != "":
-        arch = "macosx" if bits == 32 else "macosx64"
+        archit = "macosx" if bits == 32 else "macosx64"
     elif platform.win32_ver()[0] != "":
-        arch = "win32"
-    elif platform.dist()[0] != "":
-        arch = "linux_i386" if bits == 32 else "linux_amd64"
-    if arch is None:
+        archit = "win32"
+    elif distro.linux_distribution()[0] != "":
+        archit = "linux_i386" if bits == 32 else "linux_amd64"
+    if archit is None:
         print("Could not automatically determine your system's architecture. Please supply the --arch argument")
         sys.exit(1)
-    if arch not in archs:
-        print("Unknown architecture '%s'" % arch)
+    if archit not in archits:
+        print("Unknown architecture '{}'".format(archit))
         sys.exit(1)
+    return archit
 
+
+if __name__ == '__main__':
+    archits = ["win32", "linux_amd64", "linux_i386", "macosx", "macosx64"]
+
+    usage = 'PRACMLNs Apps Generator\n\n\tUsage: make_apps [--cppbindings] [--arch={}]\n'.format('|'.join(archits))
+    parser = argparse.ArgumentParser(description=usage)
+    parser.add_argument("-a", "--arch", dest="architecture", type=str, default=None, action="store", help="Specify architecture. Possible architectures: {}".format('|'.join(archits)))
+    parser.add_argument("-c", "--cppbindings", dest="cppbindings", default=False, action="store_true", help="If this option is set, cpp bindings will be generated.")
+    parser.add_argument("-i", "--ignore", dest="ignore", default=False, action="store_true", help="Ignore import errors.")
+
+    args = parser.parse_args()
+    architecture = arch(args.architecture)
+    ignoreimporterrors = args.ignore
     check_dependencies()
 
-    buildlib = False
-    if "--cppbindings" in args:
-        buildlib = True;
-#         args = args[1:]
-
-    print('Removing old app folder...')
+    # updating apps folder
     shutil.rmtree('apps', ignore_errors=True)
-
     if not os.path.exists("apps"):
         os.mkdir("apps")
 
-    print("\nCreating application files for %s..." % arch)
-    isWindows = "win" in arch
-    isMacOSX = "macosx" in arch
+    print("\nCreating application files for {}...".format(architecture))
+    isWindows = "win" in architecture
+    isMacOSX = "macosx" in architecture
     preamble = "@echo off\r\n" if isWindows else "#!/bin/sh\n"
     allargs = '%*' if isWindows else '"$@"'
     pathsep = os.path.pathsep
     
     for app in python_apps:
-        filename = os.path.join("apps", "%s%s" % (app["name"], {True:".bat", False:""}[isWindows]))
-        print("  %s" % filename)
+        filename = os.path.join("apps", "{}{}".format(app["name"], {True:".bat", False:""}[isWindows]))
+        print("  {}".format(filename))
         f = open(filename, "w")
         f.write(preamble)
-        f.write("python3 -O \"%s\" %s\n" % (adapt(app["script"], arch), allargs))
+        f.write("python3 -O \"{}\" {}\n".format(adapt(app["script"], architecture), allargs))
         f.close()
         if not isWindows: os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
     
     print()
 
     # write shell script for environment setup
-    appsDir = adapt("$PRACMLN_HOME/apps", arch)
-    logutilsDir = adapt("$PRACMLN_HOME/3rdparty/logutils-0.3.3", arch)
+    appsDir = adapt("$PRACMLN_HOME/apps", architecture)
 
     # make the experiments dir
     if not os.path.exists('experiments'):
         os.mkdir('experiments')
 
     extraExports = None
-    if not "win" in arch and buildlib:
+    if "win" not in architecture and args.cppbindings:
         extraExports = buildLibpracmln()
 
-    if not "win" in arch:
+    if "win" not in architecture:
         f = open("env.sh", "w")
         f.write('#!/bin/bash\n')
-        f.write("export PATH=$PATH:%s\n" % appsDir)
-        f.write("export PYTHONPATH=$PYTHONPATH:%s\n" % logutilsDir)
-        f.write("export PRACMLN_HOME=%s\n" % adapt("$PRACMLN_HOME", arch))
+        f.write("export PATH=$PATH:{}\n".format(appsDir))
+        f.write("export PRACMLN_HOME={}\n".format(adapt("$PRACMLN_HOME", architecture)))
         f.write("export PYTHONPATH=$PRACMLN_HOME:$PYTHONPATH\n")
-        f.write("export PRACMLN_EXPERIMENTS=%s\n" % adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
+        f.write("export PRACMLN_EXPERIMENTS={}\n".format(adapt(os.path.join("$PRACMLN_HOME", 'experiments'), architecture)))
         if extraExports:
             f.write(extraExports)
         f.close()
@@ -196,20 +193,18 @@ if __name__ == '__main__':
         print('    source env.sh')
         print()
         print('To permantly configure your environment, add this line to your shell\'s initialization script (e.g. ~/.bashrc):')
-        print('    source %s' % adapt("$PRACMLN_HOME/env.sh", arch))
+        print('    source {}'.format(adapt("$PRACMLN_HOME/env.sh", architecture)))
         print()
     else:
-        pypath = ';'.join([adapt("$PRACMLN_HOME", arch), logutilsDir])
         f = open("env.bat", "w")
         f.write("@ECHO OFF\n")
-        f.write('SETX PATH "%%PATH%%;%s"\r\n' % appsDir)
-        f.write('SETX PRACMLN_HOME "%s"\r\n' % adapt("$PRACMLN_HOME", arch))
-        f.write('SETX PYTHONPATH "%%PYTHONPATH%%;%s"\r\n' % pypath)
-        f.write('SETX PRACMLN_EXPERIMENTS "%s"\r\n' % adapt(os.path.join("$PRACMLN_HOME", 'experiments'), arch))
+        f.write('SETX PATH "%%PATH%%;{}"\r\n'.format(appsDir))
+        f.write('SETX PRACMLN_HOME "{}"\r\n'.format(adapt("$PRACMLN_HOME", architecture)))
+        f.write('SETX PRACMLN_EXPERIMENTS "{}"\r\n'.format(adapt(os.path.join("$PRACMLN_HOME", 'experiments'), architecture)))
         f.close()
         print('To temporarily set up your environment for the current session, type:')
         print('    env.bat')
         print()
         print('To permanently configure your environment, use Windows Control Panel to set the following environment variables:')
-        print('  To the PATH variable add the directory "%s"' % appsDir)
+        print('  To the PATH variable add the directory "{}"'.format(appsDir))
         print('Should any of these variables not exist, simply create them.')
