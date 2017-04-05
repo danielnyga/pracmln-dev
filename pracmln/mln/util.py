@@ -439,7 +439,7 @@ def mergedom(*domains):
     return fullDomain
 
 
-def colorize(message, frmt, color=False):
+def colorize(message, format, color=False):
     '''
     Returns the given message in a colorized format
     string with ANSI escape codes for colorized console outputs:
@@ -454,7 +454,7 @@ def colorize(message, frmt, color=False):
     colorize.colorHandler = RainbowLoggingHandler(sys.stdout)
     if color is False: return message
     params = []
-    (bg, fg, bold) = frmt
+    (bg, fg, bold) = format
     if bg in colorize.colorHandler.color_map:
         params.append(str(colorize.colorHandler.color_map[bg] + 40))
     if fg in colorize.colorHandler.color_map:
