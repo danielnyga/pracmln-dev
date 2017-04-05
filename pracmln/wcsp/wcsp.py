@@ -79,7 +79,7 @@ def toulbar2_path():
         return en
     # fallback: try to load shipped toulbar2 binary
     if osname == 'Windows': execname += '.exe'
-    path = os.path.join(os.getenv('PRACMLN_HOME', '.'), '3rdparty', 'toulbar2-%s' % toulbar_version, arch, osname, execname)
+    path = os.path.join(os.getenv('PRACMLN_HOME', '.'), '3rdparty', 'toulbar2-{}'.format(toulbar_version), arch, osname, execname)
     path = os.path.abspath(path)
     return path
 
@@ -88,7 +88,7 @@ def toulbar2_path():
 # this module is loaded. Print a warning if not.
 _tb2path = toulbar2_path()
 if not is_executable(_tb2path):
-    logger.error('toulbar2 was expected at %s but cannot be found. WCSP inference will not be possible.' % _tb2path)
+    logger.error('toulbar2 was expected at {} but cannot be found. WCSP inference will not be possible.'.format(_tb2path))
 
 
 class Constraint(object):
@@ -128,11 +128,10 @@ class Constraint(object):
         self.tuples[tuple(t)] = cost
     
     
-    def write(self, stream=sys.stdout):
-        stream.write('%d %s %d %d\n' % (len(self.variables), ' '.join(map(str, \
-                            self.variables)), self.defcost, len(self.tuples)))
+    def write(self, stream=sys.stdout.buffer):
+        stream.write('{} {} {} {}\n'.format(len(self.variables), ' '.join(map(str, self.variables)), self.defcost, len(self.tuples)).encode())
         for t in list(self.tuples.keys()):
-            stream.write('%s %d\n' % (' '.join(map(str, t)), self.tuples[t]))
+            stream.write('{} {}\n'.format(' '.join(map(str, t)), self.tuples[t]).encode())
             
             
     def __eq__(self, other):
@@ -223,18 +222,18 @@ class WCSP(object):
             self.constraints[tuple(sorted(varindices))] = constraint
         
         
-    def write(self, stream=sys.stdout):
+    def write(self, stream=sys.stdout.buffer):
         '''
         Writes the WCSP problem in WCSP format into an arbitrary stream
         providing a write method.
         '''
         self._make_integer_cost()
-        stream.write('%s %d %d %d %d\n' % (self.name, len(self.domsizes), max(self.domsizes), len(self.constraints), int(self.top)))
-        stream.write(' '.join(map(str, self.domsizes)) + '\n')
+        stream.write('{} {} {} {} {}\n'.format(self.name, len(self.domsizes), max(self.domsizes), len(self.constraints), int(self.top)).encode())
+        stream.write('{}\n'.format(' '.join(map(str, self.domsizes))).encode())
         for c in list(self.constraints.values()):
-            stream.write('%d %s %d %d\n' % (len(c.variables), ' '.join(map(str, c.variables)), c.defcost, len(c.tuples)))
+            stream.write('{} {} {} {}\n'.format(len(c.variables), ' '.join(map(str, c.variables)), c.defcost, len(c.tuples)).encode())
             for t in list(c.tuples.keys()):
-                stream.write('%s %d\n' % (' '.join(map(str, t)), int(c.tuples[t])))
+                stream.write('{} {}\n'.format(' '.join(map(str, t)), int(c.tuples[t])).encode())
         
         
     def read(self, stream):
@@ -273,7 +272,7 @@ class WCSP(object):
         for constraint in list(self.constraints.values()):
             for value in [constraint.defcost] + list(constraint.tuples.values()):
                 if value == self.top: continue
-                value = eval('%.6f' % value)
+                value = eval('{:.6f}'.format(value))
                 if value in costs:
                     continue
                 bisect.insort(costs, value)
@@ -320,7 +319,7 @@ class WCSP(object):
         if top < costSum:
             raise Exception("Numeric Overflow")
         if top > WCSP.MAX_COST:
-            logger.critical('Maximum costs exceeded: %d > %d' % (top, WCSP.MAX_COST))
+            logger.critical('Maximum costs exceeded: {} > {}'.format(top, WCSP.MAX_COST))
             raise MaxCostExceeded()
         return int(top)
     
@@ -363,9 +362,9 @@ class WCSP(object):
         # append the process id to the filename to make it "process safe"
         tmpfile = tempfile.NamedTemporaryFile(prefix=os.getpid(), suffix='.wcsp', delete=False)
         wcspfilename = tmpfile.name
-        self.write(tmpfile)
+        self.write(stream=tmpfile)
         tmpfile.close()
-        cmd = '%s -s -a %s' % (toulbar2_path(), wcspfilename)
+        cmd = '{} -s -a {}'.format(toulbar2_path(), wcspfilename)
         logger.debug('solving WCSP...')
         p = Popen(cmd, shell=True, stderr=PIPE, stdout=PIPE)
         solution = None
@@ -378,13 +377,13 @@ class WCSP(object):
                 solution = list(map(int, m.group(2).strip().split()))
                 yield (num, solution)
         p.wait()        
-        logger.debug('toulbar2 process returned %s' % str(p.returncode))
+        logger.debug('toulbar2 process returned {}'.format(str(p.returncode)))
         try:
             os.remove(wcspfilename)
         except OSError:
             logger.warning('could not remove temporary file {}'.format(wcspfilename))
         if p.returncode != 0:
-            raise Exception('toulbar2 returned a non-zero exit code: %d' % p.returncode)
+            raise Exception('toulbar2 returned a non-zero exit code: {}'.format(p.returncode))
 
 
     def solve(self):
@@ -397,9 +396,9 @@ class WCSP(object):
         # append the process id to the filename to make it "process safe"
         tmpfile = tempfile.NamedTemporaryFile(prefix='{}-{}'.format(os.getpid(), _thread.get_ident()), suffix='.wcsp', delete=False)
         wcspfilename = tmpfile.name
-        self.write(tmpfile)
+        self.write(stream=tmpfile)
         tmpfile.close()
-        cmd = '"%s" -s %s' % (toulbar2_path(), wcspfilename)
+        cmd = '"{}" -s {}'.format(toulbar2_path(), wcspfilename)
         logger.debug('solving WCSP...')
         p = Popen(cmd, shell=True, stderr=PIPE, stdout=PIPE)
         solution = None
@@ -408,28 +407,28 @@ class WCSP(object):
         while True:
             l = p.stdout.readline()
             if not l: break
-            if l.startswith('New solution'):
+            if l.startswith(b'New solution'):
                 cost = int(l.split()[2])
                 nextLineIsSolution = True
                 continue
             if nextLineIsSolution:
                 solution = list(map(int, l.split()))
                 nextLineIsSolution = False
-        p.wait()        
-        logger.debug('toulbar2 process returned %s' % str(p.returncode))
+        p.wait()
+        logger.debug('toulbar2 process returned {}'.format(str(p.returncode)))
         try:
             os.remove(wcspfilename)
         except OSError:
             logger.warning('could not remove temporary file {}'.format(wcspfilename))
         if p.returncode != 0:
-            raise Exception('toulbar2 returned a non-zero exit code: %d' % p.returncode)
+            raise Exception('toulbar2 returned a non-zero exit code: {}'.format(p.returncode))
         return solution, cost
 
 
 # main function for debugging only
 if __name__ == '__main__':
     wcsp = WCSP()
-    wcsp.read(open('/home/nyga/code/test/nqueens.wcsp'))
+    wcsp.read(open('/home/nyga/code/test/nqueens.wcsp', 'rb'))
     for i, s in wcsp.itersolutions():
         print(i, s)
     print('best solution:', wcsp.solve())
