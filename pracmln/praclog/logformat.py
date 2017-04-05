@@ -38,7 +38,7 @@ class RainbowLoggingHandler(ColorizingStreamHandler):
         logging.CRITICAL: ('red', 'white', True),
     }
 
-    date_format = "%Y-%m-$d %H:%M:%S"
+    date_format = "%Y-%m-%d %H:%M:%S"
 
     #: How many characters reserve to function name logging
     who_padding = 22

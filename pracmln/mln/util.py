@@ -89,7 +89,7 @@ def caller(tb=1):
 
 def out(*args, **kwargs):
     rv = caller(kwargs.get('tb', 1))
-    print(('%s: l.%d: %s' % (os.path.basename(rv[0]), rv[1], ' '.join(map(str, args)))))
+    print('{}: l.{}: {}'.format(os.path.basename(rv[0]), rv[1], ' '.join(map(str, args))))
 
 
 def stop(*args, **kwargs):
