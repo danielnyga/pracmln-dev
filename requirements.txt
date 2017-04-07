@@ -1,0 +1,5 @@
+pyparsing
+psutil
+networkx
+tabulate
+matplotlib
