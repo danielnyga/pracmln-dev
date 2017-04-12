@@ -503,9 +503,11 @@ class MLNLearnGUI:
                                          projecthook=self.save_proj,
                                          filecontenthook=self.mlnfilecontent,
                                          fileslisthook=self.mlnfiles,
+                                         selectfilehook=self.set_outputfilename,
                                          updatehook=self.update_mln,
                                          onchangehook=self.project_setdirty)
         self.mln_container.grid(row=row, column=1, sticky="NEWS")
+        self.mln_container.editor.bind("<FocusIn>", self._got_focus)
         self.mln_container.columnconfigure(1, weight=2)
         self.frame.rowconfigure(row, weight=1)
 
@@ -601,9 +603,11 @@ class MLNLearnGUI:
                                         projecthook=self.save_proj,
                                         filecontenthook=self.dbfilecontent,
                                         fileslisthook=self.dbfiles,
+                                        selectfilehook=self.set_outputfilename,
                                         updatehook=self.update_db,
                                         onchangehook=self.project_setdirty)
         self.db_container.grid(row=row, column=1, sticky="NEWS")
+        self.db_container.editor.bind("<FocusIn>", self._got_focus)
         self.db_container.columnconfigure(1, weight=2)
         self.frame.rowconfigure(row, weight=1)
 
@@ -705,6 +709,13 @@ class MLNLearnGUI:
 
         self.initialized = True
 
+    def _got_focus(self, *_):
+        if self.master.focus_get() == self.mln_container.editor:
+            if not self.project.mlns and not self.mln_container.file_buffer:
+                self.mln_container.new_file()
+        elif self.master.focus_get() == self.db_container.editor:
+            if not self.project.dbs and not self.db_container.file_buffer:
+                self.db_container.new_file()
 
     def quit(self):
         if self.settings_dirty.get() or self.project_dirty.get():
@@ -969,12 +980,8 @@ class MLNLearnGUI:
 
 
     def set_outputfilename(self):
-        if not hasattr(self, "output_filename") or not hasattr(self, "db_filename") or not hasattr(self, "mln_filename"):
-            return
-        mln = self.mln_container.selected_file.get()
-        db = self.db_container.selected_file.get()
-        if "" in (mln, db):
-            return
+        mln = self.mln_container.selected_file.get() or 'unknown.mln'
+        db = self.db_container.selected_file.get() or 'unknown.db'
         if self.selected_method.get():
             method = LearningMethods.clazz(self.selected_method.get())
             methodid = LearningMethods.id(method)

@@ -521,7 +521,6 @@ class FileEditBar(Frame, object):
         if self.onchange_hook:
             self.onchange_hook(dirty=self._dirty)
 
-
     def new_file(self):
         self.list_files['menu'].add_command(label=self.defaultname.format(self.fsettings.get('extension', '.mln')), command=_setit(self.selected_file, self.defaultname.format(self.fsettings.get('extension', '.mln'))))
         self.selected_file.set(self.defaultname.format(self.fsettings.get('extension', '.mln')))
@@ -662,6 +661,7 @@ class FileEditBar(Frame, object):
             # should not happen
             self.editor.delete("1.0", END)
             self.list_files['menu'].delete(0, 'end')
+        self.select_file_hook()
 
     def update_file_choices(self):
         self.list_files['menu'].delete(0, 'end')

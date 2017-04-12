@@ -11,7 +11,7 @@ from importlib import util as imputil
 import distro
 
 if imputil.find_spec('logutils') is None:
-    print('cannot find logutils. Please install by "sudo pip install logutils".')
+    print('cannot find logutils. Please install by running "sudo pip install logutils".')
     sys.exit(-1)
 else:
     from logutils.colorize import ColorizingStreamHandler
