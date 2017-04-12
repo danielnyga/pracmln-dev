@@ -59,8 +59,8 @@ def check_dependencies():
         packages = [p.strip() for p in requirements]
 
     if not all([check_package(pkg) for pkg in packages]) and not ignoreimporterrors:
-        exit(-1)
-    
+        print(colorize('One or more required packages could not be found. Make sure to install them to be able to use pracmln.', (None, 'yellow', True), True))
+
 python_apps = [
     {"name": "mlnquery", "script": "$PRACMLN_HOME/pracmln/mlnquery.py"},
     {"name": "mlnlearn", "script": "$PRACMLN_HOME/pracmln/mlnlearn.py"},
