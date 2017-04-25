@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-from importlib import util as imputil
 import argparse
 import os
-import stat
-import sys
 import platform
 import shutil
-import distro
+import stat
+import sys
+from importlib import util as imputil
+
 
 if imputil.find_spec('logutils') is None:
     print('cannot find logutils. Please install by "sudo pip install logutils".')
@@ -64,7 +64,7 @@ def check_dependencies():
         packages = [p.strip() for p in requirements]
 
     if not all([check_package(pkg) for pkg in packages]) and not ignoreimporterrors:
-        exit(-1)
+        print(colorize('One or more required package(s) could not be found. Make sure all dependencies are installed to properly use materials.', (None, 'red', True), True))
 
 
 def adapt(name, archit):
@@ -164,7 +164,7 @@ def arch(argarchit=None):
         archit = "macosx" if bits == 32 else "macosx64"
     elif platform.win32_ver()[0] != "":
         archit = "win32"
-    elif distro.linux_distribution()[0] != "":
+    elif sys.platform.startswith('linux'):
         archit = "linux_i386" if bits == 32 else "linux_amd64"
     if archit is None:
         print("Could not automatically determine your system's architecture. Please supply the --arch argument")

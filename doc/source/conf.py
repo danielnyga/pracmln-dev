@@ -20,9 +20,10 @@ import sphinx_bootstrap_theme
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath("../../pracmln"))
 sys.path.append('..')
-sys.path.append(os.path.join('..', '3rdparty', 'logutils-0.3.3'))
 sys.path.append('.')
+sys.path.append(os.path.join('..', '3rdparty', 'logutils-0.3.3'))
 
 try:
     from sphinxcontrib import bibtex
@@ -44,7 +45,7 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.intersphinx',
               'sphinxcontrib.bibtex',
               'sphinx.ext.todo',
-              'sphinx.ext.pngmath']
+              'sphinx.ext.imgmath']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -96,7 +97,7 @@ html_context = {
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build']
+exclude_patterns = ['build']
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 #default_role = None

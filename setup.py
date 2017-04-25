@@ -2,13 +2,12 @@
 # -*- coding: utf-8 -*-
 import argparse
 import os
-import stat
-import sys
 import platform
 import shutil
+import stat
+import sys
 from importlib import util as imputil
 
-import distro
 
 if imputil.find_spec('logutils') is None:
     print('cannot find logutils. Please install by running "sudo pip install logutils".')
@@ -120,7 +119,7 @@ def arch(argarchit=None):
         archit = "macosx" if bits == 32 else "macosx64"
     elif platform.win32_ver()[0] != "":
         archit = "win32"
-    elif distro.linux_distribution()[0] != "":
+    elif sys.platform.startswith('linux'):
         archit = "linux_i386" if bits == 32 else "linux_amd64"
     if archit is None:
         print("Could not automatically determine your system's architecture. Please supply the --arch argument")
