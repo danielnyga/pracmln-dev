@@ -342,6 +342,7 @@ class MLNQueryGUI(object):
                                          fileslisthook=self.mlnfiles,
                                          updatehook=self.update_mln,
                                          onchangehook=self.project_setdirty)
+        self.mln_container.editor.bind("<FocusIn>", self._got_focus)
         self.mln_container.grid(row=row, column=1, sticky="NEWS")
         self.mln_container.columnconfigure(1, weight=2)
         self.frame.rowconfigure(row, weight=1)
@@ -370,6 +371,7 @@ class MLNQueryGUI(object):
                                           fileslisthook=self.emlnfiles,
                                           updatehook=self.update_emln,
                                           onchangehook=self.project_setdirty)
+        self.emln_container.editor.bind("<FocusIn>", self._got_focus)
         self.emln_container.grid(row=self.emlncontainerrow, column=1, sticky="NEWS")
         self.emln_container.columnconfigure(1, weight=2)
         self.onchange_use_emln(dirty=False)
@@ -388,6 +390,7 @@ class MLNQueryGUI(object):
                                         fileslisthook=self.dbfiles,
                                         updatehook=self.update_db,
                                         onchangehook=self.project_setdirty)
+        self.db_container.editor.bind("<FocusIn>", self._got_focus)
         self.db_container.grid(row=row, column=1, sticky="NEWS")
         self.db_container.columnconfigure(1, weight=2)
         self.frame.rowconfigure(row, weight=1)
@@ -514,6 +517,18 @@ class MLNQueryGUI(object):
         self.master.geometry(gconf['window_loc_query'])
 
         self.initialized = True
+
+
+    def _got_focus(self, *_):
+        if self.master.focus_get() == self.mln_container.editor:
+            if not self.project.mlns and not self.mln_container.file_buffer:
+                self.mln_container.new_file()
+        elif self.master.focus_get() == self.db_container.editor:
+            if not self.project.dbs and not self.db_container.file_buffer:
+                self.db_container.new_file()
+        elif self.master.focus_get() == self.emln_container.editor:
+            if not self.project.emlns and not self.emln_container.file_buffer:
+                self.emln_container.new_file()
 
 
     def quit(self):
