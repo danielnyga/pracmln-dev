@@ -16,16 +16,13 @@ body {
 }
 
 footer {
-// the gradient
-    background: rgb(175,237,144);
-    background: -moz-linear-gradient(-45deg,  rgba(175,237,144,1) 0%, rgba(69,160,69,1) 100%);
-    background: -webkit-gradient(linear, left top, right bottom, color-stop(0%,rgba(175,237,144,1)), color-stop(100%,rgba(69,160,69,1)));
-    background: -webkit-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
-    background: -o-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
-    background: -ms-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
-    background: linear-gradient(135deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
-    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#afed90', endColorstr='#45a045',GradientType=1 );
-// end gradient
+/* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#005700+0,bee280+50,005700+100 */
+background: #005700; /* Old browsers */
+background: -moz-linear-gradient(-45deg, #005700 0%, #bee280 50%, #005700 100%); /* FF3.6-15 */
+background: -webkit-linear-gradient(-45deg, #005700 0%,#bee280 50%,#005700 100%); /* Chrome10-25,Safari5.1-6 */
+background: linear-gradient(135deg, #005700 0%,#bee280 50%,#005700 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#005700', endColorstr='#005700',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
+
 }
 
 .navbar-default {
@@ -86,16 +83,13 @@ h1.teaser-headline {
 
 div.teaser-background {
     background: #2AD92A;
-    // the gradient
-    background: rgb(175,237,144);
-    background: -moz-linear-gradient(-45deg,  rgba(175,237,144,1) 0%, rgba(69,160,69,1) 100%);
-    background: -webkit-gradient(linear, left top, right bottom, color-stop(0%,rgba(175,237,144,1)), color-stop(100%,rgba(69,160,69,1)));
-    background: -webkit-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
-    background: -o-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
-    background: -ms-linear-gradient(-45deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
-    background: linear-gradient(135deg,  rgba(175,237,144,1) 0%,rgba(69,160,69,1) 100%);
-    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#afed90', endColorstr='#45a045',GradientType=1 );
-    // end gradient
+/* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#005700+0,bee280+50,005700+100 */
+background: #005700; /* Old browsers */
+background: -moz-linear-gradient(-45deg, #005700 0%, #bee280 50%, #005700 100%); /* FF3.6-15 */
+background: -webkit-linear-gradient(-45deg, #005700 0%,#bee280 50%,#005700 100%); /* Chrome10-25,Safari5.1-6 */
+background: linear-gradient(135deg, #005700 0%,#bee280 50%,#005700 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#005700', endColorstr='#005700',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
+
 }
 
 div.teasercontent {
