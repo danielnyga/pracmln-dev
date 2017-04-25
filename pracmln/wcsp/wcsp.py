@@ -188,24 +188,25 @@ class WCSP(object):
                 if oldcost == self.top or oldcost is None and cold.defcost == self.top: continue
                 # add the tuple costs of the new constraint or make them top if it's top in the new constraint
                 if oldcost is not None:
-                    cold.tuple(t, self.top if cost == self.top else cost + oldcost)
+                    cold.tuple(t, self.top if cost == self.top else (cost + oldcost))
                 # add the tuple costs of the new constraint if the tuple is not conatined in the old one
                 # or make them top if the tuple has maximal costs in the new constraint
                 else:
-                    cold.tuple(t, self.top if cost == self.top else cost + cold.defcost)
+                    cold.tuple(t, self.top if cost == self.top else (cost + cold.defcost))
                     
             # update the default costs of the old constraint
-            if constraint.defcost != 0 and cold.defcost != self.top:
+            if constraint.defcost != 0:# and cold.defcost != self.top:
                 # all tuples that are part of the old constraint but not of the new constraint
                 # have to be added the default costs of the new constraint, or made tops cost
                 # in case the defcosts of the new constraint are top
                 for t in [x for x in cold.tuples if x not in constraint.tuples]:
                     oldcost = cold.tuples[t]
                     if oldcost != self.top:
-                        cold.tuple(t, self.top if constraint.defcost == self.top else oldcost + constraint.defcost)
+                        cold.tuple(t, self.top if constraint.defcost == self.top else (oldcost + constraint.defcost))
                 # for all tuples that are neither in the old nor the new constraint, the default costs
                 # have to be updated by the sum of the two defcosts, or tops if defcosts of the new constraint are tops.
-                cold.defcost = self.top if constraint.defcost == self.top else cold.defcost + constraint.defcost
+                if cold.defcost != self.top:
+                    cold.defcost = self.top if constraint.defcost == self.top else (cold.defcost + constraint.defcost)
             # if the constraint is fully specified by its tuples,
             # simplify it by introducing default costs
             if reduce(lambda x, y: x * y, [self.domsizes[x] for x in varindices]) == len(cold.tuples):

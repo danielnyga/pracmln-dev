@@ -152,6 +152,13 @@ class WCSPConverter(object):
         Generates and adds a constraint from a given weighted formula.
         """
         varindices = tuple([self.atom2var[x] for x in wf.gndatom_indices()])
+        seen = set()
+        varindices_ = []
+        for v in varindices:
+            if v in seen: continue
+            varindices_.append(v)
+            seen.add(v)
+        varindices = tuple(varindices_)
         # collect the constraint tuples
         cost2assignments = self._gather_constraint_tuples(varindices, wf)
         if cost2assignments is None:
