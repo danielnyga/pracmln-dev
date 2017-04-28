@@ -207,13 +207,13 @@ class Inference(object):
             filename = m.hexdigest()
             filepath = os.path.join(cachepath, filename)
             if os.path.exists(filepath):
-                logger.info('found cached result in %s' % filepath)
+                out('found cached result in %s' % filepath)
                 with open(filepath) as f:
                     self._results = pickle.load(f)
             else:
                 self._results = self._run()
                 with open(filepath, 'w+') as f:
-                    logger.info('saving cached result in %s' % filepath)
+                    out('saving cached result in %s' % filepath)
                     pickle.dump(self._results, f)
         else:
             self._results = self._run()
