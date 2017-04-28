@@ -32,6 +32,10 @@ import sys
 from pracmln.mln.errors import NoSuchPredicateError
 from pracmln import praclog
 from pracmln.mln.mlnpreds import SoftFunctionalPredicate, FunctionalPredicate
+import os
+import md5
+import StringIO
+import pickle
 
 logger = praclog.logger(__name__)
 
@@ -142,6 +146,11 @@ class Inference(object):
     def cwpreds(self):
         return self._params.get('cw_preds', [])
         
+    
+    @property
+    def cache(self):
+        return self._params.get('cache', False)
+    
 
     def _expand_queries(self, queries):
         ''' 
@@ -184,7 +193,30 @@ class Inference(object):
         if self.verbose: print 'Inference engine: %s' % self.__class__.__name__
         self._watch.tag('inference', verbose=self.verbose)
         _weights_backup = list(self.mln.weights)
-        self._results = self._run()
+        if self.cache:
+            cachepath = os.path.join(os.environ.get('PRACMLN_HOME'), '.cache')
+            if not os.path.exists(cachepath): os.mkdir(cachepath)
+            stream = StringIO.StringIO()
+            self.mln.write(stream)
+            m = md5.new()
+            mlnstr = stream.getvalue()
+            stream.close()
+            querystr = str(sorted(map(str, self.queries)))
+            paramstr = str(sorted({k: v for k, v in self._params.iteritems() if type(v) in (str, unicode, int, float)}.items(), key=lambda k: k[0]))
+            m.update(mlnstr + paramstr + querystr)
+            filename = m.hexdigest()
+            filepath = os.path.join(cachepath, filename)
+            if os.path.exists(filepath):
+                logger.info('found cached result in %s' % filepath)
+                with open(filepath) as f:
+                    self._results = pickle.load(f)
+            else:
+                self._results = self._run()
+                with open(filepath, 'w+') as f:
+                    logger.info('saving cached result in %s' % filepath)
+                    pickle.dump(self._results, f)
+        else:
+            self._results = self._run()
         self.mln.weights = _weights_backup
         self._watch.finish('inference')
         return self
