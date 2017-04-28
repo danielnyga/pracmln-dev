@@ -59,7 +59,7 @@ def check_dependencies():
     for pkg in packages:
         allok &= check_package(pkg)
     if not allok:
-        exit(-1)
+        print colorize('One or more required package(s) could not be found. Make sure all dependencies are installed to properly use materials.', (None, 'red', True), True)
     
 python_apps = [
     {"name": "mlnquery", "script": "$PRACMLN_HOME/pracmln/mlnquery.py"},

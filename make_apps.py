@@ -30,24 +30,29 @@ python_apps = [
 
 def check_package(pkg):
     try:
-        sys.stdout.write('checking dependency {}...'.format(pkg[0]))
+        sys.stdout.write('checking dependency %s...' % pkg[0])
         imp.find_module(pkg[0])
         sys.stdout.write(colorize('OK', (None, 'green', True), True))
         print
     except ImportError:
         print
-        print colorize('{} was not found. Please install by '
-                       '"sudo pip install {}" {}'.format(pkg[0],
-                                                     pkg[1],
-                                                     '(optional)' if pkg[2] else ''),
-                       (None, 'yellow', True), True)
+        print colorize(
+            'The package %s was not found. Please install by "sudo pip install %s" %s' % (
+            pkg[0], pkg[1], '(optional)' if pkg[2] else ''),
+            (None, 'red', True), True)
+        return False
+    return True
 
 
 # check the package dependecies
 def check_dependencies():
+    allok = True
     for pkg in packages:
-        check_package(pkg)
-    print
+        allok &= check_package(pkg)
+    if not allok:
+        print colorize(
+            'One or more required package(s) could not be found. Make sure all dependencies are installed to properly use materials.',
+            (None, 'red', True), True)
 
 
 def adapt(name, arch):
