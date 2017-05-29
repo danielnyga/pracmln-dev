@@ -78,7 +78,11 @@ class AbstractLearner(object):
     @property
     def multicore(self):
         return self._params.get('multicore', False)
-    
+
+    @property
+    def numcores(self):
+        import multiprocessing
+        return int(self._params.get('cores', multiprocessing.cpu_count()))
     
     @property
     def weights(self):
