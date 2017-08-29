@@ -72,7 +72,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         if self.verbose:
             bar = ProgressBar(width=100, steps=len(dbs), color='green')
         if self.multicore:
-            pool = Pool(maxtasksperchild=1)
+            pool = Pool(processes=self.numcores, maxtasksperchild=1)
             logger.debug('Setting up multi-core processing for {} cores'.format(pool._processes))
             try:
                 for i, learner in pool.imap(with_tracing(_setup_learner), self._iterdbs(method)):
@@ -158,7 +158,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         N = len(self.mln.formulas)
         hessian = numpy.matrix(numpy.zeros((N, N)))
         if self.multicore:
-            pool = Pool()
+            pool = Pool(processes=self.numcores)
             try:
                 for h in pool.imap(with_tracing(_methodcaller('_hessian')), map(lambda l: (l, w), self.learners)):
                     hessian += h
@@ -179,7 +179,7 @@ class MultipleDatabaseLearner(AbstractLearner):
         if self.verbose:
             bar = ProgressBar(width=100, steps=len(self.dbs), color='green')
         if self.multicore:
-            pool = Pool(maxtasksperchild=1)
+            pool = Pool(processes=self.numcores, maxtasksperchild=1)
             try:
                 for i, (_, d_) in enumerate(pool.imap(with_tracing(_methodcaller('_prepare', sideeffects=True)), self.learners)):
                     checkmem()
