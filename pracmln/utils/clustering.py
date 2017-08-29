@@ -21,18 +21,19 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
+from mln.util import out
 from utils.evalSeqLabels import editDistance
 import math
 import numpy
 from collections import defaultdict
-from utils import dict_union
 from itertools import combinations
+
 
 class Cluster(object):
     '''
     Class representing a cluster of some set of abstract data points.
     '''
-    
+
     def __init__(self, dataPoints=None):
         if dataPoints is None:
             dataPoints = []
@@ -45,8 +46,7 @@ class Cluster(object):
             if self.type is not None and self.type != t:
                 raise Exception('Data points must be all of the same type (%s).' % self.type)
             self.type = t
-            
-            
+
     def _computeCentroid(self, distance='auto'):
         '''
         Compute the centroid of the cluster.
@@ -71,7 +71,7 @@ class Cluster(object):
         elif self.type == 'number':
             centroid = map(lambda x: sum(x) / float(len(self.dataPoints)), zip(self.dataPoints))
         return centroid, minAvgDist
-    
+
     def _getDistanceMetrics(self, distance):
         if distance == 'auto' and self.type == 'str':
             dist = editDistance
@@ -82,13 +82,13 @@ class Cluster(object):
         else:
             raise Exception('Distance measure not supported for the given data.')
         return dist
-            
+
     def addPoint(self, dataPoint):
         '''
         Adds a data Point to the cluster.
         '''
         self.dataPoints.append(dataPoint)
-        
+
     def computeDistance(self, cluster, linkage='avg', distance='auto'):
         '''
         Computes the distance between from the current cluster to the given one.
@@ -103,7 +103,7 @@ class Cluster(object):
           distance also might be a callable for custom distance metrics.
         '''
         dist = self._getDistanceMetrics(distance)
-        
+
         if linkage == 'avg':
             totalDist = .0
             for p1 in self.dataPoints:
@@ -125,19 +125,19 @@ class Cluster(object):
         else:
             raise Exception('Linkage "%s" not supported.' % linkage)
         return totalDist
-    
+
     def merge(self, cluster):
         '''
         Merges this cluster with the given one. Returns a new cluster without
         modifying any of the original clusters.
         '''
         return Cluster(list(self.dataPoints) + list(cluster.dataPoints))
-        
+
     def __repr__(self):
         s = 'ClUSTER: {%s}' % ','.join(self.dataPoints)
         return s
-        
-        
+
+
 def SAHN(dataPoints, threshold=None, linkage='avg', dist='auto'):
     '''
     Performs sequential agglomerative hierarchical non-overlapping (SAHN) clustering.
@@ -145,7 +145,7 @@ def SAHN(dataPoints, threshold=None, linkage='avg', dist='auto'):
     - threshold:      the threshold for cluster distances when the merging of
                       cluster shall stop. If threshold is None, the median
                       of the complete SAHN clustering will be taken.
-    ''' 
+    '''
     clusters = [Cluster([p]) for p in dataPoints]
     threshold2clusters = {}
     if threshold is None:
@@ -176,7 +176,8 @@ def SAHN(dataPoints, threshold=None, linkage='avg', dist='auto'):
         deltas = map(lambda x: abs(m - x), l)
         clusters = threshold2clusters.get(l[deltas.index(min(deltas))])
     return clusters
-    
+
+
 def computeClosestCluster(dataPoint, clusters, linkage='avg', dist='auto'):
     '''
     Returns the closest cluster and its centroid to the given dataPoint.
@@ -189,17 +190,19 @@ def computeClosestCluster(dataPoint, clusters, linkage='avg', dist='auto'):
             minDist = d
             minDistC = c2
     return (minDistC, minDistC._computeCentroid(dist))
-            
+
+
 POS = 1
 NEG = -1
+
 
 class CorrelationClustering():
     '''
     Clustering based on similarity or correlation only, without having
     to represent the data points explicitly.
     '''
-    
-    def __init__(self, correlations, points, corr_matrix, thr=None):
+
+    def __init__(self, correlations, corr_matrix, thr=None):
         '''
         The data is given as a sequence of pairs ((d1,d2), corr(d1, d2)) representing
         pairs of data points and their correlation/similarity. Type of the data 
@@ -217,78 +220,66 @@ class CorrelationClustering():
         self.corr_matrix = corr_matrix
         # sort the points wrt to their absolute correlations
         sorted_data = sorted(correlations, key=lambda corr: abs(corr[1]), reverse=True)
-        for data in sorted_data:
-            print '%s = %f' % (map(str, data[0]), data[1])
-        # use as the default threashold the median of correlations
+        # for data in sorted_data:
+        #     out('%s = %f' % (map(str, data[0]), data[1]))
+        # use as the default threshold the median of correlations
         if thr is None:
-            thr = numpy.mean(numpy.array([abs(c[1]) for c in correlations])) * 2
-        thr2 = .05
-#         thr = 0
+            _, last = sorted_data[0]
+            deltas = []
+            for _, c in sorted_data[1:]:
+                deltas.append(abs(last - c))
+                last = c
+            thr = numpy.percentile(deltas, 95)
+            out('threshold is %s' % thr)
         self.clusters = defaultdict(set)
-#         self.posclusters = defaultdict(set)#dict([(a, i+1) for i, a in enumerate(points)])
-#         self.negclusters = defaultdict(set)#dict([(a, -i-1) for i, a in enumerate(points)])
-        cluster2data = defaultdict(set)
-        self.cluster2data = cluster2data
-#         for clusters in (self.posclusters, self.negclusters):
-#             for a, idx in clusters.iteritems(): 
-#                 cluster2data[idx] = [a]
+        self.cluster2data = defaultdict(set)
         self.counter = {POS: 0, NEG: 0}
         for i, ((d1, d2), corr) in enumerate(sorted_data):
-            print d1, d2, corr
-            if abs(corr) <= thr:# or remainder == 0: 
-                break
+            out(d1, d2, corr)
+            if abs(corr) <= thr: break
             if corr < 0:
                 posneg = NEG
-#                 clusters = self.negclusters
             else:
                 posneg = POS
-#                 clusters = self.posclusters
-            c1 = self.clusters[d1]#.get(d1)
-            c2 = self.clusters[d2]#.get(d2)
+            c1 = self.clusters[d1]
+            c2 = self.clusters[d2]
             if not c1 and not c2:
                 self.create_cluster(d1, d2, posneg)
-            elif c1 and not c2:
-                create_new = True
-                for c in c1:
-                    if self.avgcorr(d2, c) is None or self.avgcorr(d2, c) * corr > 0 and abs(self.avgcorr(d2, c) - corr) <= thr2: 
-                        self.add_to_cluster(d2, c)
-                        create_new = False
-                if create_new:
-                    self.create_cluster(d1, d2, posneg)
-            elif not c1 and c2:
-                create_new = True
-                for c in c2:
-                    if self.avgcorr(d1, c) is None or self.avgcorr(d1, c) * corr > 0 and abs(self.avgcorr(d1, c) - corr) <= thr2:
-                        self.add_to_cluster(d1, c)
-                        create_new = False
-                if create_new:
-                    self.create_cluster(d1, d2, posneg)
             elif c1 and c2:
                 to_delete = set()
                 for c1_, c2_ in combinations(c1 | c2, 2):
-                    print 'trying to merge (%s) and (%s)' % (self.strcluster(c1_), self.strcluster(c2_))
+                    out('trying to merge (%s) and (%s)' % (self.strcluster(c1_), self.strcluster(c2_)))
                     if c1_ == c2_: continue
                     corr1 = self.avgcorr(d2, c1_)
                     corr2 = self.avgcorr(d1, c2_)
-                    print '  %s ~ %s = %s' % (d2, self.strcluster(c1_), corr1)
-                    print '  %s ~ %s = %s' % (d1, self.strcluster(c2_), corr2)
-                    if corr1 is None or corr2 is None or abs(corr - corr1) <= thr2 and abs(corr - corr2) < thr2:
-                        print 'merging (%s) (%s) and (%s) (%s)' % (self.strcluster(c1_), c1_, self.strcluster(c2_), c2_)
+                    out('  %s ~ %s = %s' % (d2, self.strcluster(c1_), corr1))
+                    out('  %s ~ %s = %s' % (d1, self.strcluster(c2_), corr2))
+                    if corr1 is None or corr2 is None or abs(corr - corr1) <= thr and abs(corr - corr2) < thr:
+                        out('merging (%s) (%s) and (%s) (%s)' % (self.strcluster(c1_), c1_, self.strcluster(c2_), c2_))
                         self.merge_clusters(c2_, c1_)
                         to_delete.add(c1_)
                 for c in to_delete:
-                    print 'removing cluster', c
+                    out('removing cluster', c)
                     self.remove_cluster(c)
+            elif c1 or c2:
+                c, d = c1 or c2, d1 if c2 else d2
+                create_new = True
+                for e in c:
+                    if self.avgcorr(d, e) is None or self.avgcorr(d, e) * corr > 0 and abs(self.avgcorr(d, e) - corr) <= thr:
+                        self.add_to_cluster(d, e)
+                        create_new = False
+                if create_new:
+                    self.create_cluster(d1, d2, posneg)
             print
-                        
-#                 for d in list(cluster2data[c2]):
-#                     clusters[d] = c1
-#                     cluster2data[c1].add(d)
-#                     cluster2data[c2].remove(d)
-#                     if not cluster2data[c2]:
-#                         del cluster2data[c2]
-#         self.clusters = dict_union(self.posclusters, self.negclusters)
-        
+
+        #                 for d in list(cluster2data[c2]):
+        #                     clusters[d] = c1
+        #                     cluster2data[c1].add(d)
+        #                     cluster2data[c2].remove(d)
+        #                     if not cluster2data[c2]:
+        #                         del cluster2data[c2]
+        #         self.clusters = dict_union(self.posclusters, self.negclusters)
+
     def avgcorr(self, atom, cluster):
         atom_groups = defaultdict(list)
         for atom in self.cluster2data[cluster] | {atom}:
@@ -300,39 +291,40 @@ class CorrelationClustering():
             corr = self.corr_matrix[atom, atom2]
             if corr is not None:
                 total += corr
-                count += 1 
+                count += 1
         if count == 0: return None
         return total / count
-            
+
     def create_cluster(self, d1, d2, posneg):
-        self.counter[posneg] += posneg # increment or decrement, depending on whether positively or negatively correlated
+        self.counter[
+            posneg] += posneg  # increment or decrement, depending on whether positively or negatively correlated
         print 'creating', d1, d2, 'as', self.counter[posneg]
-#         if posneg < 0:
-#             clusters = self.negclusters
-#         else:
-#             clusters = self.posclusters
+        #         if posneg < 0:
+        #             clusters = self.negclusters
+        #         else:
+        #             clusters = self.posclusters
         self.clusters[d1].add(self.counter[posneg])
         self.clusters[d2].add(self.counter[posneg])
         self.cluster2data[self.counter[posneg]].update((d1, d2))
-        
+
     def add_to_cluster(self, d, c):
         print 'adding', d, 'to', c
-#         if c < 0: clusters = self.negclusters
-#         else: clusters = self.posclusters
+        #         if c < 0: clusters = self.negclusters
+        #         else: clusters = self.posclusters
         self.clusters[d].add(c)
         self.cluster2data[c].add(d)
-        
+
     def merge_clusters(self, c1, c2):
-        assert c1 * c2 > 0
-#         if c1 < 0: clusters = self.negclusters
-#         else: clusters = self.posclusters
+        # assert c1 * c2 > 0
+        # if c1 < 0: clusters = self.negclusters
+        # else: clusters = self.posclusters
         for d in list(self.cluster2data[c2]):
             self.clusters[d].add(c1)
             self.cluster2data[c1].add(d)
-                
+
     def remove_cluster(self, c):
-#         if c < 0: clusters = self.negclusters
-#         else: clusters = self.posclusters
+        #         if c < 0: clusters = self.negclusters
+        #         else: clusters = self.posclusters
         print map(str, self.cluster2data[c])
         for d in list(self.cluster2data[c]):
             print d
@@ -340,25 +332,26 @@ class CorrelationClustering():
             self.clusters[d].remove(c)
             print map(str, self.clusters[d])
         del self.cluster2data[c]
-        
+
     def strcluster(self, c):
         return map(str, self.cluster2data[c])
-                
-            
+
+
 if __name__ == '__main__':
-    
-#     s = ['otto', 'otte', 'obama', 'markov logic network', 'markov logic', 'otta', 'markov random field']
-#      
-#     print SAHN(s)
-     
+
+    #     s = ['otto', 'otte', 'obama', 'markov logic network', 'markov logic', 'otta', 'markov random field']
+    #
+    #     print SAHN(s)
+
     from mln.mln import readMLNFromFile
     from mln.database import readDBFromFile
+
     mln = readMLNFromFile('/home/nyga/code/pracmln/models/object-detection.mln')
     dbs = readDBFromFile(mln, '/home/nyga/code/pracmln/models/scenes.db')
     mln.materializeFormulaTemplates(dbs, verbose=True)
     print mln.domains['text']
-     
+
     clusters = SAHN(mln.domains['text'])
-             
+
     for c in clusters:
         print c
