@@ -23,6 +23,7 @@
 
 from common import AbstractGroundingFactory
 import logging
+
 from pracmln.mln.util import fstr, dict_union, StopWatch, ProgressBar, out,\
     ifNone, stop
 from pracmln.mln.constants import auto, HARD
@@ -182,31 +183,14 @@ class EqualityConstraintGrounder(object):
                 yield assignment
     
     @staticmethod
-    def vardoms_from_formula(mln, formula, *varnames):
+    def vardoms_from_formula(formula, mln=None, *varnames):
         if isinstance(formula, basestring):
+            assert mln is not None
             formula = mln.logic.parse_formula(formula)
         vardomains = {}
-        f_vardomains = formula.vardoms(mln)
+        f_vardomains = formula.vardoms()
         for var in varnames:
             if var not in f_vardomains:
                 raise Exception('Variable %s not bound to a domain by formula %s' % (var, fstr(formula)))
             vardomains[var] = f_vardomains[var]
         return vardomains
-                
-        
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
