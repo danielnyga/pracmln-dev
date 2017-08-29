@@ -37,7 +37,7 @@ from methods import InferenceMethods, LearningMethods
 from mrf import MRF
 from errors import MLNParsingError
 from pyparsing import ParseException
-from pracmln.mln.constants import HARD, comment_color, predicate_color, weight_color
+from pracmln.mln.constants import HARD, comment_color, predicate_color, weight_color, auto
 import copy
 import os
 import logging
@@ -181,14 +181,13 @@ class MLN(object):
             mln_.predicate(copy.copy(pred))
         mln_.domain_decls = list(self.domain_decls)
         for i, f in self.iterformulas():
-            mln_.formula(f.copy(mln=mln_), weight=self.weight(i), fixweight=self.fixweights[i], unique_templvars=self._unique_templvars[i])
+            mln_.formula(f.copy(mln=mln_, idx=i), weight=self.weight(i), fixweight=self.fixweights[i], unique_templvars=self._unique_templvars[i])
         mln_.domains = dict(self.domains)
         mln_.vars = dict(self.vars)
         mln_._probreqs = list(self.probreqs)
         mln_.fuzzypreds = list(self.fuzzypreds)
         return mln_
-    
-    
+
     def predicate(self, predicate):
         '''
         Returns the predicate object with the given predicate name, or declares a new predicate.
