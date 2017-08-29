@@ -10,3 +10,4 @@ env.sh
 *.bak
 libpracmln/build
 libpracmln/install
+.*
