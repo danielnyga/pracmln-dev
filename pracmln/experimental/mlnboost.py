@@ -24,7 +24,6 @@ from mln.learning.common import AbstractLearner
 from collections import defaultdict
 from mln.learning.cll import CLL
 import numpy as np
-from utils import StopWatch, dict_subset
 import logging
 from experimental.adaboost import weighted_linear_regression
 import math
@@ -33,8 +32,6 @@ from logic.common import Logic
 from tabulate import tabulate
 from utils.clustering import CorrelationClustering
 from mln.util import fstr, fsum
-from mln.learning.wpll import WPLL
-from mln.grounding.pll import PLLGroundingFactory
 
 
 class AtomCorrelationMatrix(object):
@@ -422,11 +419,5 @@ class MLNBoost(AbstractLearner):
             value_tuple = tuple(value_tuple)
             self.value_idx = gndatomblock.getValueIndex(value_tuple) # get index of the value of the atomic block where this gnd atom is true
             
-            
         def __repr__(self):
             return 'BoostedGroundAtom(%s, %.1f, %.3f, %.3f)' % (str(self.atom), self.truth, self.prob, self.weight)
-        
-        
-    
-    
-        
