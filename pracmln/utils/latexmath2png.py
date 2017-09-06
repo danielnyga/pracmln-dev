@@ -50,7 +50,7 @@ import os
 import sys
 import tempfile
 import getopt
-import Image
+from PIL import Image
 import base64
 
 # Default packages to use when generating output
