@@ -24,6 +24,7 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+import argparse
 
 from Tkinter import *
 from tkFileDialog import askopenfilename, asksaveasfilename
@@ -991,29 +992,33 @@ class MLNQueryGUI(object):
         self.master.deiconify()
 
 
-# -- main app --
-if __name__ == '__main__':
+def main():
     praclog.level(praclog.DEBUG)
 
-    # read command-line options
-    from optparse import OptionParser
+    usage = 'PRACMLN Query Tool'
 
-    parser = OptionParser()
-    parser.add_option("-i", "--mln", dest="mlnarg", help="the MLN model file to use")
-    parser.add_option("-x", "--emln", dest="emlnarg", help="the MLN model extension file to use")
-    parser.add_option("-q", "--queries", dest="queryarg", help="queries (comma-separated)")
-    parser.add_option("-e", "--evidence", dest="dbarg", help="the evidence database file")
-    parser.add_option("-r", "--results-file", dest="outputfile", help="the results file to save")
-    parser.add_option("--run", action="store_true", dest="run", default=False, help="run with last settings (without showing GUI)")
-    (opts, args) = parser.parse_args()
-    opts_ = vars(opts)
+    parser = argparse.ArgumentParser(description=usage)
+    parser.add_argument("-i", "--mln", dest="mlnarg", help="the MLN model file to use")
+    parser.add_argument("-d", "--dir", dest="directory", action='store', help="the directory to start the tool from", metavar="FILE", type=str)
+    parser.add_argument("-x", "--emln", dest="emlnarg", help="the MLN model extension file to use")
+    parser.add_argument("-q", "--queries", dest="queryarg", help="queries (comma-separated)")
+    parser.add_argument("-e", "--evidence", dest="dbarg", help="the evidence database file")
+    parser.add_argument("-r", "--results-file", dest="outputfile", help="the results file to save")
+    parser.add_argument("--run", action="store_true", dest="run", default=False, help="run with last settings (without showing GUI)")
+
+    args = parser.parse_args()
+    opts_ = vars(args)
 
     root = Tk()
     conf = PRACMLNConfig(DEFAULT_CONFIG)
-    app = MLNQueryGUI(root, conf, directory=os.path.abspath(args[0]) if args else None)
+    app = MLNQueryGUI(root, conf, directory=os.path.abspath(args.directory) if args.directory else None)
 
-    if opts.run:
+    if args.run:
         logger.debug('running mlnlearn without gui')
         app.infer(savegeometry=False, options=opts_)
     else:
         root.mainloop()
+
+
+if __name__ == '__main__':
+    main()
