@@ -24,6 +24,7 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+import argparse
 import fnmatch
 import io
 import pstats
@@ -1193,35 +1194,32 @@ class MLNLearnGUI:
         self.master.deiconify()
 
 
-# -- main app --
-if __name__ == '__main__':
+def main():
     praclog.level(praclog.DEBUG)
 
-    # read command-line options
-    from optparse import OptionParser
+    usage = 'PRACMLN Learning Tool'
 
+    parser = argparse.ArgumentParser(description=usage)
+    parser.add_argument("--run", action="store_true", dest="run", default=False, help="run last configuration without showing gui")
+    parser.add_argument("-d", "--dir", dest="directory", action='store', help="the directory to start the tool from", metavar="FILE", type=str)
+    parser.add_argument("-i", "--mln-filename", dest="mlnarg", action='store', help="input MLN filename", metavar="FILE", type=str)
+    parser.add_argument("-t", "--db-filename", dest="dbarg", action='store', help="training database filename", metavar="FILE", type=str)
+    parser.add_argument("-o", "--output-file", dest="outputfile", action='store', help="output MLN filename", metavar="FILE", type=str)
 
-    parser = OptionParser()
-    parser.add_option("--run", action="store_true", dest="run", default=False,
-                      help="run last configuration without showing gui")
-    parser.add_option("-i", "--mln-filename", dest="mlnarg",
-                      help="input MLN filename", metavar="FILE", type="string")
-    parser.add_option("-t", "--db-filename", dest="dbarg",
-                      help="training database filename", metavar="FILE",
-                      type="string")
-    parser.add_option("-o", "--output-file", dest="outputfile",
-                      help="output MLN filename", metavar="FILE",
-                      type="string")
-    (opts, args) = parser.parse_args()
-    opts_ = vars(opts)
+    args = parser.parse_args()
+    opts_ = vars(args)
 
     # run learning task/GUI
     root = Tk()
     conf = PRACMLNConfig(DEFAULT_CONFIG)
-    app = MLNLearnGUI(root, conf, directory=os.path.abspath(args[0]) if args else None)
+    app = MLNLearnGUI(root, conf, directory=os.path.abspath(args.directory) if args.directory else None)
 
-    if opts.run:
+    if args.run:
         logger.debug('running mlnlearn without gui')
         app.learn(savegeometry=False, options=opts_)
     else:
         root.mainloop()
+
+
+if __name__ == '__main__':
+    main()
