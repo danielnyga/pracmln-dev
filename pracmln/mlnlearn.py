@@ -24,20 +24,7 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-<<<<<<< HEAD
-=======
 import argparse
-
-import StringIO
-
-from Tkinter import *
-import sys
-import traceback
-from pracmln.mln.base import parse_mln
-from pracmln.utils.project import MLNProject, PRACMLNConfig
-from utils.widgets import *
-import tkMessageBox
->>>>>>> 1facc14... cleanup python2 branch
 import fnmatch
 import io
 import pstats
@@ -730,15 +717,6 @@ class MLNLearnGUI:
         elif self.master.focus_get() == self.db_container.editor:
             if not self.project.dbs and not self.db_container.file_buffer:
                 self.db_container.new_file()
-
-    def _got_focus(self, *_):
-        if self.master.focus_get() == self.mln_container.editor:
-            if not self.project.mlns and not self.mln_container.file_buffer:
-                self.mln_container.new_file()
-        elif self.master.focus_get() == self.db_container.editor:
-            if not self.project.dbs and not self.db_container.file_buffer:
-                self.db_container.new_file()
-
 
     def quit(self):
         if self.settings_dirty.get() or self.project_dirty.get():

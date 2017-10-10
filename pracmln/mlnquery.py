@@ -25,7 +25,6 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import argparse
-
 import os
 import sys
 import ntpath
@@ -35,15 +34,9 @@ from tkinter import Frame, BOTH, Label, Button, OptionMenu, IntVar, Checkbutton,
 from tkinter.filedialog import askopenfilename, asksaveasfilename, StringVar
 
 from pracmln.utils.project import MLNProject, PRACMLNConfig, mlnpath
-<<<<<<< HEAD
 from pracmln.mln.methods import InferenceMethods
 from pracmln.utils.widgets import FileEditBar
 from pracmln.utils import config
-=======
-from mln.methods import InferenceMethods
-from utils.widgets import FileEditBar
-from utils import config
->>>>>>> 1facc14... cleanup python2 branch
 from pracmln import praclog
 from pracmln.mln.util import out, ifNone, parse_queries, headline, StopWatch
 from pracmln.utils.config import global_config_filename
@@ -194,11 +187,7 @@ class MLNQuery(object):
             raise Exception('No MLN specified')
 
         if self.use_emln and self.emln is not None:
-<<<<<<< HEAD
             mlnstrio = io.StringIO()
-=======
-            mlnstrio = StringIO.StringIO()
->>>>>>> 1facc14... cleanup python2 branch
             mln.write(mlnstrio)
             mlnstr = mlnstrio.getvalue()
             mlnstrio.close()
@@ -267,11 +256,7 @@ class MLNQuery(object):
                 inference.write_elapsed_time()
         except SystemExit:
             traceback.print_exc()
-<<<<<<< HEAD
             print('Cancelled...')
-=======
-            print 'Cancelled...'
->>>>>>> 1facc14... cleanup python2 branch
         finally:
             if self.profile:
                 prof.disable()
@@ -388,7 +373,6 @@ class MLNQueryGUI(object):
                                           fileslisthook=self.emlnfiles,
                                           updatehook=self.update_emln,
                                           onchangehook=self.project_setdirty)
-        self.emln_container.editor.bind("<FocusIn>", self._got_focus)
         self.emln_container.grid(row=self.emlncontainerrow, column=1, sticky="NEWS")
         self.emln_container.editor.bind("<FocusIn>", self._got_focus)
         self.emln_container.columnconfigure(1, weight=2)
@@ -408,7 +392,6 @@ class MLNQueryGUI(object):
                                         fileslisthook=self.dbfiles,
                                         updatehook=self.update_db,
                                         onchangehook=self.project_setdirty)
-        self.db_container.editor.bind("<FocusIn>", self._got_focus)
         self.db_container.grid(row=row, column=1, sticky="NEWS")
         self.db_container.editor.bind("<FocusIn>", self._got_focus)
         self.db_container.columnconfigure(1, weight=2)
@@ -548,18 +531,6 @@ class MLNQueryGUI(object):
             if not self.project.emlns and not self.emln_container.file_buffer:
                 self.emln_container.new_file()
 
-    def _got_focus(self, *_):
-        if self.master.focus_get() == self.mln_container.editor:
-            if not self.project.mlns and not self.mln_container.file_buffer:
-                self.mln_container.new_file()
-        elif self.master.focus_get() == self.db_container.editor:
-            if not self.project.dbs and not self.db_container.file_buffer:
-                self.db_container.new_file()
-        elif self.master.focus_get() == self.emln_container.editor:
-            if not self.project.emlns and not self.emln_container.file_buffer:
-                self.emln_container.new_file()
-
-
     def quit(self):
         if self.settings_dirty.get() or self.project_dirty.get():
             savechanges = messagebox.askyesnocancel("Save changes", "You have unsaved project changes. Do you want to save them before quitting?")
@@ -624,8 +595,6 @@ class MLNQueryGUI(object):
             self.set_config(self.project.queryconf.config)
             self.mln_container.update_file_choices()
             self.db_container.update_file_choices()
-            print(self.project.mlns)
-            print(self.project.dbs)
             if len(self.project.mlns) > 0:
                 self.mln_container.selected_file.set(self.project.queryconf['mln'] or list(self.project.mlns.keys())[0])
             self.mln_container.dirty = False
@@ -1025,24 +994,6 @@ class MLNQueryGUI(object):
 def main():
     praclog.level(praclog.DEBUG)
 
-<<<<<<< HEAD
-    # read command-line options
-    from optparse import OptionParser
-
-    parser = OptionParser()
-    parser.add_option("-i", "--mln", dest="mlnarg", help="the MLN model file to use")
-    parser.add_option("-x", "--emln", dest="emlnarg", help="the MLN model extension file to use")
-    parser.add_option("-q", "--queries", dest="queryarg", help="queries (comma-separated)")
-    parser.add_option("-e", "--evidence", dest="dbarg", help="the evidence database file")
-    parser.add_option("-r", "--results-file", dest="outputfile", help="the results file to save")
-    parser.add_option("--run", action="store_true", dest="run", default=False, help="run with last settings (without showing GUI)")
-    (opts, args) = parser.parse_args()
-    opts_ = vars(opts)
-
-    root = Tk()
-    conf = PRACMLNConfig(DEFAULT_CONFIG)
-    app = MLNQueryGUI(root, conf, directory=os.path.abspath(args[0]) if args else None)
-=======
     usage = 'PRACMLN Query Tool'
 
     parser = argparse.ArgumentParser(description=usage)
@@ -1060,7 +1011,6 @@ def main():
     root = Tk()
     conf = PRACMLNConfig(DEFAULT_CONFIG)
     app = MLNQueryGUI(root, conf, directory=os.path.abspath(args.directory) if args.directory else None)
->>>>>>> 1facc14... cleanup python2 branch
 
     if args.run:
         logger.debug('running mlnlearn without gui')

@@ -179,7 +179,10 @@ class Grammar(object):
         """
         # try regular MLN syntax
         self.tree.reset()
-        lit = self.literal.parseString(s)
+        try:
+            lit = self.literal.parseString(s)
+        except ParseException:
+            raise Exception('unable to parse string', s)
         lit = self.tree.getConstraint()
         return (not lit.negated, lit.predname, lit.args)
 #         m = re.match(r'(!?)(\w+)\((.*?)\)$', s)

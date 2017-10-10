@@ -10,4 +10,3 @@ matplotlib
 networkx
 mpmath
 Image
-distro

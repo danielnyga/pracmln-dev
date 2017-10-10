@@ -661,7 +661,8 @@ class FileEditBar(Frame, object):
             # should not happen
             self.editor.delete("1.0", END)
             self.list_files['menu'].delete(0, 'end')
-        self.select_file_hook()
+        if self.select_file_hook is not None:
+            self.select_file_hook()
 
     def update_file_choices(self):
         self.list_files['menu'].delete(0, 'end')
