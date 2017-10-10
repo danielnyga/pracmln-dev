@@ -1,0 +1,21 @@
+obs(x, o)
+obj(x, y)
+
+0 obs(?x, +?o) ^ obj(?x,+?y)
+0 obs(?x, red) ^ obs(?x, yellow) ^ obj(?x,+?y)
+//0 foo(?x) => !bar(?x,Y)
+//0 foo(?x) ^ !bar(?x,Y)
+//0 !foo(?x) ^ !bar(?x,Y)
+//0 foo(?x) ^ bar(?x,Z)
+
+
+
+
+
+
+
+
+
+
+
+

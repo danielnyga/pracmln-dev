@@ -1,0 +1,45 @@
+/*
+this is a very simple MLN for testing purposes only. the formulas don't
+necessarily make sense, it's just for checking if grounding, materialization etc. works 
+correctly. can be best checked when DEBUG is True in MarkovLogicNetworks.
+*/
+
+// predicate declarations
+shape(cluster, shape)
+color(cluster, color)
+goggles_Text(cluster, text)
+goggles_Logo(cluster, company)
+goggles(cluster, product)
+goggles_Contact(cluster, contact)
+scene(scene)
+
+object(cluster, object!)
+
+// formulas
+
+0 shape(?c, +?s) ^ color(?c, +?col) ^ object(?c, +?obj)
+0 goggles_Logo(?c, +?comp) ^ object(?c, +?obj)
+//0 goggles_Text(?c, +?text) ^ object(?c, +?obj)
+//0 goggles(?c, +?prod) ^ object(?c, +?obj)
+//0 goggles_Contact(?c, +?contact) ^ object(?c, +?obj)
+0 scene(+?s) => object(?c, +?obj)
+
+#unique{+?t1,+?t2}
+0 object(?c1, +?t1) ^ object(?c2, +?t2) ^ ?c1 =/= ?c2
+#unique{+?t1,+?t2}
+0 object(?c1, +?t1) ^ object(?c2, +?t2) ^ ?c1 = ?c2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
